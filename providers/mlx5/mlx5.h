@@ -560,6 +560,11 @@ struct mlx5_srq {
 	int				op_tail;
 	int				unexp_in;
 	int				unexp_out;
+	/* Bit is set if WQE is in SW ownership and not part of the SRQ queues
+	 * (main/wait)
+	 */
+	unsigned long *free_wqe_bitmap;
+	uint32_t nwqes;
 };
 
 

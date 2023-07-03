@@ -45,6 +45,16 @@ static void *get_wqe(struct mlx5_srq *srq, int n)
 	return srq->buf.buf + (n << srq->wqe_shift);
 }
 
+static inline void set_next_tail(struct mlx5_srq *srq, int next_tail)
+{
+	struct mlx5_wqe_srq_next_seg *next;
+
+	next = get_wqe(srq, srq->tail);
+	next->next_wqe_index = htobe16(next_tail);
+	srq->tail = next_tail;
+	bitmap_clear_bit(srq->free_wqe_bitmap, srq->tail);
+}
+
 int mlx5_copy_to_recv_srq(struct mlx5_srq *srq, int idx, void *buf, int size)
 {
 	struct mlx5_wqe_srq_next_seg *next;
@@ -71,13 +81,9 @@ int mlx5_copy_to_recv_srq(struct mlx5_srq *srq, int idx, void *buf, int size)
 
 void mlx5_free_srq_wqe(struct mlx5_srq *srq, int ind)
 {
-	struct mlx5_wqe_srq_next_seg *next;
-
 	mlx5_spin_lock(&srq->lock);
 
-	next = get_wqe(srq, srq->tail);
-	next->next_wqe_index = htobe16(ind);
-	srq->tail = ind;
+	bitmap_set_bit(srq->free_wqe_bitmap, ind);
 
 	mlx5_spin_unlock(&srq->lock);
 }
@@ -150,10 +156,32 @@ static void srq_repost(struct mlx5_srq *srq, int ind)
 	*srq->db = htobe32(srq->counter);
 }
 
+static void populate_srq_ll(struct mlx5_srq *srq)
+{
+	int i;
+
+	for (i = 0; i < srq->nwqes; i++) {
+		if (bitmap_test_bit(srq->free_wqe_bitmap, i))
+			set_next_tail(srq, i);
+	}
+}
+
 void mlx5_complete_odp_fault(struct mlx5_srq *srq, int ind)
 {
 	mlx5_spin_lock(&srq->lock);
 
+	/* Extend the SRQ LL with all the available WQEs that are not part of
+	 * the main/wait queue to reduce the risk of overriding the page-faulted
+	 * WQE.
+	 */
+	populate_srq_ll(srq);
+
+	/* Expand nwqes to include wait queue indexes as from now on these WQEs
+	 * can be popped from the wait queue and be part of the main SRQ LL.
+	 * Neglecting this step could render some WQE indexes unreachable
+	 * despite their availability for use.
+	 */
+	srq->nwqes = srq->max;
 	if (!srq_cooldown_wqe(srq, ind)) {
 		struct mlx5_wqe_srq_next_seg *tail = get_wqe(srq, srq->tail);
 
@@ -171,6 +199,61 @@ void mlx5_complete_odp_fault(struct mlx5_srq *srq, int ind)
 	mlx5_spin_unlock(&srq->lock);
 }
 
+static inline int get_next_contig_wqes(struct mlx5_srq *srq, int first_idx,
+				       int last_idx, int *next_wqe_index)
+{
+	int contig_wqes_count = 0;
+	int i;
+
+	for (i = first_idx; i < last_idx; i++) {
+		if (bitmap_test_bit(srq->free_wqe_bitmap, i))
+			contig_wqes_count++;
+		else if (contig_wqes_count > 0)
+			break;
+	}
+
+	*next_wqe_index = i - contig_wqes_count;
+	return contig_wqes_count;
+}
+
+/* Locate a contiguous chunk of available WQEs that is closest to the current
+ * SRQ HEAD and reorder the SRQ Linked List pointers accordingly.
+ * Returns 0 on success, or a negative value if SRQ is full.
+ */
+static int set_next_contig_wqes(struct mlx5_srq *srq)
+{
+	struct mlx5_wqe_srq_next_seg *cur;
+	int contig_wqes_count;
+	int next_wqe_index;
+	int i;
+
+	contig_wqes_count = get_next_contig_wqes(srq, srq->head + 1, srq->nwqes,
+						 &next_wqe_index);
+	if (contig_wqes_count == 0) {
+		contig_wqes_count = get_next_contig_wqes(srq, 0, srq->head,
+							 &next_wqe_index);
+		if (contig_wqes_count == 0)
+			return -1;
+	}
+
+	cur = get_wqe(srq, srq->tail);
+	cur->next_wqe_index = htobe16(next_wqe_index);
+	srq->tail = next_wqe_index + contig_wqes_count - 1;
+	bitmap_clear_bit(srq->free_wqe_bitmap, srq->tail);
+
+	/* Reorder the WQE indexes of the new contiguous chunk sequentially,
+	 * since the "next" pointers might have been modified and are not
+	 * pointing to the sequent index.
+	 */
+	for (i = next_wqe_index; i < srq->tail; i++) {
+		cur = get_wqe(srq, i);
+		cur->next_wqe_index = htobe16(i + 1);
+		bitmap_clear_bit(srq->free_wqe_bitmap, i);
+	}
+
+	return 0;
+}
+
 int mlx5_post_srq_recv(struct ibv_srq *ibsrq,
 		       struct ibv_recv_wr *wr,
 		       struct ibv_recv_wr **bad_wr)
@@ -178,6 +261,7 @@ int mlx5_post_srq_recv(struct ibv_srq *ibsrq,
 	struct mlx5_srq *srq = to_msrq(ibsrq);
 	struct mlx5_wqe_srq_next_seg *next;
 	struct mlx5_wqe_data_seg *scat;
+	int next_tail;
 	int err = 0;
 	int nreq;
 	int i;
@@ -192,10 +276,15 @@ int mlx5_post_srq_recv(struct ibv_srq *ibsrq,
 		}
 
 		if (srq->head == srq->tail) {
-			/* SRQ is full*/
-			err = ENOMEM;
-			*bad_wr = wr;
-			break;
+			next_tail = (srq->tail + 1) % srq->nwqes;
+			if (bitmap_test_bit(srq->free_wqe_bitmap, next_tail)) {
+				set_next_tail(srq, next_tail);
+			} else if (set_next_contig_wqes(srq)) {
+				/* SRQ is full */
+				err = ENOMEM;
+				*bad_wr = wr;
+				break;
+			}
 		}
 
 		srq->wrid[srq->head] = wr->wr_id;
@@ -318,6 +407,7 @@ int mlx5_alloc_srq_buf(struct ibv_context *context, struct mlx5_srq *srq,
 
 	srq->head = 0;
 	srq->tail = align_queue_size(orig_max_wr + 1) - 1;
+	srq->nwqes = srq->tail + 1;
 	if (have_wq)  {
 		srq->waitq_head = srq->tail + 1;
 		srq->waitq_tail = srq->max - 1;
@@ -327,10 +417,12 @@ int mlx5_alloc_srq_buf(struct ibv_context *context, struct mlx5_srq *srq,
 	}
 
 	srq->wrid = malloc(srq->max * sizeof(*srq->wrid));
-	if (!srq->wrid) {
-		mlx5_free_actual_buf(ctx, &srq->buf);
-		return -1;
-	}
+	if (!srq->wrid)
+		goto err_free_buf;
+
+	srq->free_wqe_bitmap = bitmap_alloc0(srq->max);
+	if (!srq->free_wqe_bitmap)
+		goto err_free_wrid;
 
 	/*
 	 * Now initialize the SRQ buffer so that all of the WQEs are
@@ -342,6 +434,12 @@ int mlx5_alloc_srq_buf(struct ibv_context *context, struct mlx5_srq *srq,
 		set_srq_buf_ll(srq, srq->waitq_head, srq->waitq_tail);
 
 	return 0;
+
+err_free_wrid:
+	free(srq->wrid);
+err_free_buf:
+	mlx5_free_actual_buf(ctx, &srq->buf);
+	return -1;
 }
 
 struct mlx5_srq *mlx5_find_srq(struct mlx5_context *ctx, uint32_t srqn)
