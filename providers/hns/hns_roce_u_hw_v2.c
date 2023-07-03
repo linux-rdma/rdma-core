@@ -1213,7 +1213,8 @@ out:
 
 		udma_to_device_barrier();
 
-		if (nreq == 1 && (qp->flags & HNS_ROCE_QP_CAP_DIRECT_WQE))
+		if (nreq == 1 && !ret &&
+		    (qp->flags & HNS_ROCE_QP_CAP_DIRECT_WQE))
 			hns_roce_write_dwqe(qp, wqe);
 		else
 			hns_roce_update_sq_db(ctx, qp);
