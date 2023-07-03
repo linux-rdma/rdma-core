@@ -2001,6 +2001,9 @@ init_rc_wqe(struct hns_roce_qp *qp, uint64_t wr_id, unsigned int opcode)
 
 	qp->sq.wrid[wqe_idx] = wr_id;
 	qp->cur_wqe = wqe;
+
+	enable_wqe(qp, wqe, qp->sq.head);
+
 	qp->sq.head++;
 
 	return wqe;
@@ -2022,9 +2025,6 @@ static void wr_set_sge_rc(struct ibv_qp_ex *ibv_qp, uint32_t lkey,
 	wqe->msg_len = htole32(length);
 	hr_reg_write(wqe, RCWQE_LEN0, length);
 	hr_reg_write(wqe, RCWQE_SGE_NUM, !!length);
-	/* ignore ex sge start index */
-
-	enable_wqe(qp, wqe, qp->sq.head);
 }
 
 static void set_sgl_rc(struct hns_roce_v2_wqe_data_seg *dseg,
@@ -2327,6 +2327,9 @@ init_ud_wqe(struct hns_roce_qp *qp, uint64_t wr_id, unsigned int opcode)
 
 	qp->sq.wrid[wqe_idx] = wr_id;
 	qp->cur_wqe = wqe;
+
+	enable_wqe(qp, wqe, qp->sq.head);
+
 	qp->sq.head++;
 
 	return wqe;
@@ -2396,7 +2399,6 @@ static void wr_set_sge_ud(struct ibv_qp_ex *ibv_qp, uint32_t lkey,
 	dseg->len = htole32(length);
 
 	qp->sge_info.start_idx++;
-	enable_wqe(qp, wqe, qp->sq.head);
 }
 
 static void wr_set_sge_list_ud(struct ibv_qp_ex *ibv_qp, size_t num_sge,
