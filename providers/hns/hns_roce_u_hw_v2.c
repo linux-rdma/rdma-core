@@ -1424,15 +1424,15 @@ static int hns_roce_u_v2_post_recv(struct ibv_qp *ibvqp, struct ibv_recv_wr *wr,
 
 	max_sge = qp->rq.max_gs - qp->rq.rsv_sge;
 	for (nreq = 0; wr; ++nreq, wr = wr->next) {
-		if (hns_roce_v2_wq_overflow(&qp->rq, nreq,
-					    to_hr_cq(qp->verbs_qp.qp.recv_cq))) {
-			ret = ENOMEM;
+		if (wr->num_sge > max_sge) {
+			ret = max_sge > 0 ? EINVAL : EOPNOTSUPP;
 			*bad_wr = wr;
 			goto out;
 		}
 
-		if (wr->num_sge > max_sge) {
-			ret = EINVAL;
+		if (hns_roce_v2_wq_overflow(&qp->rq, nreq,
+					    to_hr_cq(qp->verbs_qp.qp.recv_cq))) {
+			ret = ENOMEM;
 			*bad_wr = wr;
 			goto out;
 		}
