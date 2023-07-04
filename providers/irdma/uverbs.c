@@ -1304,6 +1304,8 @@ struct ibv_qp *irdma_ucreate_qp(struct ibv_pd *pd,
 
 	if (attr->cap.max_send_sge > uk_attrs->max_hw_wq_frags ||
 	    attr->cap.max_recv_sge > uk_attrs->max_hw_wq_frags ||
+	    attr->cap.max_send_wr > uk_attrs->max_hw_wq_quanta ||
+	    attr->cap.max_recv_wr > uk_attrs->max_hw_rq_quanta ||
 	    attr->cap.max_inline_data > uk_attrs->max_hw_inline) {
 		errno = EINVAL;
 		return NULL;
