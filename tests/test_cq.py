@@ -12,7 +12,9 @@ from tests.base import PyverbsAPITestCase, RDMATestCase, UDResources
 from pyverbs.pyverbs_error import PyverbsRDMAError
 from pyverbs.base import PyverbsRDMAErrno
 from pyverbs.cq import CompChannel, CQ
+import tests.irdma_base as irdma
 from pyverbs.qp import QPCap
+import pyverbs.device as d
 import tests.utils as u
 
 
@@ -115,6 +117,7 @@ class CQTest(RDMATestCase):
                         f'The actual CQ size ({self.client.cq.cqe}) is less '
                         'than guaranteed ({new_cq_size})')
 
+        irdma.skip_if_irdma_dev(d.Context(name=self.dev_name))
         # Fill the CQ entries except one for avoid cq_overrun warnings.
         send_wr, _ = u.get_send_elements(self.client, False)
         ah_client = u.get_global_ah(self.client, self.gid_index, self.ib_port)
