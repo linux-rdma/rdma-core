@@ -7,6 +7,7 @@ import os
 from tests.rdmacm_utils import  CMSyncConnection, CMAsyncConnection
 from tests.base import RDMATestCase, RDMACMBaseTest
 from tests.utils import requires_mcast_support
+import tests.irdma_base as irdma
 import pyverbs.cm_enums as ce
 import pyverbs.device as d
 import pyverbs.enums as e
@@ -27,6 +28,7 @@ class CMTestCase(RDMACMBaseTest):
 
     def test_rdmacm_async_traffic(self):
         # QP ack timeout formula: 4.096 * 2^(ack_timeout) [usec]
+        irdma.skip_if_irdma_dev(d.Context(name=self.dev_name))
         self.two_nodes_rdmacm_traffic(CMAsyncConnection, self.rdmacm_traffic,
                                       qp_timeout=21)
 
