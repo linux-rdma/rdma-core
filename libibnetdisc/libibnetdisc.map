@@ -21,7 +21,7 @@ IBNETDISC_1.0 {
 	local: *;
 };
 
-IBNETDISC_5.1 {
+IBNETDISC_1.1 {
 	global:
 		ibnd_get_agg_linkspeedext_field;
 		ibnd_get_agg_linkspeedext;
@@ -32,4 +32,4 @@ IBNETDISC_5.1 {
 		ibnd_dump_agg_linkspeedexten;
 		ibnd_dump_agg_linkspeedextsup;
 	local: *;
-};
+} IBNETDISC_1.0;
