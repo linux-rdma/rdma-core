@@ -114,6 +114,8 @@ class MRTest(RDMATestCase):
         succeeds.
         """
         self.create_players(MRRes)
+        self.server_qp_attr, _ = self.server.qp.query(0x1ffffff)
+        self.client_qp_attr, _ = self.client.qp.query(0x1ffffff)
         u.traffic(**self.traffic_args)
         server_new_pd = PD(self.server.ctx)
         self.server.rereg_mr(flags=e.IBV_REREG_MR_CHANGE_PD, pd=server_new_pd)
@@ -128,6 +130,8 @@ class MRTest(RDMATestCase):
 
     def test_mr_rereg_addr(self):
         self.create_players(MRRes)
+        self.server_qp_attr, _ = self.server.qp.query(0x1ffffff)
+        self.client_qp_attr, _ = self.client.qp.query(0x1ffffff)
         s_recv_wr = u.get_recv_wr(self.server)
         self.server.qp.post_recv(s_recv_wr)
         server_addr = posix_memalign(self.server.msg_size)
