@@ -8,6 +8,7 @@ rdma_python_test(tests
   base_rdmacm.py
   cuda_utils.py
   efa_base.py
+  irdma_base.py
   mlx5_base.py
   mlx5_prm_structs.py
   rdmacm_utils.py
