@@ -225,6 +225,24 @@ struct ibv_mr *bnxt_re_reg_mr(struct ibv_pd *ibvpd, void *sva, size_t len,
 	return &mr->vmr.ibv_mr;
 }
 
+struct ibv_mr *bnxt_re_reg_dmabuf_mr(struct ibv_pd *ibvpd, uint64_t start, size_t len,
+				     uint64_t iova, int fd, int access)
+{
+	struct bnxt_re_mr *mr;
+
+	mr = calloc(1, sizeof(*mr));
+	if (!mr)
+		return NULL;
+
+	if (ibv_cmd_reg_dmabuf_mr(ibvpd, start, len, iova, fd,
+				  access, &mr->vmr)) {
+		free(mr);
+		return NULL;
+	}
+
+	return &mr->vmr.ibv_mr;
+}
+
 int bnxt_re_dereg_mr(struct verbs_mr *vmr)
 {
 	struct bnxt_re_mr *mr = (struct bnxt_re_mr *)vmr;
