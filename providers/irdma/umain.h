@@ -1,5 +1,5 @@
 /* SPDX-License-Identifier: GPL-2.0 or Linux-OpenIB */
-/* Copyright (C) 2019 - 2020 Intel Corporation */
+/* Copyright (C) 2019 - 2023 Intel Corporation */
 #ifndef IRDMA_UMAIN_H
 #define IRDMA_UMAIN_H
 
@@ -13,7 +13,6 @@
 #include "irdma.h"
 #include "defs.h"
 #include "i40iw_hw.h"
-#include "status.h"
 #include "user.h"
 
 #define IRDMA_BASE_PUSH_PAGE		1

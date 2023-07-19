@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: GPL-2.0 or Linux-OpenIB
-/* Copyright (C) 2019 - 2020 Intel Corporation */
+/* Copyright (C) 2019 - 2023 Intel Corporation */
 #include <config.h>
 #include <stdlib.h>
 #include <stdio.h>
@@ -763,10 +763,10 @@ static int __irdma_upoll_cq(struct irdma_ucq *iwucq, int num_entries,
 				cq_new_cqe = true;
 				continue;
 			}
-			if (ret == IRDMA_ERR_Q_EMPTY)
+			if (ret == ENOENT)
 				break;
 			 /* QP using the CQ is destroyed. Skip reporting this CQE */
-			if (ret == IRDMA_ERR_Q_DESTROYED) {
+			if (ret == EFAULT) {
 				cq_new_cqe = true;
 				continue;
 			}
@@ -788,10 +788,10 @@ static int __irdma_upoll_cq(struct irdma_ucq *iwucq, int num_entries,
 			cq_new_cqe = true;
 			continue;
 		}
-		if (ret == IRDMA_ERR_Q_EMPTY)
+		if (ret == ENOENT)
 			break;
 		/* QP using the CQ is destroyed. Skip reporting this CQE */
-		if (ret == IRDMA_ERR_Q_DESTROYED) {
+		if (ret == EFAULT) {
 			cq_new_cqe = true;
 			continue;
 		}
@@ -1598,10 +1598,9 @@ int irdma_upost_send(struct ibv_qp *ib_qp, struct ibv_send_wr *ib_wr,
 	struct irdma_post_sq_info info;
 	struct irdma_uvcontext *iwvctx;
 	struct irdma_uk_attrs *uk_attrs;
-	enum irdma_status_code ret = 0;
 	struct irdma_uqp *iwuqp;
 	bool reflush = false;
-	int err = 0;
+	int err;
 
 	iwuqp = container_of(ib_qp, struct irdma_uqp, ibv_qp);
 	iwvctx = container_of(ib_qp->context, struct irdma_uvcontext,
@@ -1664,11 +1663,9 @@ int irdma_upost_send(struct ibv_qp *ib_qp, struct ibv_send_wr *ib_wr,
 			}
 
 			if (ib_wr->send_flags & IBV_SEND_INLINE)
-				ret = irdma_uk_inline_send(&iwuqp->qp, &info, false);
+				err = irdma_uk_inline_send(&iwuqp->qp, &info, false);
 			else
-				ret = irdma_uk_send(&iwuqp->qp, &info, false);
-			if (ret)
-				err = (ret == IRDMA_ERR_QP_TOOMANY_WRS_POSTED) ? ENOMEM : EINVAL;
+				err = irdma_uk_send(&iwuqp->qp, &info, false);
 			break;
 		case IBV_WR_RDMA_WRITE_WITH_IMM:
 			if (iwuqp->qp.qp_caps & IRDMA_WRITE_WITH_IMM) {
@@ -1690,11 +1687,9 @@ int irdma_upost_send(struct ibv_qp *ib_qp, struct ibv_send_wr *ib_wr,
 			info.op.rdma_write.rem_addr.tag_off = ib_wr->wr.rdma.remote_addr;
 			info.op.rdma_write.rem_addr.stag = ib_wr->wr.rdma.rkey;
 			if (ib_wr->send_flags & IBV_SEND_INLINE)
-				ret = irdma_uk_inline_rdma_write(&iwuqp->qp, &info, false);
+				err = irdma_uk_inline_rdma_write(&iwuqp->qp, &info, false);
 			else
-				ret = irdma_uk_rdma_write(&iwuqp->qp, &info, false);
-			if (ret)
-				err = (ret == IRDMA_ERR_QP_TOOMANY_WRS_POSTED) ? ENOMEM : EINVAL;
+				err = irdma_uk_rdma_write(&iwuqp->qp, &info, false);
 			break;
 		case IBV_WR_RDMA_READ:
 			if (ib_wr->num_sge > uk_attrs->max_hw_read_sges) {
@@ -1707,9 +1702,7 @@ int irdma_upost_send(struct ibv_qp *ib_qp, struct ibv_send_wr *ib_wr,
 
 			info.op.rdma_read.lo_sg_list = (void *)ib_wr->sg_list;
 			info.op.rdma_read.num_lo_sges = ib_wr->num_sge;
-			ret = irdma_uk_rdma_read(&iwuqp->qp, &info, false, false);
-			if (ret)
-				err = (ret == IRDMA_ERR_QP_TOOMANY_WRS_POSTED) ? ENOMEM : EINVAL;
+			err = irdma_uk_rdma_read(&iwuqp->qp, &info, false, false);
 			break;
 		case IBV_WR_BIND_MW:
 			if (ib_qp->qp_type != IBV_QPT_RC) {
@@ -1735,16 +1728,12 @@ int irdma_upost_send(struct ibv_qp *ib_qp, struct ibv_send_wr *ib_wr,
 			info.op.bind_window.ena_writes =
 				(ib_wr->bind_mw.bind_info.mw_access_flags & IBV_ACCESS_REMOTE_WRITE) ? 1 : 0;
 
-			ret = irdma_uk_mw_bind(&iwuqp->qp, &info, false);
-			if (ret)
-				err = (ret == IRDMA_ERR_QP_TOOMANY_WRS_POSTED) ? ENOMEM : EINVAL;
+			err = irdma_uk_mw_bind(&iwuqp->qp, &info, false);
 			break;
 		case IBV_WR_LOCAL_INV:
 			info.op_type = IRDMA_OP_TYPE_INV_STAG;
 			info.op.inv_local_stag.target_stag = ib_wr->invalidate_rkey;
-			ret = irdma_uk_stag_local_invalidate(&iwuqp->qp, &info, true);
-			if (ret)
-				err = (ret == IRDMA_ERR_QP_TOOMANY_WRS_POSTED) ? ENOMEM : EINVAL;
+			err = irdma_uk_stag_local_invalidate(&iwuqp->qp, &info, true);
 			break;
 		default:
 			/* error */
@@ -1778,11 +1767,10 @@ int irdma_upost_recv(struct ibv_qp *ib_qp, struct ibv_recv_wr *ib_wr,
 		     struct ibv_recv_wr **bad_wr)
 {
 	struct irdma_post_rq_info post_recv = {};
-	enum irdma_status_code ret = 0;
 	struct irdma_sge *sg_list;
 	struct irdma_uqp *iwuqp;
 	bool reflush = false;
-	int err = 0;
+	int err;
 
 	iwuqp = container_of(ib_qp, struct irdma_uqp, ibv_qp);
 	sg_list = iwuqp->recv_sges;
@@ -1805,9 +1793,8 @@ int irdma_upost_recv(struct ibv_qp *ib_qp, struct ibv_recv_wr *ib_wr,
 		post_recv.wr_id = ib_wr->wr_id;
 		irdma_copy_sg_list(sg_list, ib_wr->sg_list, ib_wr->num_sge);
 		post_recv.sg_list = sg_list;
-		ret = irdma_uk_post_receive(&iwuqp->qp, &post_recv);
-		if (ret) {
-			err = (ret == IRDMA_ERR_QP_TOOMANY_WRS_POSTED) ? ENOMEM : EINVAL;
+		err = irdma_uk_post_receive(&iwuqp->qp, &post_recv);
+		if (err) {
 			*bad_wr = ib_wr;
 			goto error;
 		}
