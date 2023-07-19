@@ -121,6 +121,10 @@ BuildRequires: pkgconfig(libnl-route-3.0)
 %description devel
 RDMA core development libraries and headers.
 
+%changelog
+* Tue May 9 2023 Leon Romanovsky <leonro@nvidia.com> - 44
+- Fix epoch warning
+
 %package -n infiniband-diags
 Summary: InfiniBand Diagnostic Tools
 Provides: perl(IBswcountlimits)

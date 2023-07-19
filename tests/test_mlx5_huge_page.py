@@ -56,7 +56,7 @@ class ResourcesOnHugePageTest(Mlx5PyverbsAPITestCase):
         else expect to fail.
         """
         self.set_env_alloc_type('HUGE')
-        if huge_pages_supported():
+        if huge_pages_supported() and u.is_root():
             self.create_objects()
         else:
             with self.assertRaises(PyverbsRDMAError):
