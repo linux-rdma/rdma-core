@@ -22,6 +22,7 @@
 #include "efa_io_regs_defs.h"
 #include "efadv.h"
 #include "verbs.h"
+#include "efa_trace.h"
 
 #define EFA_DEV_CAP(ctx, cap) \
 	((ctx)->device_caps & EFA_QUERY_DEVICE_CAPS_##cap)
@@ -417,6 +418,131 @@ static enum ibv_wc_status to_ibv_status(enum efa_io_comp_status status)
 	}
 }
 
+static enum ibv_wc_opcode efa_wc_read_opcode(struct ibv_cq_ex *ibvcqx)
+{
+	struct efa_cq *cq = to_efa_cq_ex(ibvcqx);
+	enum efa_io_send_op_type op_type;
+	struct efa_io_cdesc_common *cqe;
+
+	cqe = cq->cur_cqe;
+	op_type = EFA_GET(&cqe->flags, EFA_IO_CDESC_COMMON_OP_TYPE);
+
+	if (EFA_GET(&cqe->flags, EFA_IO_CDESC_COMMON_Q_TYPE) ==
+		    EFA_IO_SEND_QUEUE) {
+		if (op_type == EFA_IO_RDMA_WRITE)
+			return IBV_WC_RDMA_WRITE;
+
+		return IBV_WC_SEND;
+	}
+
+	if (op_type == EFA_IO_RDMA_WRITE)
+		return IBV_WC_RECV_RDMA_WITH_IMM;
+
+	return IBV_WC_RECV;
+}
+
+static uint32_t efa_wc_read_vendor_err(struct ibv_cq_ex *ibvcqx)
+{
+	struct efa_cq *cq = to_efa_cq_ex(ibvcqx);
+
+	return cq->cur_cqe->status;
+}
+
+static unsigned int efa_wc_read_wc_flags(struct ibv_cq_ex *ibvcqx)
+{
+	struct efa_cq *cq = to_efa_cq_ex(ibvcqx);
+	unsigned int wc_flags = 0;
+
+	if (EFA_GET(&cq->cur_cqe->flags, EFA_IO_CDESC_COMMON_HAS_IMM))
+		wc_flags |= IBV_WC_WITH_IMM;
+
+	return wc_flags;
+}
+
+static uint32_t efa_wc_read_byte_len(struct ibv_cq_ex *ibvcqx)
+{
+	struct efa_cq *cq = to_efa_cq_ex(ibvcqx);
+	struct efa_io_cdesc_common *cqe;
+	struct efa_io_rx_cdesc_ex *rcqe;
+	uint32_t length;
+
+	cqe = cq->cur_cqe;
+
+	if (EFA_GET(&cqe->flags, EFA_IO_CDESC_COMMON_Q_TYPE) != EFA_IO_RECV_QUEUE)
+		return 0;
+
+	rcqe = container_of(cqe, struct efa_io_rx_cdesc_ex, base.common);
+
+	length = rcqe->base.length;
+	if (EFA_GET(&cqe->flags, EFA_IO_CDESC_COMMON_OP_TYPE) == EFA_IO_RDMA_WRITE)
+		length |= ((uint32_t)rcqe->u.rdma_write.length_hi << 16);
+
+	return length;
+}
+
+static __be32 efa_wc_read_imm_data(struct ibv_cq_ex *ibvcqx)
+{
+	struct efa_cq *cq = to_efa_cq_ex(ibvcqx);
+	struct efa_io_rx_cdesc *rcqe;
+
+	rcqe = container_of(cq->cur_cqe, struct efa_io_rx_cdesc, common);
+
+	return htobe32(rcqe->imm);
+}
+
+static uint32_t efa_wc_read_qp_num(struct ibv_cq_ex *ibvcqx)
+{
+	struct efa_cq *cq = to_efa_cq_ex(ibvcqx);
+
+	return cq->cur_cqe->qp_num;
+}
+
+static uint32_t efa_wc_read_src_qp(struct ibv_cq_ex *ibvcqx)
+{
+	struct efa_cq *cq = to_efa_cq_ex(ibvcqx);
+	struct efa_io_rx_cdesc *rcqe;
+
+	rcqe = container_of(cq->cur_cqe, struct efa_io_rx_cdesc, common);
+
+	return rcqe->src_qp_num;
+}
+
+static uint32_t efa_wc_read_slid(struct ibv_cq_ex *ibvcqx)
+{
+	struct efa_cq *cq = to_efa_cq_ex(ibvcqx);
+	struct efa_io_rx_cdesc *rcqe;
+
+	rcqe = container_of(cq->cur_cqe, struct efa_io_rx_cdesc, common);
+
+	return rcqe->ah;
+}
+
+static uint8_t efa_wc_read_sl(struct ibv_cq_ex *ibvcqx)
+{
+	return 0;
+}
+
+static uint8_t efa_wc_read_dlid_path_bits(struct ibv_cq_ex *ibvcqx)
+{
+	return 0;
+}
+
+static int efa_wc_read_sgid(struct efadv_cq *efadv_cq, union ibv_gid *sgid)
+{
+	struct efa_cq *cq = efadv_cq_to_efa_cq(efadv_cq);
+	struct efa_io_rx_cdesc_ex *rcqex;
+
+	rcqex = container_of(cq->cur_cqe, struct efa_io_rx_cdesc_ex,
+			     base.common);
+	if (rcqex->base.ah != 0xFFFF) {
+		/* SGID is only available if AH is unknown. */
+		return -ENOENT;
+	}
+	memcpy(sgid->raw, rcqex->u.src_addr, sizeof(sgid->raw));
+
+	return 0;
+}
+
 static void efa_process_cqe(struct efa_cq *cq, struct ibv_wc *wc,
 			    struct efa_qp *qp)
 {
@@ -469,6 +595,9 @@ static void efa_process_cqe(struct efa_cq *cq, struct ibv_wc *wc,
 	 * so there is no contention on this index.
 	 */
 	wc->wr_id = cq->cur_wq->wrid[wrid_idx];
+
+	rdma_tracepoint(rdma_core_efa, process_completion, wc->wr_id, wc->status, wc->qp_num,
+			wc->opcode, wc->byte_len);
 }
 
 static void efa_process_ex_cqe(struct efa_cq *cq, struct efa_qp *qp)
@@ -488,6 +617,10 @@ static void efa_process_ex_cqe(struct efa_cq *cq, struct efa_qp *qp)
 
 	ibvcqx->wr_id = cq->cur_wq->wrid[wrid_idx];
 	ibvcqx->status = to_ibv_status(cqe->status);
+
+	rdma_tracepoint(rdma_core_efa, process_completion, ibvcqx->wr_id, ibvcqx->status,
+			qp->verbs_qp.qp.qp_num, efa_wc_read_opcode(ibvcqx),
+			efa_wc_read_byte_len(ibvcqx));
 }
 
 static inline int efa_poll_sub_cq(struct efa_cq *cq, struct efa_sub_cq *sub_cq,
@@ -624,131 +757,6 @@ static void efa_end_poll(struct ibv_cq_ex *ibvcqx)
 	}
 
 	pthread_spin_unlock(&cq->lock);
-}
-
-static enum ibv_wc_opcode efa_wc_read_opcode(struct ibv_cq_ex *ibvcqx)
-{
-	struct efa_cq *cq = to_efa_cq_ex(ibvcqx);
-	enum efa_io_send_op_type op_type;
-	struct efa_io_cdesc_common *cqe;
-
-	cqe = cq->cur_cqe;
-	op_type = EFA_GET(&cqe->flags, EFA_IO_CDESC_COMMON_OP_TYPE);
-
-	if (EFA_GET(&cqe->flags, EFA_IO_CDESC_COMMON_Q_TYPE) ==
-		    EFA_IO_SEND_QUEUE) {
-		if (op_type == EFA_IO_RDMA_WRITE)
-			return IBV_WC_RDMA_WRITE;
-
-		return IBV_WC_SEND;
-	}
-
-	if (op_type == EFA_IO_RDMA_WRITE)
-		return IBV_WC_RECV_RDMA_WITH_IMM;
-
-	return IBV_WC_RECV;
-}
-
-static uint32_t efa_wc_read_vendor_err(struct ibv_cq_ex *ibvcqx)
-{
-	struct efa_cq *cq = to_efa_cq_ex(ibvcqx);
-
-	return cq->cur_cqe->status;
-}
-
-static unsigned int efa_wc_read_wc_flags(struct ibv_cq_ex *ibvcqx)
-{
-	struct efa_cq *cq = to_efa_cq_ex(ibvcqx);
-	unsigned int wc_flags = 0;
-
-	if (EFA_GET(&cq->cur_cqe->flags, EFA_IO_CDESC_COMMON_HAS_IMM))
-		wc_flags |= IBV_WC_WITH_IMM;
-
-	return wc_flags;
-}
-
-static uint32_t efa_wc_read_byte_len(struct ibv_cq_ex *ibvcqx)
-{
-	struct efa_cq *cq = to_efa_cq_ex(ibvcqx);
-	struct efa_io_cdesc_common *cqe;
-	struct efa_io_rx_cdesc_ex *rcqe;
-	uint32_t length;
-
-	cqe = cq->cur_cqe;
-
-	if (EFA_GET(&cqe->flags, EFA_IO_CDESC_COMMON_Q_TYPE) != EFA_IO_RECV_QUEUE)
-		return 0;
-
-	rcqe = container_of(cqe, struct efa_io_rx_cdesc_ex, base.common);
-
-	length = rcqe->base.length;
-	if (EFA_GET(&cqe->flags, EFA_IO_CDESC_COMMON_OP_TYPE) == EFA_IO_RDMA_WRITE)
-		length |= ((uint32_t)rcqe->u.rdma_write.length_hi << 16);
-
-	return length;
-}
-
-static __be32 efa_wc_read_imm_data(struct ibv_cq_ex *ibvcqx)
-{
-	struct efa_cq *cq = to_efa_cq_ex(ibvcqx);
-	struct efa_io_rx_cdesc *rcqe;
-
-	rcqe = container_of(cq->cur_cqe, struct efa_io_rx_cdesc, common);
-
-	return htobe32(rcqe->imm);
-}
-
-static uint32_t efa_wc_read_qp_num(struct ibv_cq_ex *ibvcqx)
-{
-	struct efa_cq *cq = to_efa_cq_ex(ibvcqx);
-
-	return cq->cur_cqe->qp_num;
-}
-
-static uint32_t efa_wc_read_src_qp(struct ibv_cq_ex *ibvcqx)
-{
-	struct efa_cq *cq = to_efa_cq_ex(ibvcqx);
-	struct efa_io_rx_cdesc *rcqe;
-
-	rcqe = container_of(cq->cur_cqe, struct efa_io_rx_cdesc, common);
-
-	return rcqe->src_qp_num;
-}
-
-static uint32_t efa_wc_read_slid(struct ibv_cq_ex *ibvcqx)
-{
-	struct efa_cq *cq = to_efa_cq_ex(ibvcqx);
-	struct efa_io_rx_cdesc *rcqe;
-
-	rcqe = container_of(cq->cur_cqe, struct efa_io_rx_cdesc, common);
-
-	return rcqe->ah;
-}
-
-static uint8_t efa_wc_read_sl(struct ibv_cq_ex *ibvcqx)
-{
-	return 0;
-}
-
-static uint8_t efa_wc_read_dlid_path_bits(struct ibv_cq_ex *ibvcqx)
-{
-	return 0;
-}
-
-static int efa_wc_read_sgid(struct efadv_cq *efadv_cq, union ibv_gid *sgid)
-{
-	struct efa_cq *cq = efadv_cq_to_efa_cq(efadv_cq);
-	struct efa_io_rx_cdesc_ex *rcqex;
-
-	rcqex = container_of(cq->cur_cqe, struct efa_io_rx_cdesc_ex,
-			     base.common);
-	if (rcqex->base.ah != 0xFFFF) {
-		/* SGID is only available if AH is unknown. */
-		return -ENOENT;
-	}
-	memcpy(sgid->raw, rcqex->u.src_addr, sizeof(sgid->raw));
-
-	return 0;
 }
 
 static void efa_cq_fill_pfns(struct efa_cq *cq,
@@ -1852,7 +1860,8 @@ int efa_post_send(struct ibv_qp *ibvqp, struct ibv_send_wr *wr,
 			efa_sq_ring_doorbell(sq, wq->pc);
 			mmio_wc_start();
 		}
-
+		rdma_tracepoint(rdma_core_efa, post_send, wr->wr_id, ibvqp->qp_num,
+				meta_desc->dest_qp_num, ah->efa_ah);
 		wr = wr->next;
 	}
 
@@ -2121,14 +2130,19 @@ static void efa_send_wr_set_addr(struct ibv_qp_ex *ibvqpx,
 {
 	struct efa_qp *qp = to_efa_qp_ex(ibvqpx);
 	struct efa_ah *ah = to_efa_ah(ibvah);
-	struct efa_io_tx_wqe *tx_wqe = qp->sq.curr_tx_wqe;
+	struct efa_io_tx_wqe *tx_wqe;
 
 	if (unlikely(qp->wr_session_err))
 		return;
 
+	tx_wqe = qp->sq.curr_tx_wqe;
+
 	tx_wqe->meta.dest_qp_num = remote_qpn;
 	tx_wqe->meta.ah = ah->efa_ah;
 	tx_wqe->meta.qkey = remote_qkey;
+
+	rdma_tracepoint(rdma_core_efa, post_send, ibvqpx->wr_id, ibvqpx->qp_base.qp_num,
+			remote_qpn, ah->efa_ah);
 }
 
 static void efa_send_wr_start(struct ibv_qp_ex *ibvqpx)
@@ -2342,6 +2356,7 @@ int efa_post_recv(struct ibv_qp *ibvqp, struct ibv_recv_wr *wr,
 			/* reset descriptor for next iov */
 			memset(&rx_buf, 0, sizeof(rx_buf));
 		}
+		rdma_tracepoint(rdma_core_efa, post_recv, wr->wr_id, ibvqp->qp_num, wr->num_sge);
 		wr = wr->next;
 	}
 
