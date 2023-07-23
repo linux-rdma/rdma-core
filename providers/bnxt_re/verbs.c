@@ -398,7 +398,6 @@ static uint8_t bnxt_re_poll_err_scqe(struct bnxt_re_qp *qp,
 	struct bnxt_re_queue *sq = qp->jsqq->hwque;
 	struct bnxt_re_context *cntx;
 	struct bnxt_re_wrid *swrid;
-	struct bnxt_re_psns *spsn;
 	struct bnxt_re_cq *scq;
 	uint8_t status;
 	uint32_t head;
@@ -408,7 +407,6 @@ static uint8_t bnxt_re_poll_err_scqe(struct bnxt_re_qp *qp,
 	head = qp->jsqq->last_idx;
 	cntx = to_bnxt_re_context(scq->ibvcq.context);
 	swrid = &qp->jsqq->swque[head];
-	spsn = swrid->psns;
 
 	*cnt = 1;
 	status = (le32toh(hdr->flg_st_typ_ph) >> BNXT_RE_BCQE_STATUS_SHIFT) &
@@ -417,9 +415,7 @@ static uint8_t bnxt_re_poll_err_scqe(struct bnxt_re_qp *qp,
 	ibvwc->wc_flags = 0;
 	ibvwc->wr_id = swrid->wrid;
 	ibvwc->qp_num = qp->qpid;
-	ibvwc->opcode = (le32toh(spsn->opc_spsn) >>
-			BNXT_RE_PSNS_OPCD_SHIFT) &
-			BNXT_RE_PSNS_OPCD_MASK;
+	ibvwc->opcode = swrid->wc_opcd;
 	ibvwc->byte_len = 0;
 
 	bnxt_re_incr_head(sq, swrid->slots);
@@ -442,14 +438,12 @@ static uint8_t bnxt_re_poll_success_scqe(struct bnxt_re_qp *qp,
 {
 	struct bnxt_re_queue *sq = qp->jsqq->hwque;
 	struct bnxt_re_wrid *swrid;
-	struct bnxt_re_psns *spsn;
 	uint8_t pcqe = false;
 	uint32_t cindx;
 	uint32_t head;
 
 	head = qp->jsqq->last_idx;
 	swrid = &qp->jsqq->swque[head];
-	spsn = swrid->psns;
 	cindx = le32toh(scqe->con_indx) & (qp->cap.max_swr - 1);
 
 	if (!(swrid->sig & IBV_SEND_SIGNALED)) {
@@ -459,9 +453,7 @@ static uint8_t bnxt_re_poll_success_scqe(struct bnxt_re_qp *qp,
 		ibvwc->wc_flags = 0;
 		ibvwc->qp_num = qp->qpid;
 		ibvwc->wr_id = swrid->wrid;
-		ibvwc->opcode = (le32toh(spsn->opc_spsn) >>
-				BNXT_RE_PSNS_OPCD_SHIFT) &
-				BNXT_RE_PSNS_OPCD_MASK;
+		ibvwc->opcode = swrid->wc_opcd;
 		if (ibvwc->opcode == IBV_WC_RDMA_READ ||
 		    ibvwc->opcode == IBV_WC_COMP_SWAP ||
 		    ibvwc->opcode == IBV_WC_FETCH_ADD)
@@ -1540,11 +1532,12 @@ static int bnxt_re_build_sge(struct bnxt_re_queue *que, uint32_t *idx,
 }
 
 static void bnxt_re_fill_psns(struct bnxt_re_qp *qp, struct bnxt_re_wrid *wrid,
-			      uint8_t opcode, uint32_t len)
+			      uint32_t len)
 {
 	uint32_t opc_spsn = 0, flg_npsn = 0;
 	struct bnxt_re_psns_ext *psns_ext;
 	uint32_t pkt_cnt = 0, nxt_psn = 0;
+	uint8_t opcode = wrid->wc_opcd;
 	struct bnxt_re_psns *psns;
 
 	psns = wrid->psns;
@@ -1562,7 +1555,6 @@ static void bnxt_re_fill_psns(struct bnxt_re_qp *qp, struct bnxt_re_wrid *wrid,
 		flg_npsn = nxt_psn;
 		qp->sq_psn = nxt_psn;
 	}
-	opcode = bnxt_re_ibv_wr_to_wc_opcd(opcode);
 	opc_spsn |= (((uint32_t)opcode & BNXT_RE_PSNS_OPCD_MASK) <<
 		      BNXT_RE_PSNS_OPCD_SHIFT);
 	memset(psns, 0, sizeof(*psns));
@@ -1723,7 +1715,8 @@ int bnxt_re_post_send(struct ibv_qp *ibvqp, struct ibv_send_wr *wr,
 		sig = ((wr->send_flags & IBV_SEND_SIGNALED) || qp->cap.sqsig);
 		bnxt_re_fill_wrid(wrid, wr->wr_id, bytes,
 				  sig, sq->tail, slots);
-		bnxt_re_fill_psns(qp, wrid, wr->opcode, bytes);
+		wrid->wc_opcd = bnxt_re_ibv_wr_to_wc_opcd(wr->opcode);
+		bnxt_re_fill_psns(qp, wrid, bytes);
 		bnxt_re_jqq_mod_start(qp->jsqq, swq_idx);
 		bnxt_re_incr_tail(sq, slots);
 		ring_db = true;
