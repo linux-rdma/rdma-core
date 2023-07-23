@@ -219,7 +219,6 @@ struct bnxt_re_context {
 	void *shpg;
 	uint32_t wqe_mode;
 	pthread_mutex_t shlock;
-	pthread_spinlock_t fqlock;
 	struct bnxt_re_push_rec *pbrec;
 	uint32_t wc_handle;
 };
