@@ -479,7 +479,7 @@ static uint8_t bnxt_re_poll_scqe(struct bnxt_re_qp *qp, struct ibv_wc *ibvwc,
 
 	status = (le32toh(hdr->flg_st_typ_ph) >> BNXT_RE_BCQE_STATUS_SHIFT) &
 		  BNXT_RE_BCQE_STATUS_MASK;
-	if (status == BNXT_RE_REQ_ST_OK)
+	if (likely(status == BNXT_RE_REQ_ST_OK))
 		pcqe = bnxt_re_poll_success_scqe(qp, ibvwc, hdr, scqe, cnt);
 	else
 		pcqe = bnxt_re_poll_err_scqe(qp, ibvwc, hdr, scqe, cnt);
@@ -642,7 +642,7 @@ static uint8_t bnxt_re_poll_rcqe(struct bnxt_re_qp *qp, struct ibv_wc *ibvwc,
 	status = (le32toh(hdr->flg_st_typ_ph) >> BNXT_RE_BCQE_STATUS_SHIFT) &
 		  BNXT_RE_BCQE_STATUS_MASK;
 	*cnt = 1;
-	if (status == BNXT_RE_RSP_ST_OK)
+	if (likely(status == BNXT_RE_RSP_ST_OK))
 		bnxt_re_poll_success_rcqe(qp, ibvwc, hdr, cqe);
 	else
 		*cnt = bnxt_re_poll_err_rcqe(qp, ibvwc, hdr, cqe);
@@ -755,7 +755,7 @@ skipp_real:
 		}
 	}
 
-	if (hw_polled)
+	if (likely(hw_polled))
 		bnxt_re_ring_cq_db(cq);
 
 	return dqed;
@@ -887,7 +887,7 @@ int bnxt_re_poll_cq(struct ibv_cq *ibvcq, int nwc, struct ibv_wc *wc)
 	/* Check  whether we have anything to be completed
 	 * from prev cq context.
 	 */
-	if (!list_empty(&cq->prev_cq_head)) {
+	if (unlikely(!list_empty(&cq->prev_cq_head))) {
 		dqed = bnxt_re_poll_resize_cq_list(cq, nwc, wc);
 		left = nwc - dqed;
 		if (!left) {
@@ -1720,8 +1720,8 @@ int bnxt_re_post_send(struct ibv_qp *ibvqp, struct ibv_send_wr *wr,
 		qp->wqe_cnt++;
 		wr = wr->next;
 
-		if (!qp->cntx->cctx.gen_p5 && qp->wqe_cnt == BNXT_RE_UD_QP_HW_STALL &&
-		    qp->qptyp == IBV_QPT_UD)
+		if (unlikely(!qp->cntx->cctx.gen_p5 && qp->wqe_cnt == BNXT_RE_UD_QP_HW_STALL &&
+			     qp->qptyp == IBV_QPT_UD))
 			bnxt_re_force_rts2rts(qp);
 	}
 
