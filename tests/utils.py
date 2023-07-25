@@ -109,6 +109,7 @@ class PacketConsts:
     BTH_HEADER_SIZE = 16
     BTH_OPCODE = 0x81
     BTH_DST_QP = 0xd2
+    BTH_A = 0x1
     BTH_PARTITION_KEY = 0xffff
     BTH_BECN = 1
     ROCE_PORT = 4791
@@ -857,15 +858,16 @@ def gen_geneve_header(vni=PacketConsts.GENEVE_VNI, oam=PacketConsts.GENEVE_OAM,
     """
     return struct.pack('!BBHL', (0 << 6) + 0, (oam << 7) + (0 << 6) + 0, proto, (vni << 8) + 0)
 
-def gen_bth_header(opcode=PacketConsts.BTH_OPCODE, dst_qp=PacketConsts.BTH_DST_QP):
+def gen_bth_header(opcode=PacketConsts.BTH_OPCODE, dst_qp=PacketConsts.BTH_DST_QP, a=PacketConsts.BTH_A):
     """
     Generates ROCE BTH header using the values from the PacketConst class by default.
     :param opcode: BTH opcode
     :param dst_qp: BTH dst QP
+    :param a: BTH acknowledgment bit
     :return: ROCE BTH header
     """
     return struct.pack('!2BH2BH2L', opcode, 0, PacketConsts.BTH_PARTITION_KEY,
-                       PacketConsts.BTH_BECN << 6, dst_qp >> 16, dst_qp & 0xffff, 0, 0)
+                       PacketConsts.BTH_BECN << 6, dst_qp >> 16, dst_qp & 0xffff, a << 31, 0)
 
 
 def gen_packet(msg_size, l3=PacketConsts.IP_V4, l4=PacketConsts.UDP_PROTO, with_vlan=False, **kwargs):

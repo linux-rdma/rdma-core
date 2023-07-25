@@ -546,7 +546,7 @@ struct mlx5_ifc_dr_match_spec_bits {
 
 struct mlx5_ifc_dr_match_set_misc_bits {
 	u8         gre_c_present[0x1];
-	u8         reserved_auto1[0x1];
+	u8         bth_a[0x1];
 	u8         gre_k_present[0x1];
 	u8         gre_s_present[0x1];
 	u8         source_vhca_port[0x4];
@@ -598,7 +598,9 @@ struct mlx5_ifc_dr_match_set_misc_bits {
 
 	u8	   outer_esp_spi[0x20];
 
-	u8	   reserved_at_1a0[0x60];
+	u8         reserved_at_1a0[0x20];
+	u8         reserved_at_1c0[0x20];
+	u8         reserved_at_1e0[0x20];
 };
 
 struct mlx5_ifc_dr_match_set_misc2_bits {
@@ -633,7 +635,9 @@ struct mlx5_ifc_dr_match_set_misc2_bits {
 
 	u8         metadata_reg_a[0x20];
 
-	u8         reserved_at_1a0[0x60];
+	u8         reserved_at_1a0[0x20];
+	u8         reserved_at_1c0[0x20];
+	u8         reserved_at_1e0[0x20];
 };
 
 struct mlx5_ifc_dr_match_set_misc3_bits {
@@ -667,7 +671,7 @@ struct mlx5_ifc_dr_match_set_misc3_bits {
 
 	u8         gtpu_msg_type[0x8];
 	u8         gtpu_msg_flags[0x8];
-	u8         reserved_at_150[0x10];
+	u8         reserved_at_170[0x10];
 
 	u8         gtpu_dw_2[0x20];
 
@@ -675,7 +679,7 @@ struct mlx5_ifc_dr_match_set_misc3_bits {
 
 	u8         gtpu_dw_0[0x20];
 
-	u8         reserved_at_1c0[0x20];
+	u8         reserved_at_1e0[0x20];
 };
 
 struct mlx5_ifc_dr_match_set_misc4_bits {
@@ -729,7 +733,21 @@ struct mlx5_ifc_dr_match_set_misc5_bits {
 
 	u8	tunnel_header_3[0x20];
 
-	u8	reserved[0x100];
+	u8	reserved_at_100[0x20];
+
+	u8	reserved_at_120[0x20];
+
+	u8      reserved_at_140[0x20];
+
+	u8      reserved_at_160[0x20];
+
+	u8      reserved_at_180[0x20];
+
+	u8      reserved_at_1a0[0x20];
+
+	u8      reserved_at_1c0[0x20];
+
+	u8      reserved_at_1e0[0x20];
 };
 
 struct mlx5_ifc_dr_match_param_bits {
