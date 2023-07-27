@@ -135,7 +135,7 @@ static const char *width_str(uint8_t width)
 	}
 }
 
-static const char *speed_str(uint8_t speed)
+static const char *speed_str(uint32_t speed)
 {
 	switch (speed) {
 	case 1:  return "2.5 Gbps";
@@ -148,6 +148,7 @@ static const char *speed_str(uint8_t speed)
 	case 32: return "25.0 Gbps";
 	case 64: return "50.0 Gbps";
 	case 128: return "100.0 Gbps";
+	case 256: return "200.0 Gbps";
 	default: return "invalid speed";
 	}
 }
@@ -650,7 +651,10 @@ static int print_hca_cap(struct ibv_device *ib_dev, uint8_t ib_port)
 			printf("\t\t\tactive_width:\t\t%sX (%d)\n",
 			       width_str(port_attr.active_width), port_attr.active_width);
 			printf("\t\t\tactive_speed:\t\t%s (%d)\n",
-			       speed_str(port_attr.active_speed), port_attr.active_speed);
+			       port_attr.active_speed_ex ? speed_str(port_attr.active_speed_ex) :
+							   speed_str(port_attr.active_speed),
+			       port_attr.active_speed_ex ? port_attr.active_speed_ex :
+							   port_attr.active_speed);
 			if (ib_dev->transport_type == IBV_TRANSPORT_IB)
 				printf("\t\t\tphys_state:\t\t%s (%d)\n",
 				       port_phy_state_str(port_attr.phys_state), port_attr.phys_state);

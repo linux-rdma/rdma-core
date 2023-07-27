@@ -43,11 +43,12 @@ uint8_t                 sm_sl;          /* SM service level */
 uint8_t                 subnet_timeout; /* Subnet propagation delay */
 uint8_t                 init_type_reply;/* Type of initialization performed by SM */
 uint8_t                 active_width;   /* Currently active link width */
-uint8_t                 active_speed;   /* Currently active link speed */
+uint8_t                 active_speed;   /* Currently active link speed if speed<XDR,NDR otherwise */
 uint8_t                 phys_state;     /* Physical port state */
 uint8_t                 link_layer;     /* link layer protocol of the port */
 uint8_t                 flags;          /* Port flags */
 uint16_t                port_cap_flags2;/* Port capabilities */
+uint32_t                active_speed_ex;/* Currently active link speed, if it is 0 refer to active_speed instead */
 .in -8
 };
 .sp
