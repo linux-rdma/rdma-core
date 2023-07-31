@@ -396,9 +396,7 @@ static uint8_t bnxt_re_poll_err_scqe(struct bnxt_re_qp *qp,
 				     struct bnxt_re_req_cqe *scqe, int *cnt)
 {
 	struct bnxt_re_queue *sq = qp->jsqq->hwque;
-	struct bnxt_re_context *cntx;
 	struct bnxt_re_wrid *swrid;
-	struct bnxt_re_psns *spsn;
 	struct bnxt_re_cq *scq;
 	uint8_t status;
 	uint32_t head;
@@ -406,9 +404,7 @@ static uint8_t bnxt_re_poll_err_scqe(struct bnxt_re_qp *qp,
 	scq = to_bnxt_re_cq(qp->ibvqp.send_cq);
 
 	head = qp->jsqq->last_idx;
-	cntx = to_bnxt_re_context(scq->ibvcq.context);
 	swrid = &qp->jsqq->swque[head];
-	spsn = swrid->psns;
 
 	*cnt = 1;
 	status = (le32toh(hdr->flg_st_typ_ph) >> BNXT_RE_BCQE_STATUS_SHIFT) &
@@ -417,9 +413,7 @@ static uint8_t bnxt_re_poll_err_scqe(struct bnxt_re_qp *qp,
 	ibvwc->wc_flags = 0;
 	ibvwc->wr_id = swrid->wrid;
 	ibvwc->qp_num = qp->qpid;
-	ibvwc->opcode = (le32toh(spsn->opc_spsn) >>
-			BNXT_RE_PSNS_OPCD_SHIFT) &
-			BNXT_RE_PSNS_OPCD_MASK;
+	ibvwc->opcode = swrid->wc_opcd;
 	ibvwc->byte_len = 0;
 
 	bnxt_re_incr_head(sq, swrid->slots);
@@ -427,9 +421,7 @@ static uint8_t bnxt_re_poll_err_scqe(struct bnxt_re_qp *qp,
 
 	if (qp->qpst != IBV_QPS_ERR)
 		qp->qpst = IBV_QPS_ERR;
-	pthread_spin_lock(&cntx->fqlock);
 	bnxt_re_fque_add_node(&scq->sfhead, &qp->snode);
-	pthread_spin_unlock(&cntx->fqlock);
 
 	return false;
 }
@@ -442,14 +434,12 @@ static uint8_t bnxt_re_poll_success_scqe(struct bnxt_re_qp *qp,
 {
 	struct bnxt_re_queue *sq = qp->jsqq->hwque;
 	struct bnxt_re_wrid *swrid;
-	struct bnxt_re_psns *spsn;
 	uint8_t pcqe = false;
 	uint32_t cindx;
 	uint32_t head;
 
 	head = qp->jsqq->last_idx;
 	swrid = &qp->jsqq->swque[head];
-	spsn = swrid->psns;
 	cindx = le32toh(scqe->con_indx) & (qp->cap.max_swr - 1);
 
 	if (!(swrid->sig & IBV_SEND_SIGNALED)) {
@@ -459,9 +449,7 @@ static uint8_t bnxt_re_poll_success_scqe(struct bnxt_re_qp *qp,
 		ibvwc->wc_flags = 0;
 		ibvwc->qp_num = qp->qpid;
 		ibvwc->wr_id = swrid->wrid;
-		ibvwc->opcode = (le32toh(spsn->opc_spsn) >>
-				BNXT_RE_PSNS_OPCD_SHIFT) &
-				BNXT_RE_PSNS_OPCD_MASK;
+		ibvwc->opcode = swrid->wc_opcd;
 		if (ibvwc->opcode == IBV_WC_RDMA_READ ||
 		    ibvwc->opcode == IBV_WC_COMP_SWAP ||
 		    ibvwc->opcode == IBV_WC_FETCH_ADD)
@@ -491,7 +479,7 @@ static uint8_t bnxt_re_poll_scqe(struct bnxt_re_qp *qp, struct ibv_wc *ibvwc,
 
 	status = (le32toh(hdr->flg_st_typ_ph) >> BNXT_RE_BCQE_STATUS_SHIFT) &
 		  BNXT_RE_BCQE_STATUS_MASK;
-	if (status == BNXT_RE_REQ_ST_OK)
+	if (likely(status == BNXT_RE_REQ_ST_OK))
 		pcqe = bnxt_re_poll_success_scqe(qp, ibvwc, hdr, scqe, cnt);
 	else
 		pcqe = bnxt_re_poll_err_scqe(qp, ibvwc, hdr, scqe, cnt);
@@ -511,7 +499,6 @@ static void bnxt_re_release_srqe(struct bnxt_re_srq *srq, int tag)
 static int bnxt_re_poll_err_rcqe(struct bnxt_re_qp *qp, struct ibv_wc *ibvwc,
 				 struct bnxt_re_bcqe *hdr, void *cqe)
 {
-	struct bnxt_re_context *cntx;
 	struct bnxt_re_wrid *swque;
 	struct bnxt_re_queue *rq;
 	uint8_t status, cnt = 0;
@@ -519,7 +506,6 @@ static int bnxt_re_poll_err_rcqe(struct bnxt_re_qp *qp, struct ibv_wc *ibvwc,
 	uint32_t head = 0;
 
 	rcq = to_bnxt_re_cq(qp->ibvqp.recv_cq);
-	cntx = to_bnxt_re_context(rcq->ibvcq.context);
 
 	if (!qp->srq) {
 		rq = qp->jrqq->hwque;
@@ -557,11 +543,8 @@ static int bnxt_re_poll_err_rcqe(struct bnxt_re_qp *qp, struct ibv_wc *ibvwc,
 		bnxt_re_jqq_mod_last(qp->jrqq, head);
 	bnxt_re_incr_head(rq, cnt);
 
-	if (!qp->srq) {
-		pthread_spin_lock(&cntx->fqlock);
+	if (!qp->srq)
 		bnxt_re_fque_add_node(&rcq->rfhead, &qp->rnode);
-		pthread_spin_unlock(&cntx->fqlock);
-	}
 
 	return 1;
 }
@@ -659,7 +642,7 @@ static uint8_t bnxt_re_poll_rcqe(struct bnxt_re_qp *qp, struct ibv_wc *ibvwc,
 	status = (le32toh(hdr->flg_st_typ_ph) >> BNXT_RE_BCQE_STATUS_SHIFT) &
 		  BNXT_RE_BCQE_STATUS_MASK;
 	*cnt = 1;
-	if (status == BNXT_RE_RSP_ST_OK)
+	if (likely(status == BNXT_RE_RSP_ST_OK))
 		bnxt_re_poll_success_rcqe(qp, ibvwc, hdr, cqe);
 	else
 		*cnt = bnxt_re_poll_err_rcqe(qp, ibvwc, hdr, cqe);
@@ -670,13 +653,11 @@ static uint8_t bnxt_re_poll_rcqe(struct bnxt_re_qp *qp, struct ibv_wc *ibvwc,
 static uint8_t bnxt_re_poll_term_cqe(struct bnxt_re_qp *qp,
 				     struct ibv_wc *ibvwc, void *cqe, int *cnt)
 {
-	struct bnxt_re_context *cntx;
 	struct bnxt_re_cq *scq, *rcq;
 	uint8_t pcqe = false;
 
 	scq = to_bnxt_re_cq(qp->ibvqp.send_cq);
 	rcq = to_bnxt_re_cq(qp->ibvqp.recv_cq);
-	cntx = to_bnxt_re_context(scq->ibvcq.context);
 	/* For now just add the QP to flush list without
 	 * considering the index reported in the CQE.
 	 * Continue reporting flush completions until the
@@ -688,10 +669,8 @@ static uint8_t bnxt_re_poll_term_cqe(struct bnxt_re_qp *qp,
 		goto exit;
 	if (qp->qpst != IBV_QPS_ERR)
 		qp->qpst = IBV_QPS_ERR;
-	pthread_spin_lock(&cntx->fqlock);
 	bnxt_re_fque_add_node(&rcq->rfhead, &qp->rnode);
 	bnxt_re_fque_add_node(&scq->sfhead, &qp->snode);
-	pthread_spin_unlock(&cntx->fqlock);
 exit:
 	return pcqe;
 }
@@ -776,7 +755,7 @@ skipp_real:
 		}
 	}
 
-	if (hw_polled)
+	if (likely(hw_polled))
 		bnxt_re_ring_cq_db(cq);
 
 	return dqed;
@@ -900,7 +879,6 @@ static int bnxt_re_poll_resize_cq_list(struct bnxt_re_cq *cq, uint32_t nwc,
 int bnxt_re_poll_cq(struct ibv_cq *ibvcq, int nwc, struct ibv_wc *wc)
 {
 	struct bnxt_re_cq *cq = to_bnxt_re_cq(ibvcq);
-	struct bnxt_re_context *cntx = to_bnxt_re_context(ibvcq->context);
 	int dqed = 0, left = 0;
 	uint32_t resize = 0;
 
@@ -909,7 +887,7 @@ int bnxt_re_poll_cq(struct ibv_cq *ibvcq, int nwc, struct ibv_wc *wc)
 	/* Check  whether we have anything to be completed
 	 * from prev cq context.
 	 */
-	if (!list_empty(&cq->prev_cq_head)) {
+	if (unlikely(!list_empty(&cq->prev_cq_head))) {
 		dqed = bnxt_re_poll_resize_cq_list(cq, nwc, wc);
 		left = nwc - dqed;
 		if (!left) {
@@ -918,29 +896,23 @@ int bnxt_re_poll_cq(struct ibv_cq *ibvcq, int nwc, struct ibv_wc *wc)
 		}
 	}
 	dqed += bnxt_re_poll_one(cq, left, wc + dqed, &resize);
-	pthread_spin_unlock(&cq->cqq.qlock);
 	left = nwc - dqed;
-	if (left) {
+	if (left)
 		/* Check if anything is there to flush. */
-		pthread_spin_lock(&cntx->fqlock);
 		dqed += bnxt_re_poll_flush_lists(cq, left, (wc + dqed));
-		pthread_spin_unlock(&cntx->fqlock);
-	}
+	pthread_spin_unlock(&cq->cqq.qlock);
 
 	return dqed;
 }
 
 static void bnxt_re_cleanup_cq(struct bnxt_re_qp *qp, struct bnxt_re_cq *cq)
 {
-	struct bnxt_re_context *cntx;
 	struct bnxt_re_queue *que = &cq->cqq;
 	struct bnxt_re_bcqe *hdr;
 	struct bnxt_re_req_cqe *scqe;
 	struct bnxt_re_rc_cqe *rcqe;
 	void *cqe;
 	int indx, type;
-
-	cntx = to_bnxt_re_context(cq->ibvcq.context);
 
 	pthread_spin_lock(&que->qlock);
 	for (indx = 0; indx < que->depth; indx++) {
@@ -963,12 +935,10 @@ static void bnxt_re_cleanup_cq(struct bnxt_re_qp *qp, struct bnxt_re_cq *cq)
 		}
 
 	}
-	pthread_spin_unlock(&que->qlock);
 
-	pthread_spin_lock(&cntx->fqlock);
 	bnxt_re_fque_del_node(&qp->snode);
 	bnxt_re_fque_del_node(&qp->rnode);
-	pthread_spin_unlock(&cntx->fqlock);
+	pthread_spin_unlock(&que->qlock);
 }
 
 int bnxt_re_arm_cq(struct ibv_cq *ibvcq, int flags)
@@ -1540,11 +1510,12 @@ static int bnxt_re_build_sge(struct bnxt_re_queue *que, uint32_t *idx,
 }
 
 static void bnxt_re_fill_psns(struct bnxt_re_qp *qp, struct bnxt_re_wrid *wrid,
-			      uint8_t opcode, uint32_t len)
+			      uint32_t len)
 {
 	uint32_t opc_spsn = 0, flg_npsn = 0;
 	struct bnxt_re_psns_ext *psns_ext;
 	uint32_t pkt_cnt = 0, nxt_psn = 0;
+	uint8_t opcode = wrid->wc_opcd;
 	struct bnxt_re_psns *psns;
 
 	psns = wrid->psns;
@@ -1562,7 +1533,6 @@ static void bnxt_re_fill_psns(struct bnxt_re_qp *qp, struct bnxt_re_wrid *wrid,
 		flg_npsn = nxt_psn;
 		qp->sq_psn = nxt_psn;
 	}
-	opcode = bnxt_re_ibv_wr_to_wc_opcd(opcode);
 	opc_spsn |= (((uint32_t)opcode & BNXT_RE_PSNS_OPCD_MASK) <<
 		      BNXT_RE_PSNS_OPCD_SHIFT);
 	memset(psns, 0, sizeof(*psns));
@@ -1624,6 +1594,17 @@ static void bnxt_re_build_fna_sqe(struct ibv_send_wr *wr,
 	hdr->key_immd = htole32(wr->wr.atomic.rkey);
 	hdr->lhdr.rva = htole64(wr->wr.atomic.remote_addr);
 	sqe->swp_dt = htole64(wr->wr.atomic.compare_add);
+}
+
+static void bnxt_re_force_rts2rts(struct bnxt_re_qp *qp)
+{
+	struct ibv_qp_attr attr;
+	int attr_mask;
+
+	attr_mask = IBV_QP_STATE;
+	attr.qp_state = IBV_QPS_RTS;
+	bnxt_re_modify_qp(&qp->ibvqp, &attr, attr_mask);
+	qp->wqe_cnt = 0;
 }
 
 int bnxt_re_post_send(struct ibv_qp *ibvqp, struct ibv_send_wr *wr,
@@ -1723,7 +1704,8 @@ int bnxt_re_post_send(struct ibv_qp *ibvqp, struct ibv_send_wr *wr,
 		sig = ((wr->send_flags & IBV_SEND_SIGNALED) || qp->cap.sqsig);
 		bnxt_re_fill_wrid(wrid, wr->wr_id, bytes,
 				  sig, sq->tail, slots);
-		bnxt_re_fill_psns(qp, wrid, wr->opcode, bytes);
+		wrid->wc_opcd = bnxt_re_ibv_wr_to_wc_opcd(wr->opcode);
+		bnxt_re_fill_psns(qp, wrid, bytes);
 		bnxt_re_jqq_mod_start(qp->jsqq, swq_idx);
 		bnxt_re_incr_tail(sq, slots);
 		ring_db = true;
@@ -1738,17 +1720,9 @@ int bnxt_re_post_send(struct ibv_qp *ibvqp, struct ibv_send_wr *wr,
 		qp->wqe_cnt++;
 		wr = wr->next;
 
-		if (qp->wqe_cnt == BNXT_RE_UD_QP_HW_STALL &&
-		    qp->qptyp == IBV_QPT_UD) {
-			/* Move RTS to RTS since it is time. */
-			struct ibv_qp_attr attr;
-			int attr_mask;
-
-			attr_mask = IBV_QP_STATE;
-			attr.qp_state = IBV_QPS_RTS;
-			bnxt_re_modify_qp(&qp->ibvqp, &attr, attr_mask);
-			qp->wqe_cnt = 0;
-		}
+		if (unlikely(!qp->cntx->cctx.gen_p5 && qp->wqe_cnt == BNXT_RE_UD_QP_HW_STALL &&
+			     qp->qptyp == IBV_QPT_UD))
+			bnxt_re_force_rts2rts(qp);
 	}
 
 bad_wr:
