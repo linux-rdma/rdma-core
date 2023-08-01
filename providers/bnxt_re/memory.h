@@ -63,24 +63,6 @@ struct bnxt_re_queue {
 	pthread_spinlock_t qlock;
 };
 
-static inline unsigned long get_aligned(uint32_t size, uint32_t al_size)
-{
-	return (unsigned long)(size + al_size - 1) & ~(al_size - 1);
-}
-
-static inline unsigned long roundup_pow_of_two(unsigned long val)
-{
-	unsigned long roundup = 1;
-
-	if (val == 1)
-		return (roundup << 1);
-
-	while (roundup < val)
-		roundup <<= 1;
-
-	return roundup;
-}
-
 int bnxt_re_alloc_aligned(struct bnxt_re_queue *que, uint32_t pg_size);
 void bnxt_re_free_aligned(struct bnxt_re_queue *que);
 

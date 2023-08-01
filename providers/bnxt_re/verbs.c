@@ -49,6 +49,7 @@
 #include <unistd.h>
 
 #include <util/compiler.h>
+#include <util/util.h>
 
 #include "main.h"
 #include "verbs.h"
@@ -1137,13 +1138,13 @@ static int bnxt_re_get_sq_slots(struct bnxt_re_dev *rdev,
 	hdr_sz = bnxt_re_get_sqe_hdr_sz();
 	stride = sizeof(struct bnxt_re_sge);
 	max_wqesz = bnxt_re_calc_wqe_sz(rdev->devattr.max_sge);
-	ilsize = get_aligned(*ils, hdr_sz);
+	ilsize = align(*ils, hdr_sz);
 
 	wqe_size = bnxt_re_calc_wqe_sz(nsge);
 	if (ilsize) {
 		cal_ils = hdr_sz + ilsize;
 		wqe_size = MAX(cal_ils, wqe_size);
-		wqe_size = get_aligned(wqe_size, hdr_sz);
+		wqe_size = align(wqe_size, hdr_sz);
 	}
 	if (wqe_size > max_wqesz)
 		return -EINVAL;
@@ -1430,7 +1431,7 @@ static inline int bnxt_re_calc_inline_len(struct ibv_send_wr *swr)
 	illen = 0;
 	for (indx = 0; indx < swr->num_sge; indx++)
 		illen += swr->sg_list[indx].length;
-	return get_aligned(illen, sizeof(struct bnxt_re_sge));
+	return align(illen, sizeof(struct bnxt_re_sge));
 }
 
 static int bnxt_re_put_inline(struct bnxt_re_queue *que, uint32_t *idx,
