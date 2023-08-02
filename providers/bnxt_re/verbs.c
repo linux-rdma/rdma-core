@@ -291,6 +291,8 @@ struct ibv_cq *bnxt_re_create_cq(struct ibv_context *ibvctx, int ncqe,
 	cq->phase = resp.phase;
 	cq->cqq.tail = resp.tail;
 	cq->udpi = &cntx->udpi;
+	cq->cntx = cntx;
+	cq->rand.seed = cq->cqid;
 
 	list_head_init(&cq->sfhead);
 	list_head_init(&cq->rfhead);
@@ -1053,7 +1055,6 @@ static int bnxt_re_alloc_queue_ptr(struct bnxt_re_qp *qp,
 		if (!qp->jrqq->hwque)
 			goto fail;
 	}
-
 	return 0;
 fail:
 	bnxt_re_free_queue_ptr(qp);
@@ -1312,6 +1313,7 @@ struct ibv_qp *bnxt_re_create_qp(struct ibv_pd *ibvpd,
 	if (attr->srq)
 		qp->srq = to_bnxt_re_srq(attr->srq);
 	qp->udpi = &cntx->udpi;
+	qp->rand.seed = qp->qpid;
 	/* Save/return the altered Caps. */
 	cap->max_ssge = attr->cap.max_send_sge;
 	cap->max_rsge = attr->cap.max_recv_sge;
@@ -1932,7 +1934,10 @@ struct ibv_srq *bnxt_re_create_srq(struct ibv_pd *ibvpd,
 		goto fail;
 
 	srq->srqid = resp.srqid;
+	srq->cntx = cntx;
 	srq->udpi = &cntx->udpi;
+	srq->rand.seed = srq->srqid;
+
 	srq->cap.max_wr = srq->srqq->depth;
 	srq->cap.max_sge = attr->attr.max_sge;
 	srq->cap.srq_limit = attr->attr.srq_limit;
