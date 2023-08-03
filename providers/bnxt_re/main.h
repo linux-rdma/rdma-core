@@ -47,6 +47,7 @@
 #include <sys/param.h>
 
 #include <util/mmio.h>
+#include <util/util.h>
 #include <infiniband/driver.h>
 #include <util/udma_barrier.h>
 
@@ -61,6 +62,9 @@
 #define CHIP_NUM_57508		0x1750
 #define CHIP_NUM_57504		0x1751
 #define CHIP_NUM_57502		0x1752
+#define BNXT_RE_MAX_DO_PACING	0xFFFF
+#define BNXT_NSEC_PER_SEC	1000000000UL
+#define BNXT_RE_PAGE_MASK(pg_size) (~((__u64)(pg_size) - 1))
 
 struct bnxt_re_chip_ctx {
 	__u16 chip_num;
@@ -84,6 +88,7 @@ struct bnxt_re_pd {
 struct bnxt_re_cq {
 	struct ibv_cq ibvcq;
 	uint32_t cqid;
+	struct bnxt_re_context *cntx;
 	struct bnxt_re_queue cqq;
 	struct bnxt_re_queue resize_cqq;
 	struct bnxt_re_dpi *udpi;
@@ -92,6 +97,7 @@ struct bnxt_re_cq {
 	struct list_head prev_cq_head;
 	uint32_t cqe_size;
 	uint8_t  phase;
+	struct xorshift32_state rand;
 };
 
 struct bnxt_re_push_buffer {
@@ -145,9 +151,11 @@ struct bnxt_re_qpcap {
 struct bnxt_re_srq {
 	struct ibv_srq ibvsrq;
 	struct ibv_srq_attr cap;
+	struct bnxt_re_context *cntx;
 	struct bnxt_re_queue *srqq;
 	struct bnxt_re_wrid *srwrid;
 	struct bnxt_re_dpi *udpi;
+	struct xorshift32_state rand;
 	uint32_t srqid;
 	int start_idx;
 	int last_idx;
@@ -165,6 +173,7 @@ struct bnxt_re_qp {
 	struct ibv_qp ibvqp;
 	struct bnxt_re_chip_ctx *cctx;
 	struct bnxt_re_context *cntx;
+	struct xorshift32_state rand;
 	struct bnxt_re_joint_queue *jsqq;
 	struct bnxt_re_joint_queue *jrqq;
 	struct bnxt_re_srq *srq;
@@ -221,6 +230,18 @@ struct bnxt_re_context {
 	pthread_mutex_t shlock;
 	struct bnxt_re_push_rec *pbrec;
 	uint32_t wc_handle;
+	void *dbr_page;
+	void *bar_map;
+};
+
+struct bnxt_re_pacing_data {
+	uint32_t do_pacing;
+	uint32_t pacing_th;
+	uint32_t alarm_th;
+	uint32_t fifo_max_depth;
+	uint32_t fifo_room_mask;
+	uint32_t fifo_room_shift;
+	uint32_t grc_reg_offset;
 };
 
 struct bnxt_re_mmap_info {
@@ -252,6 +273,11 @@ struct bnxt_re_push_buffer *bnxt_re_get_pbuf(uint8_t *push_st_en,
 					     struct bnxt_re_context *cntx);
 void bnxt_re_put_pbuf(struct bnxt_re_context *cntx,
 		      struct bnxt_re_push_buffer *pbuf);
+int bnxt_re_alloc_page(struct ibv_context *ibvctx,
+		       struct bnxt_re_mmap_info *minfo,
+		       uint32_t *page_handle);
+int bnxt_re_notify_drv(struct ibv_context *ibvctx);
+
 /* pointer conversion functions*/
 static inline struct bnxt_re_dev *to_bnxt_re_dev(struct ibv_device *ibvdev)
 {
@@ -528,6 +554,40 @@ static inline void bnxt_re_copy_data_to_pb(struct bnxt_re_push_buffer *pbuf,
 		dst++;
 		src++;
 		mmio_write64(dst, *src);
+	}
+}
+
+static void timespec_sub(const struct timespec *a, const struct timespec *b,
+			 struct timespec *res)
+{
+	res->tv_sec = a->tv_sec - b->tv_sec;
+	res->tv_nsec = a->tv_nsec - b->tv_nsec;
+	if (res->tv_nsec < 0) {
+		res->tv_sec--;
+		res->tv_nsec += BNXT_NSEC_PER_SEC;
+	}
+}
+
+/*
+ * Function waits in a busy loop for a given nano seconds
+ * The maximum wait period allowed is less than one second
+ */
+static inline void bnxt_re_sub_sec_busy_wait(uint32_t nsec)
+{
+	struct timespec start, cur, res;
+
+	if (nsec >= BNXT_NSEC_PER_SEC)
+		return;
+
+	if (clock_gettime(CLOCK_REALTIME, &start))
+		return;
+
+	while (1) {
+		if (clock_gettime(CLOCK_REALTIME, &cur))
+			return;
+		timespec_sub(&cur, &start, &res);
+		if (res.tv_nsec >= nsec)
+			break;
 	}
 }
 #endif

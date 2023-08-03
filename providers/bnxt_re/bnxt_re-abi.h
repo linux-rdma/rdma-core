@@ -211,6 +211,7 @@ enum bnxt_re_ud_cqe_mask {
 
 enum {
 	BNXT_RE_COMP_MASK_UCNTX_WC_DPI_ENABLED = 0x01,
+	BNXT_RE_COMP_MASK_UCNTX_DBR_PACING_ENABLED = 0x02,
 };
 
 enum bnxt_re_modes {

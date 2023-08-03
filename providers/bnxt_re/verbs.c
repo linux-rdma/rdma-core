@@ -49,6 +49,7 @@
 #include <unistd.h>
 
 #include <util/compiler.h>
+#include <util/util.h>
 
 #include "main.h"
 #include "verbs.h"
@@ -102,9 +103,19 @@ static int bnxt_re_map_db_page(struct ibv_context *ibvctx,
 	return 0;
 }
 
-static int bnxt_re_alloc_page(struct ibv_context *ibvctx,
-			      struct bnxt_re_mmap_info *minfo,
-			      uint32_t *page_handle)
+int bnxt_re_notify_drv(struct ibv_context *ibvctx)
+{
+	DECLARE_COMMAND_BUFFER(cmd,
+			       BNXT_RE_OBJECT_NOTIFY_DRV,
+			       BNXT_RE_METHOD_NOTIFY_DRV,
+			       0);
+
+	return execute_ioctl(ibvctx, cmd);
+}
+
+int bnxt_re_alloc_page(struct ibv_context *ibvctx,
+		       struct bnxt_re_mmap_info *minfo,
+		       uint32_t *page_handle)
 {
 	DECLARE_COMMAND_BUFFER(cmd,
 			       BNXT_RE_OBJECT_ALLOC_PAGE,
@@ -124,7 +135,8 @@ static int bnxt_re_alloc_page(struct ibv_context *ibvctx,
 
 	if (ret)
 		return ret;
-	*page_handle = read_attr_obj(BNXT_RE_ALLOC_PAGE_HANDLE, handle);
+	if (page_handle)
+		*page_handle = read_attr_obj(BNXT_RE_ALLOC_PAGE_HANDLE, handle);
 	return 0;
 }
 
@@ -279,6 +291,8 @@ struct ibv_cq *bnxt_re_create_cq(struct ibv_context *ibvctx, int ncqe,
 	cq->phase = resp.phase;
 	cq->cqq.tail = resp.tail;
 	cq->udpi = &cntx->udpi;
+	cq->cntx = cntx;
+	cq->rand.seed = cq->cqid;
 
 	list_head_init(&cq->sfhead);
 	list_head_init(&cq->rfhead);
@@ -1011,7 +1025,6 @@ static int bnxt_re_alloc_queue_ptr(struct bnxt_re_qp *qp,
 		if (!qp->jrqq->hwque)
 			goto fail;
 	}
-
 	return 0;
 fail:
 	bnxt_re_free_queue_ptr(qp);
@@ -1097,13 +1110,13 @@ static int bnxt_re_get_sq_slots(struct bnxt_re_dev *rdev,
 	hdr_sz = bnxt_re_get_sqe_hdr_sz();
 	stride = sizeof(struct bnxt_re_sge);
 	max_wqesz = bnxt_re_calc_wqe_sz(rdev->devattr.max_sge);
-	ilsize = get_aligned(*ils, hdr_sz);
+	ilsize = align(*ils, hdr_sz);
 
 	wqe_size = bnxt_re_calc_wqe_sz(nsge);
 	if (ilsize) {
 		cal_ils = hdr_sz + ilsize;
 		wqe_size = MAX(cal_ils, wqe_size);
-		wqe_size = get_aligned(wqe_size, hdr_sz);
+		wqe_size = align(wqe_size, hdr_sz);
 	}
 	if (wqe_size > max_wqesz)
 		return -EINVAL;
@@ -1270,6 +1283,7 @@ struct ibv_qp *bnxt_re_create_qp(struct ibv_pd *ibvpd,
 	if (attr->srq)
 		qp->srq = to_bnxt_re_srq(attr->srq);
 	qp->udpi = &cntx->udpi;
+	qp->rand.seed = qp->qpid;
 	/* Save/return the altered Caps. */
 	cap->max_ssge = attr->cap.max_send_sge;
 	cap->max_rsge = attr->cap.max_recv_sge;
@@ -1390,7 +1404,7 @@ static inline int bnxt_re_calc_inline_len(struct ibv_send_wr *swr)
 	illen = 0;
 	for (indx = 0; indx < swr->num_sge; indx++)
 		illen += swr->sg_list[indx].length;
-	return get_aligned(illen, sizeof(struct bnxt_re_sge));
+	return align(illen, sizeof(struct bnxt_re_sge));
 }
 
 static int bnxt_re_put_inline(struct bnxt_re_queue *que, uint32_t *idx,
@@ -1894,7 +1908,10 @@ struct ibv_srq *bnxt_re_create_srq(struct ibv_pd *ibvpd,
 		goto fail;
 
 	srq->srqid = resp.srqid;
+	srq->cntx = cntx;
 	srq->udpi = &cntx->udpi;
+	srq->rand.seed = srq->srqid;
+
 	srq->cap.max_wr = srq->srqq->depth;
 	srq->cap.max_sge = attr->attr.max_sge;
 	srq->cap.srq_limit = attr->attr.srq_limit;
