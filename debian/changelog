@@ -1,3 +1,10 @@
+rdma-core (47.0-1) unstable; urgency=medium
+
+  * New upstream release.
+  * Drop obsolete versioned dependency on lsb-base
+
+ -- Benjamin Drung <bdrung@ubuntu.com>  Mon, 07 Aug 2023 11:26:40 +0200
+
 rdma-core (44.0-2) unstable; urgency=medium
 
   * debian: Add 32-bit MIPS architectures to COHERENT_DMA_ARCHS and
