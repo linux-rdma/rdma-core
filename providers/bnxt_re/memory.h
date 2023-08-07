@@ -44,6 +44,7 @@
 
 struct bnxt_re_queue {
 	void *va;
+	uint32_t *dbtail;
 	uint32_t bytes; /* for munmap */
 	uint32_t depth; /* no. of entries */
 	uint32_t head;
@@ -90,6 +91,11 @@ static inline void *bnxt_re_get_hwqe(struct bnxt_re_queue *que, uint32_t idx)
 	if (idx >= que->depth)
 		idx -= que->depth;
 	return (void *)(que->va + (idx << 4));
+}
+
+static inline void *bnxt_re_get_hwqe_hdr(struct bnxt_re_queue *que)
+{
+	return (void *)(que->va + ((que->tail) << 4));
 }
 
 static inline uint32_t bnxt_re_is_que_full(struct bnxt_re_queue *que,

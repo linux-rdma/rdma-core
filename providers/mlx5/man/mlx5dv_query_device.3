@@ -62,6 +62,8 @@ void		*hca_core_clock; /* points to a memory location that is mapped to the HCA'
 struct mlx5dv_sig_caps sig_caps;
 size_t max_wr_memcpy_length; /* max length that is supported by the DMA memcpy WR */
 struct mlx5dv_crypto_caps crypto_caps;
+uint64_t max_dc_rd_atom; /* Maximum number of outstanding RDMA read/atomic per DC QP as a requester */
+uint64_t max_dc_init_rd_atom; /* Maximum number of outstanding RDMA read/atomic per DC QP as a responder */
 .in -8
 };
 

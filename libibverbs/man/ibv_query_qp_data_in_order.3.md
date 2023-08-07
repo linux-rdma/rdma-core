@@ -41,11 +41,22 @@ This function describes ordering at the receiving side of the QP, not the sendin
 	This function should not be used to determine ordering of other operation types.
 
 *flags*
-:	Extra field for future input. For now must be 0.
+:	Flags are used to select a query type. Supported values:
+
+IBV_QUERY_QP_DATA_IN_ORDER_RETURN_CAPS - Query for supported capabilities and return a capabilities vector.
+
+Passing 0 is equivalent to using IBV_QUERY_QP_DATA_IN_ORDER_RETURN_CAPS and checking for IBV_QUERY_QP_DATA_IN_ORDER_WHOLE_MSG support.
 
 # RETURN VALUE
 
-**ibv_query_qp_data_in_order()** Returns 1 if the data is guaranteed to be written in-order, 0 otherwise.
+**ibv_query_qp_data_in_order()** Return value is determined by flags. For each capability bit, 1 is returned if the data is guaranteed to be written in-order for selected operation and type, 0 otherwise.
+If IBV_QUERY_QP_DATA_IN_ORDER_RETURN_CAPS flag is used, return value can consist of following capabilities:
+
+IBV_QUERY_QP_DATA_IN_ORDER_WHOLE_MSG - All data is being written in order.
+
+IBV_QUERY_QP_DATA_IN_ORDER_ALIGNED_128_BYTES - Each 128 bytes aligned block is being written in order.
+
+If flags is 0, the function will return 1 if IBV_QUERY_QP_DATA_IN_ORDER_WHOLE_MSG is supported and 0 otherwise.
 
 # NOTES
 

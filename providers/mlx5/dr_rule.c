@@ -91,7 +91,8 @@ static struct dr_ste
 
 	/* One and only entry, never grows */
 	ste = new_htbl->ste_arr;
-	dr_ste_set_miss_addr(ste_ctx, hw_ste, nic_matcher->e_anchor->chunk->icm_addr);
+	dr_ste_set_miss_addr(ste_ctx, hw_ste,
+			     dr_icm_pool_get_chunk_icm_addr(nic_matcher->e_anchor->chunk));
 	dr_htbl_get(new_htbl);
 
 	return ste;
@@ -283,7 +284,8 @@ static struct dr_ste *dr_rule_rehash_copy_ste(struct mlx5dv_dr_matcher *matcher,
 	/* Copy STE control, tag and mask on legacy STE */
 	memcpy(hw_ste, cur_ste->hw_ste, cur_ste->size);
 	dr_ste_set_bit_mask(hw_ste, sb);
-	dr_ste_set_miss_addr(ste_ctx, hw_ste, nic_matcher->e_anchor->chunk->icm_addr);
+	dr_ste_set_miss_addr(ste_ctx, hw_ste,
+			     dr_icm_pool_get_chunk_icm_addr(nic_matcher->e_anchor->chunk));
 
 	new_idx = dr_ste_calc_hash_index(hw_ste, new_htbl);
 	new_ste = &new_htbl->ste_arr[new_idx];
@@ -425,7 +427,8 @@ static struct dr_ste_htbl *dr_rule_rehash_htbl_common(struct mlx5dv_dr_matcher *
 
 	/* Write new table to HW */
 	info.type = CONNECT_MISS;
-	info.miss_icm_addr = nic_matcher->e_anchor->chunk->icm_addr;
+	info.miss_icm_addr =
+		dr_icm_pool_get_chunk_icm_addr(nic_matcher->e_anchor->chunk);
 	dr_ste_set_formated_ste(dmn->ste_ctx,
 				dmn->info.caps.gvmi,
 				nic_dmn->type,
@@ -479,7 +482,7 @@ static struct dr_ste_htbl *dr_rule_rehash_htbl_common(struct mlx5dv_dr_matcher *
 		 */
 		dr_ste_set_hit_addr(dmn->ste_ctx,
 				    prev_htbl->ste_arr[0].hw_ste,
-				    new_htbl->chunk->icm_addr,
+				    dr_icm_pool_get_chunk_icm_addr(new_htbl->chunk),
 				    new_htbl->chunk->num_of_entries);
 
 		ste_to_update = &prev_htbl->ste_arr[0];
@@ -999,7 +1002,8 @@ static int dr_rule_handle_empty_entry(struct mlx5dv_dr_matcher *matcher,
 	/* new entry -> new branch */
 	list_add_tail(miss_list, &ste->miss_list_node);
 
-	dr_ste_set_miss_addr(ste_ctx, hw_ste, nic_matcher->e_anchor->chunk->icm_addr);
+	dr_ste_set_miss_addr(ste_ctx, hw_ste,
+			     dr_icm_pool_get_chunk_icm_addr(nic_matcher->e_anchor->chunk));
 
 	ste->ste_chain_location = ste_location;
 

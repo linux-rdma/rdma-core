@@ -188,6 +188,10 @@ enum {
 	OPCODE_MOD_UPDATE_HEADER_MODIFY_ARGUMENT = 0x1,
 };
 
+enum {
+	MLX5_DB_BLUEFLAME_BUFFER_SIZE = 0x100,
+};
+
 struct mlx5_ifc_atomic_caps_bits {
 	u8         reserved_at_0[0x40];
 
@@ -570,7 +574,7 @@ struct mlx5_ifc_dr_match_set_misc_bits {
 	u8         gre_key_l[0x8];
 
 	u8         vxlan_vni[0x18];
-	u8         reserved_at_b8[0x8];
+	u8         bth_opcode[0x8];
 
 	u8         geneve_vni[0x18];
 	u8         reserved_at_e4[0x6];
@@ -1037,7 +1041,9 @@ struct mlx5_ifc_cmd_hca_cap_bits {
 	u8         rc[0x1];
 
 	u8         uar_4k[0x1];
-	u8         reserved_at_241[0x9];
+	u8         reserved_at_241[0x7];
+	u8	   fl_rc_qp_when_roce_disabled[0x1];
+	u8	   reserved_at_249[0x1];
 	u8         uar_sz[0x6];
 	u8         reserved_at_250[0x2];
 	u8         umem_uid_0[0x1];
@@ -1416,7 +1422,12 @@ struct mlx5_ifc_e_switch_cap_bits {
 	u8         reserved_at_0[0x4b];
 	u8         log_max_esw_sf[0x5];
 	u8         esw_sf_base_id[0x10];
-	u8         reserved_at_60[0x7a0];
+
+	u8         esw_manager_vport_number_valid[0x1];
+	u8         reserved_at_61[0xf];
+	u8         esw_manager_vport_number[0x10];
+
+	u8         reserved_at_80[0x780];
 };
 
 enum {
@@ -2666,6 +2677,29 @@ struct mlx5_ifc_ste_icmp_v1_bits {
 	u8         icmp_type[0x8];
 	u8         icmp_code[0x8];
 	u8         reserved_at_50[0x10];
+
+	u8         reserved_at_60[0x20];
+};
+
+struct mlx5_ifc_ste_ib_l4_bits {
+	u8         opcode[0x8];
+	u8         qp[0x18];
+
+	u8         se[0x1];
+	u8         migreg[0x1];
+	u8         ackreq[0x1];
+	u8         fecn[0x1];
+	u8         becn[0x1];
+	u8         bth[0x1];
+	u8         deth[0x1];
+	u8         dcceth[0x1];
+	u8         reserved_at_28[0x2];
+	u8         pad_count[0x2];
+	u8         tver[0x4];
+	u8         pkey[0x10];
+
+	u8         reserved_at_40[0x8];
+	u8         deth_source_qp[0x18];
 
 	u8         reserved_at_60[0x20];
 };

@@ -965,6 +965,12 @@ static int _mlx5dv_query_device(struct ibv_context *ctx_in,
 		comp_mask_out |= MLX5DV_CONTEXT_MASK_CRYPTO_OFFLOAD;
 	}
 
+	if (attrs_out->comp_mask & MLX5DV_CONTEXT_MASK_MAX_DC_RD_ATOM) {
+		attrs_out->max_dc_rd_atom = mctx->max_dc_rd_atom;
+		attrs_out->max_dc_init_rd_atom = mctx->max_dc_init_rd_atom;
+		comp_mask_out |= MLX5DV_CONTEXT_MASK_MAX_DC_RD_ATOM;
+	}
+
 	attrs_out->comp_mask = comp_mask_out;
 
 	return 0;
@@ -2429,6 +2435,7 @@ static int mlx5_set_context(struct mlx5_context *context,
 	context->cmds_supp_uhw = resp->cmds_supp_uhw;
 	context->vendor_cap_flags = 0;
 	list_head_init(&context->dyn_uar_bf_list);
+	list_head_init(&context->dyn_uar_db_list);
 	list_head_init(&context->dyn_uar_qp_shared_list);
 	list_head_init(&context->dyn_uar_qp_dedicated_list);
 

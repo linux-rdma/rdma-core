@@ -136,4 +136,5 @@ rdma_alias_man_pages(
   ibv_wr_post.3 ibv_wr_set_sge_list.3
   ibv_wr_post.3 ibv_wr_set_ud_addr.3
   ibv_wr_post.3 ibv_wr_set_xrc_srqn.3
+  ibv_wr_post.3 ibv_wr_flush.3
   )

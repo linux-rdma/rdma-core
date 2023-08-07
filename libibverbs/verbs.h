@@ -43,7 +43,6 @@
 #include <errno.h>
 #include <string.h>
 #include <linux/types.h>
-#include <stdint.h>
 #include <sys/types.h>
 #include <infiniband/verbs_api.h>
 
@@ -517,6 +516,7 @@ enum ibv_wc_opcode {
 	IBV_WC_BIND_MW,
 	IBV_WC_LOCAL_INV,
 	IBV_WC_TSO,
+	IBV_WC_FLUSH,
 	IBV_WC_ATOMIC_WRITE = 9,
 /*
  * Set value of IBV_WC_RECV so consumers can test if a completion is a
@@ -614,6 +614,8 @@ enum ibv_access_flags {
 	IBV_ACCESS_ZERO_BASED		= (1<<5),
 	IBV_ACCESS_ON_DEMAND		= (1<<6),
 	IBV_ACCESS_HUGETLB		= (1<<7),
+	IBV_ACCESS_FLUSH_GLOBAL		= (1 << 8),
+	IBV_ACCESS_FLUSH_PERSISTENT	= (1 << 9),
 	IBV_ACCESS_RELAXED_ORDERING	= IBV_ACCESS_OPTIONAL_FIRST,
 };
 
@@ -951,6 +953,7 @@ enum ibv_qp_create_send_ops_flags {
 	IBV_QP_EX_WITH_BIND_MW			= 1 << 8,
 	IBV_QP_EX_WITH_SEND_WITH_INV		= 1 << 9,
 	IBV_QP_EX_WITH_TSO			= 1 << 10,
+	IBV_QP_EX_WITH_FLUSH			= 1 << 11,
 	IBV_QP_EX_WITH_ATOMIC_WRITE		= 1 << 12,
 };
 
@@ -1032,6 +1035,15 @@ enum ibv_qp_attr_mask {
 	IBV_QP_RATE_LIMIT		= 1 << 25,
 };
 
+enum ibv_query_qp_data_in_order_flags {
+	IBV_QUERY_QP_DATA_IN_ORDER_RETURN_CAPS = 1 << 0,
+};
+
+enum ibv_query_qp_data_in_order_caps {
+	IBV_QUERY_QP_DATA_IN_ORDER_WHOLE_MSG = 1 << 0,
+	IBV_QUERY_QP_DATA_IN_ORDER_ALIGNED_128_BYTES = 1 << 1,
+};
+
 enum ibv_qp_state {
 	IBV_QPS_RESET,
 	IBV_QPS_INIT,
@@ -1098,6 +1110,7 @@ enum ibv_wr_opcode {
 	IBV_WR_SEND_WITH_INV,
 	IBV_WR_TSO,
 	IBV_WR_DRIVER1,
+	IBV_WR_FLUSH = 14,
 	IBV_WR_ATOMIC_WRITE = 15,
 };
 
@@ -1107,6 +1120,16 @@ enum ibv_send_flags {
 	IBV_SEND_SOLICITED	= 1 << 2,
 	IBV_SEND_INLINE		= 1 << 3,
 	IBV_SEND_IP_CSUM	= 1 << 4
+};
+
+enum ibv_placement_type {
+	IBV_FLUSH_GLOBAL = 1U << 0,
+	IBV_FLUSH_PERSISTENT = 1U << 1,
+};
+
+enum ibv_selectivity_level {
+	IBV_FLUSH_RANGE = 0,
+	IBV_FLUSH_MR,
 };
 
 struct ibv_data_buf {
@@ -1318,6 +1341,9 @@ struct ibv_qp_ex {
 
 	void (*wr_atomic_write)(struct ibv_qp_ex *qp, uint32_t rkey,
 				uint64_t remote_addr, const void *atomic_wr);
+	void (*wr_flush)(struct ibv_qp_ex *qp, uint32_t rkey,
+			 uint64_t remote_addr, size_t len, uint8_t type,
+			 uint8_t level);
 };
 
 struct ibv_qp_ex *ibv_qp_to_qp_ex(struct ibv_qp *qp);
@@ -1358,6 +1384,13 @@ static inline void ibv_wr_rdma_write(struct ibv_qp_ex *qp, uint32_t rkey,
 				     uint64_t remote_addr)
 {
 	qp->wr_rdma_write(qp, rkey, remote_addr);
+}
+
+static inline void ibv_wr_flush(struct ibv_qp_ex *qp, uint32_t rkey,
+				uint64_t remote_addr, size_t len, uint8_t type,
+				uint8_t level)
+{
+	qp->wr_flush(qp, rkey, remote_addr, len, type, level);
 }
 
 static inline void ibv_wr_rdma_write_imm(struct ibv_qp_ex *qp, uint32_t rkey,
@@ -2556,7 +2589,7 @@ __ibv_reg_mr(struct ibv_pd *pd, void *addr, size_t length, unsigned int access,
 #define ibv_reg_mr(pd, addr, length, access)                                   \
 	__ibv_reg_mr(pd, addr, length, access,                                 \
 		     __builtin_constant_p(				       \
-			     ((access) & IBV_ACCESS_OPTIONAL_RANGE) == 0))
+			     ((int)(access) & IBV_ACCESS_OPTIONAL_RANGE) == 0))
 
 /**
  * ibv_reg_mr_iova - Register a memory region with a virtual offset
@@ -3180,11 +3213,15 @@ ibv_modify_qp_rate_limit(struct ibv_qp *qp,
  *   written in-order.
  * @qp: The QP to query.
  * @op: Operation type.
- * @flags: Extra field for future input. For now must be 0.
+ * @flags: Flags are used to select a query type.
+ * For IBV_QUERY_QP_DATA_IN_ORDER_RETURN_CAPS, the function will return a
+ * capabilities vector. If 0, will query for IBV_QUERY_QP_DATA_IN_ORDER_WHOLE_MSG
+ * support and return 0/1 result.
  *
  * Return Value
- * ibv_query_qp_data_in_order() returns 1 if the data is guaranteed to be
- *   written in-order, 0 otherwise.
+ * ibv_query_qp_data_in_order() return value is determined by flags.
+ * For each capability bit, 1 is returned if the data is guaranteed to be
+ * written in-order for selected operation and type, 0 otherwise.
  */
 int ibv_query_qp_data_in_order(struct ibv_qp *qp, enum ibv_wr_opcode op,
 			       uint32_t flags);

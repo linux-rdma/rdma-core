@@ -84,6 +84,7 @@ static const struct verbs_match_ent cna_table[] = {
 	CNA(BROADCOM, 0x1804),	/* BCM57504 NPAR */
 	CNA(BROADCOM, 0x1805),	/* BCM57502 NPAR */
 	CNA(BROADCOM, 0x1807),	/* BCM5750x VF */
+	CNA(BROADCOM, 0x1809),  /* BCM5750x Gen P5 VF HV */
 	CNA(BROADCOM, 0xD800),  /* BCM880xx VF */
 	CNA(BROADCOM, 0xD802),  /* BCM58802 */
 	CNA(BROADCOM, 0xD804),  /* BCM8804 SR */
@@ -100,6 +101,7 @@ static const struct verbs_context_ops bnxt_re_cntx_ops = {
 	.create_cq     = bnxt_re_create_cq,
 	.poll_cq       = bnxt_re_poll_cq,
 	.req_notify_cq = bnxt_re_arm_cq,
+	.resize_cq     = bnxt_re_resize_cq,
 	.destroy_cq    = bnxt_re_destroy_cq,
 	.create_srq    = bnxt_re_create_srq,
 	.modify_srq    = bnxt_re_modify_srq,
@@ -117,7 +119,7 @@ static const struct verbs_context_ops bnxt_re_cntx_ops = {
 	.free_context  = bnxt_re_free_context,
 };
 
-bool bnxt_re_is_chip_gen_p5(struct bnxt_re_chip_ctx *cctx)
+static bool bnxt_re_is_chip_gen_p5(struct bnxt_re_chip_ctx *cctx)
 {
 	return (cctx->chip_num == CHIP_NUM_57508 ||
 		cctx->chip_num == CHIP_NUM_57504 ||
@@ -157,10 +159,13 @@ static struct verbs_context *bnxt_re_alloc_context(struct ibv_device *vdev,
 		cntx->cctx.chip_metal = (resp.chip_id0 >>
 					 BNXT_RE_CHIP_ID0_CHIP_MET_SFT) &
 					 0xFF;
+		cntx->cctx.gen_p5 = bnxt_re_is_chip_gen_p5(&cntx->cctx);
 	}
 
 	if (resp.comp_mask & BNXT_RE_UCNTX_CMASK_HAVE_MODE)
 		cntx->wqe_mode = resp.mode;
+	if (resp.comp_mask & BNXT_RE_UCNTX_CMASK_WC_DPI_ENABLED)
+		cntx->comp_mask |= BNXT_RE_COMP_MASK_UCNTX_WC_DPI_ENABLED;
 
 	pthread_spin_init(&cntx->fqlock, PTHREAD_PROCESS_PRIVATE);
 	/* mmap shared page. */
@@ -200,6 +205,10 @@ static void bnxt_re_free_context(struct ibv_context *ibvctx)
 	/* Un-map DPI only for the first PD that was
 	 * allocated in this context.
 	 */
+	if (cntx->udpi.wcdbpg && cntx->udpi.wcdbpg != MAP_FAILED) {
+		munmap(cntx->udpi.wcdbpg, rdev->pg_size);
+		cntx->udpi.wcdbpg = NULL;
+	}
 	if (cntx->udpi.dbpage && cntx->udpi.dbpage != MAP_FAILED) {
 		munmap(cntx->udpi.dbpage, rdev->pg_size);
 		cntx->udpi.dbpage = NULL;

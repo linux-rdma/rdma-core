@@ -49,6 +49,8 @@ DECLARE_DRV_CMD(ubnxt_re_pd, IB_USER_VERBS_CMD_ALLOC_PD,
 		empty, bnxt_re_pd_resp);
 DECLARE_DRV_CMD(ubnxt_re_cq, IB_USER_VERBS_CMD_CREATE_CQ,
 		bnxt_re_cq_req, bnxt_re_cq_resp);
+DECLARE_DRV_CMD(ubnxt_re_resize_cq, IB_USER_VERBS_CMD_RESIZE_CQ,
+		bnxt_re_resize_cq_req, empty);
 DECLARE_DRV_CMD(ubnxt_re_qp, IB_USER_VERBS_CMD_CREATE_QP,
 		bnxt_re_qp_req, bnxt_re_qp_resp);
 DECLARE_DRV_CMD(ubnxt_re_cntx, IB_USER_VERBS_CMD_GET_CONTEXT,
@@ -90,6 +92,7 @@ enum bnxt_re_wc_type {
 	BNXT_RE_WC_TYPE_COFF		= 0x0F
 };
 
+#define BNXT_RE_WC_OPCD_RECV            0x80
 enum bnxt_re_req_wc_status {
 	BNXT_RE_REQ_ST_OK		= 0x00,
 	BNXT_RE_REQ_ST_BAD_RESP		= 0x01,
@@ -136,14 +139,22 @@ enum bnxt_re_db_que_type {
 	BNXT_RE_QUE_TYPE_CQ_ARMENA	= 0x07,
 	BNXT_RE_QUE_TYPE_SRQ_ARMENA	= 0x08,
 	BNXT_RE_QUE_TYPE_CQ_CUT_ACK	= 0x09,
+	BNXT_RE_PUSH_TYPE_START		= 0x0C,
+	BNXT_RE_PUSH_TYPE_END		= 0x0D,
 	BNXT_RE_QUE_TYPE_NULL		= 0x0F
 };
 
 enum bnxt_re_db_mask {
 	BNXT_RE_DB_INDX_MASK		= 0xFFFFFUL,
+	BNXT_RE_DB_PILO_MASK		= 0x0FFUL,
+	BNXT_RE_DB_PILO_SHIFT		= 0x18,
 	BNXT_RE_DB_QID_MASK		= 0xFFFFFUL,
-	BNXT_RE_DB_TYP_MASK		= 0x0FUL,
-	BNXT_RE_DB_TYP_SHIFT		= 0x1C
+	BNXT_RE_DB_PIHI_MASK            = 0xF00UL,
+	BNXT_RE_DB_PIHI_SHIFT           = 0x0C, /* Because mask is 0xF00 */
+	BNXT_RE_DB_TYP_MASK             = 0x0FUL,
+	BNXT_RE_DB_TYP_SHIFT            = 0x1C,
+	BNXT_RE_DB_VALID_SHIFT          = 0x1A,
+	BNXT_RE_DB_EPOCH_SHIFT          = 0x18
 };
 
 enum bnxt_re_psns_mask {
@@ -179,21 +190,27 @@ enum bnxt_re_rc_flags_mask {
 };
 
 enum bnxt_re_ud_flags_mask {
+	BNXT_RE_UD_FLAGS_SRQ_RQ_SFT     = 0x00,
 	BNXT_RE_UD_FLAGS_SRQ_RQ_MASK	= 0x01,
 	BNXT_RE_UD_FLAGS_IMM_MASK	= 0x02,
-	BNXT_RE_UD_FLAGS_HDR_TYP_MASK	= 0x0C,
-
-	BNXT_RE_UD_FLAGS_SRQ		= 0x01,
-	BNXT_RE_UD_FLAGS_RQ		= 0x00,
-	BNXT_RE_UD_FLAGS_ROCE		= 0x00,
-	BNXT_RE_UD_FLAGS_ROCE_IPV4	= 0x02,
-	BNXT_RE_UD_FLAGS_ROCE_IPV6	= 0x03
+	BNXT_RE_UD_FLAGS_IMM_SFT        = 0x01,
+	BNXT_RE_UD_FLAGS_IP_VER_MASK    = 0x30,
+	BNXT_RE_UD_FLAGS_IP_VER_SFT     = 0x4,
+	BNXT_RE_UD_FLAGS_META_MASK      = 0x3C0,
+	BNXT_RE_UD_FLAGS_META_SFT       = 0x6,
+	BNXT_RE_UD_FLAGS_EXT_META_MASK  = 0xC00,
+	BNXT_RE_UD_FLAGS_EXT_META_SFT   = 0x10,
 };
 
 enum bnxt_re_ud_cqe_mask {
 	BNXT_RE_UD_CQE_MAC_MASK		= 0xFFFFFFFFFFFFULL,
 	BNXT_RE_UD_CQE_SRCQPLO_MASK	= 0xFFFF,
-	BNXT_RE_UD_CQE_SRCQPLO_SHIFT	= 0x30
+	BNXT_RE_UD_CQE_SRCQPLO_SHIFT	= 0x30,
+	BNXT_RE_UD_CQE_LEN_MASK         = 0x3FFFU,
+};
+
+enum {
+	BNXT_RE_COMP_MASK_UCNTX_WC_DPI_ENABLED = 0x01,
 };
 
 enum bnxt_re_modes {
@@ -247,7 +264,10 @@ union lower_shdr {
 
 struct bnxt_re_bsqe {
 	__le32 rsv_ws_fl_wt;
-	__le32 key_immd;
+	union {
+		__be32  imm_data;
+		__le32 key_immd;
+	};
 	union lower_shdr lhdr;
 };
 
@@ -318,5 +338,9 @@ struct bnxt_re_rqe {
 
 struct bnxt_re_srqe {
 	__le64 rsvd[2];
+};
+
+struct bnxt_re_push_wqe {
+	__u64 addr[32];
 };
 #endif

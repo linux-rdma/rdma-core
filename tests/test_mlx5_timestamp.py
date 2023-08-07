@@ -96,20 +96,6 @@ class TimeStampTest(RDMATestCase):
         return {'send_ts': self.send_ts, 'recv_ts': self.recv_ts,
                 'qp_type': self.qp_type}
 
-    def create_players(self, resource, **resource_arg):
-        """
-        Init TimeStamp tests resources.
-        :param resource: The RDMA resources to use.
-        :param resource_arg: Dict of args that specify the resource specific
-        attributes.
-        :return: None
-        """
-        self.client = resource(**self.dev_info, **resource_arg)
-        self.server = resource(**self.dev_info, **resource_arg)
-        if self.qp_type == e.IBV_QPT_RC:
-            self.client.pre_run(self.server.psns, self.server.qps_num)
-            self.server.pre_run(self.client.psns, self.client.qps_num)
-
     def test_timestamp_free_running_rc_traffic(self):
         """
         Test free running timestamp on RC traffic.

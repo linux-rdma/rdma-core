@@ -60,7 +60,6 @@ enum {
 	HNS_ROCE_WQE_OP_ATOMIC_MASK_COMP_AND_SWAP = 0x8,
 	HNS_ROCE_WQE_OP_ATOMIC_MASK_FETCH_AND_ADD = 0x9,
 	HNS_ROCE_WQE_OP_FAST_REG_PMR = 0xa,
-	HNS_ROCE_WQE_OP_LOCAL_INV = 0xb,
 	HNS_ROCE_WQE_OP_BIND_MW_TYPE = 0xc,
 	HNS_ROCE_WQE_OP_MASK = 0x1f
 };
@@ -85,7 +84,6 @@ enum {
 	HNS_ROCE_SQ_OP_ATOMIC_MASK_COMP_AND_SWAP = 0x8,
 	HNS_ROCE_SQ_OP_ATOMIC_MASK_FETCH_AND_ADD = 0x9,
 	HNS_ROCE_SQ_OP_FAST_REG_PMR = 0xa,
-	HNS_ROCE_SQ_OP_LOCAL_INV = 0xb,
 	HNS_ROCE_SQ_OP_BIND_MW = 0xc,
 };
 
@@ -157,7 +155,7 @@ struct hns_roce_v2_cqe {
 	__le32	smac;
 	__le32	byte_28;
 	__le32	byte_32;
-	__le32	rsv[8];
+	__le32	payload[8];
 };
 
 #define CQE_FIELD_LOC(h, l) FIELD_LOC(struct hns_roce_v2_cqe, h, l)
@@ -170,7 +168,7 @@ struct hns_roce_v2_cqe {
 #define CQE_WQE_IDX CQE_FIELD_LOC(31, 16)
 #define CQE_RKEY_IMMTDATA CQE_FIELD_LOC(63, 32)
 #define CQE_XRC_SRQN CQE_FIELD_LOC(87, 64)
-#define CQE_RSV0 CQE_FIELD_LOC(95, 88)
+#define CQE_CQE_INLINE CQE_FIELD_LOC(89, 88)
 #define CQE_LCL_QPN CQE_FIELD_LOC(119, 96)
 #define CQE_SUB_STATUS CQE_FIELD_LOC(127, 120)
 #define CQE_BYTE_CNT CQE_FIELD_LOC(159, 128)

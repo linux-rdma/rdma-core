@@ -1,5 +1,5 @@
 Name: rdma-core
-Version: 44.0
+Version: 47.0
 Release: 1%{?dist}
 Summary: RDMA core userspace libraries and daemons
 
@@ -9,7 +9,7 @@ Summary: RDMA core userspace libraries and daemons
 #  providers/hfi1verbs Uses the 3 Clause BSD license
 License: GPLv2 or BSD
 Url: https://github.com/linux-rdma/rdma-core
-Source: rdma-core-%{version}.tgz
+Source: rdma-core-%{version}.tar.gz
 # Do not build static libs by default.
 %define with_static %{?_with_static: 1} %{?!_with_static: 0}
 

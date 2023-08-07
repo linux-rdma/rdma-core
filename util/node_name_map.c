@@ -95,7 +95,7 @@ void close_node_name_map(nn_map_t * map)
 	free(map);
 }
 
-char *remap_node_name(nn_map_t * map, uint64_t target_guid, char *nodedesc)
+char *remap_node_name(nn_map_t * map, uint64_t target_guid, const char *nodedesc)
 {
 	char *rc = NULL;
 	name_map_item_t *item = NULL;
@@ -108,8 +108,14 @@ char *remap_node_name(nn_map_t * map, uint64_t target_guid, char *nodedesc)
 		rc = strdup(item->name);
 
 done:
-	if (rc == NULL)
-		rc = strdup(clean_nodedesc(nodedesc));
+	if (rc == NULL) {
+		rc = malloc(IB_SMP_DATA_SIZE + 1);
+		if (rc) {
+			strncpy(rc, nodedesc, IB_SMP_DATA_SIZE);
+			rc[IB_SMP_DATA_SIZE] = '\0';
+			clean_nodedesc(rc);
+		}
+	}
 	return (rc);
 }
 

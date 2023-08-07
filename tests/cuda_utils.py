@@ -20,6 +20,9 @@ def requires_cuda(func):
         if not CUDA_FOUND:
             raise unittest.SkipTest(
                 'cuda-python 12.0+ must be installed to run CUDA tests')
+        res = cudart.cudaGetDeviceCount()
+        if res[0].value == cuda.CUresult.CUDA_ERROR_NO_DEVICE or res[1] == 0:
+            raise unittest.SkipTest('No CUDA-capable devices were detected')
         return func(instance)
     return inner
 

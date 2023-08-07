@@ -20,6 +20,11 @@ struct dr_ptrn_mngr {
 	pthread_mutex_t modify_hdr_mutex;
 };
 
+int dr_ptrn_sync_pool(struct dr_ptrn_mngr *ptrn_mngr)
+{
+	return dr_icm_pool_sync_pool(ptrn_mngr->ptrn_icm_pool);
+}
+
 /* Cache structure and functions */
 static bool dr_ptrn_compare_modify_hdr(size_t cur_num_of_actions,
 				       __be64 cur_hw_actions[],
@@ -97,15 +102,31 @@ dr_ptrn_find_cached_pattern(struct dr_ptrn_mngr *mngr,
 
 static struct dr_ptrn_obj *
 dr_ptrn_alloc_pattern(struct dr_ptrn_mngr *mngr,
-		      struct dr_icm_chunk *chunk, uint32_t index,
 		      uint16_t num_of_actions, uint8_t *data)
 {
 	struct dr_ptrn_obj *pattern;
+	struct dr_icm_chunk *chunk;
+	uint32_t chunck_size;
+	uint32_t index;
+
+	chunck_size = ilog32(num_of_actions - 1);
+	/* HW modify action index granularity is at least 64B */
+	chunck_size = max_t(uint32_t, chunck_size, DR_CHUNK_SIZE_8);
+
+	chunk = dr_icm_alloc_chunk(mngr->ptrn_icm_pool, chunck_size);
+	if (!chunk) {
+		errno = ENOMEM;
+		return NULL;
+	}
+
+	index = (dr_icm_pool_get_chunk_icm_addr(chunk) -
+		 mngr->dmn->info.caps.hdr_modify_pattern_icm_addr) /
+		ACTION_CACHE_LINE_SIZE;
 
 	pattern = calloc(1, sizeof(struct dr_ptrn_obj));
 	if (!pattern) {
 		errno = ENOMEM;
-		return NULL;
+		goto free_chunk;
 	}
 
 	pattern->rewrite_param.data = calloc(1, num_of_actions * DR_MODIFY_ACTION_SIZE);
@@ -125,7 +146,18 @@ dr_ptrn_alloc_pattern(struct dr_ptrn_mngr *mngr,
 
 free_pattern:
 	free(pattern);
+free_chunk:
+	dr_icm_free_chunk(chunk);
 	return NULL;
+}
+
+static void
+dr_ptrn_free_pattern(struct dr_ptrn_obj *pattern)
+{
+	list_del(&pattern->list);
+	dr_icm_free_chunk(pattern->rewrite_param.chunk);
+	free(pattern->rewrite_param.data);
+	free(pattern);
 }
 
 struct dr_ptrn_obj *
@@ -135,11 +167,8 @@ dr_ptrn_cache_get_pattern(struct dr_ptrn_mngr *mngr,
 			  uint8_t *data)
 {
 	struct dr_ptrn_obj *pattern;
-	struct dr_icm_chunk *chunk;
 	uint64_t *hw_actions;
-	uint32_t chunck_size;
 	uint8_t action_id;
-	uint32_t index;
 	int i;
 
 	pthread_mutex_lock(&mngr->modify_hdr_mutex);
@@ -148,27 +177,10 @@ dr_ptrn_cache_get_pattern(struct dr_ptrn_mngr *mngr,
 					      num_of_actions,
 					      (__be64 *)data);
 	if (!pattern) {
-		chunck_size = ilog32(num_of_actions - 1);
-		/* HW modify action index granularity is at least 64B */
-		chunck_size = max_t(uint32_t, chunck_size, DR_CHUNK_SIZE_8);
-
-		chunk = dr_icm_alloc_chunk(mngr->ptrn_icm_pool,
-					   chunck_size);
-		if (!chunk)
-			goto out_unlock;
-
-		index = (chunk->icm_addr -
-			mngr->dmn->info.caps.hdr_modify_pattern_icm_addr) /
-			ACTION_CACHE_LINE_SIZE;
-
 		/* Alloc and add new pattern to cache */
-		pattern = dr_ptrn_alloc_pattern(mngr,
-						chunk,
-						index,
-						num_of_actions,
-						data);
+		pattern = dr_ptrn_alloc_pattern(mngr, num_of_actions, data);
 		if (!pattern)
-			goto clean_chunk;
+			goto out_unlock;
 
 		hw_actions = (uint64_t *)pattern->rewrite_param.data;
 		/* Here we mask the pattern data to create a valid pattern
@@ -183,19 +195,19 @@ dr_ptrn_cache_get_pattern(struct dr_ptrn_mngr *mngr,
 				DR_STE_SET(double_action_set_v1, &hw_actions[i], inline_data, 0);
 		}
 
-		if (dr_send_postsend_pattern(mngr->dmn, chunk, num_of_actions,
+		if (dr_send_postsend_pattern(mngr->dmn,
+					     pattern->rewrite_param.chunk,
+					     num_of_actions,
 					     pattern->rewrite_param.data))
-			goto put_pattern;
+			goto free_pattern;
 	}
 	atomic_fetch_add(&pattern->refcount, 1);
 	pthread_mutex_unlock(&mngr->modify_hdr_mutex);
 
 	return pattern;
 
-put_pattern:
-	dr_ptrn_cache_put_pattern(mngr, pattern);
-clean_chunk:
-	dr_icm_free_chunk(chunk);
+free_pattern:
+	dr_ptrn_free_pattern(pattern);
 out_unlock:
 	pthread_mutex_unlock(&mngr->modify_hdr_mutex);
 	return NULL;
@@ -210,10 +222,7 @@ dr_ptrn_cache_put_pattern(struct dr_ptrn_mngr *mngr,
 	if (atomic_fetch_sub(&pattern->refcount, 1) != 1)
 		goto out;
 
-	list_del(&pattern->list);
-	dr_icm_free_chunk(pattern->rewrite_param.chunk);
-	free(pattern->rewrite_param.data);
-	free(pattern);
+	dr_ptrn_free_pattern(pattern);
 out:
 	pthread_mutex_unlock(&mngr->modify_hdr_mutex);
 }

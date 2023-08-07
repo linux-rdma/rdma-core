@@ -175,6 +175,11 @@ static bool dr_mask_is_tnl_geneve_set(struct dr_match_misc *misc)
 	       misc->geneve_opt_len;
 }
 
+static bool dr_mask_is_ib_l4_set(struct dr_match_misc *misc)
+{
+	return misc->bth_opcode || misc->bth_dst_qp;
+}
+
 static int dr_matcher_supp_geneve_tlv_option(struct dr_devx_caps *caps)
 {
 	return caps->flex_protocols & MLX5_FLEX_PARSER_GENEVE_OPT_0_ENABLED;
@@ -993,6 +998,12 @@ static int dr_matcher_set_ste_builders(struct mlx5dv_dr_matcher *matcher,
 						   &mask, false, rx);
 	}
 
+	if (matcher->match_criteria & DR_MATCHER_CRITERIA_MISC) {
+		if (dr_mask_is_ib_l4_set(&mask.misc))
+			dr_ste_build_ib_l4(ste_ctx, &sb[idx++], &mask,
+					   inner, rx);
+	}
+
 	/* Empty matcher, takes all */
 	if ((!idx && allow_empty_match) ||
 	    matcher->match_criteria == DR_MATCHER_CRITERIA_EMPTY)
@@ -1043,7 +1054,8 @@ static int dr_matcher_connect(struct mlx5dv_dr_domain *dmn,
 
 	/* Connect start hash table to end anchor */
 	info.type = CONNECT_MISS;
-	info.miss_icm_addr = curr_nic_matcher->e_anchor->chunk->icm_addr;
+	info.miss_icm_addr =
+		dr_icm_pool_get_chunk_icm_addr(curr_nic_matcher->e_anchor->chunk);
 	ret = dr_ste_htbl_init_and_postsend(dmn, nic_dmn,
 					    curr_nic_matcher->s_htbl,
 					    &info, false, 0);

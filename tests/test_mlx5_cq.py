@@ -123,16 +123,10 @@ class DvCqTest(Mlx5RDMATestCase):
         attributes.
         :return: None
         """
-        self.client = resource(**self.dev_info, **resource_arg)
-        self.server = resource(**self.dev_info, **resource_arg)
-        self.client.pre_run(self.server.psns, self.server.qps_num)
-        self.server.pre_run(self.client.psns, self.client.qps_num)
+        super().create_players(resource, **resource_arg)
         if resource == Mlx5DvCqDcRes:
             self.client.remote_dct_num = self.server.dct_qp.qp_num
             self.server.remote_dct_num = self.client.dct_qp.qp_num
-        self.traffic_args = {'client': self.client, 'server': self.server,
-                             'iters': self.iters, 'gid_idx': self.gid_index,
-                             'port': self.ib_port}
 
     def test_dv_cq_traffic(self):
         """
@@ -241,4 +235,4 @@ class DvCqTest(Mlx5RDMATestCase):
                 self.set_env_variable('MLX5_SCATTER_TO_CQE', s2c_env_val)
                 self.create_players(Mlx5DvCqDcRes, create_flags=qp_s2c_value)
                 u.traffic(**self.traffic_args, new_send=True,
-                          send_op=e.IBV_QP_EX_WITH_SEND, is_cq_ex=True)
+                          send_op=e.IBV_WR_SEND, is_cq_ex=True)

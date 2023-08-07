@@ -52,30 +52,18 @@ class CqExTestCase(RDMATestCase):
     def setUp(self):
         super().setUp()
         self.iters = 100
-        self.qp_dict = {'ud': CqExUD, 'rc': CqExRC, 'xrc': CqExXRC}
-
-    def create_players(self, qp_type):
-        client = self.qp_dict[qp_type](self.dev_name, self.ib_port,
-                                       self.gid_index)
-        server = self.qp_dict[qp_type](self.dev_name, self.ib_port,
-                                       self.gid_index)
-        client.pre_run(server.psns, server.qps_num)
-        server.pre_run(client.psns, client.qps_num)
-        return client, server
 
     def test_ud_traffic_cq_ex(self):
-        client, server = self.create_players('ud')
-        u.traffic(client, server, self.iters, self.gid_index, self.ib_port,
-                  is_cq_ex=True)
+        self.create_players(CqExUD)
+        u.traffic(**self.traffic_args, is_cq_ex=True)
 
     def test_rc_traffic_cq_ex(self):
-        client, server = self.create_players('rc')
-        u.traffic(client, server, self.iters, self.gid_index, self.ib_port,
-                  is_cq_ex=True)
+        self.create_players(CqExRC)
+        u.traffic(**self.traffic_args, is_cq_ex=True)
 
     def test_xrc_traffic_cq_ex(self):
-        client, server = self.create_players('xrc')
-        u.xrc_traffic(client, server, is_cq_ex=True)
+        self.create_players(CqExXRC)
+        u.xrc_traffic(self.client, self.server, is_cq_ex=True)
 
 
 class CQEXAPITest(PyverbsAPITestCase):

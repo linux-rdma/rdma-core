@@ -86,6 +86,7 @@ enum mlx5dv_context_comp_mask {
 	MLX5DV_CONTEXT_MASK_DCI_STREAMS		= 1 << 11,
 	MLX5DV_CONTEXT_MASK_WR_MEMCPY_LENGTH	= 1 << 12,
 	MLX5DV_CONTEXT_MASK_CRYPTO_OFFLOAD	= 1 << 13,
+	MLX5DV_CONTEXT_MASK_MAX_DC_RD_ATOM	= 1 << 14,
 };
 
 struct mlx5dv_cqe_comp_caps {
@@ -232,6 +233,8 @@ struct mlx5dv_context {
 	struct mlx5dv_dci_streams_caps dci_streams_caps;
 	size_t max_wr_memcpy_length;
 	struct mlx5dv_crypto_caps crypto_caps;
+	uint64_t max_dc_rd_atom;
+	uint64_t max_dc_init_rd_atom;
 };
 
 enum mlx5dv_context_flags {

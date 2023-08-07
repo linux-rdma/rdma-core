@@ -1,6 +1,6 @@
 /* SPDX-License-Identifier: GPL-2.0 OR BSD-2-Clause */
 /*
- * Copyright 2019-2021 Amazon.com, Inc. or its affiliates. All rights reserved.
+ * Copyright 2019-2023 Amazon.com, Inc. or its affiliates. All rights reserved.
  */
 
 #ifndef __EFA_VERBS_H__
@@ -40,6 +40,8 @@ int efa_modify_qp(struct ibv_qp *ibvqp, struct ibv_qp_attr *attr,
 		  int ibv_qp_attr_mask);
 int efa_query_qp(struct ibv_qp *ibvqp, struct ibv_qp_attr *attr, int attr_mask,
 		 struct ibv_qp_init_attr *init_attr);
+int efa_query_qp_data_in_order(struct ibv_qp *ibvqp, enum ibv_wr_opcode op,
+			       uint32_t flags);
 int efa_destroy_qp(struct ibv_qp *ibvqp);
 int efa_post_send(struct ibv_qp *ibvqp, struct ibv_send_wr *wr,
 		  struct ibv_send_wr **bad);

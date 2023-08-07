@@ -37,6 +37,7 @@
  */
 
 #include <util/mmio.h>
+#include <stdlib.h>
 #include "main.h"
 
 static void bnxt_re_ring_db(struct bnxt_re_dpi *dpi,
@@ -64,7 +65,7 @@ void bnxt_re_ring_rq_db(struct bnxt_re_qp *qp)
 	struct bnxt_re_db_hdr hdr;
 	uint32_t tail;
 
-	tail = qp->jrqq->hwque->tail / qp->jrqq->hwque->max_slots;
+	tail = *qp->jrqq->hwque->dbtail;
 	bnxt_re_init_db_hdr(&hdr, tail, qp->qpid, BNXT_RE_QUE_TYPE_RQ);
 	bnxt_re_ring_db(qp->udpi, &hdr);
 }
@@ -74,7 +75,7 @@ void bnxt_re_ring_sq_db(struct bnxt_re_qp *qp)
 	struct bnxt_re_db_hdr hdr;
 	uint32_t tail;
 
-	tail = qp->jsqq->hwque->tail / qp->jsqq->hwque->max_slots;
+	tail = *qp->jsqq->hwque->dbtail;
 	bnxt_re_init_db_hdr(&hdr, tail, qp->qpid, BNXT_RE_QUE_TYPE_SQ);
 	bnxt_re_ring_db(qp->udpi, &hdr);
 }
@@ -111,4 +112,139 @@ void bnxt_re_ring_cq_arm_db(struct bnxt_re_cq *cq, uint8_t aflag)
 
 	bnxt_re_init_db_hdr(&hdr, cq->cqq.head, cq->cqid, aflag);
 	bnxt_re_ring_db(cq->udpi, &hdr);
+}
+
+void bnxt_re_ring_pstart_db(struct bnxt_re_qp *qp,
+			    struct bnxt_re_push_buffer *pbuf)
+{
+	uint64_t key;
+
+	key = ((((pbuf->wcdpi & BNXT_RE_DB_PIHI_MASK) <<
+		  BNXT_RE_DB_PIHI_SHIFT) | (pbuf->qpid & BNXT_RE_DB_QID_MASK)) |
+	       ((BNXT_RE_PUSH_TYPE_START & BNXT_RE_DB_TYP_MASK) <<
+		 BNXT_RE_DB_TYP_SHIFT) | (0x1UL << BNXT_RE_DB_VALID_SHIFT));
+	key <<= 32;
+	key |= ((((__u32)pbuf->wcdpi & BNXT_RE_DB_PILO_MASK) <<
+		  BNXT_RE_DB_PILO_SHIFT) | (pbuf->st_idx &
+					    BNXT_RE_DB_INDX_MASK));
+	udma_to_device_barrier();
+	mmio_write64((uintptr_t *)pbuf->ucdb, key);
+}
+
+void bnxt_re_ring_pend_db(struct bnxt_re_qp *qp,
+			  struct bnxt_re_push_buffer *pbuf)
+{
+	uint64_t key;
+
+	key = ((((pbuf->wcdpi & BNXT_RE_DB_PIHI_MASK) <<
+		  BNXT_RE_DB_PIHI_SHIFT) | (pbuf->qpid & BNXT_RE_DB_QID_MASK)) |
+	       ((BNXT_RE_PUSH_TYPE_END & BNXT_RE_DB_TYP_MASK) <<
+		 BNXT_RE_DB_TYP_SHIFT) | (0x1UL << BNXT_RE_DB_VALID_SHIFT));
+	key <<= 32;
+	key |= ((((__u32)pbuf->wcdpi & BNXT_RE_DB_PILO_MASK) <<
+		  BNXT_RE_DB_PILO_SHIFT) | (pbuf->tail &
+					    BNXT_RE_DB_INDX_MASK));
+	udma_to_device_barrier();
+	mmio_write64((uintptr_t *)pbuf->ucdb, key);
+}
+
+void bnxt_re_fill_push_wcb(struct bnxt_re_qp *qp,
+			   struct bnxt_re_push_buffer *pbuf, uint32_t idx)
+{
+	bnxt_re_ring_pstart_db(qp, pbuf);
+	mmio_wc_start();
+	bnxt_re_copy_data_to_pb(pbuf, 0, idx);
+	/* Flush WQE write before push end db. */
+	mmio_flush_writes();
+	bnxt_re_ring_pend_db(qp, pbuf);
+}
+
+int bnxt_re_init_pbuf_list(struct bnxt_re_context *ucntx)
+{
+	struct bnxt_re_push_buffer *pbuf;
+	int indx, wqesz;
+	int size, offt;
+	uint64_t wcpage;
+	uint64_t dbpage;
+	void *base;
+
+	size = (sizeof(*ucntx->pbrec) +
+		16 * (sizeof(*ucntx->pbrec->pbuf) +
+		      sizeof(struct bnxt_re_push_wqe)));
+	ucntx->pbrec = calloc(1, size);
+	if (!ucntx->pbrec)
+		goto out;
+
+	offt = sizeof(*ucntx->pbrec);
+	base = ucntx->pbrec;
+	ucntx->pbrec->pbuf = (base + offt);
+	ucntx->pbrec->pbmap = ~0x00;
+	ucntx->pbrec->pbmap &= ~0x7fff; /* 15 bits */
+	ucntx->pbrec->udpi = &ucntx->udpi;
+
+	wqesz = sizeof(struct bnxt_re_push_wqe);
+	wcpage = (uintptr_t)(ucntx->udpi.wcdbpg);
+	dbpage = (uintptr_t)(ucntx->udpi.dbpage);
+	offt = sizeof(*ucntx->pbrec->pbuf) * 16;
+	base = (char *)ucntx->pbrec->pbuf + offt;
+	for (indx = 0; indx < 16; indx++) {
+		pbuf = &ucntx->pbrec->pbuf[indx];
+		pbuf->wqe = base + indx * wqesz;
+		pbuf->pbuf = (uintptr_t)(wcpage + indx * wqesz);
+		pbuf->ucdb = (uintptr_t)(dbpage + (indx + 1) * sizeof(uint64_t));
+		pbuf->wcdpi = ucntx->udpi.wcdpi;
+	}
+
+	return 0;
+out:
+	return -ENOMEM;
+}
+
+struct bnxt_re_push_buffer *bnxt_re_get_pbuf(uint8_t *push_st_en,
+					     struct bnxt_re_context *cntx)
+{
+	struct bnxt_re_push_buffer *pbuf = NULL;
+	__u32 old;
+	int bit;
+
+	old = cntx->pbrec->pbmap;
+	while ((bit = __builtin_ffs(~cntx->pbrec->pbmap)) != 0) {
+		if (__sync_bool_compare_and_swap
+				(&cntx->pbrec->pbmap,
+				 old,
+				 (old | 0x01 << (bit - 1))))
+			break;
+		old = cntx->pbrec->pbmap;
+	}
+
+	if (bit) {
+		pbuf = &cntx->pbrec->pbuf[bit];
+		pbuf->nbit = bit;
+	}
+	return pbuf;
+}
+
+void bnxt_re_put_pbuf(struct bnxt_re_context *cntx,
+		      struct bnxt_re_push_buffer *pbuf)
+{
+	struct bnxt_re_push_rec *pbrec;
+	__u32 old;
+	int bit;
+
+	pbrec = cntx->pbrec;
+
+	if (pbuf->nbit) {
+		bit = pbuf->nbit;
+		pbuf->nbit = 0;
+		old = pbrec->pbmap;
+		while (!__sync_bool_compare_and_swap(&pbrec->pbmap, old,
+						     (old & (~(0x01 <<
+							       (bit - 1))))))
+			old = pbrec->pbmap;
+	}
+}
+
+void bnxt_re_destroy_pbuf_list(struct bnxt_re_context *cntx)
+{
+	free(cntx->pbrec);
 }

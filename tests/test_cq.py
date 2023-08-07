@@ -12,7 +12,9 @@ from tests.base import PyverbsAPITestCase, RDMATestCase, UDResources
 from pyverbs.pyverbs_error import PyverbsRDMAError
 from pyverbs.base import PyverbsRDMAErrno
 from pyverbs.cq import CompChannel, CQ
+import tests.irdma_base as irdma
 from pyverbs.qp import QPCap
+import pyverbs.device as d
 import tests.utils as u
 
 
@@ -89,15 +91,6 @@ class CQTest(RDMATestCase):
         self.server = None
         self.client = None
 
-    def create_players(self, resource, **resource_arg):
-        self.client = resource(**self.dev_info, **resource_arg)
-        self.server = resource(**self.dev_info, **resource_arg)
-        self.client.pre_run(self.server.psns, self.server.qps_num)
-        self.server.pre_run(self.client.psns, self.client.qps_num)
-        self.traffic_args = {'client': self.client, 'server': self.server,
-                             'iters': self.iters, 'gid_idx': self.gid_index,
-                             'port': self.ib_port}
-
     def test_resize_cq(self):
         """
         Test resize CQ, start with specific value and then increase and decrease
@@ -124,6 +117,7 @@ class CQTest(RDMATestCase):
                         f'The actual CQ size ({self.client.cq.cqe}) is less '
                         'than guaranteed ({new_cq_size})')
 
+        irdma.skip_if_irdma_dev(d.Context(name=self.dev_name))
         # Fill the CQ entries except one for avoid cq_overrun warnings.
         send_wr, _ = u.get_send_elements(self.client, False)
         ah_client = u.get_global_ah(self.client, self.gid_index, self.ib_port)

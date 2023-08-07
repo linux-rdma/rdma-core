@@ -46,6 +46,12 @@ class DevxOps:
     MLX5_CMD_OP_CREATE_MKEY = 0x200
 
 
+class ActionType:
+    SET_ACTION = 0x1
+    ADD_ACTION = 0x2
+    COPY_ACTION = 0x3
+
+
 # Common
 class SwPas(Packet):
     fields_desc = [
@@ -256,7 +262,8 @@ class SwQpc(Packet):
         BitField('ulp_stateless_offload_mode', 0, 4),
         ByteField('counter_set_id', 0),
         BitField('uar_page', 0, 24),
-        BitField('reserved7', 0, 3),
+        BitField('send_dbr_mode', 0, 2),
+        BitField('reserved7', 0, 1),
         BitField('full_handshake', 0, 1),
         BitField('cnak_reverse_sl', 0, 4),
         BitField('user_index', 0, 24),
@@ -752,6 +759,21 @@ class QueryHcaVportGidOut(Packet):
         ShortField('reserved3', 0),
         PacketField('gid0', IbGidCmd(), IbGidCmd),
     ]
+
+
+class QueryHcaCapOp:
+    HCA_CAP_2 = 0X20
+
+
+class QueryHcaCapMod:
+    MAX = 0x0
+    CURRENT = 0x1
+
+
+class SendDbrMode:
+    DBR_VALID = 0x0
+    NO_DBR_EXT = 0x1
+    NO_DBR_INT = 0x2
 
 
 # Query HCA CAP
@@ -1304,7 +1326,7 @@ class FlowTableEntryMatchSetMisc(Packet):
         BitField('gre_key_h', 0, 24),
         ByteField('gre_key_l', 0),
         BitField('vxlan_vni', 0, 24),
-        ByteField('reserved3', 0),
+        ByteField('bth_opcode', 0),
         BitField('geneve_vni', 0, 24),
         BitField('reserved4', 0, 7),
         BitField('geneve_oam', 0, 1),
@@ -1482,13 +1504,29 @@ class FlowTableEntryMatchParam(Packet):
 
 class SetActionIn(Packet):
     fields_desc = [
-        BitField('action_type', 0, 4),
+        BitField('action_type', ActionType.SET_ACTION, 4),
         BitField('field', 0, 12),
         BitField('reserved1', 0, 3),
         BitField('offset', 0, 5),
         BitField('reserved2', 0, 3),
         BitField('length', 0, 5),
         IntField('data', 0),
+    ]
+
+
+class CopyActionIn(Packet):
+    fields_desc = [
+        BitField('action_type', ActionType.COPY_ACTION, 4),
+        BitField('src_field', 0, 12),
+        BitField('reserved1', 0, 3),
+        BitField('src_offset', 0, 5),
+        BitField('reserved2', 0, 3),
+        BitField('length', 0, 5),
+        BitField('reserved3', 0, 4),
+        BitField('dst_field', 0, 12),
+        BitField('reserved4', 0, 3),
+        BitField('dst_offest', 0, 5),
+        ByteField('reserved5', 0),
     ]
 
 
@@ -1718,4 +1756,124 @@ class CreateMkeyOut(Packet):
         ByteField('reserved2', 0),
         BitField('mkey_index', 0, 24),
         StrFixedLenField('reserved3', None, length=4),
+    ]
+
+
+class MigrationTagVersion0(Packet):
+    fields_desc = [
+        ShortField('reserved1', 0),
+        ShortField('device_id', 0),
+        ShortField('fw_version_minor', 0),
+        ShortField('icm_version', 0),
+        StrFixedLenField('reserved2', None, length=4),
+        IntField('crc', 0),
+    ]
+
+
+class CmdHcaCap2(Packet):
+    fields_desc = [
+        StrFixedLenField('reserved1', None, length=16),
+        BitField('migratable', 0, 1),
+        BitField('force_multi_prio_sq', 0, 1),
+        BitField('cq_with_emulated_dev_eq', 0, 1),
+        BitField('max_num_prog_sample_field', 0, 5),
+        BitField('multi_path_force', 0, 1),
+        BitField('fw_cpu_monitoring', 0, 1),
+        BitField('enh_eth_striding_wq', 0, 1),
+        BitField('log_max_num_reserved_qpn', 0, 5),
+        BitField('reserved2', 0, 1),
+        BitField('introspection_mkey_access_allowed', 0, 1),
+        BitField('query_vuid', 0, 1),
+        BitField('log_reserved_qpn_granularity', 0, 5),
+        BitField('reserved3', 0, 3),
+        BitField('log_reserved_qpn_max_alloc', 0, 5),
+        ByteField('max_reformat_insert_size', 0),
+        ByteField('max_reformat_insert_offset', 0),
+        ByteField('max_reformat_remove_size', 0),
+        ByteField('max_reformat_remove_offset', 0),
+        BitField('multi_sl_qp', 0, 1),
+        BitField('non_tunnel_reformat', 0, 1),
+        BitField('reserved4', 0, 2),
+        BitField('log_min_stride_wqe_sz', 0, 4),
+        BitField('migration_multi_load', 0, 1),
+        BitField('migration_tracking_state', 0, 1),
+        BitField('reserved5', 0, 1),
+        BitField('log_conn_track_granularity', 0, 5),
+        BitField('reserved6', 0, 3),
+        BitField('log_conn_track_max_alloc', 0, 5),
+        BitField('reserved7', 0, 3),
+        BitField('log_max_conn_track_offload', 0, 5),
+        IntField('cross_vhca_object_to_object_supported', 0),
+        LongField('allowed_object_for_other_vhca_access', 0),
+        IntField('introspection_mkey', 0),
+        BitField('ec_mmo_qp', 0, 1),
+        BitField('sync_driver_version', 0, 1),
+        BitField('driver_version_change_event', 0, 1),
+        BitField('hairpin_sq_wqe_bb_size', 0, 5),
+        BitField('hairpin_sq_wq_in_host_mem', 0, 1),
+        BitField('hairpin_data_buffer_locked', 0, 1),
+        BitField('reserved8', 0, 1),
+        BitField('log_ec_mmo_max_size', 0, 5),
+        BitField('reserved9', 0, 3),
+        BitField('log_ec_mmo_max_src', 0, 5),
+        BitField('reserved10', 0, 3),
+        BitField('log_ec_mmo_max_dst', 0, 5),
+        IntField('sync_driver_actions', 0),
+        ByteField('flow_table_type_2_type', 0),
+        BitField('reserved11', 0, 2),
+        BitField('format_select_dw_8_6_ext', 0, 1),
+        BitField('reserved12', 0, 1),
+        BitField('log_min_mkey_entity_size', 0, 4),
+        ShortField('execute_aso_type', 0),
+        LongField('general_obj_types_127_64', 0),
+        IntField('repeated_mkey_v2', 0),
+        BitField('reserved_gid_index_valid', 0, 1),
+        BitField('sw_vhca_id_valid', 0, 1),
+        BitField('sw_vhca_id', 0, 14),
+        ShortField('reserved_gid_index', 0),
+        BitField('reserved13', 0, 3),
+        BitField('log_max_channel_service_connection', 0, 5),
+        BitField('reserved14', 0, 3),
+        BitField('ts_cqe_metadata_size2wqe_counter', 0, 5),
+        BitField('reserved15', 0, 3),
+        BitField('flow_counter_bulk_log_max_alloc', 0, 5),
+        BitField('reserved16', 0, 3),
+        BitField('flow_counter_bulk_log_granularity', 0, 5),
+        ByteField('format_select_dw_mpls_over_x_cw', 0),
+        ByteField('format_select_dw_geneve_tlv_option_0', 0),
+        ByteField('format_select_dw_outer_first_mpls_over_gre', 0),
+        ByteField('format_select_dw_outer_first_mpls_over_udp', 0),
+        ByteField('format_select_dw_gtpu_dw_0', 0),
+        ByteField('format_select_dw_gtpu_dw_1', 0),
+        ByteField('format_select_dw_gtpu_dw_2', 0),
+        ByteField('format_select_dw_gtpu_first_ext_dw_0', 0),
+        IntField('generate_wqe_type', 0),
+        ShortField('max_enh_strwq_supported_profile', 0),
+        BitField('reserved17', 0, 3),
+        BitField('log_max_total_hairpin_data_buffer_locked_size', 0, 5),
+        BitField('reserved18', 0, 3),
+        BitField('log_max_rq_hairpin_data_buffer_locked_size', 0, 5),
+        BitField('send_dbr_mode_no_dbr_int', 0, 1),
+        BitField('send_dbr_mode_no_dbr_ext', 0, 1),
+        BitField('reserved19', 0, 1),
+        BitField('log_max_send_dbr_less_qp_sq', 0, 5),
+        BitField('reserved20', 0, 3),
+        BitField('enh_strwq_max_log_page_size', 0, 5),
+        ByteField('enh_strwq_max_headroom', 0),
+        ByteField('enh_strwq_max_tailroom', 0),
+        PacketField('migration_tag_version_0', MigrationTagVersion0(), MigrationTagVersion0),
+        BitField('reserved21', 0, 3),
+        BitField('log_max_hairpin_wqe_num', 0, 5),
+        BitField('reserved22', 0, 24),
+        StrFixedLenField('reserved23', None, length=140),
+    ]
+
+
+class QueryCmdHcaCap2Out(Packet):
+    fields_desc = [
+        ByteField('status', 0),
+        BitField('reserved1', 0, 24),
+        IntField('syndrome', 0),
+        StrFixedLenField('reserved2', None, length=8),
+        PadField(PacketField('capability', CmdHcaCap2(), CmdHcaCap2), 2048, padwith=b"\x00"),
     ]

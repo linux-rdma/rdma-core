@@ -620,6 +620,10 @@ void dr_ste_build_tunnel_header(struct dr_ste_ctx *ste_ctx,
 				struct dr_match_param *mask,
 				struct dr_devx_caps *caps,
 				bool inner, bool rx);
+void dr_ste_build_ib_l4(struct dr_ste_ctx *ste_ctx,
+			struct dr_ste_build *sb,
+			struct dr_match_param *mask,
+			bool inner, bool rx);
 int dr_ste_build_def0(struct dr_ste_ctx *ste_ctx,
 		      struct dr_ste_build *sb,
 		      struct dr_match_param *mask,
@@ -742,7 +746,7 @@ struct dr_match_misc {
 	uint32_t gre_key_h:24;			/* GRE Key[31:8] (outer) */
 	uint32_t gre_key_l:8;			/* GRE Key [7:0] (outer) */
 	uint32_t vxlan_vni:24;			/* VXLAN VNI (outer) */
-	uint32_t reserved_at_b8:8;
+	uint32_t bth_opcode:8;			/* Opcode field from BTH header */
 	uint32_t geneve_vni:24;			/* GENEVE VNI field (outer) */
 	uint32_t reserved_at_e4:6;
 	uint32_t geneve_tlv_option_0_exist:1;
@@ -1032,7 +1036,6 @@ struct dr_domain_rx_tx {
 
 struct dr_domain_info {
 	bool			supp_sw_steering;
-	uint32_t		max_inline_size;
 	uint32_t		max_log_sw_icm_sz;
 	uint32_t		max_log_action_icm_sz;
 	uint32_t		max_log_modify_hdr_pattern_icm_sz;
@@ -1392,14 +1395,9 @@ int dr_rule_send_update_list(struct list_head *send_ste_list,
 struct dr_icm_chunk {
 	struct dr_icm_buddy_mem *buddy_mem;
 	struct list_node	chunk_list;
-	uint32_t		rkey;
 	uint32_t		num_of_entries;
 	uint32_t		byte_size;
-	uint64_t		icm_addr;
-	uint64_t		mr_addr;
-	/* indicates the index of this chunk in the whole memory,
-	 * used for deleting the chunk from the buddy
-	 */
+	/* segment indicates the index of this chunk in its buddy's memory */
 	uint32_t		seg;
 
 	/* Memory optimisation */
@@ -1584,6 +1582,10 @@ struct dr_icm_pool *dr_icm_pool_create(struct mlx5dv_dr_domain *dmn,
 void dr_icm_pool_destroy(struct dr_icm_pool *pool);
 int dr_icm_pool_sync_pool(struct dr_icm_pool *pool);
 
+uint64_t dr_icm_pool_get_chunk_icm_addr(struct dr_icm_chunk *chunk);
+uint64_t dr_icm_pool_get_chunk_mr_addr(struct dr_icm_chunk *chunk);
+uint32_t dr_icm_pool_get_chunk_rkey(struct dr_icm_chunk *chunk);
+
 struct dr_icm_chunk *dr_icm_alloc_chunk(struct dr_icm_pool *pool,
 					enum dr_icm_chunk_size chunk_size);
 void dr_icm_free_chunk(struct dr_icm_chunk *chunk);
@@ -1733,6 +1735,8 @@ dr_ptrn_cache_get_pattern(struct dr_ptrn_mngr *mngr,
 			  uint8_t *data);
 void dr_ptrn_cache_put_pattern(struct dr_ptrn_mngr *mngr,
 			       struct dr_ptrn_obj *pattern);
+int dr_ptrn_sync_pool(struct dr_ptrn_mngr *ptrn_mngr);
+
 struct dr_arg_mngr*
 dr_arg_mngr_create(struct mlx5dv_dr_domain *dmn);
 void dr_arg_mngr_destroy(struct dr_arg_mngr *mngr);

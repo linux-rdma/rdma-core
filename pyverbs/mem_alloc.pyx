@@ -5,14 +5,17 @@
 
 from posix.stdlib cimport posix_memalign as c_posix_memalign
 from libc.stdlib cimport malloc as c_malloc, free as c_free
-from posix.mman cimport mmap as c_mmap, munmap as c_munmap
+from posix.mman cimport mmap as c_mmap, munmap as c_munmap, madvise as c_madvise
+
 from libc.stdint cimport uintptr_t, uint32_t, uint64_t
+from pyverbs.base import PyverbsRDMAErrno
 from libc.string cimport memcpy
 from libc.string cimport memset
 cimport posix.mman as mm
 
 cdef extern from 'sys/mman.h':
     cdef void* MAP_FAILED
+    cdef int MADV_DONTNEED
 
 cdef extern from 'endian.h':
     unsigned long htobe32(unsigned long host_32bits)
@@ -37,6 +40,18 @@ def mmap(addr=0, length=100, prot=mm.PROT_READ | mm.PROT_WRITE,
     if <void *>ptr == MAP_FAILED:
         raise MemoryError('Failed to mmap memory')
     return <uintptr_t> ptr
+
+
+def madvise(addr, length, flags=MADV_DONTNEED):
+    """
+    Python wrapper for sys madvise function
+    :param addr: Address of the memory to be advised about
+    :param length: The length of the requested memory in bytes
+    :param flags: Specify speicific flags to this memory
+    """
+    rc = c_madvise(<void*><uintptr_t>addr, length, flags)
+    if rc:
+        raise PyverbsRDMAErrno('Failed to madvise memory')
 
 
 def munmap(addr, length):
