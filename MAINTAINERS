@@ -72,8 +72,7 @@ S:	Supported
 F:	providers/hfi1verbs/
 
 HNS USERSPACE PROVIDER (for hns-roce.ko)
-M:	Lijun Ou <oulijun@huawei.com>
-M:	Wei Hu(Xavier) <xavier.huwei@huawei.com>
+M:	Junxian Huang <huangjunxian6@hisilicon.com>
 S:	Supported
 F:	providers/hns/
 
