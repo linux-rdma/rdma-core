@@ -27,11 +27,7 @@ Homepage: https://github.com/linux-rdma/rdma-core
 
 Package: rdma-core
 Architecture: linux-any
-Depends: lsb-base (>= 3.2-14~),
-         udev,
-         ${misc:Depends},
-         ${perl:Depends},
-         ${shlibs:Depends}
+Depends: udev, ${misc:Depends}, ${perl:Depends}, ${shlibs:Depends}
 Pre-Depends: ${misc:Pre-Depends}
 Recommends: dmidecode, ethtool, iproute2
 Breaks: infiniband-diags (<< 2.0.0)
@@ -51,10 +47,7 @@ Description: RDMA core userspace infrastructure and documentation
 
 Package: ibacm
 Architecture: linux-any
-Depends: lsb-base (>= 3.2-14~),
-         rdma-core (>= 15),
-         ${misc:Depends},
-         ${shlibs:Depends}
+Depends: rdma-core (>= 15), ${misc:Depends}, ${shlibs:Depends}
 Description: InfiniBand Communication Manager Assistant (ACM)
  The IB ACM implements and provides a framework for name, address, and
  route (path) resolution services over InfiniBand.
@@ -317,11 +310,7 @@ Description: Examples for the librdmacm library
 
 Package: srptools
 Architecture: linux-any
-Depends: lsb-base (>= 3.2-14~),
-         rdma-core (>= 15),
-         udev,
-         ${misc:Depends},
-         ${shlibs:Depends}
+Depends: rdma-core (>= 15), udev, ${misc:Depends}, ${shlibs:Depends}
 Pre-Depends: ${misc:Pre-Depends}
 Description: Tools for Infiniband attached storage (SRP)
  In conjunction with the kernel ib_srp driver, srptools allows you to
