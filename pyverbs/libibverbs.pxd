@@ -187,6 +187,7 @@ cdef extern from 'infiniband/verbs.h':
         unsigned char           link_layer
         unsigned char           flags
         unsigned short          port_cap_flags2
+        unsigned int            active_speed_ex
 
     cdef struct ibv_comp_channel:
         ibv_context     *context
