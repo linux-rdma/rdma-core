@@ -734,6 +734,7 @@ struct mlx5_rwq {
 	void	*pbuff;
 	__be32	*recv_db;
 	int wq_sig;
+	bool is_mprq;
 };
 
 struct mlx5_counter_node {

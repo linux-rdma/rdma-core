@@ -4173,6 +4173,7 @@ static struct ibv_wq *create_wq(struct ibv_context *context,
 	int ret;
 	int32_t				usr_idx = 0;
 	FILE *fp = ctx->dbg_fp;
+	bool is_mprq = false;
 
 	if (attr->wq_type != IBV_WQT_RQ)
 		return NULL;
@@ -4251,6 +4252,8 @@ static struct ibv_wq *create_wq(struct ibv_context *context,
 			cmd.two_byte_shift_en =
 				mlx5wq_attr->striding_rq_attrs.two_byte_shift_en;
 			cmd.comp_mask |= MLX5_IB_CREATE_WQ_STRIDING_RQ;
+
+			is_mprq = true;
 		}
 	}
 
@@ -4261,8 +4264,9 @@ static struct ibv_wq *create_wq(struct ibv_context *context,
 
 	rwq->rsc.type = MLX5_RSC_TYPE_RWQ;
 	rwq->rsc.rsn =  cmd.user_index;
-
 	rwq->wq.post_recv = mlx5_post_wq_recv;
+	rwq->is_mprq = is_mprq;
+
 	return &rwq->wq;
 
 err_create:

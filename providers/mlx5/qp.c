@@ -71,6 +71,10 @@ static void *get_wq_recv_wqe(struct mlx5_rwq *rwq, int n)
 	return rwq->pbuff  + (n << rwq->rq.wqe_shift);
 }
 
+static void *get_wq_mprq_recv_wqe(struct mlx5_rwq *rwq, int n) {
+	struct mlx5_mprq_wqe* wqe = rwq->pbuff;
+	return &(wqe[n].dseg);
+}
 static int copy_to_scat(struct mlx5_wqe_data_seg *scat, void *buf, int *size,
 			 int max, struct mlx5_context *ctx)
 {
@@ -3771,8 +3775,10 @@ int mlx5_post_wq_recv(struct ibv_wq *ibwq, struct ibv_recv_wr *wr,
 			*bad_wr = wr;
 			goto out;
 		}
-
-		scat = get_wq_recv_wqe(rwq, ind);
+		if (rwq->is_mprq)
+			scat = get_wq_mprq_recv_wqe(rwq, ind);
+		else 
+			scat = get_wq_recv_wqe(rwq, ind);
 		sig = (struct mlx5_rwqe_sig *)scat;
 		if (unlikely(rwq->wq_sig)) {
 			memset(sig, 0, 1 << rwq->rq.wqe_shift);
