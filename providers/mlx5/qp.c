@@ -72,8 +72,8 @@ static void *get_wq_recv_wqe(struct mlx5_rwq *rwq, int n)
 }
 
 static void *get_wq_mprq_recv_wqe(struct mlx5_rwq *rwq, int n) {
-	struct mlx5_mprq_wqe* wqe = rwq->pbuff;
-	return &(wqe[n].dseg);
+	return rwq->pbuff + (n << rwq->rq.wqe_shift) 
+		+ sizeof(struct mlx5_wqe_srq_next_seg);
 }
 static int copy_to_scat(struct mlx5_wqe_data_seg *scat, void *buf, int *size,
 			 int max, struct mlx5_context *ctx)
