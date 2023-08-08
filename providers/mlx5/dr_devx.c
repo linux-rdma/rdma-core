@@ -514,10 +514,27 @@ int dr_devx_query_flow_table(struct mlx5dv_devx_obj *obj, uint32_t type,
 		return mlx5_get_cmd_status_err(ret, out);
 	}
 
-	*tx_icm_addr = DEVX_GET64(query_flow_table_out, out,
-				  flow_table_context.sw_owner_icm_root_1);
-	*rx_icm_addr = DEVX_GET64(query_flow_table_out, out,
-				  flow_table_context.sw_owner_icm_root_0);
+	switch (type) {
+	case FS_FT_NIC_TX:
+		*tx_icm_addr = DEVX_GET64(query_flow_table_out, out,
+					  flow_table_context.sw_owner_icm_root_0);
+		*rx_icm_addr = 0;
+		break;
+	case FS_FT_NIC_RX:
+		*rx_icm_addr = DEVX_GET64(query_flow_table_out, out,
+					  flow_table_context.sw_owner_icm_root_0);
+		*tx_icm_addr = 0;
+		break;
+	case FS_FT_FDB:
+		*rx_icm_addr = DEVX_GET64(query_flow_table_out, out,
+					  flow_table_context.sw_owner_icm_root_0);
+		*tx_icm_addr = DEVX_GET64(query_flow_table_out, out,
+					  flow_table_context.sw_owner_icm_root_1);
+		break;
+	default:
+		errno = EINVAL;
+		return errno;
+	}
 
 	return 0;
 }
