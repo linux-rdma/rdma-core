@@ -986,7 +986,6 @@ class Mlx5DrTest(Mlx5RDMATestCase):
         """
         self.roce_bth_match(domain_flag=dve.MLX5DV_DR_DOMAIN_TYPE_NIC_TX)
 
-    @requires_reformat_support
     @skip_unsupported
     def test_packet_reformat_l2_gre(self):
         """
@@ -1009,7 +1008,6 @@ class Mlx5DrTest(Mlx5RDMATestCase):
         encap_header = self.gen_gre_tunnel_encap_header(self.client.msg_size, is_l2_tunnel=True)
         self.packet_reformat_actions(outer=encap_header, root_only=True)
 
-    @requires_reformat_support
     @skip_unsupported
     def test_packet_reformat_l3_gre(self):
         """
@@ -1032,7 +1030,6 @@ class Mlx5DrTest(Mlx5RDMATestCase):
         encap_header = self.gen_gre_tunnel_encap_header(self.client.msg_size, is_l2_tunnel=False)
         self.packet_reformat_actions(outer=encap_header, root_only=True, l2_ref_type=False)
 
-    @requires_reformat_support
     @skip_unsupported
     def test_packet_reformat_l2_geneve(self):
         """
@@ -1055,7 +1052,6 @@ class Mlx5DrTest(Mlx5RDMATestCase):
         encap_header = self.gen_geneve_tunnel_encap_header(self.client.msg_size, is_l2_tunnel=True)
         self.packet_reformat_actions(outer=encap_header, root_only=True)
 
-    @requires_reformat_support
     @skip_unsupported
     def test_packet_reformat_l3_geneve(self):
         """
