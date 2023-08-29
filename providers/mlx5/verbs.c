@@ -1416,6 +1416,7 @@ err_db:
 err_free:
 	free(srq->wrid);
 	mlx5_free_actual_buf(ctx, &srq->buf);
+	free(srq->free_wqe_bitmap);
 
 err:
 	free(srq);
@@ -1467,6 +1468,7 @@ int mlx5_destroy_srq(struct ibv_srq *srq)
 	free(msrq->tm_list);
 	free(msrq->wrid);
 	free(msrq->op);
+	free(msrq->free_wqe_bitmap);
 	free(msrq);
 
 	return 0;
@@ -3707,6 +3709,7 @@ err_free_db:
 err_free:
 	free(msrq->wrid);
 	mlx5_free_actual_buf(ctx, &msrq->buf);
+	free(msrq->free_wqe_bitmap);
 
 err:
 	free(msrq);
