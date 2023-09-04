@@ -29,7 +29,7 @@ function(RDMA_BuildType)
   # with the -DNDEBUG removed
   foreach (language CXX C)
     set(VAR_TO_MODIFY "CMAKE_${language}_FLAGS_RELWITHDEBINFO")
-    if (${${VAR_TO_MODIFY}} STREQUAL ${${VAR_TO_MODIFY}_INIT})
+    if ("${${VAR_TO_MODIFY}}" STREQUAL "${${VAR_TO_MODIFY}_INIT}")
 	string(REGEX REPLACE "(^| )[/-]D *NDEBUG($| )"
 	  " "
 	  replacement
