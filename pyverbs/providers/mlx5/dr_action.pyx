@@ -9,7 +9,8 @@ import pyverbs.providers.mlx5.mlx5_enums as dve
 from pyverbs.pyverbs_error import PyverbsError
 from pyverbs.base cimport close_weakrefs
 from libc.stdlib cimport calloc, free
-from libc.stdint cimport uint32_t
+from libc.stdint cimport uint32_t, uint8_t
+from libc.string cimport memcpy
 import weakref
 import struct
 import errno
@@ -455,7 +456,7 @@ cdef class DrActionFlowSample(DrAction):
         super().__init__()
         self.action = dv.mlx5dv_dr_action_create_flow_sampler(attr.attr)
         if self.action == NULL:
-            raise PyverbsRDMAErrno('DrActionTag creation failed.')
+            raise PyverbsRDMAErrno('DrActionFlowSample creation failed.')
         self.attr = attr
         self.dr_table = self.attr.table
         self.attr.table.add_ref(self)
@@ -473,3 +474,86 @@ cdef class DrActionFlowSample(DrAction):
             self.dr_actions = None
             self.attr = None
             self.action = NULL
+
+
+cdef class DrFlowMeterAttr(PyverbsCM):
+    def __init__(self, DrTable next_table, active=1, reg_c_index=0, flow_meter_parameter=None):
+        """
+        Create DrFlowMeterAttr.
+        :param next_table: Destination Table to which packet would be redirected
+                           after passing through the Meter.
+        :param active: When set, the Monitor is considered connected to at least
+                       one Flow and should be monitored.
+        :param reg_c_index: Index of Register C, where the packet color will be
+                            set after passing through the Meter. Valid values
+                            are according to QUERY_HCA_CAP.flow_meter_reg_id.
+                            The result will be set in the 8 LSB of the register.
+        :param flow_meter_parameter: PRM data that defines the meter behavior:
+                                     rates, colors, etc.
+        """
+        cdef bytes py_bytes = bytes(flow_meter_parameter)
+        self.attr = <dv.mlx5dv_dr_flow_meter_attr *>calloc(1, sizeof(dv.mlx5dv_dr_flow_meter_attr))
+        if self.attr == NULL:
+            raise MemoryError('Failed to allocate memory.')
+        self.attr.next_table = next_table.table
+        self.attr.active = <uint8_t>active
+        self.attr.reg_c_index = <uint8_t>reg_c_index
+        param_size = len(py_bytes)
+        self.attr.flow_meter_parameter_sz = param_size
+        self.attr.flow_meter_parameter = calloc(1, param_size)
+        if self.attr.flow_meter_parameter == NULL:
+            free(self.attr)
+            raise MemoryError('Failed to allocate memory.')
+        memcpy(<void *> self.attr.flow_meter_parameter, <char *>py_bytes, param_size)
+        self.table = next_table
+
+    def __dealloc__(self):
+        self.close()
+
+    cpdef close(self):
+        if self.attr != NULL:
+            if self.attr.flow_meter_parameter != NULL:
+                free(self.attr.flow_meter_parameter)
+            self.attr.flow_meter_parameter = NULL
+            self.table = None
+            free(self.attr)
+            self.attr = NULL
+
+
+cdef class DrActionFlowMeter(DrAction):
+    def __init__(self, DrFlowMeterAttr attr):
+        """
+        Create DR Flow Meter action.
+        :param attr: DrFlowMeterAttr attr
+        """
+        super().__init__()
+        self.action = dv.mlx5dv_dr_action_create_flow_meter(attr.attr)
+        if self.action == NULL:
+            raise PyverbsRDMAErrno('DrActionFlowMeter creation failed.')
+        self.attr = attr
+        self.dr_table = self.attr.table
+        self.attr.table.add_ref(self)
+
+    def __dealloc__(self):
+        self.close()
+
+    cpdef close(self):
+        if self.action != NULL:
+            super(DrActionFlowMeter, self).close()
+            self.dr_table = None
+            self.attr = None
+
+    def modify(self, DrFlowMeterAttr attr, modify_field_select):
+        """
+        Modify flow meter action by selected field.
+        :param attr: DrFlowMeterAttr attr
+        :param modify_field_select: which fields to modify:
+        Bit 0: Active
+        Bit 1: CBS - affects cbs_exponent and cbs_mantissa
+        Bit 2: CIR - affects cir_exponent and cir_mantissa
+        Bit 3: EBS - affects ebs_exponent and ebs_mantissa
+        Bit 4: EIR - affects eir_exponent and eir_mantissa
+        """
+        ret = dv.mlx5dv_dr_action_modify_flow_meter(self.action, attr.attr, modify_field_select)
+        if ret:
+            raise PyverbsRDMAErrno('Modify DrActionFlowMeter failed.')

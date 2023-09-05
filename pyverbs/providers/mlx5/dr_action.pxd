@@ -76,3 +76,11 @@ cdef class DrActionFlowSample(DrAction):
     cdef DrFlowSamplerAttr attr
     cdef object dr_actions
     cdef object dr_table
+
+cdef class DrFlowMeterAttr(PyverbsCM):
+    cdef dv.mlx5dv_dr_flow_meter_attr *attr
+    cdef DrTable table
+
+cdef class DrActionFlowMeter(DrAction):
+    cdef DrFlowMeterAttr attr
+    cdef DrTable dr_table
