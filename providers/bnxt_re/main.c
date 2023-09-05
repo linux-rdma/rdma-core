@@ -97,6 +97,7 @@ static const struct verbs_context_ops bnxt_re_cntx_ops = {
 	.alloc_pd      = bnxt_re_alloc_pd,
 	.dealloc_pd    = bnxt_re_free_pd,
 	.reg_mr        = bnxt_re_reg_mr,
+	.reg_dmabuf_mr = bnxt_re_reg_dmabuf_mr,
 	.dereg_mr      = bnxt_re_dereg_mr,
 	.create_cq     = bnxt_re_create_cq,
 	.poll_cq       = bnxt_re_poll_cq,
