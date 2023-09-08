@@ -34,14 +34,16 @@ with tempfile.TemporaryDirectory() as dfn:
         os.path.join(os.getcwd(), "buildlib/const_structs.checkpatch"),
         os.path.join(dfn, "const_structs.checkpatch"))
     checkpatch = [
-        "perl", ckp, "--no-tree", "--ignore",
+        "perl", ckp, "--no-tree", "--show-types", "--ignore",
         "PREFER_KERNEL_TYPES,FILE_PATH_CHANGES,EXECUTE_PERMISSIONS,USE_NEGATIVE_ERRNO,CONST_STRUCT",
         "--emacs", "--mailback", "--quiet", "--no-summary"
     ]
 
     environ = copy.copy(os.environ)
     environ["GIT_DIR"] = subprocess.check_output(["git","rev-parse","--absolute-git-dir"]).decode().strip()
-    failed = False
+
+    warnings = False
+    errors = False
     for fn in patches:
         proc = subprocess.run(
             checkpatch + [os.path.basename(fn)],
@@ -55,9 +57,9 @@ with tempfile.TemporaryDirectory() as dfn:
             continue
         sys.stdout.write(proc.stdout)
 
-        failed = True
+        warnings = True
         for g in re.finditer(
-                r"^\d+-.*:\d+: (\S+): (.*)(?:\n#(\d+): (?:FILE: (.*):(\d+):)?)?$",
+                r"^\d+-.*:\d+: (\S+):(\S+): (.*)(?:\n#(\d+): (?:FILE: (.*):(\d+):)?)?$",
                 proc.stdout,
                 flags=re.MULTILINE):
             itms = {}
@@ -65,12 +67,24 @@ with tempfile.TemporaryDirectory() as dfn:
                 itms["type"] = "warning"
             else:
                 itms["type"] = "error"
+
+            itms["code"]=g.group(2)
+
             if g.group(4):
-                itms["sourcepath"] = g.group(4)
-                itms["linenumber"] = g.group(5)
+                itms["sourcepath"] = g.group(5)
+                itms["linenumber"] = g.group(6)
+
+            # Bump some warnings to errors
+            if itms["code"] == "UNKNOWN_COMMIT_ID":
+                itms["type"] = "error"
+
+            if itms["type"] == "error":
+                errors = True
             print("##vso[task.logissue %s]%s" % (";".join(
                 "%s=%s" % (k, v)
-                for k, v in sorted(itms.items())), g.group(2)))
+                for k, v in sorted(itms.items())), g.group(3)))
 
-if failed:
-    print("##vso[task.complete result=SucceededWithIssues]]azp-checkpatch")
+if errors:
+    print("##vso[task.complete result=Failed]azp-checkpatch")
+elif warnings:
+    print("##vso[task.complete result=SucceededWithIssues]azp-checkpatch")
