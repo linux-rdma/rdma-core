@@ -1035,10 +1035,9 @@ static int bnxt_re_alloc_queue_ptr(struct bnxt_re_qp *qp,
 
 	if (!attr->srq) {
 		qp->jrqq = calloc(1, sizeof(struct bnxt_re_joint_queue));
-		if (!qp->jrqq) {
-			free(qp->jsqq);
+		if (!qp->jrqq)
 			goto fail;
-		}
+
 		qp->jrqq->hwque = calloc(1, sizeof(struct bnxt_re_queue));
 		if (!qp->jrqq->hwque)
 			goto fail;
