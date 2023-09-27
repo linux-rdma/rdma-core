@@ -27,3 +27,5 @@ libibnetdisc.so.5 libibnetdisc5 #MINVER#
  ibnd_dump_agg_linkspeedext@IBNETDISC_1.1 1.6.1
  ibnd_dump_agg_linkspeedexten@IBNETDISC_1.1 1.6.1
  ibnd_dump_agg_linkspeedextsup@IBNETDISC_1.1 1.6.1
+ ibnd_ext_umad_get_cas@IBNETDISC_1.2 1.6.1
+ ibnd_ext_umad_get_ca_by_name@IBNETDISC_1.2 1.6.1
