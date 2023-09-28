@@ -996,6 +996,41 @@ ibnd_port_t *ibnd_find_port_dr(ibnd_fabric_t * fabric, char *dr_str)
 	return rc;
 }
 
+int ibnd_convert_portid_to_dr(ibnd_fabric_t *fabric, ib_portid_t *portid, enum MAD_DEST dest_type)
+{
+	ibnd_port_t *found_port = NULL;
+	ib_portid_t new_portid;
+
+	if (dest_type == IB_DEST_DRPATH || dest_type == IB_DEST_DRSLID)
+		return 0;
+	// copy portid, reset all destination fields
+	memcpy(&new_portid, portid, sizeof(ib_portid_t));
+	new_portid.lid = 0;
+	memset(&new_portid.drpath, 0, sizeof(ib_dr_path_t));
+	if (!fabric)
+		return -1;
+
+	switch (dest_type) {
+	case IB_DEST_LID:
+	case IB_DEST_GID:
+	case IB_DEST_GUID:
+		found_port = ibnd_find_port_lid(fabric, portid->lid);
+		if (!found_port || !found_port->node)
+			return -1;
+		memcpy(&new_portid.drpath, &found_port->node->path_portid.drpath,
+					sizeof(ib_dr_path_t));
+		break;
+	case IB_DEST_DRPATH:
+	case IB_DEST_DRSLID:
+		return 0;
+	default:
+		return -1;
+	}
+
+	memcpy(portid, &new_portid, sizeof(ib_portid_t));
+	return 0;
+}
+
 void ibnd_iter_ports(ibnd_fabric_t * fabric, ibnd_iter_port_func_t func,
 			void *user_data)
 {
