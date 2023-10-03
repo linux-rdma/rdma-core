@@ -418,6 +418,7 @@ enum ibv_port_cap_flags2 {
 	IBV_PORT_LINK_WIDTH_2X_SUP		= 1 << 4,
 	IBV_PORT_LINK_SPEED_HDR_SUP		= 1 << 5,
 	IBV_PORT_LINK_SPEED_NDR_SUP		= 1 << 10,
+	IBV_PORT_LINK_SPEED_XDR_SUP		= 1 << 12,
 };
 
 struct ibv_port_attr {
@@ -443,6 +444,7 @@ struct ibv_port_attr {
 	uint8_t			link_layer;
 	uint8_t			flags;
 	uint16_t		port_cap_flags2;
+	uint32_t		active_speed_ex;
 };
 
 enum ibv_event_type {

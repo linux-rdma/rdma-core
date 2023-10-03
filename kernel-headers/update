@@ -151,7 +151,7 @@ def make_commit(args,ntree,kernel_desc):
 
     # And now create the commit
     msg="Update kernel headers\n\n";
-    p = textwrap.fill("To commit %s."%(kernel_desc.decode()),
+    p = textwrap.fill("To commit: %s."%(kernel_desc.decode()),
                       width=74)
     msg = msg + p;
     msg = msg + "\n\nSigned-off-by: %s\n"%(emaila);
