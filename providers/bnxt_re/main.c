@@ -171,9 +171,9 @@ static struct verbs_context *bnxt_re_alloc_context(struct ibv_device *vdev,
 						   void *private_data)
 {
 	struct bnxt_re_dev *rdev = to_bnxt_re_dev(vdev);
-	struct ubnxt_re_cntx_resp resp;
+	struct ubnxt_re_cntx_resp resp = {};
+	struct ubnxt_re_cntx req = {};
 	struct bnxt_re_context *cntx;
-	struct ibv_get_context cmd;
 	int ret;
 
 	cntx = verbs_init_and_alloc_context(vdev, cmd_fd, cntx, ibvctx,
@@ -181,8 +181,8 @@ static struct verbs_context *bnxt_re_alloc_context(struct ibv_device *vdev,
 	if (!cntx)
 		return NULL;
 
-	memset(&resp, 0, sizeof(resp));
-	if (ibv_cmd_get_context(&cntx->ibvctx, &cmd, sizeof(cmd),
+	req.comp_mask |= BNXT_RE_COMP_MASK_REQ_UCNTX_POW2_SUPPORT;
+	if (ibv_cmd_get_context(&cntx->ibvctx, &req.ibv_cmd, sizeof(req),
 				&resp.ibv_resp, sizeof(resp)))
 		goto failed;
 
@@ -207,6 +207,8 @@ static struct verbs_context *bnxt_re_alloc_context(struct ibv_device *vdev,
 		cntx->comp_mask |= BNXT_RE_COMP_MASK_UCNTX_WC_DPI_ENABLED;
 	if (resp.comp_mask & BNXT_RE_UCNTX_CMASK_DBR_PACING_ENABLED)
 		cntx->comp_mask |= BNXT_RE_COMP_MASK_UCNTX_DBR_PACING_ENABLED;
+	if (resp.comp_mask & BNXT_RE_UCNTX_CMASK_POW2_DISABLED)
+		cntx->comp_mask |= BNXT_RE_COMP_MASK_UCNTX_POW2_DISABLED;
 
 	/* mmap shared page. */
 	cntx->shpg = mmap(NULL, rdev->pg_size, PROT_READ | PROT_WRITE,
