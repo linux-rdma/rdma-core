@@ -913,6 +913,9 @@ cdef class PortAttr(PyverbsObject):
     @property
     def port_cap_flags2(self):
         return self.attr.port_cap_flags2
+    @property
+    def active_speed_ex(self):
+        return self.attr.active_speed_ex
 
     def __str__(self):
         print_format = '{:<24}: {:<20}\n'
@@ -935,7 +938,7 @@ cdef class PortAttr(PyverbsObject):
             print_format.format('Subnet timeout', self.attr.subnet_timeout) +\
             print_format.format('Init type reply', self.attr.init_type_reply) +\
             print_format.format('Active width', width_to_str(self.attr.active_width)) +\
-            print_format.format('Active speed', speed_to_str(self.attr.active_speed)) +\
+            print_format.format('Active speed', speed_to_str(self.attr.active_speed, self.attr.active_speed_ex)) +\
             print_format.format('Phys state', phys_state_to_str(self.attr.phys_state)) +\
             print_format.format('Flags', self.attr.flags)
 
@@ -1167,12 +1170,13 @@ def width_to_str(width):
         return 'Invalid width'
 
 
-def speed_to_str(speed):
+def speed_to_str(active_speed, active_speed_ex):
+    real_speed = active_speed if not active_speed_ex else active_speed_ex
     l = {0: '0.0 Gbps', 1: '2.5 Gbps', 2: '5.0 Gbps', 4: '5.0 Gbps',
          8: '10.0 Gbps', 16: '14.0 Gbps', 32: '25.0 Gbps', 64: '50.0 Gbps',
-         128: '100.0 Gbps'}
+         128: '100.0 Gbps', 256: '200.0 Gbps'}
     try:
-        return '{s} ({n})'.format(s=l[speed], n=speed)
+        return '{s} ({n})'.format(s=l[real_speed], n=real_speed)
     except KeyError:
         return 'Invalid speed'
 
