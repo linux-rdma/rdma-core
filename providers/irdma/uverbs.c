@@ -173,6 +173,27 @@ struct ibv_mr *irdma_ureg_mr_dmabuf(struct ibv_pd *pd, uint64_t offset,
 	return &umr->vmr.ibv_mr;
 }
 
+/*
+ * irdma_urereg_mr - re-register memory region
+ * @vmr: mr that was allocated
+ * @flags: bit mask to indicate which of the attr's of MR modified
+ * @pd: pd of the mr
+ * @addr: user address of the memory region
+ * @length: length of the memory
+ * @access: access allowed on this mr
+ */
+int irdma_urereg_mr(struct verbs_mr *vmr, int flags, struct ibv_pd *pd,
+		    void *addr, size_t length, int access)
+{
+	struct irdma_urereg_mr cmd = {};
+	struct ib_uverbs_rereg_mr_resp resp;
+
+	cmd.reg_type = IRDMA_MEMREG_TYPE_MEM;
+	return ibv_cmd_rereg_mr(vmr, flags, addr, length, (uintptr_t)addr,
+				access, pd, &cmd.ibv_cmd, sizeof(cmd), &resp,
+				sizeof(resp));
+}
+
 /**
  * irdma_udereg_mr - re-register memory region
  * @vmr: mr that was allocated
