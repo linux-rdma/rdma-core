@@ -1715,11 +1715,15 @@ static void fill_wqe_idx(struct hns_roce_srq *srq, unsigned int wqe_idx)
 	idx_que->head++;
 }
 
-static void update_srq_db(struct hns_roce_db *db, struct hns_roce_srq *srq)
+static void update_srq_db(struct hns_roce_context *ctx, struct hns_roce_db *db,
+			  struct hns_roce_srq *srq)
 {
 	hr_reg_write(db, DB_TAG, srq->srqn);
 	hr_reg_write(db, DB_CMD, HNS_ROCE_V2_SRQ_DB);
 	hr_reg_write(db, DB_PI, srq->idx_que.head);
+
+	hns_roce_write64(ctx->uar + ROCEE_VF_DB_CFG0_OFFSET,
+			 (__le32 *)db);
 }
 
 static int hns_roce_u_v2_post_srq_recv(struct ibv_srq *ib_srq,
@@ -1766,10 +1770,10 @@ static int hns_roce_u_v2_post_srq_recv(struct ibv_srq *ib_srq,
 		 */
 		udma_to_device_barrier();
 
-		update_srq_db(&srq_db, srq);
-
-		hns_roce_write64(ctx->uar + ROCEE_VF_DB_CFG0_OFFSET,
-				 (__le32 *)&srq_db);
+		if (srq->cap_flags & HNS_ROCE_RSP_SRQ_CAP_RECORD_DB)
+			*srq->rdb = srq->idx_que.head & 0xffff;
+		else
+			update_srq_db(ctx, &srq_db, srq);
 	}
 
 	pthread_spin_unlock(&srq->lock);

@@ -172,6 +172,7 @@ struct hns_roce_buf {
 enum hns_roce_db_type {
 	HNS_ROCE_QP_TYPE_DB,
 	HNS_ROCE_CQ_TYPE_DB,
+	HNS_ROCE_SRQ_TYPE_DB,
 	HNS_ROCE_DB_TYPE_NUM
 };
 
@@ -274,7 +275,8 @@ struct hns_roce_srq {
 	unsigned int			max_gs;
 	unsigned int			rsv_sge;
 	unsigned int			wqe_shift;
-	unsigned int			*db;
+	unsigned int			*rdb;
+	unsigned int			cap_flags;
 	unsigned short			counter;
 };
 
