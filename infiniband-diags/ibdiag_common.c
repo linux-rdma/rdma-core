@@ -781,6 +781,7 @@ void get_max_msg(char *width_msg, char *speed_msg, int msg_size, ibnd_port_t * p
 {
 	char buf[64];
 	uint32_t max_speed = 0;
+	uint32_t espeed = 0, e2speed = 0;
 	uint32_t cap_mask, rem_cap_mask, fdr10;
 	uint8_t *info = NULL;
 
@@ -844,22 +845,21 @@ check_fdr10_supp:
 	return;
 
 check_ext_speed:
-	if (mad_get_field(port->info, 0,
-			  IB_PORT_LINK_SPEED_EXT_SUPPORTED_F) == 0 ||
-	    mad_get_field(port->remoteport->info, 0,
-			  IB_PORT_LINK_SPEED_EXT_SUPPORTED_F) == 0)
+	espeed = ibnd_get_agg_linkspeedextsup(port->info, port->info);
+	e2speed = ibnd_get_agg_linkspeedextsup(port->remoteport->info,
+			port->remoteport->info);
+
+	if (!espeed || !e2speed)
 		goto check_fdr10_supp;
-	max_speed = get_max(mad_get_field(port->info, 0,
-					  IB_PORT_LINK_SPEED_EXT_SUPPORTED_F)
-			    & mad_get_field(port->remoteport->info, 0,
-					    IB_PORT_LINK_SPEED_EXT_SUPPORTED_F));
-	if ((max_speed & mad_get_field(port->info, 0,
-				       IB_PORT_LINK_SPEED_EXT_ACTIVE_F)) == 0)
+
+	max_speed = get_max(espeed & e2speed);
+	espeed = ibnd_get_agg_linkspeedext(port->info, port->info);
+
+	if ((max_speed & espeed) == 0)
 		// we are not at the max supported extended speed
 		// print what we could be at.
 		snprintf(speed_msg, msg_size, "Could be %s",
-			 mad_dump_val(IB_PORT_LINK_SPEED_EXT_ACTIVE_F,
-				      buf, 64, &max_speed));
+				ibnd_dump_agg_linkspeedext(buf, 64, max_speed));
 	return;
 
 check_fdr10_active:
@@ -931,6 +931,16 @@ void dump_portinfo(void *pi, int tabs)
 	for (field = IB_PORT_CAPMASK2_F;
 	     field < IB_PORT_LINK_SPEED_EXT_LAST_F; field++) {
 		for (i=0;i<tabs;i++)
+			printf("\t");
+		mad_decode_field(pi, field, val);
+		if (!mad_dump_field(field, buf, 1024, val))
+			return;
+		printf("%s\n", buf);
+	}
+
+	for (field = IB_PORT_LINK_SPEED_EXT_ACTIVE_2_F;
+			field < IB_PORT_LINK_SPEED_EXT_2_LAST_F; field++) {
+		for (i = 0; i < tabs; i++)
 			printf("\t");
 		mad_decode_field(pi, field, val);
 		if (!mad_dump_field(field, buf, 1024, val))

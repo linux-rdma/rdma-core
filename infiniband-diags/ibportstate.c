@@ -138,7 +138,7 @@ static int get_port_info(ib_portid_t * dest, uint8_t * data, int portnum,
 {
 	uint8_t smp[IB_SMP_DATA_SIZE];
 	uint8_t *info;
-	int cap_mask;
+	int cap_mask, cap_mask2;
 
 	if (is_switch) {
 		if (!smp_query_via(smp, dest, IB_ATTR_PORT_INFO, 0, 0, srcport))
@@ -149,8 +149,19 @@ static int get_port_info(ib_portid_t * dest, uint8_t * data, int portnum,
 
 	if (!smp_query_via(data, dest, IB_ATTR_PORT_INFO, portnum, 0, srcport))
 		IBEXIT("smp query portinfo failed");
+
 	cap_mask = mad_get_field(info, 0, IB_PORT_CAPMASK_F);
-	return (cap_mask & be32toh(IB_PORT_CAP_HAS_EXT_SPEEDS));
+
+	if (cap_mask & be32toh(IB_PORT_CAP_HAS_CAP_MASK2)) {
+		cap_mask2 =
+				(mad_get_field(info, 0, IB_PORT_CAPMASK2_F)
+						& be16toh(IB_PORT_CAP2_IS_EXT_SPEEDS_2_SUPPORTED)) ?
+								0x02 : 0x00;
+	} else
+		cap_mask2 = 0;
+
+	return cap_mask2
+			| ((cap_mask & be32toh(IB_PORT_CAP_HAS_EXT_SPEEDS)) ? 0x01 : 0x00);
 }
 
 static void show_port_info(ib_portid_t * dest, uint8_t * data, int portnum,
@@ -196,7 +207,7 @@ static void show_port_info(ib_portid_t * dest, uint8_t * data, int portnum,
 	mad_dump_field(IB_PORT_LINK_SPEED_ACTIVE_F, buf + strlen(buf),
 		       sizeof buf - strlen(buf), val);
 	sprintf(buf + strlen(buf), "%s", "\n");
-	if (espeed_cap) {
+	if (espeed_cap & 0x01) {
 		mad_decode_field(data, IB_PORT_LINK_SPEED_EXT_SUPPORTED_F, val);
 		mad_dump_field(IB_PORT_LINK_SPEED_EXT_SUPPORTED_F,
 			       buf + strlen(buf), sizeof buf - strlen(buf),
@@ -211,6 +222,23 @@ static void show_port_info(ib_portid_t * dest, uint8_t * data, int portnum,
 		mad_dump_field(IB_PORT_LINK_SPEED_EXT_ACTIVE_F,
 			       buf + strlen(buf), sizeof buf - strlen(buf),
 			       val);
+		sprintf(buf + strlen(buf), "%s", "\n");
+	}
+	if (espeed_cap & 0x02) {
+		mad_decode_field(data, IB_PORT_LINK_SPEED_EXT_SUPPORTED_2_F, val);
+		mad_dump_field(IB_PORT_LINK_SPEED_EXT_SUPPORTED_2_F,
+				buf + strlen(buf), sizeof(buf) - strlen(buf),
+				val);
+		sprintf(buf + strlen(buf), "%s", "\n");
+		mad_decode_field(data, IB_PORT_LINK_SPEED_EXT_ENABLED_2_F, val);
+		mad_dump_field(IB_PORT_LINK_SPEED_EXT_ENABLED_2_F,
+				buf + strlen(buf), sizeof(buf) - strlen(buf),
+				val);
+		sprintf(buf + strlen(buf), "%s", "\n");
+		mad_decode_field(data, IB_PORT_LINK_SPEED_EXT_ACTIVE_2_F, val);
+		mad_dump_field(IB_PORT_LINK_SPEED_EXT_ACTIVE_2_F,
+				buf + strlen(buf), sizeof(buf) - strlen(buf),
+				val);
 		sprintf(buf + strlen(buf), "%s", "\n");
 	}
 	if (!is_switch || portnum == 0) {
@@ -295,6 +323,9 @@ static int get_link_speed(int lse, int lss)
 
 static int get_link_speed_ext(int lsee, int lses)
 {
+	if (lsee & 0x20)
+		return lsee;
+
 	if (lsee == 31)
 		return lses;
 	else
@@ -353,8 +384,12 @@ static void validate_speed(int peerspeed, int lsa)
 
 static void validate_extended_speed(int peerespeed, int lsea)
 {
-
-	if ((espeed & peerespeed & 0x8)) {
+	if ((espeed & peerespeed & 0x20)) {
+		if (lsea != 32)
+			IBWARN
+				("Peer ports operating at active extended speed %d rather than 32 (212.5 Gbps)",
+				 lsea);
+	} else if ((espeed & peerespeed & 0x8)) {
 		if (lsea != 8)
 			IBWARN
 			    ("Peer ports operating at active extended speed %d rather than 8 (106.25 Gbps)",
@@ -387,7 +422,7 @@ int main(int argc, char **argv)
 	int state, physstate, lwe, lws, lwa, lse, lss, lsa, lsee, lses, lsea,
 	    fdr10s, fdr10e, fdr10a;
 	int peerlocalportnum, peerlwe, peerlws, peerlwa, peerlse, peerlss,
-	    peerlsa, peerlsee, peerlses, peerlsea, peerfdr10s, peerfdr10e,
+	    peerlsa, peerlsee, peerlses, peerfdr10s, peerfdr10e,
 	    peerfdr10a;
 	int peerwidth, peerspeed, peerespeed;
 	uint8_t data[IB_SMP_DATA_SIZE] = { 0 };
@@ -606,7 +641,8 @@ int main(int argc, char **argv)
 
 		/* always set enabled speeds/width - defaults to NOP */
 		mad_set_field(data, 0, IB_PORT_LINK_SPEED_ENABLED_F, speed);
-		mad_set_field(data, 0, IB_PORT_LINK_SPEED_EXT_ENABLED_F, espeed);
+		mad_set_field(data, 0, IB_PORT_LINK_SPEED_EXT_ENABLED_F, espeed & 0x1f);
+		mad_set_field(data, 0, IB_PORT_LINK_SPEED_EXT_ENABLED_2_F, espeed >> 5);
 		mad_set_field(data, 0, IB_PORT_LINK_WIDTH_ENABLED_F, width);
 
 		if (port_args[VLS].set)
@@ -669,15 +705,13 @@ int main(int argc, char **argv)
 					 IB_MLNX_EXT_PORT_LINK_SPEED_ACTIVE_F,
 					 &fdr10a);
 			if (espeed_cap) {
-				mad_decode_field(data,
-						 IB_PORT_LINK_SPEED_EXT_SUPPORTED_F,
-						 &lses);
-				mad_decode_field(data,
-						 IB_PORT_LINK_SPEED_EXT_ACTIVE_F,
-						 &lsea);
-				mad_decode_field(data,
-						 IB_PORT_LINK_SPEED_EXT_ENABLED_F,
-						 &lsee);
+				lsea = ibnd_get_agg_linkspeedext(data, data);
+				lsee = ibnd_get_agg_linkspeedexten(data, data);
+				lses = ibnd_get_agg_linkspeedextsup(data, data);
+			} else {
+				lsea = 0;
+				lsee = 0;
+				lses = 0;
 			}
 
 			/* Setup portid for peer port */
@@ -743,15 +777,11 @@ int main(int argc, char **argv)
 					 IB_MLNX_EXT_PORT_LINK_SPEED_ACTIVE_F,
 					 &peerfdr10a);
 			if (peer_espeed_cap) {
-				mad_decode_field(data,
-						 IB_PORT_LINK_SPEED_EXT_SUPPORTED_F,
-						 &peerlses);
-				mad_decode_field(data,
-						 IB_PORT_LINK_SPEED_EXT_ACTIVE_F,
-						 &peerlsea);
-				mad_decode_field(data,
-						 IB_PORT_LINK_SPEED_EXT_ENABLED_F,
-						 &peerlsee);
+				peerlsee = ibnd_get_agg_linkspeedexten(data, data);
+				peerlses = ibnd_get_agg_linkspeedextsup(data, data);
+			} else {
+				peerlsee = 0;
+				peerlses = 0;
 			}
 
 			/* Now validate peer port characteristics */

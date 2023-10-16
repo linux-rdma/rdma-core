@@ -20,3 +20,16 @@ IBNETDISC_1.0 {
 		ibnd_iter_ports;
 	local: *;
 };
+
+IBNETDISC_1.1 {
+	global:
+		ibnd_get_agg_linkspeedext_field;
+		ibnd_get_agg_linkspeedext;
+		ibnd_get_agg_linkspeedexten;
+		ibnd_get_agg_linkspeedextsup;
+		ibnd_dump_agg_linkspeedext_bits;
+		ibnd_dump_agg_linkspeedext;
+		ibnd_dump_agg_linkspeedexten;
+		ibnd_dump_agg_linkspeedextsup;
+	local: *;
+} IBNETDISC_1.0;

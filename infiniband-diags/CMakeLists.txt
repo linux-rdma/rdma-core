@@ -13,6 +13,9 @@ add_library(ibdiags_tools STATIC
   ibdiag_sa.c
   )
 
+target_link_libraries(ibdiags_tools LINK_PRIVATE ibnetdisc
+  )
+
 function(ibdiag_programs)
   foreach(I ${ARGN})
     rdma_sbin_executable(${I} "${I}.c")
