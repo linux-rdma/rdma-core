@@ -13,7 +13,7 @@ from pyverbs.pd cimport PD
 cdef class WQInitAttr(PyverbsObject):
     cdef v.ibv_wq_init_attr attr
     cdef PD pd
-    cdef CQ cq
+    cdef object cq
 
 cdef class WQAttr(PyverbsObject):
     cdef v.ibv_wq_attr attr
@@ -22,7 +22,7 @@ cdef class WQ(PyverbsCM):
     cdef v.ibv_wq *wq
     cdef Context context
     cdef PD pd
-    cdef CQ cq
+    cdef object cq
     cdef object rwq_ind_tables
     cpdef add_ref(self, obj)
 

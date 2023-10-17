@@ -37,6 +37,7 @@ cdef class CQEX(PyverbsCM):
     cdef add_ref(self, obj)
     cdef object qps
     cdef object srqs
+    cdef object wqs
 
 cdef class WC(PyverbsObject):
     cdef v.ibv_wc wc
