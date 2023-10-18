@@ -35,6 +35,7 @@
 
 #include <stdio.h>
 #include <stdlib.h>
+#include <stdbool.h>
 #include <unistd.h>
 #include <string.h>
 #include <errno.h>
@@ -436,6 +437,8 @@ int main(int argc, char **argv)
 	uint32_t vendorid, rem_vendorid;
 	uint16_t devid, rem_devid;
 	uint64_t val;
+	ext_umad_ca_t ext_ca = {};
+	bool is_planarized_fabric = false;
 	char *endp;
 	char usage_args[] = "<dest dr_path|lid|guid> <portnum> [<op>]\n"
 	    "\nSupported ops: enable, disable, on, off, reset, speed, espeed, fdr10,\n"
@@ -455,21 +458,50 @@ int main(int argc, char **argv)
 	ibdiag_process_opts(argc, argv, NULL, NULL, NULL, NULL,
 			    usage_args, usage_examples);
 
+	if (ibnd_ext_umad_get_ca_by_name(ibd_ca, ibd_ca_port, &ext_ca) < 0)
+		IBEXIT("Couldn't find the umad CA\n");
+	if (!ext_ca.gsi.name[0] || !ext_ca.smi.name[0])
+		IBEXIT("Invalid CA name found\n");
+
+	if (strncmp(ext_ca.gsi.name, ext_ca.smi.name, UMAD_CA_NAME_LEN))
+		is_planarized_fabric = true;
+
 	argc -= optind;
 	argv += optind;
 
 	if (argc < 2)
 		ibdiag_show_usage();
 
-	srcport = mad_rpc_open_port(ibd_ca, ibd_ca_port, mgmt_classes, 3);
+	// srcport should be an SMI port
+	srcport = mad_rpc_open_port(ext_ca.smi.name, ext_ca.smi.ports[0], mgmt_classes, 3);
 	if (!srcport)
-		IBEXIT("Failed to open '%s' port '%d'", ibd_ca, ibd_ca_port);
+		IBEXIT("Failed to open '%s' port '%d'", ext_ca.smi.name, ext_ca.smi.ports[0]);
 
 	smp_mkey_set(srcport, ibd_mkey);
 
-	if (resolve_portid_str(ibd_ca, ibd_ca_port, &portid, argv[0],
-			       ibd_dest_type, ibd_sm_id, srcport) < 0)
+	if (resolve_portid_str(ext_ca.smi.name, ext_ca.smi.ports[0], &portid, argv[0],
+				ibd_dest_type, ibd_sm_id, srcport) < 0)
 		IBEXIT("can't resolve destination port %s", argv[0]);
+
+	if (is_planarized_fabric && (ibd_dest_type != IB_DEST_DRPATH)) {
+		int rc = 0;
+		struct ibnd_config config = {};
+
+		config.mkey = ibd_mkey;
+		config.timeout_ms = ibd_timeout;
+
+		ibnd_fabric_t *fabric = ibnd_discover_fabric(ext_ca.smi.name,
+						ext_ca.smi.ports[0], NULL, &config);
+
+		if (!fabric)
+			IBEXIT("Discovery failed");
+
+		rc = ibnd_convert_portid_to_dr(fabric, &portid, ibd_dest_type);
+		ibnd_destroy_fabric(fabric);
+
+		if (rc < 0)
+			IBEXIT("Couldn't convert destination port %s to direct route", argv[0]);
+	}
 
 	if (argc > 1)
 		portnum = strtol(argv[1], NULL, 0);
