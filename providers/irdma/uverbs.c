@@ -1392,15 +1392,11 @@ struct ibv_qp *irdma_ucreate_qp(struct ibv_pd *pd,
 		attr->cap.max_recv_wr = info.rq_size;
 	}
 
-	iwuqp->recv_sges = calloc(attr->cap.max_recv_sge, sizeof(*iwuqp->recv_sges));
-	if (!iwuqp->recv_sges)
-		goto err_destroy_lock;
-
 	info.wqe_alloc_db = (__u32 *)iwvctx->db;
 	info.legacy_mode = iwvctx->legacy_mode;
 	info.sq_wrtrk_array = calloc(info.sq_depth, sizeof(*info.sq_wrtrk_array));
 	if (!info.sq_wrtrk_array)
-		goto err_free_rsges;
+		goto err_destroy_lock;
 
 	info.rq_wrid_array = calloc(info.rq_depth, sizeof(*info.rq_wrid_array));
 	if (!info.rq_wrid_array)
@@ -1435,8 +1431,6 @@ err_free_rq_wrid:
 	free(info.rq_wrid_array);
 err_free_sq_wrtrk:
 	free(info.sq_wrtrk_array);
-err_free_rsges:
-	free(iwuqp->recv_sges);
 err_destroy_lock:
 	pthread_spin_destroy(&iwuqp->lock);
 err_free_qp:
@@ -1580,31 +1574,11 @@ int irdma_udestroy_qp(struct ibv_qp *qp)
 		free(iwuqp->qp.rq_wrid_array);
 
 	irdma_free_hw_buf(iwuqp->qp.sq_base, iwuqp->buf_size);
-	free(iwuqp->recv_sges);
 	free(iwuqp);
 	return 0;
 
 err:
 	return ret;
-}
-
-/**
- * irdma_copy_sg_list - copy sg list for qp
- * @sg_list: copied into sg_list
- * @sgl: copy from sgl
- * @num_sges: count of sg entries
- * @max_sges: count of max supported sg entries
- */
-static void irdma_copy_sg_list(struct irdma_sge *sg_list, struct ibv_sge *sgl,
-			       int num_sges)
-{
-	int i;
-
-	for (i = 0; i < num_sges; i++) {
-		sg_list[i].tag_off = sgl[i].addr;
-		sg_list[i].len = sgl[i].length;
-		sg_list[i].stag = sgl[i].lkey;
-	}
 }
 
 /**
@@ -1673,7 +1647,7 @@ int irdma_upost_send(struct ibv_qp *ib_qp, struct ibv_send_wr *ib_wr,
 				info.stag_to_inv = ib_wr->invalidate_rkey;
 			}
 			info.op.send.num_sges = ib_wr->num_sge;
-			info.op.send.sg_list = (struct irdma_sge *)ib_wr->sg_list;
+			info.op.send.sg_list = (struct ibv_sge *)ib_wr->sg_list;
 			if (ib_qp->qp_type == IBV_QPT_UD) {
 				struct irdma_uah *ah  = container_of(ib_wr->wr.ud.ah,
 								     struct irdma_uah, ibv_ah);
@@ -1704,9 +1678,9 @@ int irdma_upost_send(struct ibv_qp *ib_qp, struct ibv_send_wr *ib_wr,
 				info.op_type = IRDMA_OP_TYPE_RDMA_WRITE;
 
 			info.op.rdma_write.num_lo_sges = ib_wr->num_sge;
-			info.op.rdma_write.lo_sg_list = (void *)ib_wr->sg_list;
-			info.op.rdma_write.rem_addr.tag_off = ib_wr->wr.rdma.remote_addr;
-			info.op.rdma_write.rem_addr.stag = ib_wr->wr.rdma.rkey;
+			info.op.rdma_write.lo_sg_list = ib_wr->sg_list;
+			info.op.rdma_write.rem_addr.addr = ib_wr->wr.rdma.remote_addr;
+			info.op.rdma_write.rem_addr.lkey = ib_wr->wr.rdma.rkey;
 			if (ib_wr->send_flags & IBV_SEND_INLINE)
 				err = irdma_uk_inline_rdma_write(&iwuqp->qp, &info, false);
 			else
@@ -1718,10 +1692,10 @@ int irdma_upost_send(struct ibv_qp *ib_qp, struct ibv_send_wr *ib_wr,
 				break;
 			}
 			info.op_type = IRDMA_OP_TYPE_RDMA_READ;
-			info.op.rdma_read.rem_addr.tag_off = ib_wr->wr.rdma.remote_addr;
-			info.op.rdma_read.rem_addr.stag = ib_wr->wr.rdma.rkey;
+			info.op.rdma_read.rem_addr.addr = ib_wr->wr.rdma.remote_addr;
+			info.op.rdma_read.rem_addr.lkey = ib_wr->wr.rdma.rkey;
 
-			info.op.rdma_read.lo_sg_list = (void *)ib_wr->sg_list;
+			info.op.rdma_read.lo_sg_list = ib_wr->sg_list;
 			info.op.rdma_read.num_lo_sges = ib_wr->num_sge;
 			err = irdma_uk_rdma_read(&iwuqp->qp, &info, false, false);
 			break;
@@ -1788,13 +1762,11 @@ int irdma_upost_recv(struct ibv_qp *ib_qp, struct ibv_recv_wr *ib_wr,
 		     struct ibv_recv_wr **bad_wr)
 {
 	struct irdma_post_rq_info post_recv = {};
-	struct irdma_sge *sg_list;
 	struct irdma_uqp *iwuqp;
 	bool reflush = false;
 	int err;
 
 	iwuqp = container_of(ib_qp, struct irdma_uqp, ibv_qp);
-	sg_list = iwuqp->recv_sges;
 
 	err = pthread_spin_lock(&iwuqp->lock);
 	if (err)
@@ -1812,8 +1784,7 @@ int irdma_upost_recv(struct ibv_qp *ib_qp, struct ibv_recv_wr *ib_wr,
 		}
 		post_recv.num_sges = ib_wr->num_sge;
 		post_recv.wr_id = ib_wr->wr_id;
-		irdma_copy_sg_list(sg_list, ib_wr->sg_list, ib_wr->num_sge);
-		post_recv.sg_list = sg_list;
+		post_recv.sg_list = ib_wr->sg_list;
 		err = irdma_uk_post_receive(&iwuqp->qp, &post_recv);
 		if (err) {
 			*bad_wr = ib_wr;

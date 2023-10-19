@@ -15,6 +15,7 @@
 #include <inttypes.h>
 #include <pthread.h>
 #include <endian.h>
+#include <infiniband/verbs.h>
 
 static inline void db_wr32(__u32 val, __u32 *wqe_word)
 {
