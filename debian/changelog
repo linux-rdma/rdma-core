@@ -1,3 +1,9 @@
+rdma-core (48.0-1) unstable; urgency=medium
+
+  * New upstream release.
+
+ -- Benjamin Drung <bdrung@ubuntu.com>  Mon, 23 Oct 2023 18:40:29 +0200
+
 rdma-core (47.0-1) unstable; urgency=medium
 
   * New upstream release.
