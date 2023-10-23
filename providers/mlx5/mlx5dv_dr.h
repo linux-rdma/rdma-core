@@ -88,6 +88,9 @@ enum dr_icm_chunk_size {
 	DR_CHUNK_SIZE_512K,
 	DR_CHUNK_SIZE_1024K,
 	DR_CHUNK_SIZE_2048K,
+	DR_CHUNK_SIZE_4096K,
+	DR_CHUNK_SIZE_8192K,
+	DR_CHUNK_SIZE_16384K,
 	DR_CHUNK_SIZE_MAX,
 };
 
@@ -676,7 +679,8 @@ int dr_actions_build_ste_arr(struct mlx5dv_dr_matcher *matcher,
 			     uint32_t num_actions,
 			     uint8_t *ste_arr,
 			     uint32_t *new_hw_ste_arr_sz,
-			     struct cross_dmn_params *cross_dmn_p);
+			     struct cross_dmn_params *cross_dmn_p,
+			     uint8_t send_ring_idx);
 int dr_actions_build_attr(struct mlx5dv_dr_matcher *matcher,
 			  struct mlx5dv_dr_action *actions[],
 			  size_t num_actions,
@@ -723,7 +727,7 @@ struct dr_match_spec {
 
 struct dr_match_misc {
 	uint32_t gre_c_present:1;		/* used with GRE, checksum exist when gre_c_present == 1 */
-	uint32_t reserved_at1:1;
+	uint32_t bth_a:1;
 	uint32_t gre_k_present:1;		/* used with GRE, key exist when gre_k_present == 1 */
 	uint32_t gre_s_present:1;		/* used with GRE, sequence number exist when gre_s_present == 1 */
 	uint32_t source_vhca_port:4;
@@ -762,7 +766,9 @@ struct dr_match_misc {
 	uint32_t bth_dst_qp:24;			/* Destination QP in BTH header */
 	uint32_t inner_esp_spi;
 	uint32_t outer_esp_spi;
-	uint32_t reserved_at_1a0[3];
+	uint32_t reserved_at_1a0;
+	uint32_t reserved_at_1c0;
+	uint32_t reserved_at_1e0;
 };
 
 struct dr_match_misc2 {
@@ -791,11 +797,9 @@ struct dr_match_misc2 {
 	uint32_t metadata_reg_c_1;			/* metadata_reg_c_1 */
 	uint32_t metadata_reg_c_0;			/* metadata_reg_c_0 */
 	uint32_t metadata_reg_a;			/* metadata_reg_a */
-	uint32_t psp_syndrome:8;
-	uint32_t reserved_at_1a8:8;
-	uint32_t ipsec_syndrome:8;
-	uint32_t ipsec_next_header:8;
-	uint32_t reserved_at_260[2];
+	uint32_t reserved_at_1a0;
+	uint32_t reserved_at_1c0;
+	uint32_t reserved_at_1e0;
 };
 
 struct dr_match_misc3 {
@@ -818,11 +822,11 @@ struct dr_match_misc3 {
 	uint32_t gtpu_teid;
 	uint32_t gtpu_msg_type:8;
 	uint32_t gtpu_msg_flags:8;
-	uint32_t reserved_at_150:16;
+	uint32_t reserved_at_170:16;
 	uint32_t gtpu_dw_2;
 	uint32_t gtpu_first_ext_dw_0;
 	uint32_t gtpu_dw_0;
-	uint32_t reserved_at_1c0;
+	uint32_t reserved_at_1e0;
 };
 
 struct dr_match_misc4 {
@@ -853,7 +857,14 @@ struct dr_match_misc5 {
 	uint32_t tunnel_header_1;
 	uint32_t tunnel_header_2;
 	uint32_t tunnel_header_3;
-	uint32_t reserved[0x8];
+	uint32_t reserved_at_100;
+	uint32_t reserved_at_120;
+	uint32_t reserved_at_140;
+	uint32_t reserved_at_160;
+	uint32_t reserved_at_180;
+	uint32_t reserved_at_1a0;
+	uint32_t reserved_at_1c0;
+	uint32_t reserved_at_1e0;
 };
 
 struct dr_match_param {
@@ -1039,7 +1050,8 @@ struct dr_domain_info {
 	uint32_t		max_log_sw_icm_sz;
 	uint32_t		max_log_action_icm_sz;
 	uint32_t		max_log_modify_hdr_pattern_icm_sz;
-	uint32_t		max_send_size;
+	uint32_t                max_log_sw_icm_rehash_sz;
+	uint32_t                max_send_size;
 	struct dr_domain_rx_tx	rx;
 	struct dr_domain_rx_tx	tx;
 	struct ibv_device_attr_ex attr;
@@ -1234,6 +1246,7 @@ struct mlx5dv_dr_action {
 		struct {
 			struct mlx5dv_dr_domain	*dmn;
 			bool			is_root_level;
+			uint32_t		args_send_qp;
 			union {
 				struct ibv_flow_action	*flow_action; /* root*/
 				struct {
@@ -1692,7 +1705,8 @@ int dr_send_postsend_pattern(struct mlx5dv_dr_domain *dmn,
 			     uint16_t num_of_actions,
 			     uint8_t *data);
 int dr_send_postsend_args(struct mlx5dv_dr_domain *dmn, uint64_t arg_id,
-			  uint16_t num_of_actions, uint8_t *actions_data);
+			  uint16_t num_of_actions, uint8_t *actions_data,
+			  uint32_t ring_index);
 
 /* buddy functions & structure */
 struct dr_icm_mr;

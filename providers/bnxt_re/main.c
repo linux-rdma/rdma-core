@@ -97,6 +97,7 @@ static const struct verbs_context_ops bnxt_re_cntx_ops = {
 	.alloc_pd      = bnxt_re_alloc_pd,
 	.dealloc_pd    = bnxt_re_free_pd,
 	.reg_mr        = bnxt_re_reg_mr,
+	.reg_dmabuf_mr = bnxt_re_reg_dmabuf_mr,
 	.dereg_mr      = bnxt_re_dereg_mr,
 	.create_cq     = bnxt_re_create_cq,
 	.poll_cq       = bnxt_re_poll_cq,
@@ -124,6 +125,44 @@ static bool bnxt_re_is_chip_gen_p5(struct bnxt_re_chip_ctx *cctx)
 	return (cctx->chip_num == CHIP_NUM_57508 ||
 		cctx->chip_num == CHIP_NUM_57504 ||
 		cctx->chip_num == CHIP_NUM_57502);
+}
+
+static int bnxt_re_alloc_map_dbr_page(struct ibv_context *ibvctx)
+{
+	struct bnxt_re_context *cntx = to_bnxt_re_context(ibvctx);
+	struct bnxt_re_mmap_info minfo = {};
+	int ret;
+
+	minfo.type = BNXT_RE_ALLOC_DBR_PAGE;
+	ret = bnxt_re_alloc_page(ibvctx, &minfo, NULL);
+	if (ret)
+		return ret;
+
+	cntx->dbr_page = mmap(NULL, minfo.alloc_size, PROT_READ,
+			      MAP_SHARED, ibvctx->cmd_fd, minfo.alloc_offset);
+	if (cntx->dbr_page == MAP_FAILED)
+		return -ENOMEM;
+
+	return 0;
+}
+
+static int bnxt_re_alloc_map_dbr_bar_page(struct ibv_context *ibvctx)
+{
+	struct bnxt_re_context *cntx = to_bnxt_re_context(ibvctx);
+	struct bnxt_re_mmap_info minfo = {};
+	int ret;
+
+	minfo.type = BNXT_RE_ALLOC_DBR_BAR_PAGE;
+	ret = bnxt_re_alloc_page(ibvctx, &minfo, NULL);
+	if (ret)
+		return ret;
+
+	cntx->bar_map = mmap(NULL, minfo.alloc_size, PROT_WRITE,
+			     MAP_SHARED, ibvctx->cmd_fd, minfo.alloc_offset);
+	if (cntx->bar_map == MAP_FAILED)
+		return -ENOMEM;
+
+	return 0;
 }
 
 /* Context Init functions */
@@ -166,8 +205,9 @@ static struct verbs_context *bnxt_re_alloc_context(struct ibv_device *vdev,
 		cntx->wqe_mode = resp.mode;
 	if (resp.comp_mask & BNXT_RE_UCNTX_CMASK_WC_DPI_ENABLED)
 		cntx->comp_mask |= BNXT_RE_COMP_MASK_UCNTX_WC_DPI_ENABLED;
+	if (resp.comp_mask & BNXT_RE_UCNTX_CMASK_DBR_PACING_ENABLED)
+		cntx->comp_mask |= BNXT_RE_COMP_MASK_UCNTX_DBR_PACING_ENABLED;
 
-	pthread_spin_init(&cntx->fqlock, PTHREAD_PROCESS_PRIVATE);
 	/* mmap shared page. */
 	cntx->shpg = mmap(NULL, rdev->pg_size, PROT_READ | PROT_WRITE,
 			  MAP_SHARED, cmd_fd, 0);
@@ -175,6 +215,23 @@ static struct verbs_context *bnxt_re_alloc_context(struct ibv_device *vdev,
 		cntx->shpg = NULL;
 		goto failed;
 	}
+
+	if (cntx->comp_mask & BNXT_RE_COMP_MASK_UCNTX_DBR_PACING_ENABLED) {
+		if (bnxt_re_alloc_map_dbr_page(&cntx->ibvctx.context)) {
+			munmap(cntx->shpg, rdev->pg_size);
+			cntx->shpg = NULL;
+			goto failed;
+		}
+
+		if (bnxt_re_alloc_map_dbr_bar_page(&cntx->ibvctx.context)) {
+			munmap(cntx->shpg, rdev->pg_size);
+			cntx->shpg = NULL;
+			munmap(cntx->dbr_page, rdev->pg_size);
+			cntx->dbr_page = NULL;
+			goto failed;
+		}
+	}
+
 	pthread_mutex_init(&cntx->shlock, NULL);
 
 	verbs_set_ops(&cntx->ibvctx, &bnxt_re_cntx_ops);
@@ -200,7 +257,6 @@ static void bnxt_re_free_context(struct ibv_context *ibvctx)
 	pthread_mutex_destroy(&cntx->shlock);
 	if (cntx->shpg)
 		munmap(cntx->shpg, rdev->pg_size);
-	pthread_spin_destroy(&cntx->fqlock);
 
 	/* Un-map DPI only for the first PD that was
 	 * allocated in this context.
@@ -212,6 +268,12 @@ static void bnxt_re_free_context(struct ibv_context *ibvctx)
 	if (cntx->udpi.dbpage && cntx->udpi.dbpage != MAP_FAILED) {
 		munmap(cntx->udpi.dbpage, rdev->pg_size);
 		cntx->udpi.dbpage = NULL;
+	}
+	if (cntx->comp_mask & BNXT_RE_COMP_MASK_UCNTX_DBR_PACING_ENABLED) {
+		munmap(cntx->dbr_page, rdev->pg_size);
+		cntx->dbr_page = NULL;
+		munmap(cntx->bar_map, rdev->pg_size);
+		cntx->bar_map = NULL;
 	}
 
 	verbs_uninit_context(&cntx->ibvctx);

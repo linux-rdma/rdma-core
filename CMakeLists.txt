@@ -52,6 +52,8 @@
 #      Disable man pages. Allows rdma-core to be built and installed
 #      (without man pages) when neither pandoc/rst2man nor the pandoc-prebuilt
 #      directory are available.
+#   -DENABLE_LTTNG (default, no tracing support)
+#      Enable LTTng tracing.
 
 if (${CMAKE_VERSION} VERSION_LESS "3.18.1")
 	# Centos 7 support
@@ -77,7 +79,7 @@ endif()
 set(PACKAGE_NAME "RDMA")
 
 # See Documentation/versioning.md
-set(PACKAGE_VERSION "47.0")
+set(PACKAGE_VERSION "48.0")
 # When this is changed the values in these files need changing too:
 #   debian/control
 #   debian/libibverbs1.symbols
@@ -555,6 +557,12 @@ if (DRM_INCLUDE_DIRS)
   else()
     unset(DRM_INCLUDE_DIRS CACHE)
   endif()
+endif()
+
+# LTTng Tracer support
+if (DEFINED ENABLE_LTTNG)
+  include(FindLTTngUST REQUIRED)
+  add_definitions(-DLTTNG_ENABLED)
 endif()
 
 #-------------------------

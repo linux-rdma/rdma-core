@@ -2405,6 +2405,7 @@ static int dr_ste_v1_build_ib_l4_tag(struct dr_match_param *value,
 
 	DR_STE_SET_TAG(ib_l4, tag, opcode, misc, bth_opcode);
 	DR_STE_SET_TAG(ib_l4, tag, qp, misc, bth_dst_qp);
+	DR_STE_SET_TAG(ib_l4, tag, ackreq, misc, bth_a);
 
 	return 0;
 }

@@ -1,5 +1,5 @@
 /* SPDX-License-Identifier: GPL-2.0 or Linux-OpenIB */
-/* Copyright (c) 2017 - 2021 Intel Corporation */
+/* Copyright (c) 2017 - 2023 Intel Corporation */
 #ifndef IRDMA_H
 #define IRDMA_H
 
@@ -21,6 +21,7 @@ struct irdma_uk_attrs {
 	__u32 min_hw_cq_size;
 	__u32 max_hw_cq_size;
 	__u16 max_hw_sq_chunk;
+	__u16 min_hw_wq_size;
 	__u8 hw_rev;
 };
 

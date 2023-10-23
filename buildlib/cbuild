@@ -45,7 +45,6 @@ import inspect
 import json
 import multiprocessing
 import os
-import pipes
 import pwd
 import re
 import shutil
@@ -221,10 +220,10 @@ class centos9(Environment):
                          (" ".join(sorted(self.pkgs))))
         return res
 
-class fc37(Environment):
-    docker_parent = "fedora:37";
+class fc38(Environment):
+    docker_parent = "fedora:38";
     pkgs = centos8.pkgs | {"util-linux"}
-    name = "fc37";
+    name = "fc38";
     specfile = "redhat/rdma-core.spec";
     ninja_cmd = "ninja-build";
     is_rpm = True;
@@ -627,7 +626,7 @@ environments = [centos7(),
                 jammy(),
                 jessie(),
                 stretch(),
-                fc37(),
+                fc38(),
                 leap(),
                 tumbleweed(),
                 debian_experimental(),

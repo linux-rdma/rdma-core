@@ -86,6 +86,13 @@ static inline unsigned long DIV_ROUND_UP(unsigned long n, unsigned long d)
 	return (n + d - 1) / d;
 }
 
+struct xorshift32_state {
+	/* The state word must be initialized to non-zero */
+	uint32_t seed;
+};
+
+uint32_t xorshift32(struct xorshift32_state *state);
+
 int set_fd_nonblock(int fd, bool nonblock);
 
 int open_cdev(const char *devname_hint, dev_t cdev);

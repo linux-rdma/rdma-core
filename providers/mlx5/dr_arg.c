@@ -206,12 +206,14 @@ struct dr_arg_obj *dr_arg_get_obj(struct dr_arg_mngr *mngr,
 		return NULL;
 	}
 
-	/* write it into the hw */
-	ret = dr_send_postsend_args(mngr->dmn, dr_arg_get_object_id(arg_obj),
-				    num_of_actions, data);
-	if (ret) {
-		dr_dbg(mngr->dmn, "Failed writing args object\n");
-		goto put_obj;
+	if (!mngr->dmn->info.use_mqs) {
+		/* write it into the hw */
+		ret = dr_send_postsend_args(mngr->dmn, dr_arg_get_object_id(arg_obj),
+					    num_of_actions, data, 0);
+		if (ret) {
+			dr_dbg(mngr->dmn, "Failed writing args object\n");
+			goto put_obj;
+		}
 	}
 
 	return arg_obj;

@@ -177,7 +177,7 @@ static bool dr_mask_is_tnl_geneve_set(struct dr_match_misc *misc)
 
 static bool dr_mask_is_ib_l4_set(struct dr_match_misc *misc)
 {
-	return misc->bth_opcode || misc->bth_dst_qp;
+	return misc->bth_opcode || misc->bth_dst_qp || misc->bth_a;
 }
 
 static int dr_matcher_supp_geneve_tlv_option(struct dr_devx_caps *caps)

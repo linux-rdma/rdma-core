@@ -1,5 +1,5 @@
 Name: rdma-core
-Version: 47.0
+Version: 48.0
 Release: 1%{?dist}
 Summary: RDMA core userspace libraries and daemons
 
@@ -120,6 +120,10 @@ BuildRequires: pkgconfig(libnl-route-3.0)
 
 %description devel
 RDMA core development libraries and headers.
+
+%changelog
+* Tue May 9 2023 Leon Romanovsky <leonro@nvidia.com> - 44
+- Fix epoch warning
 
 %package -n infiniband-diags
 Summary: InfiniBand Diagnostic Tools

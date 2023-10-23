@@ -623,6 +623,28 @@ dr_action_validate_and_get_next_state(enum dr_action_domain action_domain,
 	return 0;
 }
 
+static int dr_action_send_modify_header_args(struct mlx5dv_dr_action *action,
+					     uint8_t send_ring_idx)
+{
+	int ret;
+
+	if (!(action->rewrite.args_send_qp & (1 << send_ring_idx))) {
+		ret = dr_send_postsend_args(action->rewrite.dmn,
+					    dr_arg_get_object_id(action->rewrite.ptrn_arg.arg),
+					    action->rewrite.param.num_of_actions,
+					    action->rewrite.param.data,
+					    send_ring_idx);
+		if (ret) {
+			dr_dbg(action->rewrite.dmn, "Failed writing args object\n");
+			return ret;
+		}
+
+		action->rewrite.args_send_qp |= 1 << send_ring_idx;
+	}
+
+	return 0;
+}
+
 #define WITH_VLAN_NUM_HW_ACTIONS 6
 
 int dr_actions_build_ste_arr(struct mlx5dv_dr_matcher *matcher,
@@ -631,7 +653,8 @@ int dr_actions_build_ste_arr(struct mlx5dv_dr_matcher *matcher,
 			     uint32_t num_actions,
 			     uint8_t *ste_arr,
 			     uint32_t *new_hw_ste_arr_sz,
-			     struct cross_dmn_params *cross_dmn_p)
+			     struct cross_dmn_params *cross_dmn_p,
+			     uint8_t send_ring_idx)
 {
 	struct dr_domain_rx_tx *nic_dmn = nic_matcher->nic_tbl->nic_dmn;
 	bool rx_rule = nic_dmn->type == DR_DOMAIN_NIC_TYPE_RX;
@@ -670,10 +693,10 @@ int dr_actions_build_ste_arr(struct mlx5dv_dr_matcher *matcher,
 				dr_dbg(dmn, "Destination table belongs to a different domain\n");
 				goto out_invalid_arg;
 			}
-			if (dest_tbl->level <= matcher->tbl->level) {
-				dr_dbg(dmn, "Destination table level should be higher than source table\n");
-				goto out_invalid_arg;
-			}
+
+			if (dest_tbl->level <= matcher->tbl->level)
+				dr_dbg(dmn, "Destination table level not higher than source\n");
+
 			attr.final_icm_addr = rx_rule ?
 				dr_icm_pool_get_chunk_icm_addr(dest_tbl->rx.s_anchor->chunk) :
 				dr_icm_pool_get_chunk_icm_addr(dest_tbl->tx.s_anchor->chunk);
@@ -754,6 +777,10 @@ int dr_actions_build_ste_arr(struct mlx5dv_dr_matcher *matcher,
 				     action->rewrite.ptrn_arg.ptrn->rewrite_param.num_of_actions;
 				attr.decap_pat_idx =
 					action->rewrite.ptrn_arg.ptrn->rewrite_param.index;
+				if (dmn->info.use_mqs) {
+					if (dr_action_send_modify_header_args(action, send_ring_idx))
+						goto out_errno;
+				}
 			} else {
 				attr.decap_index = action->rewrite.param.index;
 				attr.decap_actions = action->rewrite.param.num_of_actions;
@@ -780,6 +807,10 @@ int dr_actions_build_ste_arr(struct mlx5dv_dr_matcher *matcher,
 					attr.modify_actions =
 						action->rewrite.ptrn_arg.ptrn->rewrite_param.
 										num_of_actions;
+					if (dmn->info.use_mqs) {
+						if (dr_action_send_modify_header_args(action, send_ring_idx))
+							goto out_errno;
+					}
 				} else {
 					attr.modify_actions = action->rewrite.param.num_of_actions;
 					attr.modify_index = action->rewrite.param.index;

@@ -16,8 +16,9 @@ import glob
 import time
 import os
 
+from pyverbs.pyverbs_error import PyverbsError, PyverbsRDMAError, PyverbsUserError
+from pyverbs.providers.mlx5.mlx5dv import Mlx5Context, Mlx5DVContextAttr
 from pyverbs.qp import QPCap, QPInitAttr, QPInitAttrEx, QPAttr, QPEx, QP
-from pyverbs.pyverbs_error import PyverbsError, PyverbsRDMAError
 from tests.mlx5_base import Mlx5DcResources, Mlx5DcStreamsRes
 from tests.base import XRCResources, DCT_KEY, MLNX_VENDOR_ID
 from pyverbs.addr import AHAttr, AH, GlobalRoute
@@ -109,6 +110,7 @@ class PacketConsts:
     BTH_HEADER_SIZE = 16
     BTH_OPCODE = 0x81
     BTH_DST_QP = 0xd2
+    BTH_A = 0x1
     BTH_PARTITION_KEY = 0xffff
     BTH_BECN = 1
     ROCE_PORT = 4791
@@ -857,15 +859,16 @@ def gen_geneve_header(vni=PacketConsts.GENEVE_VNI, oam=PacketConsts.GENEVE_OAM,
     """
     return struct.pack('!BBHL', (0 << 6) + 0, (oam << 7) + (0 << 6) + 0, proto, (vni << 8) + 0)
 
-def gen_bth_header(opcode=PacketConsts.BTH_OPCODE, dst_qp=PacketConsts.BTH_DST_QP):
+def gen_bth_header(opcode=PacketConsts.BTH_OPCODE, dst_qp=PacketConsts.BTH_DST_QP, a=PacketConsts.BTH_A):
     """
     Generates ROCE BTH header using the values from the PacketConst class by default.
     :param opcode: BTH opcode
     :param dst_qp: BTH dst QP
+    :param a: BTH acknowledgment bit
     :return: ROCE BTH header
     """
     return struct.pack('!2BH2BH2L', opcode, 0, PacketConsts.BTH_PARTITION_KEY,
-                       PacketConsts.BTH_BECN << 6, dst_qp >> 16, dst_qp & 0xffff, 0, 0)
+                       PacketConsts.BTH_BECN << 6, dst_qp >> 16, dst_qp & 0xffff, a << 31, 0)
 
 
 def gen_packet(msg_size, l3=PacketConsts.IP_V4, l4=PacketConsts.UDP_PROTO, with_vlan=False, **kwargs):
@@ -1503,6 +1506,27 @@ def huge_pages_supported():
             raise unittest.SkipTest('There are no huge pages of size 2M allocated')
 
 
+@skip_unsupported
+def query_nic_flow_table_caps(instance):
+    from tests.mlx5_prm_structs import QueryHcaCapIn, QueryQosCapOut, QueryHcaCapOp, \
+        QueryHcaCapMod, QueryCmdHcaNicFlowTableCapOut
+    try:
+        ctx = Mlx5Context(Mlx5DVContextAttr(), instance.dev_name)
+    except PyverbsUserError as ex:
+        raise unittest.SkipTest(f'Could not open mlx5 context ({ex})')
+    except PyverbsRDMAError:
+        raise unittest.SkipTest('Opening mlx5 context is not supported')
+    # Query NIC Flow Table capabilities
+    query_cap_in = QueryHcaCapIn(op_mod=(QueryHcaCapOp.HCA_NIC_FLOW_TABLE_CAP << 0x1) | \
+                                        QueryHcaCapMod.CURRENT)
+    cmd_res = ctx.devx_general_cmd(query_cap_in, len(QueryQosCapOut()))
+    query_cap_out = QueryCmdHcaNicFlowTableCapOut(cmd_res)
+    if query_cap_out.status:
+        raise PyverbsRDMAError(f'QUERY_HCA_CAP has failed with status ({query_cap_out.status}) '
+                               f'and syndrome ({query_cap_out.syndrome})')
+    return query_cap_out.capability
+
+
 def prefetch_mrs(agr_obj, sg_list, advice=e._IBV_ADVISE_MR_ADVICE_PREFETCH_WRITE,
                  flags=e._IBV_ADVISE_MR_FLAG_FLUSH):
     """
@@ -1620,3 +1644,26 @@ def create_rq_with_larger_sgl_bad_flow(test_obj):
     with test_obj.assertRaises(PyverbsRDMAError) as ex:
         post_recv(test_obj.server, s_recv_wr, qp_idx=qp_idx)
     test_obj.assertEqual(ex.exception.error_code, errno.EINVAL)
+
+
+def high_rate_send(agr_obj, packet, rate_limit, timeout=2):
+    """
+    Sends packet at high rate for 'timeout' seconds.
+    :param agr_obj: Aggregation object which contains all resources necessary
+    :param packet: Packet to send
+    :param rate_limit: Minimal rate limit in MBps
+    :param timeout: Seconds to send the packets
+    """
+    send_sg = SGE(agr_obj.mr.buf, len(packet), agr_obj.mr.lkey)
+    agr_obj.mr.write(packet, len(packet))
+    send_wr = SendWR(num_sge=1, sg=[send_sg])
+    poll = poll_cq_ex if isinstance(agr_obj.cq, CQEX) else poll_cq
+    iterations = 0
+    start_send_t = time.perf_counter()
+    while (time.perf_counter() - start_send_t) < timeout:
+        agr_obj.qp.post_send(send_wr)
+        poll(agr_obj.cq)
+        iterations += 1
+    # Calculate the rate
+    rate = agr_obj.msg_size * iterations / timeout / 1000000
+    assert rate > rate_limit, 'Traffic rate is smaller than minimal rate for the test'

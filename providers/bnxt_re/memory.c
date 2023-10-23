@@ -39,6 +39,7 @@
 
 #include <string.h>
 #include <sys/mman.h>
+#include <util/util.h>
 
 #include "main.h"
 
@@ -47,7 +48,7 @@ int bnxt_re_alloc_aligned(struct bnxt_re_queue *que, uint32_t pg_size)
 	int ret, bytes;
 
 	bytes = (que->depth * que->stride);
-	que->bytes = get_aligned(bytes, pg_size);
+	que->bytes = align(bytes, pg_size);
 	que->va = mmap(NULL, que->bytes, PROT_READ | PROT_WRITE,
 		       MAP_PRIVATE | MAP_ANONYMOUS, -1, 0);
 	if (que->va == MAP_FAILED) {

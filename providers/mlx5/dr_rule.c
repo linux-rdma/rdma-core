@@ -362,7 +362,8 @@ static int dr_rule_rehash_copy_htbl(struct mlx5dv_dr_matcher *matcher,
 				    struct dr_matcher_rx_tx *nic_matcher,
 				    struct dr_ste_htbl *cur_htbl,
 				    struct dr_ste_htbl *new_htbl,
-				    struct list_head *update_list)
+				    struct list_head *update_list,
+				    uint8_t lock_index)
 {
 	struct dr_ste *cur_ste;
 	int cur_entries;
@@ -383,6 +384,15 @@ static int dr_rule_rehash_copy_htbl(struct mlx5dv_dr_matcher *matcher,
 						    update_list);
 		if (err)
 			goto clean_copy;
+
+		/* In order to decrease memory allocation of ste_info struct send
+		 * the current table raw now.
+		 */
+		err = dr_rule_send_update_list(update_list, matcher->tbl->dmn, false, lock_index);
+		if (err) {
+			dr_dbg(matcher->tbl->dmn, "Failed updating table to HW\n");
+			goto clean_copy;
+		}
 	}
 
 clean_copy:
@@ -399,7 +409,6 @@ static struct dr_ste_htbl *dr_rule_rehash_htbl_common(struct mlx5dv_dr_matcher *
 {
 	struct dr_domain_rx_tx *nic_dmn = nic_matcher->nic_tbl->nic_dmn;
 	struct mlx5dv_dr_domain *dmn = matcher->tbl->dmn;
-	struct dr_ste_send_info *del_ste_info, *tmp_ste_info;
 	uint8_t formated_ste[DR_STE_SIZE] = {};
 	struct dr_ste_send_info *ste_info;
 	struct dr_htbl_connect_info info;
@@ -442,7 +451,8 @@ static struct dr_ste_htbl *dr_rule_rehash_htbl_common(struct mlx5dv_dr_matcher *
 				       nic_matcher,
 				       cur_htbl,
 				       new_htbl,
-				       &rehash_table_send_list);
+				       &rehash_table_send_list,
+				       lock_index);
 	if (err)
 		goto free_new_htbl;
 
@@ -452,17 +462,6 @@ static struct dr_ste_htbl *dr_rule_rehash_htbl_common(struct mlx5dv_dr_matcher *
 	if (dr_send_postsend_htbl(dmn, new_htbl, formated_ste, mask, lock_index)) {
 		dr_dbg(dmn, "Failed writing table to HW\n");
 		goto free_new_htbl;
-	}
-
-	/*
-	 * Writing to the hw is done in regular order of rehash_table_send_list,
-	 * in order to have the origin data written before the miss address of
-	 * collision entries, if exists.
-	 */
-	if (dr_rule_send_update_list(&rehash_table_send_list, dmn, false,
-				     lock_index)) {
-		dr_dbg(dmn, "Failed updating table to HW\n");
-		goto free_ste_list;
 	}
 
 	/* Connect previous hash table to current */
@@ -498,14 +497,6 @@ static struct dr_ste_htbl *dr_rule_rehash_htbl_common(struct mlx5dv_dr_matcher *
 					      update_list, false);
 
 	return new_htbl;
-
-free_ste_list:
-	/* Clean all ste_info's from the new table */
-	list_for_each_safe(&rehash_table_send_list, del_ste_info, tmp_ste_info,
-			   send_list) {
-		list_del(&del_ste_info->send_list);
-		free(del_ste_info);
-	}
 
 free_new_htbl:
 	dr_ste_htbl_free(new_htbl);
@@ -578,7 +569,8 @@ static struct dr_ste_htbl *dr_rule_rehash(struct mlx5dv_dr_rule *rule,
 	enum dr_icm_chunk_size new_size;
 
 	new_size = dr_icm_next_higher_chunk(cur_htbl->chunk_size);
-	new_size = min_t(uint32_t, new_size, dmn->info.max_log_sw_icm_sz);
+	new_size = min_t(uint32_t, new_size,
+			 dmn->info.max_log_sw_icm_rehash_sz);
 
 	if (new_size == cur_htbl->chunk_size)
 		return NULL; /* Skip rehash, we already at the max size */
@@ -1375,15 +1367,17 @@ dr_rule_create_rule_nic(struct mlx5dv_dr_rule *rule,
 	if (ret)
 		return ret;
 
+	/* Set the lock index, and use the relative lock  */
+	dr_rule_lock(nic_rule, hw_ste_arr);
+
 	/* Set the actions values/addresses inside the ste array */
 	ret = dr_actions_build_ste_arr(matcher, nic_matcher, actions,
 				       num_actions, hw_ste_arr,
 				       &new_hw_ste_arr_sz,
-				       &cross_dmn_p);
+				       &cross_dmn_p,
+				       nic_rule->lock_index);
 	if (ret)
-		return ret;
-
-	dr_rule_lock(nic_rule, hw_ste_arr);
+		goto out_unlock;
 
 	cur_htbl = nic_matcher->s_htbl;
 
