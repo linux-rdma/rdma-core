@@ -971,6 +971,13 @@ static int _mlx5dv_query_device(struct ibv_context *ctx_in,
 		comp_mask_out |= MLX5DV_CONTEXT_MASK_MAX_DC_RD_ATOM;
 	}
 
+	if (attrs_out->comp_mask & MLX5DV_CONTEXT_MASK_REG_C0) {
+		if (mctx->reg_c0.mask) {
+			attrs_out->reg_c0 = mctx->reg_c0;
+			comp_mask_out |= MLX5DV_CONTEXT_MASK_REG_C0;
+		}
+	}
+
 	attrs_out->comp_mask = comp_mask_out;
 
 	return 0;

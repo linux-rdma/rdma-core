@@ -4091,6 +4091,7 @@ void mlx5_query_device_ctx(struct mlx5_context *mctx)
 		resp.dci_streams_caps.max_log_num_concurent;
 	mctx->dci_streams_caps.max_log_num_errored =
 		resp.dci_streams_caps.max_log_num_errored;
+	mctx->reg_c0 = resp.reg_c0;
 
 	if (resp.flags & MLX5_IB_QUERY_DEV_RESP_FLAGS_CQE_128B_COMP)
 		mctx->vendor_cap_flags |= MLX5_VENDOR_CAP_FLAGS_CQE_128B_COMP;
