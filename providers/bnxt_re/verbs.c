@@ -261,6 +261,7 @@ static uint8_t bnxt_re_poll_err_scqe(struct bnxt_re_qp *qp,
 	status = (le32toh(hdr->flg_st_typ_ph) >> BNXT_RE_BCQE_STATUS_SHIFT) &
 		  BNXT_RE_BCQE_STATUS_MASK;
 	ibvwc->status = bnxt_re_to_ibv_wc_status(status, true);
+	ibvwc->vendor_err = status;
 	ibvwc->wc_flags = 0;
 	ibvwc->wr_id = swrid->wrid;
 	ibvwc->qp_num = qp->qpid;
@@ -393,6 +394,7 @@ static int bnxt_re_poll_err_rcqe(struct bnxt_re_qp *qp, struct ibv_wc *ibvwc,
 		return 0;
 
 	ibvwc->status = bnxt_re_to_ibv_wc_status(status, false);
+	ibvwc->vendor_err = status;
 	ibvwc->qp_num = qp->qpid;
 	ibvwc->opcode = IBV_WC_RECV;
 	ibvwc->byte_len = 0;
