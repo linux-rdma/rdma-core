@@ -20,23 +20,21 @@ class SrqTestCase(RDMATestCase):
 
     def test_resize_srq(self):
         """
-        Test modify_srq with IBV_SRQ_MAX_WR which allows to modify max_wr and
-        max_sge. Modify both parameters, query the SRQ and verify that they've
-        been updated correctly.
+        Test modify_srq with IBV_SRQ_MAX_WR which allows to modify max_wr.
+        Once modified, query the SRQ and verify that the new value is greater
+        or equal than the requested max_wr.
         """
         device_attr = self.server.ctx.query_device()
         if not device_attr.device_cap_flags & e.IBV_DEVICE_SRQ_RESIZE:
             raise unittest.SkipTest('SRQ resize is not supported')
         srq_query_attr = self.server.srq.query()
         srq_query_max_wr = srq_query_attr.max_wr
-        srq_query_max_sge = srq_query_attr.max_sge
         srq_max_wr = min(device_attr.max_srq_wr, srq_query_max_wr*2)
-        srq_max_sge = min(device_attr.max_srq_sge, srq_query_max_sge*2)
-        srq_attr = SrqAttr(max_wr=srq_max_wr, max_sge=srq_max_sge)
+        srq_attr = SrqAttr(max_wr=srq_max_wr)
         self.server.srq.modify(srq_attr, e.IBV_SRQ_MAX_WR)
         srq_attr_modified = self.server.srq.query()
-        self.assertEqual(srq_attr_modified.max_wr, srq_attr.max_wr, 'Resize SRQ failed')
-        self.assertEqual(srq_attr_modified.max_sge, srq_attr.max_sge, 'Resize SRQ failed')
+        self.assertGreaterEqual(srq_attr_modified.max_wr, srq_attr.max_wr,
+                                'Resize SRQ failed')
 
     def test_modify_srq_limit(self):
         """
