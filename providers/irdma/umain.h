@@ -102,7 +102,6 @@ struct irdma_uqp {
 	struct ibv_recv_wr *pend_rx_wr;
 	struct irdma_qp_uk qp;
 	enum ibv_qp_type qp_type;
-	struct irdma_sge *recv_sges;
 };
 
 struct irdma_umr {
