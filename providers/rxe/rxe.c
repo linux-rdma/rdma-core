@@ -55,6 +55,7 @@
 #include "rxe_queue.h"
 #include "rxe-abi.h"
 #include "rxe.h"
+#include "rxe_trace.h"
 
 static void rxe_free_context(struct ibv_context *ibctx);
 
@@ -1619,6 +1620,11 @@ static int post_one_send(struct rxe_qp *qp, struct rxe_wq *sq,
 		return ENOMEM;
 
 	advance_producer(sq->queue);
+	rdma_tracepoint(rdma_core_rxe, post_send,
+			qp->vqp.qp.context->device->name,
+			qp->vqp.qp.qp_num,
+			(char *)ibv_wr_opcode_str(ibwr->opcode),
+			length);
 
 	return 0;
 }

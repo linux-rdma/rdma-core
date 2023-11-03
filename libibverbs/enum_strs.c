@@ -132,3 +132,28 @@ const char *ibv_wc_status_str(enum ibv_wc_status status)
 
 	return wc_status_str[status];
 }
+
+const char *ibv_wr_opcode_str(enum ibv_wr_opcode opcode)
+{
+	static const char *const wr_opcode_str[] = {
+		[IBV_WR_RDMA_WRITE]		= "rdma-write",
+		[IBV_WR_RDMA_WRITE_WITH_IMM]	= "rdma-write-with-imm",
+		[IBV_WR_SEND]			= "send",
+		[IBV_WR_SEND_WITH_IMM]		= "send-with-imm",
+		[IBV_WR_RDMA_READ]		= "rdma-read",
+		[IBV_WR_ATOMIC_CMP_AND_SWP]	= "atomic-cmp-and-swp",
+		[IBV_WR_ATOMIC_FETCH_AND_ADD]	= "atomic-fetch-and-add",
+		[IBV_WR_LOCAL_INV]		= "local-inv",
+		[IBV_WR_BIND_MW]		= "bind-mw",
+		[IBV_WR_SEND_WITH_INV]		= "send-with-inv",
+		[IBV_WR_TSO]			= "tso",
+		[IBV_WR_DRIVER1]		= "driver1",
+		[IBV_WR_FLUSH]			= "flush",
+		[IBV_WR_ATOMIC_WRITE]		= "atomic-write"
+	};
+
+	if (opcode < IBV_WR_RDMA_WRITE || opcode > IBV_WR_ATOMIC_WRITE)
+		return "unknown";
+
+	return wr_opcode_str[opcode];
+}

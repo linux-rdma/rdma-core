@@ -1116,6 +1116,8 @@ enum ibv_wr_opcode {
 	IBV_WR_ATOMIC_WRITE = 15,
 };
 
+const char *ibv_wr_opcode_str(enum ibv_wr_opcode opcode);
+
 enum ibv_send_flags {
 	IBV_SEND_FENCE		= 1 << 0,
 	IBV_SEND_SIGNALED	= 1 << 1,
