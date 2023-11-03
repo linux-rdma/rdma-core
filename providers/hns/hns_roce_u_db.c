@@ -41,6 +41,7 @@
 static const unsigned int db_size[] = {
 	[HNS_ROCE_QP_TYPE_DB] = 4,
 	[HNS_ROCE_CQ_TYPE_DB] = 4,
+	[HNS_ROCE_SRQ_TYPE_DB] = 4,
 };
 
 static struct hns_roce_db_page *hns_roce_add_db_page(
