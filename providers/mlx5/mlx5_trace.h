@@ -52,12 +52,7 @@ LTTNG_UST_TRACEPOINT_EVENT(
 #ifndef __MLX5_TRACE_H__
 #define __MLX5_TRACE_H__
 
-#define MLX5_TP_rdma_core_mlx5 ""
-#define MLX5_TP_post_send ""
-static inline void dummy_tracepoint(const char *p, const char *n, ...) {};
-
-#define rdma_tracepoint(P, N, arg...) \
-		dummy_tracepoint(MLX5_TP_##P, MLX5_TP_##N, arg)
+#define rdma_tracepoint(arg...)
 
 #endif /* __MLX5_TRACE_H__*/
 

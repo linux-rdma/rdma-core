@@ -824,7 +824,6 @@ static inline int _mlx5_post_send(struct ibv_qp *ibqp, struct ibv_send_wr *wr,
 	uint8_t fence;
 	uint8_t next_fence;
 	uint32_t max_tso = 0;
-	unsigned int length = 0;
 	FILE *fp = to_mctx(ibqp->context)->dbg_fp; /* The compiler ignores in non-debug mode */
 
 	mlx5_spin_lock(&qp->sq.lock);
@@ -1139,14 +1138,12 @@ static inline int _mlx5_post_send(struct ibv_qp *ibqp, struct ibv_send_wr *wr,
 		if (mlx5_debug_mask & MLX5_DBG_QP_SEND)
 			dump_wqe(to_mctx(ibqp->context), idx, size, qp);
 #endif
-		for (i = 0; i < wr->num_sge; i++)
-			length += wr->sg_list[i].length;
 
 		rdma_tracepoint(rdma_core_mlx5, post_send,
 				ibqp->context->device->name,
 				ibqp->qp_num,
 				(char *)ibv_wr_opcode_str(wr->opcode),
-				length);
+				wr->num_sge);
 	}
 
 out:
