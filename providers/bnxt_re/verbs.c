@@ -682,29 +682,31 @@ static uint8_t bnxt_re_poll_rcqe(struct bnxt_re_qp *qp, struct ibv_wc *ibvwc,
 	return pcqe;
 }
 
-static uint8_t bnxt_re_poll_term_cqe(struct bnxt_re_qp *qp,
-				     struct ibv_wc *ibvwc, void *cqe, int *cnt)
+static void bnxt_re_qp_move_flush_err(struct bnxt_re_qp *qp)
 {
 	struct bnxt_re_cq *scq, *rcq;
-	uint8_t pcqe = false;
 
 	scq = to_bnxt_re_cq(qp->ibvqp.send_cq);
 	rcq = to_bnxt_re_cq(qp->ibvqp.recv_cq);
+
+	if (qp->qpst != IBV_QPS_ERR)
+		qp->qpst = IBV_QPS_ERR;
+	bnxt_re_fque_add_node(&rcq->rfhead, &qp->rnode);
+	bnxt_re_fque_add_node(&scq->sfhead, &qp->snode);
+}
+
+static uint8_t bnxt_re_poll_term_cqe(struct bnxt_re_qp *qp, int *cnt)
+{
 	/* For now just add the QP to flush list without
 	 * considering the index reported in the CQE.
 	 * Continue reporting flush completions until the
 	 * SQ and RQ are empty.
 	 */
 	*cnt = 0;
-	/* If the QP is destroyed, avoid handling this QP as flushlist */
-	if (qp->qpst == IBV_QPS_RESET)
-		goto exit;
-	if (qp->qpst != IBV_QPS_ERR)
-		qp->qpst = IBV_QPS_ERR;
-	bnxt_re_fque_add_node(&rcq->rfhead, &qp->rnode);
-	bnxt_re_fque_add_node(&scq->sfhead, &qp->snode);
-exit:
-	return pcqe;
+	if (qp->qpst != IBV_QPS_RESET)
+		bnxt_re_qp_move_flush_err(qp);
+
+	return 0;
 }
 
 static int bnxt_re_poll_one(struct bnxt_re_cq *cq, int nwc, struct ibv_wc *wc,
@@ -756,7 +758,7 @@ static int bnxt_re_poll_one(struct bnxt_re_cq *cq, int nwc, struct ibv_wc *wc,
 			     (uintptr_t)le64toh(scqe->qp_handle);
 			if (!qp)
 				break;
-			pcqe = bnxt_re_poll_term_cqe(qp, wc, cqe, &cnt);
+			pcqe = bnxt_re_poll_term_cqe(qp, &cnt);
 			break;
 		case BNXT_RE_WC_TYPE_COFF:
 			/* Stop further processing and return */
