@@ -115,6 +115,7 @@ static const struct verbs_context_ops bnxt_re_cntx_ops = {
 	.destroy_qp    = bnxt_re_destroy_qp,
 	.post_send     = bnxt_re_post_send,
 	.post_recv     = bnxt_re_post_recv,
+	.async_event   = bnxt_re_async_event,
 	.create_ah     = bnxt_re_create_ah,
 	.destroy_ah    = bnxt_re_destroy_ah,
 	.free_context  = bnxt_re_free_context,

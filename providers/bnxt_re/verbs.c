@@ -1257,6 +1257,37 @@ fail:
 	return ret;
 }
 
+void bnxt_re_async_event(struct ibv_context *context,
+		      struct ibv_async_event *event)
+{
+	struct ibv_qp *ibvqp;
+	struct bnxt_re_qp *qp;
+
+	switch (event->event_type) {
+	case IBV_EVENT_CQ_ERR:
+		break;
+	case IBV_EVENT_SRQ_ERR:
+	case IBV_EVENT_QP_FATAL:
+	case IBV_EVENT_QP_REQ_ERR:
+	case IBV_EVENT_QP_ACCESS_ERR:
+	case IBV_EVENT_PATH_MIG_ERR: {
+		ibvqp = event->element.qp;
+		qp = to_bnxt_re_qp(ibvqp);
+		bnxt_re_qp_move_flush_err(qp);
+		break;
+	}
+	case IBV_EVENT_SQ_DRAINED:
+	case IBV_EVENT_PATH_MIG:
+	case IBV_EVENT_COMM_EST:
+	case IBV_EVENT_QP_LAST_WQE_REACHED:
+	case IBV_EVENT_SRQ_LIMIT_REACHED:
+	case IBV_EVENT_PORT_ACTIVE:
+	case IBV_EVENT_PORT_ERR:
+	default:
+		break;
+	}
+}
+
 struct ibv_qp *bnxt_re_create_qp(struct ibv_pd *ibvpd,
 				 struct ibv_qp_init_attr *attr)
 {
