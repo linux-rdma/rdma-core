@@ -1737,10 +1737,10 @@ int bnxt_re_post_send(struct ibv_qp *ibvqp, struct ibv_send_wr *wr,
 			goto bad_wr;
 		}
 
-		idx = 0;
+		idx = 2;
 		bytes = 0;
-		hdr = bnxt_re_get_hwqe(sq, idx++);
-		sqe = bnxt_re_get_hwqe(sq, idx++);
+		hdr = bnxt_re_get_hwqe(sq, 0);
+		sqe = bnxt_re_get_hwqe(sq, 1);
 
 		/* populate push buffer */
 		if (pbuf) {
