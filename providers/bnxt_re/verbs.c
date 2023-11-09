@@ -319,6 +319,12 @@ struct ibv_cq *bnxt_re_create_cq(struct ibv_context *ibvctx, int ncqe,
 	if (!cq)
 		return NULL;
 
+	/* Enable deferred DB mode for CQ if the CQ is small */
+	if (ncqe * 2 < dev->max_cq_depth) {
+		cq->deffered_db_sup = true;
+		ncqe = 2 * ncqe;
+	}
+
 	cq->cqq.depth = bnxt_re_init_depth(ncqe + 1, cntx->comp_mask);
 	if (cq->cqq.depth > dev->max_cq_depth + 1)
 		cq->cqq.depth = dev->max_cq_depth + 1;
@@ -397,6 +403,16 @@ int bnxt_re_resize_cq(struct ibv_cq *ibvcq, int ncqe)
 
 	if (ncqe > dev->max_cq_depth)
 		return -EINVAL;
+
+	/* Check if we can be in defered DB mode with the
+	 * newer size of CQE.
+	 */
+	if (2 * ncqe > dev->max_cq_depth) {
+		cq->deffered_db_sup = false;
+	} else {
+		ncqe = 2 * ncqe;
+		cq->deffered_db_sup = true;
+	}
 
 	pthread_spin_lock(&cq->cqq.qlock);
 	cq->resize_cqq.depth = bnxt_re_init_depth(ncqe + 1, cntx->comp_mask);
@@ -754,6 +770,21 @@ static uint8_t bnxt_re_poll_term_cqe(struct bnxt_re_qp *qp, int *cnt)
 	return 0;
 }
 
+static inline void bnxt_re_check_and_ring_cq_db(struct bnxt_re_cq *cq,
+						int *hw_polled)
+{
+	/* Ring doorbell only if the CQ is at
+	 * least half when deferred db mode is active
+	 */
+	if (cq->deffered_db_sup) {
+		if (cq->hw_cqes < cq->cqq.depth / 2)
+			return;
+		*hw_polled = 0;
+		cq->hw_cqes = 0;
+	}
+	bnxt_re_ring_cq_db(cq);
+}
+
 static int bnxt_re_poll_one(struct bnxt_re_cq *cq, int nwc, struct ibv_wc *wc,
 			    uint32_t *resize)
 {
@@ -819,6 +850,7 @@ static int bnxt_re_poll_one(struct bnxt_re_cq *cq, int nwc, struct ibv_wc *wc,
 			goto skipp_real;
 
 		hw_polled++;
+		cq->hw_cqes++;
 		if (qp_handle) {
 			*qp_handle = 0x0ULL; /* mark cqe as read */
 			qp_handle = NULL;
@@ -832,10 +864,13 @@ skipp_real:
 			nwc--;
 			wc++;
 		}
+		/* Extra check required to avoid CQ full */
+		if (cq->deffered_db_sup)
+			bnxt_re_check_and_ring_cq_db(cq, &hw_polled);
 	}
 
 	if (likely(hw_polled))
-		bnxt_re_ring_cq_db(cq);
+		bnxt_re_check_and_ring_cq_db(cq, &hw_polled);
 
 	return dqed;
 }
