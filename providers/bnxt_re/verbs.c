@@ -466,7 +466,6 @@ static uint8_t bnxt_re_poll_success_scqe(struct bnxt_re_qp *qp,
 {
 	struct bnxt_re_queue *sq = qp->jsqq->hwque;
 	struct bnxt_re_wrid *swrid;
-	uint8_t pcqe = false;
 	uint32_t cindx;
 	uint32_t head;
 
@@ -494,17 +493,17 @@ static uint8_t bnxt_re_poll_success_scqe(struct bnxt_re_qp *qp,
 	bnxt_re_jqq_mod_last(qp->jsqq, head);
 
 	if (qp->jsqq->last_idx != cindx)
-		pcqe = true;
+		return true;
 
-	return pcqe;
+	return false;
 }
 
 static uint8_t bnxt_re_poll_scqe(struct bnxt_re_qp *qp, struct ibv_wc *ibvwc,
 				 void *cqe, int *cnt)
 {
-	struct bnxt_re_bcqe *hdr;
 	struct bnxt_re_req_cqe *scqe;
-	uint8_t status, pcqe = false;
+	struct bnxt_re_bcqe *hdr;
+	uint8_t status;
 
 	scqe = cqe;
 	hdr = cqe + sizeof(struct bnxt_re_req_cqe);
@@ -512,11 +511,9 @@ static uint8_t bnxt_re_poll_scqe(struct bnxt_re_qp *qp, struct ibv_wc *ibvwc,
 	status = (le32toh(hdr->flg_st_typ_ph) >> BNXT_RE_BCQE_STATUS_SHIFT) &
 		  BNXT_RE_BCQE_STATUS_MASK;
 	if (likely(status == BNXT_RE_REQ_ST_OK))
-		pcqe = bnxt_re_poll_success_scqe(qp, ibvwc, hdr, scqe, cnt);
+		return bnxt_re_poll_success_scqe(qp, ibvwc, hdr, scqe, cnt);
 	else
-		pcqe = bnxt_re_poll_err_scqe(qp, ibvwc, hdr, scqe, cnt);
-
-	return pcqe;
+		return bnxt_re_poll_err_scqe(qp, ibvwc, hdr, scqe, cnt);
 }
 
 static void bnxt_re_release_srqe(struct bnxt_re_srq *srq, int tag)
