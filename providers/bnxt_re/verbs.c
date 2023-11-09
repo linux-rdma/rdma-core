@@ -1339,6 +1339,7 @@ struct ibv_qp *bnxt_re_create_qp(struct ibv_pd *ibvpd,
 	cap->max_rsge = attr->cap.max_recv_sge;
 	cap->max_inline = attr->cap.max_inline_data;
 	cap->sqsig = attr->sq_sig_all;
+	cap->is_atomic_cap = dev->devattr.atomic_cap;
 	fque_init_node(&qp->snode);
 	fque_init_node(&qp->rnode);
 
@@ -1651,6 +1652,12 @@ static int bnxt_re_build_ud_sqe(struct ibv_send_wr *wr,
 	return 0;
 }
 
+static bool __atomic_not_supported(struct bnxt_re_qp *qp, struct ibv_send_wr *wr)
+{
+	/* Atomic capability disabled or the request has more than 1 SGE */
+	return (!qp->cap.is_atomic_cap || wr->num_sge > 1);
+}
+
 static void bnxt_re_build_cns_sqe(struct ibv_send_wr *wr,
 				  struct bnxt_re_bsqe *hdr,
 				  void *hdr2)
@@ -1672,6 +1679,25 @@ static void bnxt_re_build_fna_sqe(struct ibv_send_wr *wr,
 	hdr->key_immd = htole32(wr->wr.atomic.rkey);
 	hdr->lhdr.rva = htole64(wr->wr.atomic.remote_addr);
 	sqe->swp_dt = htole64(wr->wr.atomic.compare_add);
+}
+
+static int bnxt_re_build_atomic_sqe(struct bnxt_re_qp *qp,
+				    struct ibv_send_wr *wr,
+				    struct bnxt_re_bsqe *hdr,
+				    void *hdr2)
+{
+	if (__atomic_not_supported(qp, wr))
+		return -EINVAL;
+	switch (wr->opcode) {
+	case IBV_WR_ATOMIC_CMP_AND_SWP:
+		bnxt_re_build_cns_sqe(wr, hdr, hdr2);
+		return 0;
+	case IBV_WR_ATOMIC_FETCH_AND_ADD:
+		bnxt_re_build_fna_sqe(wr, hdr, hdr2);
+		return 0;
+	default:
+		return -EINVAL;
+	}
 }
 
 static void bnxt_re_force_rts2rts(struct bnxt_re_qp *qp)
@@ -1766,10 +1792,12 @@ int bnxt_re_post_send(struct ibv_qp *ibvqp, struct ibv_send_wr *wr,
 			rsqe->rkey = htole32(wr->wr.rdma.rkey);
 			break;
 		case IBV_WR_ATOMIC_CMP_AND_SWP:
-			bnxt_re_build_cns_sqe(wr, hdr, sqe);
-			break;
 		case IBV_WR_ATOMIC_FETCH_AND_ADD:
-			bnxt_re_build_fna_sqe(wr, hdr, sqe);
+			if (bnxt_re_build_atomic_sqe(qp, wr, hdr, sqe)) {
+				ret = EINVAL;
+				*bad = wr;
+				goto bad_wr;
+			}
 			break;
 		default:
 			ret = -EINVAL;

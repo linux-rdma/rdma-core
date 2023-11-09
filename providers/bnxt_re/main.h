@@ -146,6 +146,7 @@ struct bnxt_re_qpcap {
 	uint32_t max_rsge;
 	uint32_t max_inline;
 	uint8_t	sqsig;
+	uint8_t is_atomic_cap;
 };
 
 struct bnxt_re_srq {
