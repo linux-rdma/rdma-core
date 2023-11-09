@@ -1509,7 +1509,7 @@ bad:
 }
 
 static int bnxt_re_required_slots(struct bnxt_re_qp *qp, struct ibv_send_wr *wr,
-				  uint32_t *wqe_sz, bool *push)
+				  uint32_t *wqe_sz, void **pbuf)
 {
 	uint32_t wqe_byte;
 	int ilsize;
@@ -1519,7 +1519,7 @@ static int bnxt_re_required_slots(struct bnxt_re_qp *qp, struct ibv_send_wr *wr,
 		if (ilsize > qp->cap.max_inline)
 			return -EINVAL;
 		if (qp->push_st_en && ilsize <= qp->max_push_sz)
-			*push = true;
+			*pbuf = bnxt_re_get_pbuf(&qp->push_st_en, qp->cntx);
 		wqe_byte = (ilsize + bnxt_re_get_sqe_hdr_sz());
 	} else {
 		wqe_byte = bnxt_re_calc_wqe_sz(wr->num_sge);
@@ -1686,15 +1686,13 @@ int bnxt_re_post_send(struct ibv_qp *ibvqp, struct ibv_send_wr *wr,
 	uint32_t wqe_size = 0;
 	bool ring_db = false;
 	uint8_t sig = 0;
-	bool try_push;
 	uint32_t idx;
 
 	pthread_spin_lock(&sq->qlock);
 	while (wr) {
 
-		try_push = false;
 		pbuf = NULL;
-		slots = bnxt_re_required_slots(qp, wr, &wqe_size, &try_push);
+		slots = bnxt_re_required_slots(qp, wr, &wqe_size, (void **)&pbuf);
 		if (bnxt_re_is_que_full(sq, slots) ||
 		    wr->num_sge > qp->cap.max_ssge) {
 			*bad = wr;
@@ -1705,15 +1703,15 @@ int bnxt_re_post_send(struct ibv_qp *ibvqp, struct ibv_send_wr *wr,
 		idx = 0;
 		hdr = bnxt_re_get_hwqe(sq, idx++);
 		sqe = bnxt_re_get_hwqe(sq, idx++);
-		if (try_push) {
-			pbuf = bnxt_re_get_pbuf(&qp->push_st_en, qp->cntx);
-			if (pbuf) {
-				pbuf->qpid = qp->qpid;
-				pbuf->wqe[0] = (uintptr_t)hdr;
-				pbuf->wqe[1] = (uintptr_t)sqe;
-				pbuf->st_idx = *sq->dbtail;
-			}
+
+		/* populate push buffer */
+		if (pbuf) {
+			pbuf->qpid = qp->qpid;
+			pbuf->wqe[0] = (uintptr_t)hdr;
+			pbuf->wqe[1] = (uintptr_t)sqe;
+			pbuf->st_idx = *sq->dbtail;
 		}
+
 		if (wr->num_sge) {
 			bytes = bnxt_re_build_sge(sq, &idx, pbuf, wr, qp->cap.max_inline);
 			if (unlikely(bytes < 0)) {
@@ -1779,6 +1777,7 @@ int bnxt_re_post_send(struct ibv_qp *ibvqp, struct ibv_send_wr *wr,
 			pbuf->tail = *sq->dbtail;
 			bnxt_re_fill_push_wcb(qp, pbuf, idx);
 			bnxt_re_put_pbuf(qp->cntx, pbuf);
+			pbuf = NULL;
 		}
 
 		qp->wqe_cnt++;
@@ -1792,6 +1791,9 @@ int bnxt_re_post_send(struct ibv_qp *ibvqp, struct ibv_send_wr *wr,
 bad_wr:
 	if (ring_db)
 		bnxt_re_ring_sq_db(qp);
+
+	if (pbuf)
+		bnxt_re_put_pbuf(qp->cntx, pbuf);
 
 	pthread_spin_unlock(&sq->qlock);
 	return ret;
