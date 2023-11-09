@@ -1429,8 +1429,22 @@ int bnxt_re_destroy_qp(struct ibv_qp *ibvqp)
 	return 0;
 }
 
-static int bnxt_re_put_sge(struct bnxt_re_queue *que, uint32_t *idx,
-			   struct ibv_sge *sgl, int nsg)
+static void bnxt_re_put_rx_sge(struct bnxt_re_queue *que, uint32_t *idx,
+			       struct ibv_sge *sgl, int nsg)
+{
+	struct bnxt_re_sge *sge;
+	int indx;
+
+	for (indx = 0; indx < nsg; indx++) {
+		sge = bnxt_re_get_hwqe(que, (*idx)++);
+		sge->pa = htole64(sgl[indx].addr);
+		sge->lkey = htole32(sgl[indx].lkey);
+		sge->length = htole32(sgl[indx].length);
+	}
+}
+
+static int bnxt_re_put_tx_sge(struct bnxt_re_queue *que, uint32_t *idx,
+			      struct ibv_sge *sgl, int nsg)
 {
 	struct bnxt_re_sge *sge;
 	int indx;
@@ -1562,15 +1576,15 @@ static inline void bnxt_re_set_hdr_flags(struct bnxt_re_bsqe *hdr,
 	hdr->rsv_ws_fl_wt = htole32(hdrval);
 }
 
-static int bnxt_re_build_sge(struct bnxt_re_queue *que, uint32_t *idx,
-			     struct bnxt_re_push_buffer *pbuf,
-			     struct ibv_send_wr *wr,
-			     uint16_t max_il)
+static int bnxt_re_build_tx_sge(struct bnxt_re_queue *que, uint32_t *idx,
+				struct bnxt_re_push_buffer *pbuf,
+				struct ibv_send_wr *wr,
+				uint16_t max_il)
 {
 	if (wr->send_flags & IBV_SEND_INLINE)
 		return bnxt_re_put_inline(que, idx, pbuf, wr->sg_list, wr->num_sge, max_il);
 
-	return bnxt_re_put_sge(que, idx, wr->sg_list, wr->num_sge);
+	return bnxt_re_put_tx_sge(que, idx, wr->sg_list, wr->num_sge);
 }
 
 static void bnxt_re_fill_psns(struct bnxt_re_qp *qp, struct bnxt_re_wrid *wrid,
@@ -1713,7 +1727,7 @@ int bnxt_re_post_send(struct ibv_qp *ibvqp, struct ibv_send_wr *wr,
 		}
 
 		if (wr->num_sge) {
-			bytes = bnxt_re_build_sge(sq, &idx, pbuf, wr, qp->cap.max_inline);
+			bytes = bnxt_re_build_tx_sge(sq, &idx, pbuf, wr, qp->cap.max_inline);
 			if (unlikely(bytes < 0)) {
 				ret = ENOMEM;
 				*bad = wr;
@@ -1808,10 +1822,10 @@ int bnxt_re_post_recv(struct ibv_qp *ibvqp, struct ibv_recv_wr *wr,
 	struct bnxt_re_brqe *hdr;
 	struct bnxt_re_sge *sge;
 	bool ring_db = false;
-	int ret = 0, rc = 0;
 	uint32_t hdrval = 0;
 	uint32_t idx = 0;
 	uint32_t swq_idx;
+	int rc = 0;
 
 	pthread_spin_lock(&rq->qlock);
 	while (wr) {
@@ -1840,12 +1854,7 @@ int bnxt_re_post_recv(struct ibv_qp *ibvqp, struct ibv_recv_wr *wr,
 			sge->length = 0;
 		} else {
 			/* Fill SGEs */
-			ret = bnxt_re_put_sge(rq, &idx, wr->sg_list, wr->num_sge);
-		}
-		if (unlikely(ret < 0)) {
-			*bad = wr;
-			rc = ENOMEM;
-			break;
+			bnxt_re_put_rx_sge(rq, &idx, wr->sg_list, wr->num_sge);
 		}
 		hdrval = BNXT_RE_WR_OPCD_RECV;
 		hdrval |= ((idx & BNXT_RE_HDR_WS_MASK) << BNXT_RE_HDR_WS_SHIFT);
