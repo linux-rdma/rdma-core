@@ -1715,6 +1715,7 @@ int bnxt_re_post_send(struct ibv_qp *ibvqp, struct ibv_send_wr *wr,
 		}
 
 		idx = 0;
+		bytes = 0;
 		hdr = bnxt_re_get_hwqe(sq, idx++);
 		sqe = bnxt_re_get_hwqe(sq, idx++);
 
