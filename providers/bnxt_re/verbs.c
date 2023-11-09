@@ -928,7 +928,8 @@ int bnxt_re_poll_cq(struct ibv_cq *ibvcq, int nwc, struct ibv_wc *wc)
 	}
 	dqed += bnxt_re_poll_one(cq, left, wc + dqed, &resize);
 	left = nwc - dqed;
-	if (left)
+	if (unlikely(left && (!list_empty(&cq->sfhead) ||
+			      !list_empty(&cq->rfhead))))
 		/* Check if anything is there to flush. */
 		dqed += bnxt_re_poll_flush_lists(cq, left, (wc + dqed));
 	pthread_spin_unlock(&cq->cqq.qlock);
@@ -1870,7 +1871,7 @@ int bnxt_re_post_recv(struct ibv_qp *ibvqp, struct ibv_recv_wr *wr,
 		idx = 2;
 		hdr = bnxt_re_get_hwqe_hdr(rq);
 
-		if (!wr->num_sge) {
+		if (unlikely(!wr->num_sge)) {
 			/*
 			 * HW needs at least one SGE for RQ Entries.
 			 * Create an entry if num_sge = 0,
