@@ -17,8 +17,6 @@
 #define INLINE_OOB_LARGE_SIZE 24
 
 #define GDMA_WQE_ALIGNMENT_UNIT_SIZE 32
-#define MAX_TX_WQE_SIZE 512
-#define MAX_RX_WQE_SIZE 256
 
 /* The size of a SGE in WQE */
 #define SGE_SIZE 16
