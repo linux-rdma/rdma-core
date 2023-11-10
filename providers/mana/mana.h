@@ -8,7 +8,6 @@
 
 #include "manadv.h"
 
-#define MAX_SEND_BUFFERS_PER_QUEUE 256
 #define COMP_ENTRY_SIZE 64
 #define MANA_IB_TOEPLITZ_HASH_KEY_SIZE_IN_BYTES 40
 
