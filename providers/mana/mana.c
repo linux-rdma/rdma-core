@@ -200,13 +200,6 @@ struct ibv_cq *mana_create_cq(struct ibv_context *context, int cqe,
 	int cq_size;
 	int ret;
 
-	if (cqe > MAX_SEND_BUFFERS_PER_QUEUE) {
-		verbs_err(verbs_get_ctx(context), "CQE %d exceeding limit\n",
-			  cqe);
-		errno = EINVAL;
-		return NULL;
-	}
-
 	if (!ctx->extern_alloc.alloc || !ctx->extern_alloc.free) {
 		/*
 		 * This version of driver doesn't support allocating buffers

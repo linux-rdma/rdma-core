@@ -56,22 +56,6 @@ static struct ibv_qp *mana_create_qp_raw(struct ibv_pd *ibpd,
 
 	cq = container_of(attr->send_cq, struct mana_cq, ibcq);
 
-	if (attr->cap.max_send_wr > MAX_SEND_BUFFERS_PER_QUEUE) {
-		verbs_err(verbs_get_ctx(ibpd->context),
-			  "max_send_wr %d exceeds MAX_SEND_BUFFERS_PER_QUEUE\n",
-			  attr->cap.max_send_wr);
-		errno = EINVAL;
-		return NULL;
-	}
-
-	if (get_wqe_size(attr->cap.max_send_sge) > MAX_TX_WQE_SIZE) {
-		verbs_err(verbs_get_ctx(ibpd->context),
-			  "max_send_sge %d exceeding queue size limits\n",
-			  attr->cap.max_send_sge);
-		errno = EINVAL;
-		return NULL;
-	}
-
 	if (!ctx->extern_alloc.alloc || !ctx->extern_alloc.free) {
 		verbs_err(verbs_get_ctx(ibpd->context),
 			  "RAW QP requires extern alloc for buffers\n");
