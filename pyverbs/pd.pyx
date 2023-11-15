@@ -1,5 +1,8 @@
 # SPDX-License-Identifier: (GPL-2.0 OR Linux-OpenIB)
 # Copyright (c) 2019, Mellanox Technologies. All rights reserved.
+
+#cython: legacy_implicit_noexcept=True
+
 from libc.stdint cimport uintptr_t, uint32_t
 from libc.stdlib cimport malloc
 import weakref
