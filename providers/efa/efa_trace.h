@@ -52,6 +52,7 @@ LTTNG_UST_TRACEPOINT_EVENT(
 	LTTNG_UST_TP_ARGS(
 		char *, dev_name,
 		uint64_t, wr_id,
+		uint8_t, op_type,
 		uint32_t, src_qp_num,
 		uint32_t, dst_qp_num,
 		uint16_t, ah_num
@@ -61,6 +62,7 @@ LTTNG_UST_TRACEPOINT_EVENT(
 	LTTNG_UST_TP_FIELDS(
 		lttng_ust_field_string(dev_name, dev_name)
 		lttng_ust_field_integer(uint64_t, wr_id, wr_id)
+		lttng_ust_field_integer(uint8_t, op_type, op_type)
 		lttng_ust_field_integer(uint32_t, src_qp_num, src_qp_num)
 		lttng_ust_field_integer(uint32_t, dst_qp_num, dst_qp_num)
 		lttng_ust_field_integer(uint16_t, ah_num, ah_num)
