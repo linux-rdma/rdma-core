@@ -104,5 +104,7 @@ int bnxt_re_post_srq_recv(struct ibv_srq *ibvsrq, struct ibv_recv_wr *wr,
 struct ibv_ah *bnxt_re_create_ah(struct ibv_pd *ibvpd,
 				 struct ibv_ah_attr *attr);
 int bnxt_re_destroy_ah(struct ibv_ah *ibvah);
+void bnxt_re_async_event(struct ibv_context *context,
+			 struct ibv_async_event *event);
 
 #endif /* __BNXT_RE_VERBS_H__ */

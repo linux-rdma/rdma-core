@@ -466,7 +466,6 @@ static uint8_t bnxt_re_poll_success_scqe(struct bnxt_re_qp *qp,
 {
 	struct bnxt_re_queue *sq = qp->jsqq->hwque;
 	struct bnxt_re_wrid *swrid;
-	uint8_t pcqe = false;
 	uint32_t cindx;
 	uint32_t head;
 
@@ -494,17 +493,17 @@ static uint8_t bnxt_re_poll_success_scqe(struct bnxt_re_qp *qp,
 	bnxt_re_jqq_mod_last(qp->jsqq, head);
 
 	if (qp->jsqq->last_idx != cindx)
-		pcqe = true;
+		return true;
 
-	return pcqe;
+	return false;
 }
 
 static uint8_t bnxt_re_poll_scqe(struct bnxt_re_qp *qp, struct ibv_wc *ibvwc,
 				 void *cqe, int *cnt)
 {
-	struct bnxt_re_bcqe *hdr;
 	struct bnxt_re_req_cqe *scqe;
-	uint8_t status, pcqe = false;
+	struct bnxt_re_bcqe *hdr;
+	uint8_t status;
 
 	scqe = cqe;
 	hdr = cqe + sizeof(struct bnxt_re_req_cqe);
@@ -512,11 +511,9 @@ static uint8_t bnxt_re_poll_scqe(struct bnxt_re_qp *qp, struct ibv_wc *ibvwc,
 	status = (le32toh(hdr->flg_st_typ_ph) >> BNXT_RE_BCQE_STATUS_SHIFT) &
 		  BNXT_RE_BCQE_STATUS_MASK;
 	if (likely(status == BNXT_RE_REQ_ST_OK))
-		pcqe = bnxt_re_poll_success_scqe(qp, ibvwc, hdr, scqe, cnt);
+		return bnxt_re_poll_success_scqe(qp, ibvwc, hdr, scqe, cnt);
 	else
-		pcqe = bnxt_re_poll_err_scqe(qp, ibvwc, hdr, scqe, cnt);
-
-	return pcqe;
+		return bnxt_re_poll_err_scqe(qp, ibvwc, hdr, scqe, cnt);
 }
 
 static void bnxt_re_release_srqe(struct bnxt_re_srq *srq, int tag)
@@ -682,29 +679,31 @@ static uint8_t bnxt_re_poll_rcqe(struct bnxt_re_qp *qp, struct ibv_wc *ibvwc,
 	return pcqe;
 }
 
-static uint8_t bnxt_re_poll_term_cqe(struct bnxt_re_qp *qp,
-				     struct ibv_wc *ibvwc, void *cqe, int *cnt)
+static void bnxt_re_qp_move_flush_err(struct bnxt_re_qp *qp)
 {
 	struct bnxt_re_cq *scq, *rcq;
-	uint8_t pcqe = false;
 
 	scq = to_bnxt_re_cq(qp->ibvqp.send_cq);
 	rcq = to_bnxt_re_cq(qp->ibvqp.recv_cq);
+
+	if (qp->qpst != IBV_QPS_ERR)
+		qp->qpst = IBV_QPS_ERR;
+	bnxt_re_fque_add_node(&rcq->rfhead, &qp->rnode);
+	bnxt_re_fque_add_node(&scq->sfhead, &qp->snode);
+}
+
+static uint8_t bnxt_re_poll_term_cqe(struct bnxt_re_qp *qp, int *cnt)
+{
 	/* For now just add the QP to flush list without
 	 * considering the index reported in the CQE.
 	 * Continue reporting flush completions until the
 	 * SQ and RQ are empty.
 	 */
 	*cnt = 0;
-	/* If the QP is destroyed, avoid handling this QP as flushlist */
-	if (qp->qpst == IBV_QPS_RESET)
-		goto exit;
-	if (qp->qpst != IBV_QPS_ERR)
-		qp->qpst = IBV_QPS_ERR;
-	bnxt_re_fque_add_node(&rcq->rfhead, &qp->rnode);
-	bnxt_re_fque_add_node(&scq->sfhead, &qp->snode);
-exit:
-	return pcqe;
+	if (qp->qpst != IBV_QPS_RESET)
+		bnxt_re_qp_move_flush_err(qp);
+
+	return 0;
 }
 
 static int bnxt_re_poll_one(struct bnxt_re_cq *cq, int nwc, struct ibv_wc *wc,
@@ -756,7 +755,7 @@ static int bnxt_re_poll_one(struct bnxt_re_cq *cq, int nwc, struct ibv_wc *wc,
 			     (uintptr_t)le64toh(scqe->qp_handle);
 			if (!qp)
 				break;
-			pcqe = bnxt_re_poll_term_cqe(qp, wc, cqe, &cnt);
+			pcqe = bnxt_re_poll_term_cqe(qp, &cnt);
 			break;
 		case BNXT_RE_WC_TYPE_COFF:
 			/* Stop further processing and return */
@@ -929,7 +928,8 @@ int bnxt_re_poll_cq(struct ibv_cq *ibvcq, int nwc, struct ibv_wc *wc)
 	}
 	dqed += bnxt_re_poll_one(cq, left, wc + dqed, &resize);
 	left = nwc - dqed;
-	if (left)
+	if (unlikely(left && (!list_empty(&cq->sfhead) ||
+			      !list_empty(&cq->rfhead))))
 		/* Check if anything is there to flush. */
 		dqed += bnxt_re_poll_flush_lists(cq, left, (wc + dqed));
 	pthread_spin_unlock(&cq->cqq.qlock);
@@ -1255,6 +1255,37 @@ fail:
 	return ret;
 }
 
+void bnxt_re_async_event(struct ibv_context *context,
+		      struct ibv_async_event *event)
+{
+	struct ibv_qp *ibvqp;
+	struct bnxt_re_qp *qp;
+
+	switch (event->event_type) {
+	case IBV_EVENT_CQ_ERR:
+		break;
+	case IBV_EVENT_SRQ_ERR:
+	case IBV_EVENT_QP_FATAL:
+	case IBV_EVENT_QP_REQ_ERR:
+	case IBV_EVENT_QP_ACCESS_ERR:
+	case IBV_EVENT_PATH_MIG_ERR: {
+		ibvqp = event->element.qp;
+		qp = to_bnxt_re_qp(ibvqp);
+		bnxt_re_qp_move_flush_err(qp);
+		break;
+	}
+	case IBV_EVENT_SQ_DRAINED:
+	case IBV_EVENT_PATH_MIG:
+	case IBV_EVENT_COMM_EST:
+	case IBV_EVENT_QP_LAST_WQE_REACHED:
+	case IBV_EVENT_SRQ_LIMIT_REACHED:
+	case IBV_EVENT_PORT_ACTIVE:
+	case IBV_EVENT_PORT_ERR:
+	default:
+		break;
+	}
+}
+
 struct ibv_qp *bnxt_re_create_qp(struct ibv_pd *ibvpd,
 				 struct ibv_qp_init_attr *attr)
 {
@@ -1306,6 +1337,7 @@ struct ibv_qp *bnxt_re_create_qp(struct ibv_pd *ibvpd,
 	cap->max_rsge = attr->cap.max_recv_sge;
 	cap->max_inline = attr->cap.max_inline_data;
 	cap->sqsig = attr->sq_sig_all;
+	cap->is_atomic_cap = dev->devattr.atomic_cap;
 	fque_init_node(&qp->snode);
 	fque_init_node(&qp->rnode);
 
@@ -1396,8 +1428,22 @@ int bnxt_re_destroy_qp(struct ibv_qp *ibvqp)
 	return 0;
 }
 
-static int bnxt_re_put_sge(struct bnxt_re_queue *que, uint32_t *idx,
-			   struct ibv_sge *sgl, int nsg)
+static void bnxt_re_put_rx_sge(struct bnxt_re_queue *que, uint32_t *idx,
+			       struct ibv_sge *sgl, int nsg)
+{
+	struct bnxt_re_sge *sge;
+	int indx;
+
+	for (indx = 0; indx < nsg; indx++) {
+		sge = bnxt_re_get_hwqe(que, (*idx)++);
+		sge->pa = htole64(sgl[indx].addr);
+		sge->lkey = htole32(sgl[indx].lkey);
+		sge->length = htole32(sgl[indx].length);
+	}
+}
+
+static int bnxt_re_put_tx_sge(struct bnxt_re_queue *que, uint32_t *idx,
+			      struct ibv_sge *sgl, int nsg)
 {
 	struct bnxt_re_sge *sge;
 	int indx;
@@ -1476,7 +1522,7 @@ bad:
 }
 
 static int bnxt_re_required_slots(struct bnxt_re_qp *qp, struct ibv_send_wr *wr,
-				  uint32_t *wqe_sz, bool *push)
+				  uint32_t *wqe_sz, void **pbuf)
 {
 	uint32_t wqe_byte;
 	int ilsize;
@@ -1486,7 +1532,7 @@ static int bnxt_re_required_slots(struct bnxt_re_qp *qp, struct ibv_send_wr *wr,
 		if (ilsize > qp->cap.max_inline)
 			return -EINVAL;
 		if (qp->push_st_en && ilsize <= qp->max_push_sz)
-			*push = true;
+			*pbuf = bnxt_re_get_pbuf(&qp->push_st_en, qp->cntx);
 		wqe_byte = (ilsize + bnxt_re_get_sqe_hdr_sz());
 	} else {
 		wqe_byte = bnxt_re_calc_wqe_sz(wr->num_sge);
@@ -1529,15 +1575,15 @@ static inline void bnxt_re_set_hdr_flags(struct bnxt_re_bsqe *hdr,
 	hdr->rsv_ws_fl_wt = htole32(hdrval);
 }
 
-static int bnxt_re_build_sge(struct bnxt_re_queue *que, uint32_t *idx,
-			     struct bnxt_re_push_buffer *pbuf,
-			     struct ibv_send_wr *wr,
-			     uint16_t max_il)
+static int bnxt_re_build_tx_sge(struct bnxt_re_queue *que, uint32_t *idx,
+				struct bnxt_re_push_buffer *pbuf,
+				struct ibv_send_wr *wr,
+				uint16_t max_il)
 {
 	if (wr->send_flags & IBV_SEND_INLINE)
 		return bnxt_re_put_inline(que, idx, pbuf, wr->sg_list, wr->num_sge, max_il);
 
-	return bnxt_re_put_sge(que, idx, wr->sg_list, wr->num_sge);
+	return bnxt_re_put_tx_sge(que, idx, wr->sg_list, wr->num_sge);
 }
 
 static void bnxt_re_fill_psns(struct bnxt_re_qp *qp, struct bnxt_re_wrid *wrid,
@@ -1604,6 +1650,12 @@ static int bnxt_re_build_ud_sqe(struct ibv_send_wr *wr,
 	return 0;
 }
 
+static bool __atomic_not_supported(struct bnxt_re_qp *qp, struct ibv_send_wr *wr)
+{
+	/* Atomic capability disabled or the request has more than 1 SGE */
+	return (!qp->cap.is_atomic_cap || wr->num_sge > 1);
+}
+
 static void bnxt_re_build_cns_sqe(struct ibv_send_wr *wr,
 				  struct bnxt_re_bsqe *hdr,
 				  void *hdr2)
@@ -1625,6 +1677,25 @@ static void bnxt_re_build_fna_sqe(struct ibv_send_wr *wr,
 	hdr->key_immd = htole32(wr->wr.atomic.rkey);
 	hdr->lhdr.rva = htole64(wr->wr.atomic.remote_addr);
 	sqe->swp_dt = htole64(wr->wr.atomic.compare_add);
+}
+
+static int bnxt_re_build_atomic_sqe(struct bnxt_re_qp *qp,
+				    struct ibv_send_wr *wr,
+				    struct bnxt_re_bsqe *hdr,
+				    void *hdr2)
+{
+	if (__atomic_not_supported(qp, wr))
+		return -EINVAL;
+	switch (wr->opcode) {
+	case IBV_WR_ATOMIC_CMP_AND_SWP:
+		bnxt_re_build_cns_sqe(wr, hdr, hdr2);
+		return 0;
+	case IBV_WR_ATOMIC_FETCH_AND_ADD:
+		bnxt_re_build_fna_sqe(wr, hdr, hdr2);
+		return 0;
+	default:
+		return -EINVAL;
+	}
 }
 
 static void bnxt_re_force_rts2rts(struct bnxt_re_qp *qp)
@@ -1653,15 +1724,13 @@ int bnxt_re_post_send(struct ibv_qp *ibvqp, struct ibv_send_wr *wr,
 	uint32_t wqe_size = 0;
 	bool ring_db = false;
 	uint8_t sig = 0;
-	bool try_push;
 	uint32_t idx;
 
 	pthread_spin_lock(&sq->qlock);
 	while (wr) {
 
-		try_push = false;
 		pbuf = NULL;
-		slots = bnxt_re_required_slots(qp, wr, &wqe_size, &try_push);
+		slots = bnxt_re_required_slots(qp, wr, &wqe_size, (void **)&pbuf);
 		if (bnxt_re_is_que_full(sq, slots) ||
 		    wr->num_sge > qp->cap.max_ssge) {
 			*bad = wr;
@@ -1669,20 +1738,21 @@ int bnxt_re_post_send(struct ibv_qp *ibvqp, struct ibv_send_wr *wr,
 			goto bad_wr;
 		}
 
-		idx = 0;
-		hdr = bnxt_re_get_hwqe(sq, idx++);
-		sqe = bnxt_re_get_hwqe(sq, idx++);
-		if (try_push) {
-			pbuf = bnxt_re_get_pbuf(&qp->push_st_en, qp->cntx);
-			if (pbuf) {
-				pbuf->qpid = qp->qpid;
-				pbuf->wqe[0] = (uintptr_t)hdr;
-				pbuf->wqe[1] = (uintptr_t)sqe;
-				pbuf->st_idx = *sq->dbtail;
-			}
+		idx = 2;
+		bytes = 0;
+		hdr = bnxt_re_get_hwqe(sq, 0);
+		sqe = bnxt_re_get_hwqe(sq, 1);
+
+		/* populate push buffer */
+		if (pbuf) {
+			pbuf->qpid = qp->qpid;
+			pbuf->wqe[0] = (uintptr_t)hdr;
+			pbuf->wqe[1] = (uintptr_t)sqe;
+			pbuf->st_idx = *sq->dbtail;
 		}
+
 		if (wr->num_sge) {
-			bytes = bnxt_re_build_sge(sq, &idx, pbuf, wr, qp->cap.max_inline);
+			bytes = bnxt_re_build_tx_sge(sq, &idx, pbuf, wr, qp->cap.max_inline);
 			if (unlikely(bytes < 0)) {
 				ret = ENOMEM;
 				*bad = wr;
@@ -1720,10 +1790,12 @@ int bnxt_re_post_send(struct ibv_qp *ibvqp, struct ibv_send_wr *wr,
 			rsqe->rkey = htole32(wr->wr.rdma.rkey);
 			break;
 		case IBV_WR_ATOMIC_CMP_AND_SWP:
-			bnxt_re_build_cns_sqe(wr, hdr, sqe);
-			break;
 		case IBV_WR_ATOMIC_FETCH_AND_ADD:
-			bnxt_re_build_fna_sqe(wr, hdr, sqe);
+			if (bnxt_re_build_atomic_sqe(qp, wr, hdr, sqe)) {
+				ret = EINVAL;
+				*bad = wr;
+				goto bad_wr;
+			}
 			break;
 		default:
 			ret = -EINVAL;
@@ -1746,6 +1818,7 @@ int bnxt_re_post_send(struct ibv_qp *ibvqp, struct ibv_send_wr *wr,
 			pbuf->tail = *sq->dbtail;
 			bnxt_re_fill_push_wcb(qp, pbuf, idx);
 			bnxt_re_put_pbuf(qp->cntx, pbuf);
+			pbuf = NULL;
 		}
 
 		qp->wqe_cnt++;
@@ -1760,6 +1833,9 @@ bad_wr:
 	if (ring_db)
 		bnxt_re_ring_sq_db(qp);
 
+	if (pbuf)
+		bnxt_re_put_pbuf(qp->cntx, pbuf);
+
 	pthread_spin_unlock(&sq->qlock);
 	return ret;
 }
@@ -1773,10 +1849,10 @@ int bnxt_re_post_recv(struct ibv_qp *ibvqp, struct ibv_recv_wr *wr,
 	struct bnxt_re_brqe *hdr;
 	struct bnxt_re_sge *sge;
 	bool ring_db = false;
-	int ret = 0, rc = 0;
 	uint32_t hdrval = 0;
 	uint32_t idx = 0;
 	uint32_t swq_idx;
+	int rc = 0;
 
 	pthread_spin_lock(&rq->qlock);
 	while (wr) {
@@ -1795,7 +1871,7 @@ int bnxt_re_post_recv(struct ibv_qp *ibvqp, struct ibv_recv_wr *wr,
 		idx = 2;
 		hdr = bnxt_re_get_hwqe_hdr(rq);
 
-		if (!wr->num_sge) {
+		if (unlikely(!wr->num_sge)) {
 			/*
 			 * HW needs at least one SGE for RQ Entries.
 			 * Create an entry if num_sge = 0,
@@ -1805,12 +1881,7 @@ int bnxt_re_post_recv(struct ibv_qp *ibvqp, struct ibv_recv_wr *wr,
 			sge->length = 0;
 		} else {
 			/* Fill SGEs */
-			ret = bnxt_re_put_sge(rq, &idx, wr->sg_list, wr->num_sge);
-		}
-		if (unlikely(ret < 0)) {
-			*bad = wr;
-			rc = ENOMEM;
-			break;
+			bnxt_re_put_rx_sge(rq, &idx, wr->sg_list, wr->num_sge);
 		}
 		hdrval = BNXT_RE_WR_OPCD_RECV;
 		hdrval |= ((idx & BNXT_RE_HDR_WS_MASK) << BNXT_RE_HDR_WS_SHIFT);
