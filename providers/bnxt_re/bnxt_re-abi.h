@@ -54,7 +54,7 @@ DECLARE_DRV_CMD(ubnxt_re_resize_cq, IB_USER_VERBS_CMD_RESIZE_CQ,
 DECLARE_DRV_CMD(ubnxt_re_qp, IB_USER_VERBS_CMD_CREATE_QP,
 		bnxt_re_qp_req, bnxt_re_qp_resp);
 DECLARE_DRV_CMD(ubnxt_re_cntx, IB_USER_VERBS_CMD_GET_CONTEXT,
-		empty, bnxt_re_uctx_resp);
+		bnxt_re_uctx_req, bnxt_re_uctx_resp);
 DECLARE_DRV_CMD(ubnxt_re_mr, IB_USER_VERBS_CMD_REG_MR,
 		empty, empty);
 DECLARE_DRV_CMD(ubnxt_re_srq, IB_USER_VERBS_CMD_CREATE_SRQ,
@@ -212,6 +212,7 @@ enum bnxt_re_ud_cqe_mask {
 enum {
 	BNXT_RE_COMP_MASK_UCNTX_WC_DPI_ENABLED = 0x01,
 	BNXT_RE_COMP_MASK_UCNTX_DBR_PACING_ENABLED = 0x02,
+	BNXT_RE_COMP_MASK_UCNTX_POW2_DISABLED = 0x04,
 };
 
 enum bnxt_re_modes {

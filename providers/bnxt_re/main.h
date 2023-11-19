@@ -539,6 +539,12 @@ static inline void bnxt_re_jqq_mod_last(struct bnxt_re_joint_queue *jqq,
 	jqq->last_idx = jqq->swque[idx].next_idx;
 }
 
+static inline uint32_t bnxt_re_init_depth(uint32_t ent, uint64_t cmask)
+{
+	return cmask & BNXT_RE_COMP_MASK_UCNTX_POW2_DISABLED ?
+		ent : roundup_pow_of_two(ent);
+}
+
 /* Helper function to copy to push buffers */
 static inline void bnxt_re_copy_data_to_pb(struct bnxt_re_push_buffer *pbuf,
 					   uint8_t offset, uint32_t idx)

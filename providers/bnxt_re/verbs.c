@@ -287,7 +287,7 @@ struct ibv_cq *bnxt_re_create_cq(struct ibv_context *ibvctx, int ncqe,
 	if (!cq)
 		return NULL;
 
-	cq->cqq.depth = roundup_pow_of_two(ncqe + 1);
+	cq->cqq.depth = bnxt_re_init_depth(ncqe + 1, cntx->comp_mask);
 	if (cq->cqq.depth > dev->max_cq_depth + 1)
 		cq->cqq.depth = dev->max_cq_depth + 1;
 	cq->cqq.stride = dev->cqe_size;
@@ -343,6 +343,7 @@ static void bnxt_re_resize_cq_complete(struct bnxt_re_cq *cq)
 
 int bnxt_re_resize_cq(struct ibv_cq *ibvcq, int ncqe)
 {
+	struct bnxt_re_context *cntx = to_bnxt_re_context(ibvcq->context);
 	struct bnxt_re_dev *dev = to_bnxt_re_dev(ibvcq->context->device);
 	struct bnxt_re_cq *cq = to_bnxt_re_cq(ibvcq);
 	struct ib_uverbs_resize_cq_resp resp = {};
@@ -353,7 +354,7 @@ int bnxt_re_resize_cq(struct ibv_cq *ibvcq, int ncqe)
 		return -EINVAL;
 
 	pthread_spin_lock(&cq->cqq.qlock);
-	cq->resize_cqq.depth = roundup_pow_of_two(ncqe + 1);
+	cq->resize_cqq.depth = bnxt_re_init_depth(ncqe + 1, cntx->comp_mask);
 	if (cq->resize_cqq.depth > dev->max_cq_depth + 1)
 		cq->resize_cqq.depth = dev->max_cq_depth + 1;
 	cq->resize_cqq.stride = dev->cqe_size;
@@ -471,7 +472,7 @@ static uint8_t bnxt_re_poll_success_scqe(struct bnxt_re_qp *qp,
 
 	head = qp->jsqq->last_idx;
 	swrid = &qp->jsqq->swque[head];
-	cindx = le32toh(scqe->con_indx) & (qp->cap.max_swr - 1);
+	cindx = le32toh(scqe->con_indx) % qp->cap.max_swr;
 
 	if (!(swrid->sig & IBV_SEND_SIGNALED)) {
 		*cnt = 0;
@@ -1150,10 +1151,11 @@ static int bnxt_re_get_sq_slots(struct bnxt_re_dev *rdev,
 	return slots;
 }
 
-static int bnxt_re_alloc_queues(struct bnxt_re_dev *dev,
+static int bnxt_re_alloc_queues(struct bnxt_re_context *cntx,
 				struct bnxt_re_qp *qp,
 				struct ibv_qp_init_attr *attr,
-				uint32_t pg_size) {
+				uint32_t pg_size)
+{
 	struct bnxt_re_psns_ext *psns_ext;
 	struct bnxt_re_wrid *swque;
 	struct bnxt_re_queue *que;
@@ -1168,11 +1170,11 @@ static int bnxt_re_alloc_queues(struct bnxt_re_dev *dev,
 	que = qp->jsqq->hwque;
 	diff = (qp->qpmode == BNXT_RE_WQE_MODE_VARIABLE) ?
 		0 : BNXT_RE_FULL_FLAG_DELTA;
-	nswr = roundup_pow_of_two(attr->cap.max_send_wr + 1 + diff);
+	nswr = bnxt_re_init_depth(attr->cap.max_send_wr + 1 + diff, cntx->comp_mask);
 	nsge = attr->cap.max_send_sge;
 	if (nsge % 2)
 		nsge++;
-	nslots = bnxt_re_get_sq_slots(dev, qp, nswr, nsge,
+	nslots = bnxt_re_get_sq_slots(cntx->rdev, qp, nswr, nsge,
 				      &attr->cap.max_inline_data);
 	if (nslots < 0)
 		 return nslots;
@@ -1224,11 +1226,11 @@ static int bnxt_re_alloc_queues(struct bnxt_re_dev *dev,
 
 	if (qp->jrqq) {
 		que = qp->jrqq->hwque;
-		nswr = roundup_pow_of_two(attr->cap.max_recv_wr + 1);
+		nswr = bnxt_re_init_depth(attr->cap.max_recv_wr + 1, cntx->comp_mask);
 		nsge = attr->cap.max_recv_sge;
 		if (nsge % 2)
 			nsge++;
-		nslots = bnxt_re_get_rq_slots(dev, qp, nswr, nsge);
+		nslots = bnxt_re_get_rq_slots(cntx->rdev, qp, nswr, nsge);
 		if (nslots < 0) {
 			ret = nslots;
 			goto fail;
@@ -1310,7 +1312,7 @@ struct ibv_qp *bnxt_re_create_qp(struct ibv_pd *ibvpd,
 	qp->cctx = &cntx->cctx;
 	qp->qpmode = cntx->wqe_mode & BNXT_RE_WQE_MODE_VARIABLE;
 	qp->cntx = cntx;
-	if (bnxt_re_alloc_queues(dev, qp, attr, dev->pg_size))
+	if (bnxt_re_alloc_queues(cntx, qp, attr, dev->pg_size))
 		goto failq;
 	/* Fill ibv_cmd */
 	cap = &qp->cap;
@@ -1934,7 +1936,8 @@ static void bnxt_re_srq_free_queue(struct bnxt_re_srq *srq)
 	bnxt_re_free_aligned(srq->srqq);
 }
 
-static int bnxt_re_srq_alloc_queue(struct bnxt_re_srq *srq,
+static int bnxt_re_srq_alloc_queue(struct bnxt_re_context *cntx,
+				   struct bnxt_re_srq *srq,
 				   struct ibv_srq_init_attr *attr,
 				   uint32_t pg_size)
 {
@@ -1942,7 +1945,7 @@ static int bnxt_re_srq_alloc_queue(struct bnxt_re_srq *srq,
 	int ret, idx;
 
 	que = srq->srqq;
-	que->depth = roundup_pow_of_two(attr->attr.max_wr + 1);
+	que->depth = bnxt_re_init_depth(attr->attr.max_wr + 1, cntx->comp_mask);
 	que->diff = que->depth - attr->attr.max_wr;
 	que->stride = bnxt_re_get_srqe_sz();
 	ret = bnxt_re_alloc_aligned(que, pg_size);
@@ -1984,7 +1987,7 @@ struct ibv_srq *bnxt_re_create_srq(struct ibv_pd *ibvpd,
 	if (!srq)
 		goto fail;
 
-	if (bnxt_re_srq_alloc_queue(srq, attr, dev->pg_size))
+	if (bnxt_re_srq_alloc_queue(cntx, srq, attr, dev->pg_size))
 		goto fail;
 
 	req.srqva = (uintptr_t)srq->srqq->va;
