@@ -922,7 +922,15 @@ struct ibv_qp_init_attr {
 	struct ibv_srq	       *srq;
 	struct ibv_qp_cap	cap;
 	enum ibv_qp_type	qp_type;
-	int			sq_sig_all;
+	struct {
+#if __BYTE_ORDER == __LITTLE_ENDIAN
+		int sq_sig_all:8;
+		int reserved:24;
+#else
+		int reserved:24;
+		int sq_sig_all:8;
+#endif
+	};
 };
 
 enum ibv_qp_init_attr_mask {
@@ -975,7 +983,15 @@ struct ibv_qp_init_attr_ex {
 	struct ibv_srq	       *srq;
 	struct ibv_qp_cap	cap;
 	enum ibv_qp_type	qp_type;
-	int			sq_sig_all;
+	struct {
+#if __BYTE_ORDER == __LITTLE_ENDIAN
+		int sq_sig_all:8;
+		int reserved:24;
+#else
+		int reserved:24;
+		int sq_sig_all:8;
+#endif
+	};
 
 	uint32_t		comp_mask;
 	struct ibv_pd	       *pd;
