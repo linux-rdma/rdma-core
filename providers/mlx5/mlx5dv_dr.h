@@ -1211,6 +1211,7 @@ struct dr_ptrn_obj {
 	struct dr_rewrite_param rewrite_param;
 	atomic_int refcount;
 	struct list_node list;
+	enum dr_ptrn_type type;
 };
 
 struct dr_arg_obj {
