@@ -54,12 +54,13 @@ static bool dr_ptrn_compare_modify_hdr(size_t cur_num_of_actions,
 }
 
 static bool dr_ptrn_compare_pattern(enum dr_ptrn_type type,
+				    enum dr_ptrn_type cur_type,
 				    size_t cur_num_of_actions,
 				    __be64 cur_hw_action[],
 				    size_t num_of_actions,
 				    __be64 hw_action[])
 {
-	if (cur_num_of_actions != num_of_actions)
+	if ((cur_num_of_actions != num_of_actions) || (cur_type != type))
 		return false;
 
 	switch (type) {
@@ -87,6 +88,7 @@ dr_ptrn_find_cached_pattern(struct dr_ptrn_mngr *mngr,
 
 	list_for_each_safe(&mngr->ptrn_list, cached_pattern, tmp, list) {
 		if (dr_ptrn_compare_pattern(type,
+					    cached_pattern->type,
 					    cached_pattern->rewrite_param.num_of_actions,
 					    (__be64 *)cached_pattern->rewrite_param.data,
 					    num_of_actions,
@@ -103,7 +105,7 @@ dr_ptrn_find_cached_pattern(struct dr_ptrn_mngr *mngr,
 static struct dr_ptrn_obj *
 dr_ptrn_alloc_pattern(struct dr_ptrn_mngr *mngr,
 		      struct dr_icm_chunk *chunk, uint32_t index,
-		      uint16_t num_of_actions, uint8_t *data)
+		      uint16_t num_of_actions, uint8_t *data, enum dr_ptrn_type type)
 {
 	struct dr_ptrn_obj *pattern;
 
@@ -118,6 +120,8 @@ dr_ptrn_alloc_pattern(struct dr_ptrn_mngr *mngr,
 		errno = ENOMEM;
 		goto free_pattern;
 	}
+
+	pattern->type = type;
 
 	memcpy(pattern->rewrite_param.data, data, num_of_actions * DR_MODIFY_ACTION_SIZE);
 	pattern->rewrite_param.chunk = chunk;
@@ -171,7 +175,7 @@ dr_ptrn_cache_get_pattern(struct dr_ptrn_mngr *mngr,
 						chunk,
 						index,
 						num_of_actions,
-						data);
+						data, type);
 		if (!pattern)
 			goto clean_chunk;
 
