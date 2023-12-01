@@ -647,6 +647,12 @@ static inline void set_ib_wc_op_sq(struct irdma_cq_poll_info *cur_cqe, struct ib
 	case IRDMA_OP_TYPE_BIND_MW:
 		entry->opcode = IBV_WC_BIND_MW;
 		break;
+	case IRDMA_OP_TYPE_ATOMIC_COMPARE_AND_SWAP:
+		entry->opcode = IBV_WC_COMP_SWAP;
+		break;
+	case IRDMA_OP_TYPE_ATOMIC_FETCH_AND_ADD:
+		entry->opcode = IBV_WC_FETCH_ADD;
+		break;
 	case IRDMA_OP_TYPE_INV_STAG:
 		entry->opcode = IBV_WC_LOCAL_INV;
 		break;
@@ -1008,6 +1014,10 @@ static enum ibv_wc_opcode irdma_wc_read_opcode(struct ibv_cq_ex *ibvcq_ex)
 		return IBV_WC_SEND;
 	case IRDMA_OP_TYPE_BIND_MW:
 		return IBV_WC_BIND_MW;
+	case IRDMA_OP_TYPE_ATOMIC_COMPARE_AND_SWAP:
+		return IBV_WC_COMP_SWAP;
+	case IRDMA_OP_TYPE_ATOMIC_FETCH_AND_ADD:
+		return IBV_WC_FETCH_ADD;
 	case IRDMA_OP_TYPE_REC:
 		return IBV_WC_RECV;
 	case IRDMA_OP_TYPE_REC_IMM:
@@ -1663,6 +1673,37 @@ int irdma_upost_send(struct ibv_qp *ib_qp, struct ibv_send_wr *ib_wr,
 			info.report_rtt = true;
 
 		switch (ib_wr->opcode) {
+		case IBV_WR_ATOMIC_CMP_AND_SWP:
+			if (unlikely(!(uk_attrs->feature_flags & IRDMA_FEATURE_ATOMIC_OPS))) {
+				err = EINVAL;
+				break;
+			}
+			info.op_type = IRDMA_OP_TYPE_ATOMIC_COMPARE_AND_SWAP;
+			info.op.atomic_compare_swap.tagged_offset = ib_wr->sg_list[0].addr;
+			info.op.atomic_compare_swap.remote_tagged_offset =
+							ib_wr->wr.atomic.remote_addr;
+			info.op.atomic_compare_swap.swap_data_bytes = ib_wr->wr.atomic.swap;
+			info.op.atomic_compare_swap.compare_data_bytes =
+							ib_wr->wr.atomic.compare_add;
+			info.op.atomic_compare_swap.stag = ib_wr->sg_list[0].lkey;
+			info.op.atomic_compare_swap.remote_stag = ib_wr->wr.atomic.rkey;
+			err = irdma_uk_atomic_compare_swap(&iwuqp->qp, &info, false);
+			break;
+		case IBV_WR_ATOMIC_FETCH_AND_ADD:
+			if (unlikely(!(uk_attrs->feature_flags & IRDMA_FEATURE_ATOMIC_OPS))) {
+				err = EINVAL;
+				break;
+			}
+			info.op_type = IRDMA_OP_TYPE_ATOMIC_FETCH_AND_ADD;
+			info.op.atomic_fetch_add.tagged_offset = ib_wr->sg_list[0].addr;
+			info.op.atomic_fetch_add.remote_tagged_offset =
+							ib_wr->wr.atomic.remote_addr;
+			info.op.atomic_fetch_add.fetch_add_data_bytes =
+							ib_wr->wr.atomic.compare_add;
+			info.op.atomic_fetch_add.stag = ib_wr->sg_list[0].lkey;
+			info.op.atomic_fetch_add.remote_stag = ib_wr->wr.atomic.rkey;
+			err = irdma_uk_atomic_fetch_add(&iwuqp->qp, &info, false);
+			break;
 		case IBV_WR_SEND_WITH_IMM:
 			if (iwuqp->qp.qp_caps & IRDMA_SEND_WITH_IMM) {
 				info.imm_data_valid = true;
@@ -1763,6 +1804,9 @@ int irdma_upost_send(struct ibv_qp *ib_qp, struct ibv_send_wr *ib_wr,
 				(ib_wr->bind_mw.bind_info.mw_access_flags & IBV_ACCESS_REMOTE_READ) ? 1 : 0;
 			info.op.bind_window.ena_writes =
 				(ib_wr->bind_mw.bind_info.mw_access_flags & IBV_ACCESS_REMOTE_WRITE) ? 1 : 0;
+			if (uk_attrs->feature_flags & IRDMA_FEATURE_ATOMIC_OPS)
+				info.op.bind_window.remote_atomics_en =
+					(ib_wr->bind_mw.bind_info.mw_access_flags & IBV_ACCESS_REMOTE_ATOMIC) ? 1 : 0;
 
 			err = irdma_uk_mw_bind(&iwuqp->qp, &info, false);
 			break;
