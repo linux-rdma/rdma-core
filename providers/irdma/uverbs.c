@@ -1783,7 +1783,8 @@ int irdma_upost_send(struct ibv_qp *ib_qp, struct ibv_send_wr *ib_wr,
 	if (err)
 		*bad_wr = ib_wr;
 
-	irdma_uk_qp_post_wr(&iwuqp->qp);
+	if (!iwuqp->qp.push_db)
+		irdma_uk_qp_post_wr(&iwuqp->qp);
 	if (reflush)
 		irdma_issue_flush(ib_qp, 1, 0);
 

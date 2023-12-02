@@ -54,6 +54,17 @@ static void irdma_set_fragment_gen_1(__le64 *wqe, __u32 offset,
 }
 
 /**
+ * irdma_nop_hdr - Format header section of noop WQE
+ * @qp: hw qp ptr
+ */
+static inline __u64 irdma_nop_hdr(struct irdma_qp_uk *qp)
+{
+	return FIELD_PREP(IRDMAQPSQ_OPCODE, IRDMAQP_OP_NOP) |
+	       FIELD_PREP(IRDMAQPSQ_SIGCOMPL, false) |
+	       FIELD_PREP(IRDMAQPSQ_VALID, qp->swqe_polarity);
+}
+
+/**
  * irdma_nop_1 - insert a NOP wqe
  * @qp: hw qp ptr
  */
@@ -135,22 +146,63 @@ static void irdma_qp_ring_push_db(struct irdma_qp_uk *qp, __u32 wqe_idx)
 	qp->push_dropped = false;
 }
 
+/**
+ * irdma_qp_push_wqe -  setup push wqe and ring db
+ * @qp: hw qp ptr
+ * @wqe: wqe ptr
+ * @quanta: numbers of quanta in wqe
+ * @wqe_idx: wqe index
+ * @push_wqe: if to use push for the wqe
+ */
 void irdma_qp_push_wqe(struct irdma_qp_uk *qp, __le64 *wqe, __u16 quanta,
-		       __u32 wqe_idx, bool post_sq)
+		       __u32 wqe_idx, bool push_wqe)
 {
 	__le64 *push;
 
-	if (IRDMA_RING_CURRENT_HEAD(qp->initial_ring) !=
-		    IRDMA_RING_CURRENT_TAIL(qp->sq_ring) &&
-	    !qp->push_mode) {
-		if (post_sq)
-			irdma_uk_qp_post_wr(qp);
-	} else {
+	if (push_wqe) {
 		push = (__le64 *)((uintptr_t)qp->push_wqe +
 				  (wqe_idx & 0x7) * 0x20);
-		memcpy(push, wqe, quanta * IRDMA_QP_WQE_MIN_SIZE);
+		mmio_memcpy_x64(push, wqe, quanta * IRDMA_QP_WQE_MIN_SIZE);
 		irdma_qp_ring_push_db(qp, wqe_idx);
+		qp->last_push_db = true;
+	} else if (qp->last_push_db) {
+		qp->last_push_db = false;
+		db_wr32(qp->qp_id, qp->wqe_alloc_db);
+	} else {
+		irdma_uk_qp_post_wr(qp);
 	}
+}
+
+/**
+ * irdma_push_ring_free -  check if sq ring free to pust push wqe
+ * @qp: hw qp ptr
+ */
+static inline bool irdma_push_ring_free(struct irdma_qp_uk *qp)
+{
+	__u32 head, tail;
+
+	head = IRDMA_RING_CURRENT_HEAD(qp->initial_ring);
+	tail = IRDMA_RING_CURRENT_TAIL(qp->sq_ring);
+
+	if (head == tail || head == (tail + 1))
+		return true;
+
+	return false;
+}
+
+/**
+ * irdma_enable_push_wqe - depending on sq ring and total size
+ * @qp: hw qp ptr
+ * @total_size: total data size
+ */
+static inline bool irdma_enable_push_wqe(struct irdma_qp_uk *qp, __u32 total_size)
+{
+	if (irdma_push_ring_free(qp) &&
+		total_size <= qp->uk_attrs->max_hw_push_len) {
+		return true;
+	}
+
+	return false;
 }
 
 /**
@@ -162,25 +214,31 @@ void irdma_qp_push_wqe(struct irdma_qp_uk *qp, __le64 *wqe, __u16 quanta,
  * @info: info on WR
  */
 __le64 *irdma_qp_get_next_send_wqe(struct irdma_qp_uk *qp, __u32 *wqe_idx,
-				   __u16 quanta, __u32 total_size,
+				   __u16 *quanta, __u32 total_size,
 				   struct irdma_post_sq_info *info)
 {
 	__le64 *wqe;
 	__le64 *wqe_0 = NULL;
 	__u32 nop_wqe_idx;
+	bool push_wqe_pad = false;
+	__u16 wqe_quanta = *quanta;
 	__u16 avail_quanta;
 	__u16 i;
 
+	if (qp->push_db && (*quanta & 0x1)) {
+		*quanta = *quanta + 1;
+		push_wqe_pad = true;
+	}
 	avail_quanta = qp->uk_attrs->max_hw_sq_chunk -
 		       (IRDMA_RING_CURRENT_HEAD(qp->sq_ring) %
 		       qp->uk_attrs->max_hw_sq_chunk);
-	if (quanta <= avail_quanta) {
+	if (*quanta <= avail_quanta) {
 		/* WR fits in current chunk */
-		if (quanta > IRDMA_SQ_RING_FREE_QUANTA(qp->sq_ring))
+		if (*quanta > IRDMA_SQ_RING_FREE_QUANTA(qp->sq_ring))
 			return NULL;
 	} else {
 		/* Need to pad with NOP */
-		if (quanta + avail_quanta >
+		if (*quanta + avail_quanta >
 			IRDMA_SQ_RING_FREE_QUANTA(qp->sq_ring))
 			return NULL;
 
@@ -198,17 +256,31 @@ __le64 *irdma_qp_get_next_send_wqe(struct irdma_qp_uk *qp, __u32 *wqe_idx,
 	if (!*wqe_idx)
 		qp->swqe_polarity = !qp->swqe_polarity;
 
-	IRDMA_RING_MOVE_HEAD_BY_COUNT_NOCHECK(qp->sq_ring, quanta);
+	IRDMA_RING_MOVE_HEAD_BY_COUNT_NOCHECK(qp->sq_ring, *quanta);
 
 	wqe = qp->sq_base[*wqe_idx].elem;
-	if (qp->uk_attrs->hw_rev == IRDMA_GEN_1 && quanta == 1 &&
+	if (qp->uk_attrs->hw_rev == IRDMA_GEN_1 && *quanta == 1 &&
 	    (IRDMA_RING_CURRENT_HEAD(qp->sq_ring) & 1)) {
 		wqe_0 = qp->sq_base[IRDMA_RING_CURRENT_HEAD(qp->sq_ring)].elem;
 		wqe_0[3] = htole64(FIELD_PREP(IRDMAQPSQ_VALID, !qp->swqe_polarity));
 	}
 	qp->sq_wrtrk_array[*wqe_idx].wrid = info->wr_id;
 	qp->sq_wrtrk_array[*wqe_idx].wr_len = total_size;
-	qp->sq_wrtrk_array[*wqe_idx].quanta = quanta;
+	qp->sq_wrtrk_array[*wqe_idx].quanta = wqe_quanta;
+
+	/* Push mode to WC memory requires multiples of 64-byte block writes. */
+	if (push_wqe_pad) {
+		__le64 *push_wqe;
+
+		nop_wqe_idx = *wqe_idx + wqe_quanta;
+		push_wqe = qp->sq_base[nop_wqe_idx].elem;
+		qp->sq_wrtrk_array[nop_wqe_idx].quanta = IRDMA_QP_WQE_MIN_QUANTA;
+
+		set_64bit_val(push_wqe, 0, 0);
+		set_64bit_val(push_wqe, 8, 0);
+		set_64bit_val(push_wqe, 16, 0);
+		set_64bit_val(push_wqe, 24, irdma_nop_hdr(qp));
+	}
 
 	return wqe;
 }
@@ -257,7 +329,7 @@ int irdma_uk_rdma_write(struct irdma_qp_uk *qp, struct irdma_post_sq_info *info,
 	bool read_fence = false;
 	__u16 quanta;
 
-	info->push_wqe = qp->push_db ? true : false;
+	info->push_wqe = false;
 
 	op_info = &info->op.rdma_write;
 	if (op_info->num_lo_sges > qp->max_sq_frag_cnt)
@@ -277,7 +349,10 @@ int irdma_uk_rdma_write(struct irdma_qp_uk *qp, struct irdma_post_sq_info *info,
 	if (ret_code)
 		return ret_code;
 
-	wqe = irdma_qp_get_next_send_wqe(qp, &wqe_idx, quanta, total_size,
+	if (qp->push_db)
+		info->push_wqe = irdma_enable_push_wqe(qp, total_size);
+
+	wqe = irdma_qp_get_next_send_wqe(qp, &wqe_idx, &quanta, total_size,
 					 info);
 	if (!wqe)
 		return ENOMEM;
@@ -328,8 +403,8 @@ int irdma_uk_rdma_write(struct irdma_qp_uk *qp, struct irdma_post_sq_info *info,
 	udma_to_device_barrier(); /* make sure WQE is populated before valid bit is set */
 
 	set_64bit_val(wqe, 24, hdr);
-	if (info->push_wqe) {
-		irdma_qp_push_wqe(qp, wqe, quanta, wqe_idx, post_sq);
+	if (qp->push_db) {
+		irdma_qp_push_wqe(qp, wqe, quanta, wqe_idx, info->push_wqe);
 	} else {
 		if (post_sq)
 			irdma_uk_qp_post_wr(qp);
@@ -358,7 +433,7 @@ int irdma_uk_rdma_read(struct irdma_qp_uk *qp, struct irdma_post_sq_info *info,
 	__u16 quanta;
 	__u64 hdr;
 
-	info->push_wqe = qp->push_db ? true : false;
+	info->push_wqe &= qp->push_db ? true : false;
 
 	op_info = &info->op.rdma_read;
 	if (qp->max_sq_frag_cnt < op_info->num_lo_sges)
@@ -371,7 +446,7 @@ int irdma_uk_rdma_read(struct irdma_qp_uk *qp, struct irdma_post_sq_info *info,
 	if (ret_code)
 		return ret_code;
 
-	wqe = irdma_qp_get_next_send_wqe(qp, &wqe_idx, quanta, total_size,
+	wqe = irdma_qp_get_next_send_wqe(qp, &wqe_idx, &quanta, total_size,
 					 info);
 	if (!wqe)
 		return ENOMEM;
@@ -415,7 +490,7 @@ int irdma_uk_rdma_read(struct irdma_qp_uk *qp, struct irdma_post_sq_info *info,
 	udma_to_device_barrier(); /* make sure WQE is populated before valid bit is set */
 
 	set_64bit_val(wqe, 24, hdr);
-	if (info->push_wqe) {
+	if (qp->push_db) {
 		irdma_qp_push_wqe(qp, wqe, quanta, wqe_idx, post_sq);
 	} else {
 		if (post_sq)
@@ -443,7 +518,7 @@ int irdma_uk_send(struct irdma_qp_uk *qp, struct irdma_post_sq_info *info,
 	bool read_fence = false;
 	__u16 quanta;
 
-	info->push_wqe = qp->push_db ? true : false;
+	info->push_wqe = false;
 
 	op_info = &info->op.send;
 	if (qp->max_sq_frag_cnt < op_info->num_sges)
@@ -460,7 +535,10 @@ int irdma_uk_send(struct irdma_qp_uk *qp, struct irdma_post_sq_info *info,
 	if (ret_code)
 		return ret_code;
 
-	wqe = irdma_qp_get_next_send_wqe(qp, &wqe_idx, quanta, total_size,
+	if (qp->push_db)
+		info->push_wqe = irdma_enable_push_wqe(qp, total_size);
+
+	wqe = irdma_qp_get_next_send_wqe(qp, &wqe_idx, &quanta, total_size,
 					 info);
 	if (!wqe)
 		return ENOMEM;
@@ -516,7 +594,7 @@ int irdma_uk_send(struct irdma_qp_uk *qp, struct irdma_post_sq_info *info,
 	udma_to_device_barrier(); /* make sure WQE is populated before valid bit is set */
 
 	set_64bit_val(wqe, 24, hdr);
-	if (info->push_wqe) {
+	if (qp->push_db) {
 		irdma_qp_push_wqe(qp, wqe, quanta, wqe_idx, post_sq);
 	} else {
 		if (post_sq)
@@ -708,7 +786,7 @@ int irdma_uk_inline_rdma_write(struct irdma_qp_uk *qp,
 		return EINVAL;
 
 	quanta = qp->wqe_ops.iw_inline_data_size_to_quanta(total_size);
-	wqe = irdma_qp_get_next_send_wqe(qp, &wqe_idx, quanta, total_size,
+	wqe = irdma_qp_get_next_send_wqe(qp, &wqe_idx, &quanta, total_size,
 					 info);
 	if (!wqe)
 		return ENOMEM;
@@ -741,8 +819,8 @@ int irdma_uk_inline_rdma_write(struct irdma_qp_uk *qp,
 
 	set_64bit_val(wqe, 24, hdr);
 
-	if (info->push_wqe) {
-		irdma_qp_push_wqe(qp, wqe, quanta, wqe_idx, post_sq);
+	if (qp->push_db) {
+		irdma_qp_push_wqe(qp, wqe, quanta, wqe_idx, info->push_wqe);
 	} else {
 		if (post_sq)
 			irdma_uk_qp_post_wr(qp);
@@ -781,7 +859,7 @@ int irdma_uk_inline_send(struct irdma_qp_uk *qp,
 		return EINVAL;
 
 	quanta = qp->wqe_ops.iw_inline_data_size_to_quanta(total_size);
-	wqe = irdma_qp_get_next_send_wqe(qp, &wqe_idx, quanta, total_size,
+	wqe = irdma_qp_get_next_send_wqe(qp, &wqe_idx, &quanta, total_size,
 					 info);
 	if (!wqe)
 		return ENOMEM;
@@ -839,18 +917,19 @@ int irdma_uk_stag_local_invalidate(struct irdma_qp_uk *qp,
 				   struct irdma_post_sq_info *info,
 				   bool post_sq)
 {
-	__le64 *wqe;
+	__u16 quanta = IRDMA_QP_WQE_MIN_QUANTA;
 	struct irdma_inv_local_stag *op_info;
-	__u64 hdr;
-	__u32 wqe_idx;
 	bool local_fence = false;
 	struct ibv_sge sge = {};
+	__le64 *wqe;
+	__u32 wqe_idx;
+	__u64 hdr;
 
 	info->push_wqe = qp->push_db ? true : false;
 	op_info = &info->op.inv_local_stag;
 	local_fence = info->local_fence;
 
-	wqe = irdma_qp_get_next_send_wqe(qp, &wqe_idx, IRDMA_QP_WQE_MIN_QUANTA,
+	wqe = irdma_qp_get_next_send_wqe(qp, &wqe_idx, &quanta,
 					 0, info);
 	if (!wqe)
 		return ENOMEM;
@@ -873,9 +952,9 @@ int irdma_uk_stag_local_invalidate(struct irdma_qp_uk *qp,
 
 	set_64bit_val(wqe, 24, hdr);
 
-	if (info->push_wqe) {
+	if (qp->push_db) {
 		irdma_qp_push_wqe(qp, wqe, IRDMA_QP_WQE_MIN_QUANTA, wqe_idx,
-				  post_sq);
+				  info->push_wqe);
 	} else {
 		if (post_sq)
 			irdma_uk_qp_post_wr(qp);
@@ -898,12 +977,13 @@ int irdma_uk_mw_bind(struct irdma_qp_uk *qp, struct irdma_post_sq_info *info,
 	__u64 hdr;
 	__u32 wqe_idx;
 	bool local_fence = false;
+	__u16 quanta = IRDMA_QP_WQE_MIN_QUANTA;
 
 	info->push_wqe = qp->push_db ? true : false;
 	op_info = &info->op.bind_window;
 	local_fence |= info->local_fence;
 
-	wqe = irdma_qp_get_next_send_wqe(qp, &wqe_idx, IRDMA_QP_WQE_MIN_QUANTA,
+	wqe = irdma_qp_get_next_send_wqe(qp, &wqe_idx, &quanta,
 					 0, info);
 	if (!wqe)
 		return ENOMEM;
@@ -1640,10 +1720,11 @@ int irdma_nop(struct irdma_qp_uk *qp, __u64 wr_id, bool signaled, bool post_sq)
 	__u64 hdr;
 	__u32 wqe_idx;
 	struct irdma_post_sq_info info = {};
+	__u16 quanta = IRDMA_QP_WQE_MIN_QUANTA;
 
 	info.push_wqe = false;
 	info.wr_id = wr_id;
-	wqe = irdma_qp_get_next_send_wqe(qp, &wqe_idx, IRDMA_QP_WQE_MIN_QUANTA,
+	wqe = irdma_qp_get_next_send_wqe(qp, &wqe_idx, &quanta,
 					 0, &info);
 	if (!wqe)
 		return ENOMEM;

@@ -193,6 +193,10 @@ static struct verbs_context *irdma_ualloc_context(struct ibv_device *ibdev,
 			iwvctx->uk_attrs.min_hw_wq_size = resp.min_hw_wq_size;
 		else
 			iwvctx->uk_attrs.min_hw_wq_size = IRDMA_QP_SW_MIN_WQSIZE;
+		if (resp.comp_mask & IRDMA_SUPPORT_MAX_HW_PUSH_LEN)
+			iwvctx->uk_attrs.max_hw_push_len = resp.max_hw_push_len;
+		else
+			iwvctx->uk_attrs.max_hw_push_len = IRDMA_DEFAULT_MAX_PUSH_LEN;
 		mmap_key = resp.db_mmap_key;
 	}
 

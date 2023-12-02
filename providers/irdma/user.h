@@ -351,6 +351,7 @@ struct irdma_qp_uk {
 	bool sq_flush_complete:1; /* Indicates flush was seen and SQ was empty after the flush */
 	bool rq_flush_complete:1; /* Indicates flush was seen and RQ was empty after the flush */
 	bool destroy_pending:1; /* Indicates the QP is being destroyed */
+	bool last_push_db:1; /* Indicates last DB was push DB */
 	void *back_qp;
 	pthread_spinlock_t *lock;
 	__u8 dbg_rq_flushed;
@@ -406,7 +407,7 @@ struct irdma_cq_uk_init_info {
 };
 
 __le64 *irdma_qp_get_next_send_wqe(struct irdma_qp_uk *qp, __u32 *wqe_idx,
-				   __u16 quanta, __u32 total_size,
+				   __u16 *quanta, __u32 total_size,
 				   struct irdma_post_sq_info *info);
 __le64 *irdma_qp_get_next_recv_wqe(struct irdma_qp_uk *qp, __u32 *wqe_idx);
 void irdma_uk_clean_cq(void *q, struct irdma_cq_uk *cq);
@@ -420,6 +421,6 @@ int irdma_get_sqdepth(struct irdma_uk_attrs *uk_attrs, __u32 sq_size,
 int irdma_get_rqdepth(struct irdma_uk_attrs *uk_attrs, __u32 rq_size,
 		      __u8 shift, __u32 *wqdepth);
 void irdma_qp_push_wqe(struct irdma_qp_uk *qp, __le64 *wqe, __u16 quanta,
-		       __u32 wqe_idx, bool post_sq);
+		       __u32 wqe_idx, bool push_wqe);
 void irdma_clr_wqes(struct irdma_qp_uk *qp, __u32 qp_wqe_idx);
 #endif /* IRDMA_USER_H */
