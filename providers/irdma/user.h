@@ -369,7 +369,6 @@ struct irdma_cq_poll_info {
 	__u64 wr_id;
 	irdma_qp_handle qp_handle;
 	__u32 bytes_xfered;
-	__u32 tcp_seq_num_rtt;
 	__u32 qp_id;
 	__u32 ud_src_qpn;
 	__u32 imm_data;
@@ -389,6 +388,13 @@ struct irdma_cq_poll_info {
 	bool ud_vlan_valid:1;
 	bool ud_smac_valid:1;
 	bool imm_valid:1;
+	union {
+		__u32 tcp_sqn;
+		__u32 roce_psn;
+		__u32 rtt;
+		__u32 timestamp;
+		__u32 raw;
+	} stat;
 };
 
 struct qp_err_code {
