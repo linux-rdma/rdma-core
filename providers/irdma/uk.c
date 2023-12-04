@@ -1395,7 +1395,7 @@ int irdma_uk_cq_poll_cmpl(struct irdma_cq_uk *cq,
 	get_64bit_val(cqe, 0, &qword0);
 	get_64bit_val(cqe, 16, &qword2);
 
-	info->tcp_seq_num_rtt = (__u32)FIELD_GET(IRDMACQ_TCPSEQNUMRTT, qword0);
+	info->stat.raw = (__u32)FIELD_GET(IRDMACQ_TCPSQN_ROCEPSN_RTT_TS, qword0);
 	info->qp_id = (__u32)FIELD_GET(IRDMACQ_QPID, qword2);
 	info->ud_src_qpn = (__u32)FIELD_GET(IRDMACQ_UDSRCQPN, qword2);
 	info->solicited_event = (bool)FIELD_GET(IRDMACQ_SOEVENT, qword3);

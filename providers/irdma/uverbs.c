@@ -550,9 +550,14 @@ static struct ibv_cq_ex *ucreate_cq(struct ibv_context *context,
 	uk_attrs = &iwvctx->uk_attrs;
 	hw_rev = uk_attrs->hw_rev;
 
-	if (ext_cq && hw_rev == IRDMA_GEN_1) {
-		errno = EOPNOTSUPP;
-		return NULL;
+	if (ext_cq) {
+		__u32 supported_flags = hw_rev >= IRDMA_GEN_3 ?
+			IRDMA_GEN3_WC_FLAGS_EX : IRDMA_STANDARD_WC_FLAGS_EX;
+
+		if (hw_rev == IRDMA_GEN_1 || attr_ex->wc_flags & ~supported_flags) {
+			errno = EOPNOTSUPP;
+			return NULL;
+		}
 	}
 
 	if (attr_ex->cqe < IRDMA_MIN_CQ_SIZE || attr_ex->cqe > uk_attrs->max_hw_cq_size - 1) {
@@ -686,11 +691,6 @@ struct ibv_cq *irdma_ucreate_cq(struct ibv_context *context, int cqe,
 struct ibv_cq_ex *irdma_ucreate_cq_ex(struct ibv_context *context,
 				      struct ibv_cq_init_attr_ex *attr_ex)
 {
-	if (attr_ex->wc_flags & ~IRDMA_CQ_SUPPORTED_WC_FLAGS) {
-		errno = EOPNOTSUPP;
-		return NULL;
-	}
-
 	return ucreate_cq(context, attr_ex, true);
 }
 
@@ -1144,24 +1144,8 @@ static uint64_t irdma_wc_read_completion_ts(struct ibv_cq_ex *ibvcq_ex)
 {
 	struct irdma_ucq *iwucq = container_of(ibvcq_ex, struct irdma_ucq,
 					       verbs_cq.cq_ex);
-#define HCA_CORE_CLOCK_800_MHZ 800
 
-	return iwucq->cur_cqe.tcp_seq_num_rtt / HCA_CORE_CLOCK_800_MHZ;
-}
-
-/**
- * irdma_wc_read_completion_wallclock_ns - Get completion timestamp in ns
- * @ibvcq_ex: ibv extended CQ
- *
- * Get completion timestamp from current completion in wall clock nanoseconds
- */
-static uint64_t irdma_wc_read_completion_wallclock_ns(struct ibv_cq_ex *ibvcq_ex)
-{
-	struct irdma_ucq *iwucq = container_of(ibvcq_ex, struct irdma_ucq,
-					       verbs_cq.cq_ex);
-
-	/* RTT is in usec */
-	return iwucq->cur_cqe.tcp_seq_num_rtt * 1000;
+	return iwucq->cur_cqe.stat.timestamp;
 }
 
 static enum ibv_wc_opcode irdma_wc_read_opcode(struct ibv_cq_ex *ibvcq_ex)
@@ -1308,14 +1292,8 @@ void irdma_ibvcq_ex_fill_priv_funcs(struct irdma_ucq *iwucq,
 	ibvcq_ex->end_poll = irdma_end_poll;
 	ibvcq_ex->next_poll = irdma_next_poll;
 
-	if (attr_ex->wc_flags & IBV_WC_EX_WITH_COMPLETION_TIMESTAMP) {
+	if (attr_ex->wc_flags & IBV_WC_EX_WITH_COMPLETION_TIMESTAMP)
 		ibvcq_ex->read_completion_ts = irdma_wc_read_completion_ts;
-		iwucq->report_rtt = true;
-	}
-	if (attr_ex->wc_flags & IBV_WC_EX_WITH_COMPLETION_TIMESTAMP_WALLCLOCK) {
-		ibvcq_ex->read_completion_wallclock_ns = irdma_wc_read_completion_wallclock_ns;
-		iwucq->report_rtt = true;
-	}
 
 	ibvcq_ex->read_opcode = irdma_wc_read_opcode;
 	ibvcq_ex->read_vendor_err = irdma_wc_read_vendor_err;
