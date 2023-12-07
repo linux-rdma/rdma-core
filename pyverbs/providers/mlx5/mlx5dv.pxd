@@ -61,6 +61,8 @@ cdef class Mlx5UAR(PyverbsObject):
 
 cdef class Mlx5DmOpAddr(PyverbsCM):
     cdef void *addr
+    @staticmethod
+    cdef void _cpy(void *dst, void *src, int length)
 
 cdef class WqeSeg(PyverbsCM):
     cdef void *segment
