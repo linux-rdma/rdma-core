@@ -714,9 +714,13 @@ out:
 
 int ibv_dontfork_range(void *base, size_t size)
 {
-	if (mm_root)
+    printf("libivberbs::ibv_dontfork_range---size: %zu\n", size);
+	if (mm_root) {
+        printf("libivberbs::ibv_dontfork_range---mm_root\n");
 		return ibv_madvise_range(base, size, MADV_DONTFORK);
+    }
 	else {
+        printf("libivberbs::ibv_dontfork_range---too_late = 1\n");
 		too_late = 1;
 		return 0;
 	}
