@@ -1010,20 +1010,21 @@ out:
 static void __hns_roce_v2_cq_clean(struct hns_roce_cq *cq, uint32_t qpn,
 				   struct hns_roce_srq *srq)
 {
-	int nfreed = 0;
-	bool is_recv_cqe;
-	uint16_t wqe_index;
-	uint32_t prod_index;
-	uint8_t owner_bit = 0;
-	struct hns_roce_v2_cqe *cqe, *dest;
 	struct hns_roce_context *ctx = to_hr_ctx(cq->ibv_cq.context);
+	uint64_t cons_index = cq->cons_index;
+	uint64_t prod_index = cq->cons_index;
+	struct hns_roce_v2_cqe *cqe, *dest;
+	uint16_t wqe_index;
+	uint8_t owner_bit;
+	bool is_recv_cqe;
+	int nfreed = 0;
 
-	for (prod_index = cq->cons_index; get_sw_cqe_v2(cq, prod_index);
-	     ++prod_index)
-		if (prod_index > cq->cons_index + cq->ibv_cq.cqe)
+	for (; get_sw_cqe_v2(cq, prod_index); ++prod_index)
+		if (prod_index > cons_index + cq->ibv_cq.cqe)
 			break;
 
-	while ((int) --prod_index - (int) cq->cons_index >= 0) {
+	while (prod_index - cons_index > 0) {
+		prod_index--;
 		cqe = get_cqe_v2(cq, prod_index & cq->ibv_cq.cqe);
 		if (roce_get_field(cqe->byte_16, CQE_BYTE_16_LCL_QPN_M,
 				   CQE_BYTE_16_LCL_QPN_S) == qpn) {
