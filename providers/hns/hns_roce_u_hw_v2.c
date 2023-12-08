@@ -1435,20 +1435,21 @@ out:
 static void __hns_roce_v2_cq_clean(struct hns_roce_cq *cq, uint32_t qpn,
 				   struct hns_roce_srq *srq)
 {
-	int nfreed = 0;
-	bool is_recv_cqe;
-	uint8_t owner_bit;
-	uint16_t wqe_index;
-	uint32_t prod_index;
-	struct hns_roce_v2_cqe *cqe, *dest;
 	struct hns_roce_context *ctx = to_hr_ctx(cq->verbs_cq.cq.context);
+	uint64_t cons_index = cq->cons_index;
+	uint64_t prod_index = cq->cons_index;
+	struct hns_roce_v2_cqe *cqe, *dest;
+	uint16_t wqe_index;
+	uint8_t owner_bit;
+	bool is_recv_cqe;
+	int nfreed = 0;
 
-	for (prod_index = cq->cons_index; get_sw_cqe_v2(cq, prod_index);
-	     ++prod_index)
-		if (prod_index > cq->cons_index + cq->verbs_cq.cq.cqe)
+	for (; get_sw_cqe_v2(cq, prod_index); ++prod_index)
+		if (prod_index > cons_index + cq->verbs_cq.cq.cqe)
 			break;
 
-	while ((int) --prod_index - (int) cq->cons_index >= 0) {
+	while (prod_index - cons_index > 0) {
+		prod_index--;
 		cqe = get_cqe_v2(cq, prod_index & cq->verbs_cq.cq.cqe);
 		if (hr_reg_read(cqe, CQE_LCL_QPN) == qpn) {
 			is_recv_cqe = hr_reg_read(cqe, CQE_S_R);
