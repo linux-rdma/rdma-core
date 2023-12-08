@@ -361,7 +361,7 @@ static int hns_roce_u_v2_modify_qp(struct ibv_qp *qp, struct ibv_qp_attr *attr,
 
 static int hns_roce_flush_cqe(struct hns_roce_qp *hr_qp, uint8_t status)
 {
-	struct ibv_qp_attr attr;
+	struct ibv_qp_attr attr = {};
 	int attr_mask;
 
 	if (status != HNS_ROCE_V2_CQE_WR_FLUSH_ERR) {
@@ -1240,8 +1240,8 @@ int hns_roce_u_v2_post_send(struct ibv_qp *ibvqp, struct ibv_send_wr *wr,
 	struct hns_roce_qp *qp = to_hr_qp(ibvqp);
 	struct hns_roce_sge_info sge_info = {};
 	struct hns_roce_rc_sq_wqe *wqe;
+	struct ibv_qp_attr attr = {};
 	unsigned int wqe_idx, nreq;
-	struct ibv_qp_attr attr;
 	int ret;
 
 	ret = check_qp_send(ibvqp, ctx);
@@ -1390,7 +1390,7 @@ static int hns_roce_u_v2_post_recv(struct ibv_qp *ibvqp, struct ibv_recv_wr *wr,
 	struct hns_roce_context *ctx = to_hr_ctx(ibvqp->context);
 	struct hns_roce_qp *qp = to_hr_qp(ibvqp);
 	unsigned int wqe_idx, nreq, max_sge;
-	struct ibv_qp_attr attr;
+	struct ibv_qp_attr attr = {};
 	int ret;
 
 	ret = check_qp_recv(ibvqp, ctx);
@@ -2520,7 +2520,7 @@ static int wr_complete(struct ibv_qp_ex *ibv_qp)
 	struct hns_roce_context *ctx = to_hr_ctx(ibv_qp->qp_base.context);
 	struct hns_roce_qp *qp = to_hr_qp(&ibv_qp->qp_base);
 	unsigned int nreq = qp->sq.head - qp->rb_sq_head;
-	struct ibv_qp_attr attr;
+	struct ibv_qp_attr attr = {};
 	int err = qp->err;
 
 	if (err) {
