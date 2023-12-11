@@ -338,7 +338,7 @@ struct ibv_mr *ibv_reg_mr_iova2(struct ibv_pd *pd, void *addr, size_t length,
 			ibv_dofork_range(addr, length);
 	}
 
-    //printf("libivberbs::ibv_reg_mr_iova2---returning mr\n");
+    printf("libivberbs::ibv_reg_mr_iova2---returning mr\n");
 	return mr;
 }
 
