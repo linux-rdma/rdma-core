@@ -124,7 +124,6 @@ out:
 
 int ibv_fork_init(void)
 {
-	printf("libibverbs::ibv_fork_init\n");
 	void *tmp, *tmp_aligned;
 	int ret;
 	unsigned long size;
@@ -132,10 +131,8 @@ int ibv_fork_init(void)
 	if (getenv("RDMAV_HUGEPAGES_SAFE"))
 		huge_page_enabled = 1;
 
-	if (mm_root) {
-		printf("libibverbs::ibv_fork_init---mm_root, return 0\n");
+	if (mm_root)
 		return 0;
-	}
 
 	if (too_late)
 		return EINVAL;
@@ -144,14 +141,11 @@ int ibv_fork_init(void)
 	if (page_size < 0)
 		return errno;
 
-	if (posix_memalign(&tmp, page_size, page_size)) {
-		printf("libibverbs::ibv_fork_init---return ENOMEM after posix_memalign\n");
+	if (posix_memalign(&tmp, page_size, page_size))
 		return ENOMEM;
-	}
 
 	if (huge_page_enabled) {
 		size = get_page_size(tmp);
-		printf("libibverbs::ibv_fork_init---page_size: %lu\n", size);
 		tmp_aligned = (void *) ((uintptr_t) tmp & ~(size - 1));
 	} else {
 		size = page_size;
@@ -167,7 +161,6 @@ int ibv_fork_init(void)
 		return ENOSYS;
 
 	mm_root = malloc(sizeof *mm_root);
-	printf("libibverbs::ibv_fork_init---allocating mm_root\n");
 	if (!mm_root)
 		return ENOMEM;
 
