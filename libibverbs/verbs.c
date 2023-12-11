@@ -323,7 +323,7 @@ struct ibv_mr *ibv_reg_mr_iova2(struct ibv_pd *pd, void *addr, size_t length,
 
     printf("libivberbs::ibv_reg_mr_iova2---checking odp_mr, odp_mr: %d\n", odp_mr);
 	if (!odp_mr && ibv_dontfork_range(addr, length))
-        //printf("libivberbs::ibv_reg_mr_iova2---odp_mr: %d, ibv_dontfork_range is false\n", odp_mr);
+        printf("libivberbs::ibv_reg_mr_iova2---odp_mr: %d, ibv_dontfork_range is false\n", odp_mr);
 		return NULL;
 
     printf("libivberbs::ibv_reg_mr_iova2---getting ops\n");

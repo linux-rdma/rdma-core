@@ -1520,7 +1520,7 @@ struct ibv_qp *efadv_create_qp_ex(struct ibv_context *ibvctx,
 				  struct efadv_qp_init_attr *efa_attr,
 				  uint32_t inlen)
 {
-	printf("libibverbs::efadv_create_qp_ex");
+	printf("libibverbs::efadv_create_qp_ex\n");
 	if (!is_efa_dev(ibvctx->device)) {
 		verbs_err(verbs_get_ctx(ibvctx), "Not an EFA device\n");
 		errno = EOPNOTSUPP;
