@@ -334,6 +334,13 @@ struct ibv_mr *ibv_reg_mr_iova2(struct ibv_pd *pd, void *addr, size_t length,
 		mr->pd      = pd;
 		mr->addr    = addr;
 		mr->length  = length;
+		printf("libivberbs::ibv_reg_mr_iova2---printing mr:\n");
+		//printf("  Context    : %p\n", static_cast<const void*>(mr->context));
+		//printf("  PD    : %p\n", static_cast<const void*>(mr->addr));
+		printf("  length    : %zu\n", mr->length);
+		printf("  handle    : %u\n", mr->handle);
+		printf("  lkey    : %u\n", mr->lkey);
+		printf("  rkey    : %u\n", mr->rkey);
 	} else {
 		if (!odp_mr)
 			ibv_dofork_range(addr, length);

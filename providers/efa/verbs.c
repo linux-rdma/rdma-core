@@ -256,18 +256,24 @@ struct ibv_mr *efa_reg_dmabuf_mr(struct ibv_pd *ibvpd, uint64_t offset,
 struct ibv_mr *efa_reg_mr(struct ibv_pd *ibvpd, void *sva, size_t len,
 			  uint64_t hca_va, int access)
 {
+	printf("libibverbs::efa::verbs.c::efa_reg_mr\n");
 	struct ib_uverbs_reg_mr_resp resp;
 	struct ibv_reg_mr cmd;
 	struct efa_mr *mr;
 	int err;
 
+	printf("libibverbs::efa::verbs.c::efa_reg_mr---allocating mr\n");
 	mr = calloc(1, sizeof(*mr));
-	if (!mr)
+	if (!mr) {
+		printf("libibverbs::efa::verbs.c::efa_reg_mr---no mr, return NULL\n");
 		return NULL;
+	}
 
+	printf("libibverbs::efa::verbs.c::efa_reg_mr---calling ibv_cmd_reg_mr\n");
 	err = ibv_cmd_reg_mr(ibvpd, sva, len, hca_va, access, &mr->vmr,
 			     &cmd, sizeof(cmd), &resp, sizeof(resp));
 	if (err) {
+		printf("libibverbs::efa::verbs.c::efa_reg_mr---Failed to register MR\n");
 		verbs_err(verbs_get_ctx(ibvpd->context),
 			  "Failed to register MR\n");
 		free(mr);
@@ -275,6 +281,7 @@ struct ibv_mr *efa_reg_mr(struct ibv_pd *ibvpd, void *sva, size_t len,
 		return NULL;
 	}
 
+	printf("libibverbs::efa::verbs.c::efa_reg_mr---return mr->vmr.ibv_mr\n");
 	return &mr->vmr.ibv_mr;
 }
 
