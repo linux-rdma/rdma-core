@@ -84,7 +84,6 @@ static inline struct verbs_ex_private *get_priv(struct ibv_context *ctx)
 
 static inline const struct verbs_context_ops *get_ops(struct ibv_context *ctx)
 {
-	printf("libibverbs::verbs_context_ops\n");
 	return &get_priv(ctx)->ops;
 }
 
