@@ -104,6 +104,9 @@ int ibv_cmd_reg_mr(struct ibv_pd *pd, void *addr, size_t length,
 {
 	int ret;
 
+	printf("libibverbs::cmd.c::ibv_cmd_reg_mr---length: %zu, access: %d, IBV_ACCESS_ON_DEMAND: %d\n",
+	       length, access, IBV_ACCESS_ON_DEMAND);
+	printf("libibverbs::cmd.c::ibv_cmd_reg_mr---SIZE_MAX: %zu\n", SIZE_MAX);
 	cmd->start 	  = (uintptr_t) addr;
 	cmd->length 	  = length;
 	/* On demand access and entire address space means implicit.
@@ -111,21 +114,27 @@ int ibv_cmd_reg_mr(struct ibv_pd *pd, void *addr, size_t length,
 	 */
 	if (access & IBV_ACCESS_ON_DEMAND) {
 		if (length == SIZE_MAX && addr) {
+			printf("libibverbs::cmd.c::ibv_cmd_reg_mr---length (%zu) == SIZE_MAX (%zu)\n", length, SIZE_MAX);
 			errno = EINVAL;
 			return EINVAL;
 		}
-		if (length == SIZE_MAX)
+		if (length == SIZE_MAX) {
+			printf("libibverbs::cmd.c::ibv_cmd_reg_mr---cmd->length is UINT64_MAX (%zu)\n", UINT64_MAX);
 			cmd->length = UINT64_MAX;
+		}
 	}
 
 	cmd->hca_va 	  = hca_va;
 	cmd->pd_handle 	  = pd->handle;
 	cmd->access_flags = access;
 
+	printf("libibverbs::cmd.c::ibv_cmd_reg_mr---execute_cmd_write\n");
 	ret = execute_cmd_write(pd->context, IB_USER_VERBS_CMD_REG_MR, cmd,
 				cmd_size, resp, resp_size);
-	if (ret)
+	if (ret) {
+		printf("libibverbs::cmd.c::ibv_cmd_reg_mr---return ret: %d\n", ret);
 		return ret;
+	}
 
 	vmr->ibv_mr.handle  = resp->mr_handle;
 	vmr->ibv_mr.lkey    = resp->lkey;
@@ -134,6 +143,7 @@ int ibv_cmd_reg_mr(struct ibv_pd *pd, void *addr, size_t length,
 	vmr->mr_type        = IBV_MR_TYPE_MR;
 	vmr->access = access;
 
+	printf("libibverbs::cmd.c::ibv_cmd_reg_mr---return 0\n");
 	return 0;
 }
 
