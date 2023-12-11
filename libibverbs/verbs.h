@@ -41,7 +41,6 @@
 #include <pthread.h>
 #include <stddef.h>
 #include <errno.h>
-#include <stdio.h>
 #include <string.h>
 #include <linux/types.h>
 #include <stdint.h>
@@ -2854,7 +2853,6 @@ static inline
 struct ibv_cq_ex *ibv_create_cq_ex(struct ibv_context *context,
 				   struct ibv_cq_init_attr_ex *cq_attr)
 {
-	printf("libibverbs::ibv_create_cq_ex\n");
 	struct verbs_context *vctx = verbs_get_ctx_op(context, create_cq_ex);
 
 	if (!vctx) {

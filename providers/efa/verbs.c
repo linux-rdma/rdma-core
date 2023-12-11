@@ -1353,7 +1353,6 @@ static struct ibv_qp *create_qp(struct ibv_context *ibvctx,
 				struct ibv_qp_init_attr_ex *attr,
 				struct efadv_qp_init_attr *efa_attr)
 {
-	printf("libibverbs::create_qp\n");
 	struct efa_context *ctx = to_efa_context(ibvctx);
 	struct efa_dev *dev = to_efa_dev(ibvctx->device);
 	struct efa_create_qp_resp resp = {};
@@ -1383,15 +1382,10 @@ static struct ibv_qp *create_qp(struct ibv_context *ibvctx,
 	attr->cap.max_send_wr = qp->sq.wq.wqe_cnt;
 	attr->cap.max_recv_wr = qp->rq.wq.wqe_cnt;
 
-	printf("libibverbs::create_qp---max_send_wr: %u, max_recv_wr: %u\n", attr->cap.max_send_wr, attr->cap.max_recv_wr);
-
 	req.rq_ring_size = (qp->rq.wq.desc_mask + 1) *
 		sizeof(struct efa_io_rx_desc);
 	req.sq_ring_size = (attr->cap.max_send_wr) *
 		sizeof(struct efa_io_tx_wqe);
-
-	printf("libibverbs::create_qp---rq_ring_size: %u, sq_ring_size: %u\n", req.rq_ring_size, req.sq_ring_size);
-
 	if (attr->qp_type == IBV_QPT_DRIVER)
 		req.driver_qp_type = efa_attr->driver_qp_type;
 
@@ -1520,7 +1514,6 @@ struct ibv_qp *efadv_create_qp_ex(struct ibv_context *ibvctx,
 				  struct efadv_qp_init_attr *efa_attr,
 				  uint32_t inlen)
 {
-	printf("libibverbs::efadv_create_qp_ex");
 	if (!is_efa_dev(ibvctx->device)) {
 		verbs_err(verbs_get_ctx(ibvctx), "Not an EFA device\n");
 		errno = EOPNOTSUPP;

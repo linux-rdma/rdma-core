@@ -137,11 +137,8 @@ int ibv_fork_init(void)
 		return 0;
 	}
 
-	if (too_late) {
-		printf("libibverbs::ibv_fork_init---too_late, return EINVAL\n");
+	if (too_late)
 		return EINVAL;
-	}
-
 
 	page_size = sysconf(_SC_PAGESIZE);
 	if (page_size < 0)
@@ -169,13 +166,10 @@ int ibv_fork_init(void)
 	if (ret)
 		return ENOSYS;
 
-	printf("libibverbs::ibv_fork_init---allocating mm_root\n");
 	mm_root = malloc(sizeof *mm_root);
-	printf("libibverbs::ibv_fork_init---allocated mm_root\n");
-	if (!mm_root) {
-		printf("libibverbs::ibv_fork_init---no mm_root\n");
+	printf("libibverbs::ibv_fork_init---allocating mm_root\n");
+	if (!mm_root)
 		return ENOMEM;
-	}
 
 	mm_root->parent = NULL;
 	mm_root->left   = NULL;
@@ -190,19 +184,10 @@ int ibv_fork_init(void)
 
 enum ibv_fork_status ibv_is_fork_initialized(void)
 {
-	printf("libibverbs::ibv_is_fork_initialized\n");
 	if (get_copy_on_fork())
-		printf("libibverbs::ibv_is_fork_initialized---returning IBV_FORK_UNNEEDED\n");
 		return IBV_FORK_UNNEEDED;
 
-	if (mm_root) {
-		printf("libibverbs::ibv_is_fork_initialized---returning IBV_FORK_ENABLED\n");
-		return IBV_FORK_ENABLED;
-	} else {
-		printf("libibverbs::ibv_is_fork_initialized---no mm_root, returning IBV_FORK_DISABLED\n");
-		return IBV_FORK_DISABLED;
-	}
-	//return mm_root ? IBV_FORK_ENABLED : IBV_FORK_DISABLED;
+	return mm_root ? IBV_FORK_ENABLED : IBV_FORK_DISABLED;
 }
 
 static struct ibv_mem_node *__mm_prev(struct ibv_mem_node *node)
@@ -252,10 +237,8 @@ static void __mm_rotate_right(struct ibv_mem_node *node)
 			node->parent->right = tmp;
 		else
 			node->parent->left = tmp;
-	} else {
-		printf("libibverbs::__mm_rotate_right---mm_root=tmp\n");
+	} else
 		mm_root = tmp;
-	}
 
 	tmp->parent = node->parent;
 
@@ -278,10 +261,8 @@ static void __mm_rotate_left(struct ibv_mem_node *node)
 			node->parent->right = tmp;
 		else
 			node->parent->left = tmp;
-	} else {
-		printf("libibverbs::__mm_rotate_left---mm_root=tmp\n");
+	} else
 		mm_root = tmp;
-	}
 
 	tmp->parent = node->parent;
 
@@ -401,7 +382,6 @@ static void __mm_add(struct ibv_mem_node *new)
 
 static void __mm_remove(struct ibv_mem_node *node)
 {
-	printf("libibverbs::__mm_remove\n");
 	struct ibv_mem_node *child, *parent, *sib, *tmp;
 	int nodecol;
 
