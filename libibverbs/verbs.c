@@ -310,23 +310,16 @@ LATEST_SYMVER_FUNC(ibv_dealloc_pd, 1_1, "IBVERBS_1.1",
 struct ibv_mr *ibv_reg_mr_iova2(struct ibv_pd *pd, void *addr, size_t length,
 				uint64_t iova, unsigned int access)
 {
-    printf("libivberbs::ibv_reg_mr_iova2\n");
-    printf("libivberbs::ibv_reg_mr_iova2---size: %zu, iova: %lu, access: %u\n", length, iova, access);
 	struct verbs_device *device = verbs_get_device(pd->context->device);
 	bool odp_mr = access & IBV_ACCESS_ON_DEMAND;
-    printf("libivberbs::ibv_reg_mr_iova2---odp_mr: %d, access: %u, IBV_ACCESS_ON_DEMAND: %d\n", odp_mr, access, IBV_ACCESS_ON_DEMAND);
 	struct ibv_mr *mr;
 
-    printf("libivberbs::ibv_reg_mr_iova2---checking device->core_support\n");
 	if (!(device->core_support & IB_UVERBS_CORE_SUPPORT_OPTIONAL_MR_ACCESS))
 		access &= ~IBV_ACCESS_OPTIONAL_RANGE;
 
-    printf("libivberbs::ibv_reg_mr_iova2---checking odp_mr, odp_mr: %d\n", odp_mr);
 	if (!odp_mr && ibv_dontfork_range(addr, length))
-        printf("libivberbs::ibv_reg_mr_iova2---odp_mr: %d, ibv_dontfork_range is false\n", odp_mr);
 		return NULL;
 
-    printf("libivberbs::ibv_reg_mr_iova2---getting ops\n");
 	mr = get_ops(pd->context)->reg_mr(pd, addr, length, iova, access);
 	if (mr) {
 		mr->context = pd->context;
@@ -338,7 +331,6 @@ struct ibv_mr *ibv_reg_mr_iova2(struct ibv_pd *pd, void *addr, size_t length,
 			ibv_dofork_range(addr, length);
 	}
 
-    printf("libivberbs::ibv_reg_mr_iova2---returning mr\n");
 	return mr;
 }
 
