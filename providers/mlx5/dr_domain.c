@@ -41,6 +41,34 @@ enum {
 		 MLX5DV_DR_DOMAIN_SYNC_FLAGS_MEM),
 };
 
+bool dr_domain_is_support_sw_encap(struct mlx5dv_dr_domain *dmn)
+{
+	return !!dmn->info.caps.log_sw_encap_icm_size;
+}
+
+static int dr_domain_init_sw_encap_resources(struct mlx5dv_dr_domain *dmn)
+{
+	if (!dr_domain_is_support_sw_encap(dmn))
+		return 0;
+
+	dmn->encap_icm_pool = dr_icm_pool_create(dmn, DR_ICM_TYPE_ENCAP);
+	if (!dmn->encap_icm_pool) {
+		dr_dbg(dmn, "Couldn't get sw-encap icm memory for %s\n",
+		       ibv_get_device_name(dmn->ctx->device));
+		return errno;
+	}
+
+	return 0;
+}
+
+static void dr_domain_destroy_sw_encap_resources(struct mlx5dv_dr_domain *dmn)
+{
+	if (!dr_domain_is_support_sw_encap(dmn))
+		return;
+
+	dr_icm_pool_destroy(dmn->encap_icm_pool);
+}
+
 bool dr_domain_is_support_modify_hdr_cache(struct mlx5dv_dr_domain *dmn)
 {
 	return dmn->info.caps.sw_format_ver >= MLX5_HW_CONNECTX_6DX &&
@@ -110,15 +138,24 @@ static int dr_domain_init_resources(struct mlx5dv_dr_domain *dmn)
 		}
 	}
 
-	ret = dr_send_ring_alloc(dmn);
+	ret = dr_domain_init_sw_encap_resources(dmn);
 	if (ret) {
-		dr_dbg(dmn, "Couldn't create send-ring for %s\n",
+		dr_dbg(dmn, "Couldn't create sw-encap resource for %s\n",
 		       ibv_get_device_name(dmn->ctx->device));
 		goto free_modify_header_ptrn_arg_mngr;
 	}
 
+	ret = dr_send_ring_alloc(dmn);
+	if (ret) {
+		dr_dbg(dmn, "Couldn't create send-ring for %s\n",
+		       ibv_get_device_name(dmn->ctx->device));
+		goto free_sw_encap_resources;
+	}
+
 	return 0;
 
+free_sw_encap_resources:
+	dr_domain_destroy_sw_encap_resources(dmn);
 free_modify_header_ptrn_arg_mngr:
 	dr_ptrn_mngr_destroy(dmn->modify_header_ptrn_mngr);
 	dr_arg_mngr_destroy(dmn->modify_header_arg_mngr);
@@ -136,6 +173,7 @@ clean_pd:
 static void dr_free_resources(struct mlx5dv_dr_domain *dmn)
 {
 	dr_send_ring_free(dmn);
+	dr_domain_destroy_sw_encap_resources(dmn);
 	dr_ptrn_mngr_destroy(dmn->modify_header_ptrn_mngr);
 	dr_arg_mngr_destroy(dmn->modify_header_arg_mngr);
 	dr_icm_pool_destroy(dmn->action_icm_pool);
@@ -446,6 +484,15 @@ static int dr_domain_check_icm_memory_caps(struct mlx5dv_dr_domain *dmn)
 		dmn->info.max_log_modify_hdr_pattern_icm_sz = DR_CHUNK_SIZE_4K;
 	}
 
+	if (dr_domain_is_support_sw_encap(dmn)) {
+		if (dmn->info.caps.log_sw_encap_icm_size <
+		    (DR_CHUNK_SIZE_4K + DR_SW_ENCAP_ENTRY_LOG_SIZE)) {
+			errno = ENOMEM;
+			return errno;
+		}
+		dmn->info.max_log_sw_encap_icm_sz = DR_CHUNK_SIZE_4K;
+	}
+
 	return 0;
 }
 
@@ -551,6 +598,12 @@ int mlx5dv_dr_domain_sync(struct mlx5dv_dr_domain *dmn, uint32_t flags)
 	if (flags & MLX5DV_DR_DOMAIN_SYNC_FLAGS_MEM) {
 		if (dmn->ste_icm_pool) {
 			ret = dr_icm_pool_sync_pool(dmn->ste_icm_pool);
+			if (ret)
+				return ret;
+		}
+
+		if (dmn->encap_icm_pool) {
+			ret = dr_icm_pool_sync_pool(dmn->encap_icm_pool);
 			if (ret)
 				return ret;
 		}
