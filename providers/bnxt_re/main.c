@@ -121,11 +121,22 @@ static const struct verbs_context_ops bnxt_re_cntx_ops = {
 	.free_context  = bnxt_re_free_context,
 };
 
+static inline bool bnxt_re_is_chip_gen_p7(struct bnxt_re_chip_ctx *cctx)
+{
+	return (cctx->chip_num == CHIP_NUM_58818 ||
+		cctx->chip_num == CHIP_NUM_57608);
+}
+
 static bool bnxt_re_is_chip_gen_p5(struct bnxt_re_chip_ctx *cctx)
 {
 	return (cctx->chip_num == CHIP_NUM_57508 ||
 		cctx->chip_num == CHIP_NUM_57504 ||
 		cctx->chip_num == CHIP_NUM_57502);
+}
+
+static inline bool bnxt_re_is_chip_gen_p5_p7(struct bnxt_re_chip_ctx *cctx)
+{
+	return bnxt_re_is_chip_gen_p5(cctx) || bnxt_re_is_chip_gen_p7(cctx);
 }
 
 static int bnxt_re_alloc_map_dbr_page(struct ibv_context *ibvctx)
@@ -199,7 +210,7 @@ static struct verbs_context *bnxt_re_alloc_context(struct ibv_device *vdev,
 		cntx->cctx.chip_metal = (resp.chip_id0 >>
 					 BNXT_RE_CHIP_ID0_CHIP_MET_SFT) &
 					 0xFF;
-		cntx->cctx.gen_p5 = bnxt_re_is_chip_gen_p5(&cntx->cctx);
+		cntx->cctx.gen_p5_p7 = bnxt_re_is_chip_gen_p5_p7(&cntx->cctx);
 	}
 
 	if (resp.comp_mask & BNXT_RE_UCNTX_CMASK_HAVE_MODE)

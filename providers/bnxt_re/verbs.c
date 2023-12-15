@@ -190,7 +190,7 @@ struct ibv_pd *bnxt_re_alloc_pd(struct ibv_context *ibvctx)
 			goto fail;
 		if (bnxt_re_is_wcdpi_enabled(cntx)) {
 			bnxt_re_alloc_map_push_page(ibvctx);
-			if (cntx->cctx.gen_p5 && cntx->udpi.wcdpi)
+			if (cntx->cctx.gen_p5_p7 && cntx->udpi.wcdpi)
 				bnxt_re_init_pbuf_list(cntx);
 		}
         }
@@ -1183,7 +1183,7 @@ static int bnxt_re_alloc_queues(struct bnxt_re_context *cntx,
 	que->diff = (diff * que->esize) / que->stride;
 
 	/* psn_depth extra entries of size que->stride */
-	psn_size = qp->cctx->gen_p5 ? sizeof(struct bnxt_re_psns_ext) :
+	psn_size = qp->cctx->gen_p5_p7 ? sizeof(struct bnxt_re_psns_ext) :
 				      sizeof(struct bnxt_re_psns);
 	psn_depth = (nswr * psn_size) / que->stride;
 	if ((nswr * psn_size) % que->stride)
@@ -1212,7 +1212,7 @@ static int bnxt_re_alloc_queues(struct bnxt_re_context *cntx,
 	swque = qp->jsqq->swque;
 	for (indx = 0 ; indx < nswr; indx++, psns++)
 		swque[indx].psns = psns;
-	if (qp->cctx->gen_p5) {
+	if (qp->cctx->gen_p5_p7) {
 		for (indx = 0 ; indx < nswr; indx++, psns_ext++) {
 			swque[indx].psns_ext = psns_ext;
 			swque[indx].psns = (struct bnxt_re_psns *)psns_ext;
@@ -1343,7 +1343,7 @@ struct ibv_qp *bnxt_re_create_qp(struct ibv_pd *ibvpd,
 	fque_init_node(&qp->snode);
 	fque_init_node(&qp->rnode);
 
-	if (qp->cctx->gen_p5 && cntx->udpi.wcdpi) {
+	if (qp->cctx->gen_p5_p7 && cntx->udpi.wcdpi) {
 		qp->push_st_en = 1;
 		qp->max_push_sz = BNXT_RE_MAX_INLINE_SIZE;
 	}
@@ -1617,7 +1617,7 @@ static void bnxt_re_fill_psns(struct bnxt_re_qp *qp, struct bnxt_re_wrid *wrid,
 	memset(psns, 0, sizeof(*psns));
 	psns->opc_spsn = htole32(opc_spsn);
 	psns->flg_npsn = htole32(flg_npsn);
-	if (qp->cctx->gen_p5)
+	if (qp->cctx->gen_p5_p7)
 		psns_ext->st_slot_idx = wrid->st_slot_idx;
 }
 
@@ -1826,7 +1826,7 @@ int bnxt_re_post_send(struct ibv_qp *ibvqp, struct ibv_send_wr *wr,
 		qp->wqe_cnt++;
 		wr = wr->next;
 
-		if (unlikely(!qp->cntx->cctx.gen_p5 && qp->wqe_cnt == BNXT_RE_UD_QP_HW_STALL &&
+		if (unlikely(!qp->cntx->cctx.gen_p5_p7 && qp->wqe_cnt == BNXT_RE_UD_QP_HW_STALL &&
 			     qp->qptyp == IBV_QPT_UD))
 			bnxt_re_force_rts2rts(qp);
 	}

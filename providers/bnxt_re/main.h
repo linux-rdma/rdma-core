@@ -62,6 +62,9 @@
 #define CHIP_NUM_57508		0x1750
 #define CHIP_NUM_57504		0x1751
 #define CHIP_NUM_57502		0x1752
+#define CHIP_NUM_58818          0xd818
+#define CHIP_NUM_57608          0x1760
+
 #define BNXT_RE_MAX_DO_PACING	0xFFFF
 #define BNXT_NSEC_PER_SEC	1000000000UL
 #define BNXT_RE_PAGE_MASK(pg_size) (~((__u64)(pg_size) - 1))
@@ -70,7 +73,8 @@ struct bnxt_re_chip_ctx {
 	__u16 chip_num;
 	__u8 chip_rev;
 	__u8 chip_metal;
-	__u8 gen_p5;
+	__u8 gen_p5_p7;
+	__u8 gen_p7;
 };
 
 struct bnxt_re_dpi {
