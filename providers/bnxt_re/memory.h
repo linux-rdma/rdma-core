@@ -44,6 +44,7 @@
 
 struct bnxt_re_queue {
 	void *va;
+	uint32_t flags;
 	uint32_t *dbtail;
 	uint32_t bytes; /* for munmap */
 	uint32_t depth; /* no. of entries */
@@ -101,15 +102,21 @@ static inline uint32_t bnxt_re_is_que_empty(struct bnxt_re_queue *que)
 static inline void bnxt_re_incr_tail(struct bnxt_re_queue *que, uint8_t cnt)
 {
 	que->tail += cnt;
-	if (que->tail >= que->depth)
+	if (que->tail >= que->depth) {
 		que->tail %= que->depth;
+		/* Rolled over, Toggle Tail bit in epoch flags */
+		que->flags ^= 1UL << BNXT_RE_FLAG_EPOCH_TAIL_SHIFT;
+	}
 }
 
 static inline void bnxt_re_incr_head(struct bnxt_re_queue *que, uint8_t cnt)
 {
 	que->head += cnt;
-	if (que->head >= que->depth)
+	if (que->head >= que->depth) {
 		que->head %= que->depth;
+		/* Rolled over, Toggle HEAD bit in epoch flags */
+		que->flags ^= 1UL << BNXT_RE_FLAG_EPOCH_HEAD_SHIFT;
+	}
 }
 
 #endif
