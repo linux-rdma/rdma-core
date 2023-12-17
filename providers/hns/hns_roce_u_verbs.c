@@ -1448,7 +1448,7 @@ static int get_tclass(struct ibv_context *context, struct ibv_ah_attr *attr,
 struct ibv_ah *hns_roce_u_create_ah(struct ibv_pd *pd, struct ibv_ah_attr *attr)
 {
 	struct hns_roce_device *hr_dev = to_hr_dev(pd->context->device);
-	struct ib_uverbs_create_ah_resp resp = {};
+	struct hns_roce_create_ah_resp resp = {};
 	struct hns_roce_ah *ah;
 
 	/* HIP08 don't support create ah */
@@ -1476,10 +1476,14 @@ struct ibv_ah *hns_roce_u_create_ah(struct ibv_pd *pd, struct ibv_ah_attr *attr)
 		memcpy(ah->av.dgid, attr->grh.dgid.raw, ARRAY_SIZE(ah->av.dgid));
 	}
 
-	if (ibv_cmd_create_ah(pd, &ah->ibv_ah, attr, &resp, sizeof(resp)))
+	if (ibv_cmd_create_ah(pd, &ah->ibv_ah, attr, &resp.ibv_resp,
+			      sizeof(resp)))
 		goto err;
 
-	if (ibv_resolve_eth_l2_from_gid(pd->context, attr, ah->av.mac, NULL))
+	if (memcmp(ah->av.mac, resp.dmac, ETH_ALEN))
+		memcpy(ah->av.mac, resp.dmac, ETH_ALEN);
+	else if (ibv_resolve_eth_l2_from_gid(pd->context, attr,
+					     ah->av.mac, NULL))
 		goto err;
 
 	ah->av.udp_sport = get_ah_udp_sport(attr);
