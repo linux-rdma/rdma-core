@@ -704,8 +704,11 @@ void add_to_portlid_hash(ibnd_port_t * port, f_internal_t *f_int)
 			item = malloc(sizeof(*item));
 			if (item) {
 				item->port = port;
-				cl_qmap_insert(&f_int->lid2guid, lid,
-					       &item->cl_map);
+				if (cl_qmap_insert(&f_int->lid2guid, lid,
+						   &item->cl_map) != &item->cl_map) {
+					/* Port is already in map, release item */
+					free(item);
+				}
 			}
 		}
 	}
