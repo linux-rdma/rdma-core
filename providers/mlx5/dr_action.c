@@ -838,10 +838,21 @@ int dr_actions_build_ste_arr(struct mlx5dv_dr_matcher *matcher,
 				dr_dbg(dmn, "Destination vport belongs to a different domain\n");
 				goto out_invalid_arg;
 			}
-			attr.hit_gvmi = action->vport.caps->vhca_gvmi;
-			attr.final_icm_addr = rx_rule ?
-				action->vport.caps->icm_address_rx :
-				action->vport.caps->icm_address_tx;
+			if (unlikely(rx_rule && action->vport.caps->num == WIRE_PORT)) {
+				if (dmn->type == MLX5DV_DR_DOMAIN_TYPE_NIC_RX) {
+					dr_dbg(dmn, "Forwarding to uplink vport on RX is not allowed\n");
+					goto out_invalid_arg;
+				}
+
+				/* silently drop the packets for RX side of FDB */
+				attr.final_icm_addr = nic_dmn->drop_icm_addr;
+				attr.hit_gvmi = nic_dmn->drop_icm_addr >> 48;
+			} else {
+				attr.hit_gvmi = action->vport.caps->vhca_gvmi;
+				attr.final_icm_addr = rx_rule ?
+						      action->vport.caps->icm_address_rx :
+						      action->vport.caps->icm_address_tx;
+			}
 			break;
 		case DR_ACTION_TYP_DEST_ARRAY:
 			if (action->dest_array.dmn != dmn) {
