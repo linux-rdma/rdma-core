@@ -60,6 +60,20 @@ struct bnxt_re_work_compl {
 	struct ibv_wc wc;
 };
 
+static inline uint8_t bnxt_re_get_psne_size(struct bnxt_re_context *cntx)
+{
+	return (BNXT_RE_HW_RETX(cntx)) ? sizeof(struct bnxt_re_msns) :
+					      (cntx->cctx.gen_p5_p7) ?
+					      sizeof(struct bnxt_re_psns_ext) :
+					      sizeof(struct bnxt_re_psns);
+}
+
+static inline uint32_t bnxt_re_get_npsn(uint8_t mode, uint32_t nwr,
+					uint32_t slots)
+{
+	return mode == BNXT_RE_WQE_MODE_VARIABLE ? slots : nwr;
+}
+
 int bnxt_re_query_device(struct ibv_context *context,
 			 const struct ibv_query_device_ex_input *input,
 			 struct ibv_device_attr_ex *attr, size_t attr_size);
@@ -107,4 +121,14 @@ int bnxt_re_destroy_ah(struct ibv_ah *ibvah);
 void bnxt_re_async_event(struct ibv_context *context,
 			 struct ibv_async_event *event);
 
+static inline __le64 bnxt_re_update_msn_tbl(uint32_t st_idx, uint32_t npsn, uint32_t start_psn)
+{
+	/* Adjust the field values to their respective ofsets */
+	return htole64((((uint64_t)(st_idx) << BNXT_RE_SQ_MSN_SEARCH_START_IDX_SHIFT) &
+		 BNXT_RE_SQ_MSN_SEARCH_START_IDX_MASK) |
+		 (((uint64_t)(npsn) << BNXT_RE_SQ_MSN_SEARCH_NEXT_PSN_SHIFT) &
+		 BNXT_RE_SQ_MSN_SEARCH_NEXT_PSN_MASK) |
+		 (((start_psn) << BNXT_RE_SQ_MSN_SEARCH_START_PSN_SHIFT) &
+		 BNXT_RE_SQ_MSN_SEARCH_START_PSN_MASK));
+}
 #endif /* __BNXT_RE_VERBS_H__ */

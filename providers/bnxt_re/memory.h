@@ -51,6 +51,8 @@ struct bnxt_re_queue {
 	uint32_t head;
 	uint32_t tail;
 	uint32_t stride;
+	void *pad; /* to hold the padding area */
+	uint32_t pad_stride_log2;
 	/* Represents the difference between the real queue depth allocated in
 	 * HW and the user requested queue depth and is used to correctly flag
 	 * queue full condition based on user supplied queue depth.
@@ -62,6 +64,8 @@ struct bnxt_re_queue {
 	uint32_t esize;
 	uint32_t max_slots;
 	pthread_spinlock_t qlock;
+	uint32_t msn;
+	uint32_t msn_tbl_sz;
 };
 
 int bnxt_re_alloc_aligned(struct bnxt_re_queue *que, uint32_t pg_size);

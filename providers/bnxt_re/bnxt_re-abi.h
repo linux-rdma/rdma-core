@@ -167,6 +167,15 @@ enum bnxt_re_psns_mask {
 	BNXT_RE_PSNS_FLAGS_SHIFT	= 0x18
 };
 
+enum bnxt_re_msns_mask {
+	BNXT_RE_SQ_MSN_SEARCH_START_PSN_MASK	= 0xFFFFFFUL,
+	BNXT_RE_SQ_MSN_SEARCH_START_PSN_SHIFT	= 0,
+	BNXT_RE_SQ_MSN_SEARCH_NEXT_PSN_MASK	= 0xFFFFFF000000ULL,
+	BNXT_RE_SQ_MSN_SEARCH_NEXT_PSN_SHIFT	= 0x18,
+	BNXT_RE_SQ_MSN_SEARCH_START_IDX_MASK	= 0xFFFF000000000000ULL,
+	BNXT_RE_SQ_MSN_SEARCH_START_IDX_SHIFT	= 0x30
+};
+
 enum bnxt_re_bcqe_mask {
 	BNXT_RE_BCQE_PH_MASK		= 0x01,
 	BNXT_RE_BCQE_TYPE_MASK		= 0x0F,
@@ -299,6 +308,11 @@ struct bnxt_re_psns_ext {
 	__u16 st_slot_idx;
 	__u16 rsvd0;
 	__u32 rsvd1;
+};
+
+/* sq_msn_search (size:64b/8B) */
+struct bnxt_re_msns {
+	__le64  start_idx_next_psn_start_psn;
 };
 
 struct bnxt_re_sge {

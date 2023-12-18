@@ -47,6 +47,7 @@
 #include <sys/mman.h>
 #include <netinet/in.h>
 #include <unistd.h>
+#include <ccan/ilog.h>
 
 #include <util/compiler.h>
 #include <util/util.h>
@@ -1182,10 +1183,11 @@ static int bnxt_re_alloc_queues(struct bnxt_re_context *cntx,
 	que->depth = nslots;
 	que->diff = (diff * que->esize) / que->stride;
 
+	que->pad = (que->va + que->depth * que->stride);
 	/* psn_depth extra entries of size que->stride */
-	psn_size = qp->cctx->gen_p5_p7 ? sizeof(struct bnxt_re_psns_ext) :
-				      sizeof(struct bnxt_re_psns);
+	psn_size = bnxt_re_get_psne_size(qp->cntx);
 	psn_depth = (nswr * psn_size) / que->stride;
+	que->pad_stride_log2 = (uint32_t)ilog32(psn_size);
 	if ((nswr * psn_size) % que->stride)
 		psn_depth++;
 	que->depth += psn_depth;
@@ -1218,6 +1220,17 @@ static int bnxt_re_alloc_queues(struct bnxt_re_context *cntx,
 			swque[indx].psns = (struct bnxt_re_psns *)psns_ext;
 		}
 	}
+	/* Init and adjust MSN table size according to qp mode */
+	if (!BNXT_RE_HW_RETX(qp->cntx))
+		goto skip_msn;
+	que->msn = 0;
+	que->msn_tbl_sz = 0;
+	if (qp->qpmode & BNXT_RE_WQE_MODE_VARIABLE)
+		que->msn_tbl_sz = roundup_pow_of_two(nslots) / 2;
+	else
+		que->msn_tbl_sz = roundup_pow_of_two(nswr);
+skip_msn:
+
 	qp->cap.max_swr = nswr;
 	pthread_spin_init(&que->qlock, PTHREAD_PROCESS_PRIVATE);
 
@@ -1588,6 +1601,44 @@ static int bnxt_re_build_tx_sge(struct bnxt_re_queue *que, uint32_t *idx,
 	return bnxt_re_put_tx_sge(que, idx, wr->sg_list, wr->num_sge);
 }
 
+static void *bnxt_re_pull_psn_buff(struct bnxt_re_queue *que, bool hw_retx)
+{
+	if (hw_retx)
+		return (void *)(que->pad + ((que->msn) << que->pad_stride_log2));
+	return (void *)(que->pad + ((*que->dbtail) << que->pad_stride_log2));
+}
+
+static void bnxt_re_fill_psns_for_msntbl(struct bnxt_re_qp *qp, uint32_t len, uint32_t st_idx)
+{
+	uint32_t npsn = 0, start_psn = 0, next_psn = 0;
+	struct bnxt_re_msns *msns;
+	uint32_t pkt_cnt = 0;
+
+	msns = bnxt_re_pull_psn_buff(qp->jsqq->hwque, true);
+	msns->start_idx_next_psn_start_psn = 0;
+
+	if (qp->qptyp == IBV_QPT_RC) {
+		start_psn = qp->sq_psn;
+		pkt_cnt = (len / qp->mtu);
+		if (len % qp->mtu)
+			pkt_cnt++;
+		/* Increment the psn even for 0 len packets
+		 * e.g. for opcode rdma-write-with-imm-data
+		 * with length field = 0
+		 */
+		if (len == 0)
+			pkt_cnt = 1;
+		/* make it 24 bit */
+		next_psn = qp->sq_psn + pkt_cnt;
+		npsn = next_psn;
+		qp->sq_psn = next_psn;
+		msns->start_idx_next_psn_start_psn |=
+			bnxt_re_update_msn_tbl(st_idx, npsn, start_psn);
+		qp->jsqq->hwque->msn++;
+		qp->jsqq->hwque->msn %= qp->jsqq->hwque->msn_tbl_sz;
+	}
+}
+
 static void bnxt_re_fill_psns(struct bnxt_re_qp *qp, struct bnxt_re_wrid *wrid,
 			      uint32_t len)
 {
@@ -1810,7 +1861,10 @@ int bnxt_re_post_send(struct ibv_qp *ibvqp, struct ibv_send_wr *wr,
 		bnxt_re_fill_wrid(wrid, wr->wr_id, bytes,
 				  sig, sq->tail, slots);
 		wrid->wc_opcd = bnxt_re_ibv_wr_to_wc_opcd(wr->opcode);
-		bnxt_re_fill_psns(qp, wrid, bytes);
+		if (BNXT_RE_HW_RETX(qp->cntx))
+			bnxt_re_fill_psns_for_msntbl(qp, bytes, *sq->dbtail);
+		else
+			bnxt_re_fill_psns(qp, wrid, bytes);
 		bnxt_re_jqq_mod_start(qp->jsqq, swq_idx);
 		bnxt_re_incr_tail(sq, slots);
 		ring_db = true;
