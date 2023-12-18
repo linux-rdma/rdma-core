@@ -414,6 +414,7 @@ struct dr_ste_actions_attr {
 	} vlans;
 	struct dr_action_aso *aso;
 	uint32_t aso_ste_loc;
+	struct mlx5dv_dr_domain *dmn;
 };
 
 struct cross_dmn_params {

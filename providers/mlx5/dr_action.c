@@ -667,6 +667,7 @@ int dr_actions_build_ste_arr(struct mlx5dv_dr_matcher *matcher,
 	uint8_t *last_ste;
 	int i;
 
+	attr.dmn = dmn;
 	attr.gvmi = dmn->info.caps.gvmi;
 	attr.hit_gvmi = dmn->info.caps.gvmi;
 	attr.final_icm_addr = nic_dmn->default_icm_addr;
