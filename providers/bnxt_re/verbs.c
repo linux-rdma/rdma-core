@@ -104,6 +104,35 @@ static int bnxt_re_map_db_page(struct ibv_context *ibvctx,
 	return 0;
 }
 
+int bnxt_re_get_toggle_mem(struct ibv_context *ibvctx,
+			   struct bnxt_re_mmap_info *minfo,
+			   uint32_t *page_handle)
+{
+	DECLARE_COMMAND_BUFFER(cmd,
+			       BNXT_RE_OBJECT_GET_TOGGLE_MEM,
+			       BNXT_RE_METHOD_GET_TOGGLE_MEM,
+			       4);
+	struct ib_uverbs_attr *handle;
+	int ret;
+
+	handle = fill_attr_out_obj(cmd, BNXT_RE_TOGGLE_MEM_HANDLE);
+	fill_attr_const_in(cmd, BNXT_RE_TOGGLE_MEM_TYPE, minfo->type);
+	fill_attr_in(cmd, BNXT_RE_TOGGLE_MEM_RES_ID, &minfo->res_id, sizeof(minfo->res_id));
+	fill_attr_out_ptr(cmd, BNXT_RE_TOGGLE_MEM_MMAP_PAGE,  &minfo->alloc_offset);
+	fill_attr_out_ptr(cmd, BNXT_RE_TOGGLE_MEM_MMAP_LENGTH, &minfo->alloc_size);
+	fill_attr_out_ptr(cmd, BNXT_RE_TOGGLE_MEM_MMAP_OFFSET, &minfo->pg_offset);
+
+
+	ret = execute_ioctl(ibvctx, cmd);
+
+	if (ret)
+		return ret;
+	if (page_handle)
+		*page_handle = read_attr_obj(BNXT_RE_TOGGLE_MEM_HANDLE, handle);
+	return 0;
+}
+
+
 int bnxt_re_notify_drv(struct ibv_context *ibvctx)
 {
 	DECLARE_COMMAND_BUFFER(cmd,
@@ -275,6 +304,8 @@ struct ibv_cq *bnxt_re_create_cq(struct ibv_context *ibvctx, int ncqe,
 	struct bnxt_re_cq *cq;
 	struct ubnxt_re_cq cmd;
 	struct ubnxt_re_cq_resp resp;
+	struct bnxt_re_mmap_info minfo = {};
+	int ret;
 
 	struct bnxt_re_context *cntx = to_bnxt_re_context(ibvctx);
 	struct bnxt_re_dev *dev = to_bnxt_re_dev(ibvctx->device);
@@ -313,6 +344,19 @@ struct ibv_cq *bnxt_re_create_cq(struct ibv_context *ibvctx, int ncqe,
 	cq->cntx = cntx;
 	cq->rand.seed = cq->cqid;
 
+	if (resp.comp_mask & BNXT_RE_CQ_TOGGLE_PAGE_SUPPORT) {
+
+		minfo.type = BNXT_RE_CQ_TOGGLE_MEM;
+		minfo.res_id = resp.cqid;
+		ret = bnxt_re_get_toggle_mem(ibvctx, &minfo, &cq->mem_handle);
+		if (ret)
+			goto cmdfail;
+		cq->toggle_map = mmap(NULL, minfo.alloc_size, PROT_READ,
+				MAP_SHARED, ibvctx->cmd_fd, minfo.alloc_offset);
+		if (cq->toggle_map == MAP_FAILED)
+			goto cmdfail;
+		cq->toggle_size = minfo.alloc_size;
+	}
 	list_head_init(&cq->sfhead);
 	list_head_init(&cq->rfhead);
 	list_head_init(&cq->prev_cq_head);
@@ -414,6 +458,8 @@ int bnxt_re_destroy_cq(struct ibv_cq *ibvcq)
 	int status;
 	struct bnxt_re_cq *cq = to_bnxt_re_cq(ibvcq);
 
+	if (cq->toggle_map)
+		munmap(cq->toggle_map, cq->toggle_size);
 	status = ibv_cmd_destroy_cq(ibvcq);
 	if (status)
 		return status;

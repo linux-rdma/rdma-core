@@ -178,12 +178,17 @@ void bnxt_re_ring_cq_db(struct bnxt_re_cq *cq)
 
 void bnxt_re_ring_cq_arm_db(struct bnxt_re_cq *cq, uint8_t aflag)
 {
+	uint32_t epoch, toggle = 0;
 	struct bnxt_re_db_hdr hdr;
-	uint32_t epoch;
+	uint32_t *pgptr;
+
+	pgptr = (uint32_t *)cq->toggle_map;
+	if (pgptr)
+		toggle = *pgptr;
 
 	bnxt_re_do_pacing(cq->cntx, &cq->rand);
 	epoch = (cq->cqq.flags & BNXT_RE_FLAG_EPOCH_HEAD_MASK) <<  BNXT_RE_DB_EPOCH_HEAD_SHIFT;
-	bnxt_re_init_db_hdr(&hdr, cq->cqq.head | epoch, cq->cqid, 0, aflag);
+	bnxt_re_init_db_hdr(&hdr, cq->cqq.head | epoch, cq->cqid, toggle, aflag);
 	bnxt_re_ring_db(cq->udpi, &hdr);
 }
 

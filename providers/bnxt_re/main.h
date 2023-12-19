@@ -102,6 +102,9 @@ struct bnxt_re_cq {
 	uint32_t cqe_size;
 	uint8_t  phase;
 	struct xorshift32_state rand;
+	uint32_t mem_handle;
+	void *toggle_map;
+	uint32_t toggle_size;
 };
 
 struct bnxt_re_push_buffer {
@@ -254,6 +257,8 @@ struct bnxt_re_mmap_info {
 	__u32 dpi;
 	__u64 alloc_offset;
 	__u32 alloc_size;
+	__u32 pg_offset;
+	__u32 res_id;
 };
 
 /* DB ring functions used internally*/
@@ -282,6 +287,9 @@ int bnxt_re_alloc_page(struct ibv_context *ibvctx,
 		       struct bnxt_re_mmap_info *minfo,
 		       uint32_t *page_handle);
 int bnxt_re_notify_drv(struct ibv_context *ibvctx);
+int bnxt_re_get_toggle_mem(struct ibv_context *ibvctx,
+			   struct bnxt_re_mmap_info *minfo,
+			   uint32_t *page_handle);
 
 /* pointer conversion functions*/
 static inline struct bnxt_re_dev *to_bnxt_re_dev(struct ibv_device *ibvdev)
