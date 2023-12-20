@@ -62,6 +62,9 @@
 #define CHIP_NUM_57508		0x1750
 #define CHIP_NUM_57504		0x1751
 #define CHIP_NUM_57502		0x1752
+#define CHIP_NUM_58818          0xd818
+#define CHIP_NUM_57608          0x1760
+
 #define BNXT_RE_MAX_DO_PACING	0xFFFF
 #define BNXT_NSEC_PER_SEC	1000000000UL
 #define BNXT_RE_PAGE_MASK(pg_size) (~((__u64)(pg_size) - 1))
@@ -70,7 +73,8 @@ struct bnxt_re_chip_ctx {
 	__u16 chip_num;
 	__u8 chip_rev;
 	__u8 chip_metal;
-	__u8 gen_p5;
+	__u8 gen_p5_p7;
+	__u8 gen_p7;
 };
 
 struct bnxt_re_dpi {
@@ -98,6 +102,9 @@ struct bnxt_re_cq {
 	uint32_t cqe_size;
 	uint8_t  phase;
 	struct xorshift32_state rand;
+	uint32_t mem_handle;
+	void *toggle_map;
+	uint32_t toggle_size;
 };
 
 struct bnxt_re_push_buffer {
@@ -250,6 +257,8 @@ struct bnxt_re_mmap_info {
 	__u32 dpi;
 	__u64 alloc_offset;
 	__u32 alloc_size;
+	__u32 pg_offset;
+	__u32 res_id;
 };
 
 /* DB ring functions used internally*/
@@ -278,6 +287,9 @@ int bnxt_re_alloc_page(struct ibv_context *ibvctx,
 		       struct bnxt_re_mmap_info *minfo,
 		       uint32_t *page_handle);
 int bnxt_re_notify_drv(struct ibv_context *ibvctx);
+int bnxt_re_get_toggle_mem(struct ibv_context *ibvctx,
+			   struct bnxt_re_mmap_info *minfo,
+			   uint32_t *page_handle);
 
 /* pointer conversion functions*/
 static inline struct bnxt_re_dev *to_bnxt_re_dev(struct ibv_device *ibvdev)
@@ -597,4 +609,6 @@ static inline void bnxt_re_sub_sec_busy_wait(uint32_t nsec)
 			break;
 	}
 }
+
+#define BNXT_RE_HW_RETX(a) ((a)->comp_mask & BNXT_RE_COMP_MASK_UCNTX_HW_RETX_ENABLED)
 #endif
