@@ -4,4 +4,5 @@
 rdma_cython_module(pyverbs/providers/efa efa
   efa_enums.pyx
   efadv.pyx
+  libefa.pyx
 )
