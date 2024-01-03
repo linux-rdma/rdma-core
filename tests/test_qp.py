@@ -1,7 +1,7 @@
 # SPDX-License-Identifier: (GPL-2.0 OR Linux-OpenIB)
 # Copyright (c) 2019 Mellanox Technologies, Inc. All rights reserved. See COPYING file
 # Copyright (c) 2020 Kamal Heib <kamalheib1@gmail.com>, All rights reserved.  See COPYING file
-# Copyright 2020-2022 Amazon.com, Inc. or its affiliates. All rights reserved.
+# Copyright 2020-2023 Amazon.com, Inc. or its affiliates. All rights reserved.
 
 """
 Test module for pyverbs' qp module.
@@ -316,7 +316,12 @@ class QPTest(PyverbsAPITestCase):
                 qia.qp_type = e.IBV_QPT_UD
                 qp = self.create_qp(pd, qia, False, True, self.ib_port)
                 is_data_in_order = qp.query_data_in_order(e.IBV_WR_SEND)
-                self.assertIn(is_data_in_order, [0, 1], 'Data in order result is not valid')
+                self.assertIn(is_data_in_order, [0, 1], 'Data in order result with flags=0 is not valid')
+                is_data_in_order = qp.query_data_in_order(e.IBV_WR_SEND,e.IBV_QUERY_QP_DATA_IN_ORDER_RETURN_CAPS)
+                valid_results = [0,
+                                e.IBV_QUERY_QP_DATA_IN_ORDER_ALIGNED_128_BYTES,
+                                e.IBV_QUERY_QP_DATA_IN_ORDER_WHOLE_MSG | e.IBV_QUERY_QP_DATA_IN_ORDER_ALIGNED_128_BYTES]
+                self.assertIn(is_data_in_order, valid_results, 'Data in order result with flags=1 is not valid')
 
     @u.skip_unsupported
     def test_modify_ud_qp(self):
