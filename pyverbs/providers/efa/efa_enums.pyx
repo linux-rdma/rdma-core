@@ -1,5 +1,5 @@
 # SPDX-License-Identifier: (GPL-2.0 OR Linux-OpenIB)
-# Copyright 2020-2023 Amazon.com, Inc. or its affiliates. All rights reserved.
+# Copyright 2020-2024 Amazon.com, Inc. or its affiliates. All rights reserved.
 
 #cython: language_level=3
 
@@ -15,3 +15,8 @@ cdef extern from 'infiniband/efadv.h':
 
     cpdef enum:
         EFADV_WC_EX_WITH_SGID
+
+    cpdef enum:
+        EFADV_MR_ATTR_VALIDITY_RECV_IC_ID
+        EFADV_MR_ATTR_VALIDITY_RDMA_READ_IC_ID
+        EFADV_MR_ATTR_VALIDITY_RDMA_RECV_IC_ID
