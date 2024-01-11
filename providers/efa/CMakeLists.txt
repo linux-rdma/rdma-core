@@ -3,7 +3,7 @@ if (ENABLE_LTTNG AND LTTNGUST_FOUND)
 endif()
 
 rdma_shared_provider(efa libefa.map
-	1 1.2.${PACKAGE_VERSION}
+	1 1.3.${PACKAGE_VERSION}
 	${TRACE_FILE}
 	efa.c
 	verbs.c

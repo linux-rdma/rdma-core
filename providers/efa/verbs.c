@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: GPL-2.0 OR BSD-2-Clause
 /*
- * Copyright 2019-2023 Amazon.com, Inc. or its affiliates. All rights reserved.
+ * Copyright 2019-2024 Amazon.com, Inc. or its affiliates. All rights reserved.
  */
 
 #include <assert.h>
@@ -277,6 +277,62 @@ struct ibv_mr *efa_reg_mr(struct ibv_pd *ibvpd, void *sva, size_t len,
 	}
 
 	return &mr->vmr.ibv_mr;
+}
+
+int efadv_query_mr(struct ibv_mr *ibvmr, struct efadv_mr_attr *attr, uint32_t inlen)
+{
+	uint16_t rdma_read_ic_id = 0;
+	uint16_t rdma_recv_ic_id = 0;
+	uint16_t ic_id_validity = 0;
+	uint16_t recv_ic_id = 0;
+	int err;
+
+	DECLARE_COMMAND_BUFFER(cmd,
+			       UVERBS_OBJECT_MR,
+			       EFA_IB_METHOD_MR_QUERY,
+			       5);
+
+	if (!is_efa_dev(ibvmr->context->device)) {
+		verbs_err(verbs_get_ctx(ibvmr->context), "Not an EFA device\n");
+		return EOPNOTSUPP;
+	}
+
+	if (!vext_field_avail(typeof(*attr), rdma_recv_ic_id, inlen)) {
+		verbs_err(verbs_get_ctx(ibvmr->context), "Compatibility issues\n");
+		return EINVAL;
+	}
+
+	memset(attr, 0, inlen);
+	fill_attr_in_obj(cmd, EFA_IB_ATTR_QUERY_MR_HANDLE, ibvmr->handle);
+	fill_attr_out(cmd, EFA_IB_ATTR_QUERY_MR_RESP_IC_ID_VALIDITY,
+		      &ic_id_validity, sizeof(ic_id_validity));
+	fill_attr_out(cmd, EFA_IB_ATTR_QUERY_MR_RESP_RECV_IC_ID,
+		      &recv_ic_id, sizeof(recv_ic_id));
+	fill_attr_out(cmd, EFA_IB_ATTR_QUERY_MR_RESP_RDMA_READ_IC_ID,
+		      &rdma_read_ic_id, sizeof(rdma_read_ic_id));
+	fill_attr_out(cmd, EFA_IB_ATTR_QUERY_MR_RESP_RDMA_RECV_IC_ID,
+		      &rdma_recv_ic_id, sizeof(rdma_recv_ic_id));
+
+	err = execute_ioctl(ibvmr->context, cmd);
+	if (err) {
+		verbs_err(verbs_get_ctx(ibvmr->context), "Failed to query MR\n");
+		return err;
+	}
+
+	if (ic_id_validity & EFA_QUERY_MR_VALIDITY_RECV_IC_ID) {
+		attr->recv_ic_id = recv_ic_id;
+		attr->ic_id_validity |= EFADV_MR_ATTR_VALIDITY_RECV_IC_ID;
+	}
+	if (ic_id_validity & EFA_QUERY_MR_VALIDITY_RDMA_READ_IC_ID) {
+		attr->rdma_read_ic_id = rdma_read_ic_id;
+		attr->ic_id_validity |= EFADV_MR_ATTR_VALIDITY_RDMA_READ_IC_ID;
+	}
+	if (ic_id_validity & EFA_QUERY_MR_VALIDITY_RDMA_RECV_IC_ID) {
+		attr->rdma_recv_ic_id = rdma_recv_ic_id;
+		attr->ic_id_validity |= EFADV_MR_ATTR_VALIDITY_RDMA_RECV_IC_ID;
+	}
+
+	return 0;
 }
 
 int efa_dereg_mr(struct verbs_mr *vmr)

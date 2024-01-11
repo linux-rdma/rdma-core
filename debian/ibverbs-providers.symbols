@@ -166,12 +166,14 @@ libefa.so.1 ibverbs-providers #MINVER#
  EFA_1.0@EFA_1.0 24
  EFA_1.1@EFA_1.1 26
  EFA_1.2@EFA_1.2 43
+ EFA_1.3@EFA_1.3 50
  efadv_create_driver_qp@EFA_1.0 24
  efadv_create_qp_ex@EFA_1.1 26
  efadv_query_device@EFA_1.1 26
  efadv_query_ah@EFA_1.1 26
  efadv_cq_from_ibv_cq_ex@EFA_1.2 43
  efadv_create_cq@EFA_1.2 43
+ efadv_query_mr@EFA_1.3 50
 libmana.so.1 ibverbs-providers #MINVER#
 * Build-Depends-Package: libibverbs-dev
  MANA_1.0@MANA_1.0 41
