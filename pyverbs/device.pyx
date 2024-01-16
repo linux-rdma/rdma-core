@@ -228,6 +228,12 @@ cdef class Context(PyverbsCM):
             raise PyverbsRDMAError(f'Failed to query pkey {index} of port {port_num}')
         return pkey
 
+    def get_pkey_index(self, unsigned int port_num, int pkey):
+        idx = v.ibv_get_pkey_index(self.context, port_num, pkey)
+        if idx == -1:
+            raise PyverbsRDMAError(f'Failed to get pkey index of pkey = {pkey} of port {port_num}')
+        return idx
+
     def query_gid(self, unsigned int port_num, int index):
         gid = GID()
         rc = v.ibv_query_gid(self.context, port_num, index, &gid.gid)
