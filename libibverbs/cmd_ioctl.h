@@ -424,4 +424,19 @@ fill_attr_in_objs_arr(struct ibv_command_buffer *cmd, uint16_t attr_id,
 			    _array_len(sizeof(*idrs_arr), nelems));
 }
 
+static inline struct ib_uverbs_attr *
+find_attr_by_id(struct ibv_command_buffer *link, uint16_t attr_id)
+{
+	struct ib_uverbs_attr *attr;
+
+	for (; link; link = link->next) {
+		for (attr = link->hdr.attrs; attr < link->next_attr; attr++) {
+			if (attr->attr_id == attr_id)
+				return attr;
+		}
+	}
+
+	return NULL;
+}
+
 #endif
