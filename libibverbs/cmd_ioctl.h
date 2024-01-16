@@ -36,6 +36,7 @@
 #include <config.h>
 
 #include <stdint.h>
+#include <stdbool.h>
 #include <assert.h>
 #include <rdma/rdma_user_ioctl_cmds.h>
 #include <infiniband/verbs.h>
@@ -243,6 +244,18 @@ static inline struct ib_uverbs_attr *attr_optional(struct ib_uverbs_attr *attr)
 
 	attr->flags &= ~UVERBS_ATTR_F_MANDATORY;
 	return attr;
+}
+
+/*
+ * Get output attribute validity. Can be called on an optional output attribute
+ * after executing ioctl to check whether its data was filled in the kernel.
+ */
+static inline bool attr_output_valid(struct ib_uverbs_attr *attr)
+{
+	if (!attr)
+		return false;
+
+	return !!(attr->flags & UVERBS_ATTR_F_VALID_OUTPUT);
 }
 
 /* Send attributes of kernel type UVERBS_ATTR_TYPE_IDR */
