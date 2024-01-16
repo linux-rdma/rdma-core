@@ -667,6 +667,7 @@ int dr_actions_build_ste_arr(struct mlx5dv_dr_matcher *matcher,
 	uint8_t *last_ste;
 	int i;
 
+	attr.dmn = dmn;
 	attr.gvmi = dmn->info.caps.gvmi;
 	attr.hit_gvmi = dmn->info.caps.gvmi;
 	attr.final_icm_addr = nic_dmn->default_icm_addr;
@@ -2485,6 +2486,8 @@ dr_action_convert_to_fte_dest(struct mlx5dv_dr_domain *dmn,
 
 		fte_attr->action |= MLX5_FLOW_CONTEXT_ACTION_FWD_DEST;
 		dest_info->type = MLX5_FLOW_DEST_TYPE_VPORT;
+		if (dmn->info.caps.is_ecpf)
+			dest_info->vport_num = ECPF_PORT;
 		break;
 	case DR_ACTION_TYP_VPORT:
 		if (dmn->type != MLX5DV_DR_DOMAIN_TYPE_FDB)
