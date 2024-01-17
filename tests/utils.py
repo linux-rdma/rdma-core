@@ -1702,3 +1702,11 @@ def high_rate_send(agr_obj, packet, rate_limit, timeout=2):
     # Calculate the rate
     rate = agr_obj.msg_size * iterations / timeout / 1000000
     assert rate > rate_limit, 'Traffic rate is smaller than minimal rate for the test'
+
+
+def get_pkey_from_kernel(device, port=1, index=0):
+    path = f'/sys/class/infiniband/{device}/ports/{port}/pkeys/{index}'
+    output = subprocess.check_output(['cat', path], universal_newlines=True)
+    pkey_hex = output.strip()
+    pkey_decimal = int(pkey_hex, 16)
+    return pkey_decimal
