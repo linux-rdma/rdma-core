@@ -3,9 +3,10 @@
 
 #cython: language_level=3
 
-include 'libibverbs.pxd'
-include 'librdmacm_enums.pxd'
 from libc.stdint cimport uint8_t, uint32_t
+from pyverbs.librdmacm_enums cimport *
+from pyverbs.libibverbs cimport *
+
 
 cdef extern from '<rdma/rdma_cma.h>':
 

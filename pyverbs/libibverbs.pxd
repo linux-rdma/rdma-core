@@ -3,9 +3,10 @@
 
 #cython: language_level=3
 
-include 'libibverbs_enums.pxd'
 from libc.stdint cimport uint8_t, uint16_t, uint32_t, uint64_t
 from posix.time cimport timespec
+from pyverbs.libibverbs_enums cimport *
+
 
 cdef extern from 'infiniband/verbs.h':
 
