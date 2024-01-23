@@ -12,7 +12,7 @@ Note: This is not be confused with Mlx5<Obj> which holds the ibv_<obj>_ex that
 from libc.stdint cimport uintptr_t, uint32_t
 
 from pyverbs.pyverbs_error import PyverbsUserError, PyverbsRDMAError
-cimport pyverbs.providers.mlx5.mlx5dv_enums as dve
+cimport pyverbs.providers.mlx5.mlx5_enums as dve
 cimport pyverbs.libibverbs as v
 
 

@@ -1,7 +1,7 @@
 # SPDX-License-Identifier: (GPL-2.0 OR Linux-OpenIB)
 # Copyright 2020-2024 Amazon.com, Inc. or its affiliates. All rights reserved.
 
-cimport pyverbs.providers.efa.efadv_enums as dve
+cimport pyverbs.providers.efa.efa_enums as dve
 cimport pyverbs.providers.efa.libefa as dv
 
 from pyverbs.addr cimport GID

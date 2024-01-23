@@ -31,6 +31,10 @@ rdma_cython_module(pyverbs ""
   enums.pyx
   flow.pyx
   fork.pyx
+  libibverbs.pyx
+  libibverbs_enums.pyx
+  librdmacm.pyx
+  librdmacm_enums.pyx
   mem_alloc.pyx
   mr.pyx
   pd.pyx

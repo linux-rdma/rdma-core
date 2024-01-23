@@ -214,19 +214,27 @@ if (NOT HAVE_WORKING_WERROR)
   message(FATAL_ERROR "-Werror doesn't work (compiler always creates warnings?). Werror is required for CMake.")
 endif()
 
-# Look for Python. We prefer some variant of python 3 if the system has it.
-FIND_PACKAGE(PythonInterp 3 QUIET)
-if (PythonInterp_FOUND)
-  # pyverbs can only use python3:
-  if (NO_PYVERBS)
-    set(CYTHON_EXECUTABLE "")
+# Use Python modules based on CMake version for backward compatibility
+set(CYTHON_EXECUTABLE "")
+if (${CMAKE_VERSION} VERSION_LESS "3.12")
+  # Look for Python. We prefer some variant of python 3 if the system has it
+  FIND_PACKAGE(PythonInterp 3 QUIET)
+  if (PythonInterp_FOUND)
+    # pyverbs can only use python3:
+    if (NOT NO_PYVERBS)
+      FIND_PACKAGE(cython)
+    endif()
   else()
-    FIND_PACKAGE(cython)
+    # But we still must have python (be it 2) for the build process
+    FIND_PACKAGE(PythonInterp REQUIRED)
   endif()
 else()
-  # But we still must have python (be it 2) for the build process:
-  FIND_PACKAGE(PythonInterp REQUIRED)
-  set(CYTHON_EXECUTABLE "")
+  # FindPython looks preferably for Python3. If not found, version 2 is searched
+  FIND_PACKAGE(Python COMPONENTS Interpreter REQUIRED)
+  set(PYTHON_EXECUTABLE ${Python_EXECUTABLE})
+  if (NOT NO_PYVERBS AND Python_VERSION_MAJOR EQUAL 3)
+    FIND_PACKAGE(cython)
+  endif()
 endif()
 
 find_program(SYSTEMCTL_BIN systemctl HINTS "/usr/bin" "/bin")
@@ -450,8 +458,15 @@ if (CYTHON_EXECUTABLE)
  # find a matching -devel installation but will happily return a non-matching
  # one too. We need them both to match exactly to guarantee cython does the
  # right thing.
-  FIND_PACKAGE(PythonLibs ${PYTHON_VERSION_MAJOR}.${PYTHON_VERSION_MINOR}
-    EXACT REQUIRED)
+  if (${CMAKE_VERSION} VERSION_LESS "3.12")
+    FIND_PACKAGE(PythonLibs ${PYTHON_VERSION_MAJOR}.${PYTHON_VERSION_MINOR}
+      EXACT REQUIRED)
+  else()
+    FIND_PACKAGE(Python ${Python_VERSION_MAJOR}.${Python_VERSION_MINOR}
+      EXACT COMPONENTS Development REQUIRED)
+    set(PYTHON_LIBRARIES ${Python_LIBRARIES})
+    set(PYTHON_INCLUDE_DIRS ${Python_INCLUDE_DIRS})
+  endif()
 
  # Get a default installation path
   execute_process(COMMAND "${PYTHON_EXECUTABLE}" -c

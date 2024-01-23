@@ -1,13 +1,14 @@
 # SPDX-License-Identifier: (GPL-2.0 OR Linux-OpenIB)
 # Copyright (c) 2019 Mellanox Technologies, Inc. All rights reserved. See COPYING file
 
-include 'mlx5dv_enums.pxd'
+#cython: language_level=3
 
 from libc.stdint cimport uint8_t, uint16_t, uint32_t, uint64_t, uintptr_t
 from posix.types cimport off_t
 from libcpp cimport bool
 cimport libc.stdio as s
 
+from pyverbs.providers.mlx5.mlx5_enums cimport *
 cimport pyverbs.libibverbs as v
 
 

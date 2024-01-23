@@ -1,9 +1,12 @@
 # SPDX-License-Identifier: (GPL-2.0 OR Linux-OpenIB)
 # Copyright (c) 2018, Mellanox Technologies. All rights reserved. See COPYING file
 
-include 'libibverbs_enums.pxd'
+#cython: language_level=3
+
 from libc.stdint cimport uint8_t, uint16_t, uint32_t, uint64_t
 from posix.time cimport timespec
+from pyverbs.libibverbs_enums cimport *
+
 
 cdef extern from 'infiniband/verbs.h':
 

@@ -1,6 +1,8 @@
 # SPDX-License-Identifier: (GPL-2.0 OR Linux-OpenIB)
 # Copyright 2020-2024 Amazon.com, Inc. or its affiliates. All rights reserved.
 
+#cython: language_level=3
+
 from libc.stdint cimport uint8_t, uint16_t, uint32_t, uint64_t
 cimport pyverbs.libibverbs as v
 

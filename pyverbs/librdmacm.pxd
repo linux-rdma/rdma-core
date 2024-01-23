@@ -1,9 +1,12 @@
 # SPDX-License-Identifier: (GPL-2.0 OR Linux-OpenIB)
 # Copyright (c) 2019, Mellanox Technologies. All rights reserved. See COPYING file
 
-include 'libibverbs.pxd'
-include 'librdmacm_enums.pxd'
+#cython: language_level=3
+
 from libc.stdint cimport uint8_t, uint32_t
+from pyverbs.librdmacm_enums cimport *
+from pyverbs.libibverbs cimport *
+
 
 cdef extern from '<rdma/rdma_cma.h>':
 
