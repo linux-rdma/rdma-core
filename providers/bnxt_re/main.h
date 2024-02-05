@@ -105,6 +105,8 @@ struct bnxt_re_cq {
 	uint32_t mem_handle;
 	void *toggle_map;
 	uint32_t toggle_size;
+	bool deffered_db_sup;
+	uint32_t hw_cqes;
 };
 
 struct bnxt_re_push_buffer {

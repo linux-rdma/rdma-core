@@ -319,6 +319,12 @@ struct ibv_cq *bnxt_re_create_cq(struct ibv_context *ibvctx, int ncqe,
 	if (!cq)
 		return NULL;
 
+	/* Enable deferred DB mode for CQ if the CQ is small */
+	if (ncqe * 2 < dev->max_cq_depth) {
+		cq->deffered_db_sup = true;
+		ncqe = 2 * ncqe;
+	}
+
 	cq->cqq.depth = bnxt_re_init_depth(ncqe + 1, cntx->comp_mask);
 	if (cq->cqq.depth > dev->max_cq_depth + 1)
 		cq->cqq.depth = dev->max_cq_depth + 1;
@@ -397,6 +403,16 @@ int bnxt_re_resize_cq(struct ibv_cq *ibvcq, int ncqe)
 
 	if (ncqe > dev->max_cq_depth)
 		return -EINVAL;
+
+	/* Check if we can be in defered DB mode with the
+	 * newer size of CQE.
+	 */
+	if (2 * ncqe > dev->max_cq_depth) {
+		cq->deffered_db_sup = false;
+	} else {
+		ncqe = 2 * ncqe;
+		cq->deffered_db_sup = true;
+	}
 
 	pthread_spin_lock(&cq->cqq.qlock);
 	cq->resize_cqq.depth = bnxt_re_init_depth(ncqe + 1, cntx->comp_mask);
@@ -754,6 +770,21 @@ static uint8_t bnxt_re_poll_term_cqe(struct bnxt_re_qp *qp, int *cnt)
 	return 0;
 }
 
+static inline void bnxt_re_check_and_ring_cq_db(struct bnxt_re_cq *cq,
+						int *hw_polled)
+{
+	/* Ring doorbell only if the CQ is at
+	 * least half when deferred db mode is active
+	 */
+	if (cq->deffered_db_sup) {
+		if (cq->hw_cqes < cq->cqq.depth / 2)
+			return;
+		*hw_polled = 0;
+		cq->hw_cqes = 0;
+	}
+	bnxt_re_ring_cq_db(cq);
+}
+
 static int bnxt_re_poll_one(struct bnxt_re_cq *cq, int nwc, struct ibv_wc *wc,
 			    uint32_t *resize)
 {
@@ -819,6 +850,7 @@ static int bnxt_re_poll_one(struct bnxt_re_cq *cq, int nwc, struct ibv_wc *wc,
 			goto skipp_real;
 
 		hw_polled++;
+		cq->hw_cqes++;
 		if (qp_handle) {
 			*qp_handle = 0x0ULL; /* mark cqe as read */
 			qp_handle = NULL;
@@ -832,10 +864,13 @@ skipp_real:
 			nwc--;
 			wc++;
 		}
+		/* Extra check required to avoid CQ full */
+		if (cq->deffered_db_sup)
+			bnxt_re_check_and_ring_cq_db(cq, &hw_polled);
 	}
 
 	if (likely(hw_polled))
-		bnxt_re_ring_cq_db(cq);
+		bnxt_re_check_and_ring_cq_db(cq, &hw_polled);
 
 	return dqed;
 }
@@ -2152,12 +2187,12 @@ int bnxt_re_query_srq(struct ibv_srq *ibvsrq, struct ibv_srq_attr *attr)
 	return ibv_cmd_query_srq(ibvsrq, attr, &cmd, sizeof(cmd));
 }
 
-static int bnxt_re_build_srqe(struct bnxt_re_srq *srq,
-			      struct ibv_recv_wr *wr, void *srqe)
+static void bnxt_re_build_srqe(struct bnxt_re_srq *srq,
+			       struct ibv_recv_wr *wr, void *srqe)
 {
 	struct bnxt_re_brqe *hdr = srqe;
-	struct bnxt_re_sge *sge;
 	struct bnxt_re_wrid *wrid;
+	struct bnxt_re_sge *sge;
 	int wqe_sz, len, next;
 	uint32_t hdrval = 0;
 	int indx;
@@ -2184,8 +2219,6 @@ static int bnxt_re_build_srqe(struct bnxt_re_srq *srq,
 	wrid->wrid = wr->wr_id;
 	wrid->bytes = len; /* N.A. for RQE */
 	wrid->sig = 0; /* N.A. for RQE */
-
-	return len;
 }
 
 int bnxt_re_post_srq_recv(struct ibv_srq *ibvsrq, struct ibv_recv_wr *wr,
@@ -2193,8 +2226,9 @@ int bnxt_re_post_srq_recv(struct ibv_srq *ibvsrq, struct ibv_recv_wr *wr,
 {
 	struct bnxt_re_srq *srq = to_bnxt_re_srq(ibvsrq);
 	struct bnxt_re_queue *rq = srq->srqq;
+	int count = 0, rc = 0;
+	bool ring_db = false;
 	void *srqe;
-	int ret, count = 0;
 
 	pthread_spin_lock(&rq->qlock);
 	count = rq->tail > rq->head ? rq->tail - rq->head :
@@ -2203,32 +2237,32 @@ int bnxt_re_post_srq_recv(struct ibv_srq *ibvsrq, struct ibv_recv_wr *wr,
 		if (srq->start_idx == srq->last_idx ||
 		    wr->num_sge > srq->cap.max_sge) {
 			*bad = wr;
-			pthread_spin_unlock(&rq->qlock);
-			return ENOMEM;
+			rc = ENOMEM;
+			goto exit;
 		}
 
 		srqe = (void *) (rq->va + (rq->tail * rq->stride));
 		memset(srqe, 0, bnxt_re_get_srqe_sz());
-		ret = bnxt_re_build_srqe(srq, wr, srqe);
-		if (ret < 0) {
-			pthread_spin_unlock(&rq->qlock);
-			*bad = wr;
-			return ENOMEM;
-		}
+		bnxt_re_build_srqe(srq, wr, srqe);
 
 		srq->start_idx = srq->srwrid[srq->start_idx].next_idx;
 		bnxt_re_incr_tail(rq, 1);
+		ring_db = true;
 		wr = wr->next;
-		bnxt_re_ring_srq_db(srq);
 		count++;
 		if (srq->arm_req == true && count > srq->cap.srq_limit) {
 			srq->arm_req = false;
+			ring_db = false;
+			bnxt_re_ring_srq_db(srq);
 			bnxt_re_ring_srq_arm(srq);
 		}
 	}
+exit:
+	if (ring_db)
+		bnxt_re_ring_srq_db(srq);
 	pthread_spin_unlock(&rq->qlock);
 
-	return 0;
+	return rc;
 }
 
 struct ibv_ah *bnxt_re_create_ah(struct ibv_pd *ibvpd, struct ibv_ah_attr *attr)
