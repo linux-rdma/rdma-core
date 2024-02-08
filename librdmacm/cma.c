@@ -1953,8 +1953,14 @@ int rdma_accept(struct rdma_cm_id *id, struct rdma_conn_param *conn_param)
 		return (ret >= 0) ? ERR(ENODATA) : -1;
 	}
 
-	if (ucma_is_ud_qp(id->qp_type))
+	if (ucma_is_ud_qp(id->qp_type)) {
+		if (id_priv->sync && id_priv->id.event) {
+			rdma_ack_cm_event(id_priv->id.event);
+			id_priv->id.event = NULL;
+		}
+
 		return 0;
+	}
 
 	return ucma_complete(id);
 }
