@@ -182,9 +182,13 @@ void bnxt_re_ring_cq_arm_db(struct bnxt_re_cq *cq, uint8_t aflag)
 	struct bnxt_re_db_hdr hdr;
 	uint32_t *pgptr;
 
-	pgptr = (uint32_t *)cq->toggle_map;
-	if (pgptr)
-		toggle = *pgptr;
+	if (aflag == BNXT_RE_QUE_TYPE_CQ_CUT_ACK) {
+		toggle = cq->resize_tog;
+	} else {
+		pgptr = (uint32_t *)cq->toggle_map;
+		if (pgptr)
+			toggle = *pgptr;
+	}
 
 	bnxt_re_do_pacing(cq->cntx, &cq->rand);
 	epoch = (cq->cqq.flags & BNXT_RE_FLAG_EPOCH_HEAD_MASK) <<  BNXT_RE_DB_EPOCH_HEAD_SHIFT;
