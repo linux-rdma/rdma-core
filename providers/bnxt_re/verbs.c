@@ -788,23 +788,24 @@ static inline void bnxt_re_check_and_ring_cq_db(struct bnxt_re_cq *cq,
 static int bnxt_re_poll_one(struct bnxt_re_cq *cq, int nwc, struct ibv_wc *wc,
 			    uint32_t *resize)
 {
+	int type, cnt = 0, dqed = 0, hw_polled = 0;
 	struct bnxt_re_queue *cqq = &cq->cqq;
-	struct bnxt_re_qp *qp;
-	struct bnxt_re_bcqe *hdr;
 	struct bnxt_re_req_cqe *scqe;
 	struct bnxt_re_ud_cqe *rcqe;
-	void *cqe;
 	uint64_t *qp_handle = NULL;
-	int type, cnt = 0, dqed = 0, hw_polled = 0;
+	struct bnxt_re_bcqe *hdr;
+	struct bnxt_re_qp *qp;
 	uint8_t pcqe = false;
+	uint32_t flg_val;
+	void *cqe;
 
 	while (nwc) {
 		cqe = cqq->va + cqq->head * bnxt_re_get_cqe_sz();
 		hdr = cqe + sizeof(struct bnxt_re_req_cqe);
 		if (!bnxt_re_is_cqe_valid(cq, hdr))
 			break;
-		type = (le32toh(hdr->flg_st_typ_ph) >>
-			BNXT_RE_BCQE_TYPE_SHIFT) & BNXT_RE_BCQE_TYPE_MASK;
+		flg_val = le32toh(hdr->flg_st_typ_ph);
+		type = (flg_val >> BNXT_RE_BCQE_TYPE_SHIFT) & BNXT_RE_BCQE_TYPE_MASK;
 		switch (type) {
 		case BNXT_RE_WC_TYPE_SEND:
 			scqe = cqe;
@@ -838,6 +839,8 @@ static int bnxt_re_poll_one(struct bnxt_re_cq *cq, int nwc, struct ibv_wc *wc,
 			break;
 		case BNXT_RE_WC_TYPE_COFF:
 			/* Stop further processing and return */
+			cq->resize_tog = (flg_val >> BNXT_RE_BCQE_RESIZE_TOG_SHIFT)
+						& BNXT_RE_BCQE_RESIZE_TOG_MASK;
 			bnxt_re_resize_cq_complete(cq);
 			if (resize)
 				*resize = 1;
