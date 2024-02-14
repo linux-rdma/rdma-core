@@ -610,6 +610,7 @@ static void efa_process_cqe(struct efa_cq *cq, struct ibv_wc *wc,
 	wc->vendor_err = cqe->status;
 	wc->wc_flags = 0;
 	wc->qp_num = cqe->qp_num;
+	wc->slid = UINT16_MAX;
 
 	op_type = EFA_GET(&cqe->flags, EFA_IO_CDESC_COMMON_OP_TYPE);
 
@@ -653,7 +654,7 @@ static void efa_process_cqe(struct efa_cq *cq, struct ibv_wc *wc,
 	wc->wr_id = cq->cur_wq->wrid[wrid_idx];
 
 	rdma_tracepoint(rdma_core_efa, process_completion, cq->dev->name, wc->wr_id, wc->status,
-			wc->qp_num, wc->opcode, wc->byte_len);
+			wc->opcode, wc->src_qp, wc->qp_num, wc->slid, wc->byte_len);
 }
 
 static void efa_process_ex_cqe(struct efa_cq *cq, struct efa_qp *qp)
