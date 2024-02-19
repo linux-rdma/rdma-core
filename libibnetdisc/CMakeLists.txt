@@ -1,11 +1,13 @@
 publish_headers(infiniband
+  ibnetdisc_ext_umad.h
   ibnetdisc.h
   ibnetdisc_osd.h
   )
 
 rdma_library(ibnetdisc libibnetdisc.map
   # See Documentation/versioning.md
-  5 5.1.${PACKAGE_VERSION}
+  5 5.2.${PACKAGE_VERSION}
+  ibnetdisc_ext_umad.c
   chassis.c
   ibnetdisc.c
   ibnetdisc_cache.c

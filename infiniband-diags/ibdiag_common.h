@@ -45,6 +45,7 @@
 #include <infiniband/mad.h>
 #include <util/iba_types.h>
 #include <infiniband/ibnetdisc.h>
+#include <infiniband/ibnetdisc_ext_umad.h>
 #include <linux/types.h>
 
 extern int ibverbose;

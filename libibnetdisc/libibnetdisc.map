@@ -33,3 +33,10 @@ IBNETDISC_1.1 {
 		ibnd_dump_agg_linkspeedextsup;
 	local: *;
 } IBNETDISC_1.0;
+
+IBNETDISC_1.2 {
+	global:
+		ibnd_ext_umad_get_cas;
+		ibnd_ext_umad_get_ca_by_name;
+		ibnd_convert_portid_to_dr;
+} IBNETDISC_1.1;

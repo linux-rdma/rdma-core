@@ -229,6 +229,18 @@ void ibnd_iter_ports(ibnd_fabric_t *fabric, ibnd_iter_port_func_t func,
 		     void *user_data);
 
 /** =========================================================================
+ * Port operations
+ */
+int ibnd_convert_portid_to_dr(ibnd_fabric_t *fabric, ib_portid_t *portid, enum MAD_DEST dest_type);
+	/**
+	 * Convert a portid's destination type to direct route.
+	 *
+	 * fabric: [input] discovered fabric
+	 * portid: [input/output] portid object, to be converted to direct route
+	 * dest_type: current destination type
+	 */
+
+/** =========================================================================
  * Chassis queries
  */
 uint64_t ibnd_get_chassis_guid(ibnd_fabric_t *fabric, unsigned char chassisnum);
