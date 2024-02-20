@@ -134,6 +134,9 @@ int ibv_fork_init(void)
 	if (mm_root)
 		return 0;
 
+	if (ibv_is_fork_initialized() == IBV_FORK_UNNEEDED)
+		return 0;
+
 	if (too_late)
 		return EINVAL;
 
