@@ -137,6 +137,9 @@ int ibv_fork_init(void)
 	if (too_late)
 		return EINVAL;
 
+        if (ibv_is_fork_initialized() == IBV_FORK_UNNEEDED)
+                return 0;
+
 	page_size = sysconf(_SC_PAGESIZE);
 	if (page_size < 0)
 		return errno;
