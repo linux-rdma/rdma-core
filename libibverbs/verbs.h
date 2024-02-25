@@ -2618,7 +2618,7 @@ __ibv_reg_mr_iova(struct ibv_pd *pd, void *addr, size_t length, uint64_t iova,
 				  ((access) & IBV_ACCESS_OPTIONAL_RANGE) == 0))
 
 /**
- * ibv_reg_dmabuf_mr - Register a dambuf-based memory region
+ * ibv_reg_dmabuf_mr - Register a dmabuf-based memory region
  */
 struct ibv_mr *ibv_reg_dmabuf_mr(struct ibv_pd *pd, uint64_t offset, size_t length,
 				 uint64_t iova, int fd, int access);
