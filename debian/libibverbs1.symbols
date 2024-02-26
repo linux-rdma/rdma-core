@@ -188,6 +188,7 @@ libibverbs.so.1 libibverbs1 #MINVER#
  ibv_cmd_resize_cq@IBVERBS_PRIVATE_34 34
  ibv_query_gid_type@IBVERBS_PRIVATE_34 34
  ibv_read_ibdev_sysfs_file@IBVERBS_PRIVATE_34 34
+ ibv_wr_opcode_str@IBVERBS_PRIVATE_34 49
  verbs_allow_disassociate_destroy@IBVERBS_PRIVATE_34 34
  verbs_init_cq@IBVERBS_PRIVATE_34 34
  verbs_open_device@IBVERBS_PRIVATE_34 34
