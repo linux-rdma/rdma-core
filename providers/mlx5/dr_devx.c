@@ -328,6 +328,8 @@ int dr_devx_query_device(struct ibv_context *ctx, struct dr_devx_caps *caps)
 		return err;
 	}
 
+	caps->max_encap_size = DEVX_GET(query_hca_cap_out, out,
+					capability.flow_table_nic_cap.max_encap_header_size);
 	caps->nic_rx_drop_address = DEVX_GET64(query_hca_cap_out, out,
 					       capability.flow_table_nic_cap.
 					       sw_steering_nic_rx_action_drop_icm_address);
@@ -436,6 +438,15 @@ int dr_devx_query_device(struct ibv_context *ctx, struct dr_devx_caps *caps)
 	caps->hdr_modify_pattern_icm_addr =
 		DEVX_GET64(query_hca_cap_out, out,
 			   capability.device_mem_cap.header_modify_pattern_sw_icm_start_address);
+
+	caps->log_sw_encap_icm_size =
+		DEVX_GET(query_hca_cap_out, out,
+			 capability.device_mem_cap.log_indirect_encap_sw_icm_size);
+
+	if (caps->log_sw_encap_icm_size)
+		caps->indirect_encap_icm_base =
+			DEVX_GET64(query_hca_cap_out, out,
+				   capability.device_mem_cap.indirect_encap_icm_base);
 
 	/* RoCE caps */
 	if (roce) {

@@ -165,7 +165,6 @@ static void debug_port(ib_portid_t * portid, ibnd_port_t * port)
 	int iwidth;
 	int ispeed, fdr10, espeed;
 	uint8_t *info;
-	uint32_t cap_mask;
 
 	iwidth = mad_get_field(port->info, 0, IB_PORT_LINK_WIDTH_ACTIVE_F);
 	ispeed = mad_get_field(port->info, 0, IB_PORT_LINK_SPEED_ACTIVE_F);
@@ -176,11 +175,9 @@ static void debug_port(ib_portid_t * portid, ibnd_port_t * port)
 		info = (uint8_t *)&port->node->ports[0]->info;
 	else
 		info = (uint8_t *)&port->info;
-	cap_mask = mad_get_field(info, 0, IB_PORT_CAPMASK_F);
-	if (cap_mask & be32toh(IB_PORT_CAP_HAS_EXT_SPEEDS))
-		espeed = mad_get_field(port->info, 0, IB_PORT_LINK_SPEED_EXT_ACTIVE_F);
-	else
-		espeed = 0;
+
+	espeed = ibnd_get_agg_linkspeedext(info, port->info);
+
 	IBND_DEBUG
 	    ("portid %s portnum %d: base lid %d state %d physstate %d %s %s %s %s\n",
 	     portid2str(portid), port->portnum, port->base_lid,
@@ -189,7 +186,7 @@ static void debug_port(ib_portid_t * portid, ibnd_port_t * port)
 	     mad_dump_val(IB_PORT_LINK_WIDTH_ACTIVE_F, width, 64, &iwidth),
 	     mad_dump_val(IB_PORT_LINK_SPEED_ACTIVE_F, speed, 64, &ispeed),
 	     (fdr10 & FDR10) ? "FDR10"  : "",
-	     mad_dump_val(IB_PORT_LINK_SPEED_EXT_ACTIVE_F, speed, 64, &espeed));
+	     ibnd_dump_agg_linkspeedext(speed, 64, espeed));
 }
 
 static int is_mlnx_ext_port_info_supported(ibnd_port_t * port)
@@ -341,7 +338,6 @@ static int recv_port_info(smp_engine_t * engine, ibnd_smp_t * smp,
 	uint8_t port_num, local_port;
 	int phystate, ispeed, espeed;
 	uint8_t *info;
-	uint32_t cap_mask;
 
 	port_num = (uint8_t) mad_get_field(mad, 0, IB_MAD_ATTRMOD_F);
 	local_port = (uint8_t) mad_get_field(port_info, 0, IB_PORT_LOCAL_PORT_F);
@@ -390,11 +386,8 @@ static int recv_port_info(smp_engine_t * engine, ibnd_smp_t * smp,
 			info = (uint8_t *)&port->node->ports[0]->info;
 		else
 			info = (uint8_t *)&port->info;
-		cap_mask = mad_get_field(info, 0, IB_PORT_CAPMASK_F);
-		if (cap_mask & be32toh(IB_PORT_CAP_HAS_EXT_SPEEDS))
-			espeed = mad_get_field(port->info, 0, IB_PORT_LINK_SPEED_EXT_ACTIVE_F);
-		else
-			espeed = 0;
+
+		espeed = ibnd_get_agg_linkspeedext(info, port->info);
 
 		if (phystate == IB_PORT_PHYS_STATE_LINKUP &&
 		    ispeed == IB_LINK_SPEED_ACTIVE_10 &&
@@ -711,8 +704,11 @@ void add_to_portlid_hash(ibnd_port_t * port, f_internal_t *f_int)
 			item = malloc(sizeof(*item));
 			if (item) {
 				item->port = port;
-				cl_qmap_insert(&f_int->lid2guid, lid,
-					       &item->cl_map);
+				if (cl_qmap_insert(&f_int->lid2guid, lid,
+						   &item->cl_map) != &item->cl_map) {
+					/* Port is already in map, release item */
+					free(item);
+				}
 			}
 		}
 	}
@@ -1022,4 +1018,126 @@ void ibnd_iter_ports(ibnd_fabric_t * fabric, ibnd_iter_port_func_t func,
 	for (i = 0; i<HTSZ; i++)
 		for (cur = fabric->portstbl[i]; cur; cur = cur->htnext)
 			func(cur, user_data);
+}
+
+int ibnd_get_agg_linkspeedext_field(void *cap_info, void *info,
+		enum MAD_FIELDS efield, enum MAD_FIELDS e2field)
+{
+	int espeed = 0, e2speed = 0;
+	int cap_mask = mad_get_field(cap_info, 0, IB_PORT_CAPMASK_F);
+	int cap_mask2 = 0;
+
+	if (cap_mask & be32toh(IB_PORT_CAP_HAS_EXT_SPEEDS)) {
+		espeed = mad_get_field(info, 0, efield);
+
+		if (efield == IB_PORT_LINK_SPEED_EXT_ENABLED_F)
+			if (espeed == 30)
+				espeed = 0;
+
+		if (cap_mask & be32toh(IB_PORT_CAP_HAS_CAP_MASK2))
+			cap_mask2 = mad_get_field(cap_info, 0, IB_PORT_CAPMASK2_F);
+
+		if (cap_mask2 & be16toh(IB_PORT_CAP2_IS_EXT_SPEEDS_2_SUPPORTED)) {
+			e2speed = (mad_get_field(info, 0, e2field) << 5);
+		}
+	}
+
+	if (efield == IB_PORT_LINK_SPEED_EXT_ACTIVE_F)
+		return e2speed ? e2speed : espeed;
+
+	return espeed | e2speed;
+}
+
+int ibnd_get_agg_linkspeedext(void *cap_info, void *info)
+{
+	return ibnd_get_agg_linkspeedext_field(cap_info, info,
+			IB_PORT_LINK_SPEED_EXT_ACTIVE_F,
+			IB_PORT_LINK_SPEED_EXT_ACTIVE_2_F);
+}
+
+int ibnd_get_agg_linkspeedexten(void *cap_info, void *info)
+{
+	return ibnd_get_agg_linkspeedext_field(cap_info, info,
+			IB_PORT_LINK_SPEED_EXT_ENABLED_F,
+			IB_PORT_LINK_SPEED_EXT_ENABLED_2_F);
+}
+
+int ibnd_get_agg_linkspeedextsup(void *cap_info, void *info)
+{
+	return ibnd_get_agg_linkspeedext_field(cap_info, info,
+			IB_PORT_LINK_SPEED_EXT_SUPPORTED_F,
+			IB_PORT_LINK_SPEED_EXT_SUPPORTED_2_F);
+}
+
+char *ibnd_dump_agg_linkspeedext(char *buf, int bufsz, int speed)
+{
+	switch (speed) {
+	case 0:
+		snprintf(buf, bufsz, "No Extended Speed");
+		break;
+	case 1:
+		snprintf(buf, bufsz, "14.0625 Gbps");
+		break;
+	case 2:
+		snprintf(buf, bufsz, "25.78125 Gbps");
+		break;
+	case 4:
+		snprintf(buf, bufsz, "53.125 Gbps");
+		break;
+	case 8:
+		snprintf(buf, bufsz, "106.25 Gbps");
+		break;
+		/* case 16: not used value */
+	case 32:
+		snprintf(buf, bufsz, "212.5 Gbps");
+		break;
+	default:
+		snprintf(buf, bufsz, "undefined (%d)", speed);
+		break;
+	}
+
+	return buf;
+}
+
+char *ibnd_dump_agg_linkspeedext_bits(char *buf, int bufsz, int speed)
+{
+	int n = 0;
+
+	if (speed == 0) {
+		snprintf(buf, bufsz, "%d", speed);
+		return buf;
+	}
+
+	if (speed & 0x1)
+		n += snprintf(buf + n, bufsz - n, "14.0625 Gbps or ");
+
+	if (n < bufsz && (speed & 0x02))
+		n += snprintf(buf + n, bufsz - n, "25.78125 Gbps or ");
+
+	if (n < bufsz && (speed & 0x04))
+		n += snprintf(buf + n, bufsz - n, "53.125 Gbps or ");
+
+	if (n < bufsz && (speed & 0x08))
+		n += snprintf(buf + n, bufsz - n, "106.25 Gbps or ");
+
+	if (n < bufsz && (speed & 0x20))
+		n += snprintf(buf + n, bufsz - n, "212.5 Gbps or ");
+
+	if (speed >> 6) {
+		n += snprintf(buf + n, bufsz - n, "undefined (%d)", speed);
+		return buf;
+	} else if (bufsz > 3)
+		buf[n - 4] = '\0';
+
+	return buf;
+}
+
+char *ibnd_dump_agg_linkspeedexten(char *buf, int bufsz, int speed)
+{
+	return ibnd_dump_agg_linkspeedext_bits(buf, bufsz, speed);
+}
+
+char *ibnd_dump_agg_linkspeedextsup(char *buf, int bufsz, int speed)
+{
+	return ibnd_dump_agg_linkspeedext_bits(buf, bufsz, speed);
 }

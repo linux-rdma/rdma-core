@@ -98,6 +98,7 @@ int ibv_cmd_query_port(struct ibv_context *context, uint8_t port_num,
 		copy_query_port_resp_to_port_attr(port_attr,
 						  &resp_ex.legacy_resp);
 		port_attr->port_cap_flags2 = resp_ex.port_cap_flags2;
+		port_attr->active_speed_ex = resp_ex.active_speed_ex;
 		break;
 	default:
 		return ret;

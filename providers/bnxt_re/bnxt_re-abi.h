@@ -54,7 +54,7 @@ DECLARE_DRV_CMD(ubnxt_re_resize_cq, IB_USER_VERBS_CMD_RESIZE_CQ,
 DECLARE_DRV_CMD(ubnxt_re_qp, IB_USER_VERBS_CMD_CREATE_QP,
 		bnxt_re_qp_req, bnxt_re_qp_resp);
 DECLARE_DRV_CMD(ubnxt_re_cntx, IB_USER_VERBS_CMD_GET_CONTEXT,
-		empty, bnxt_re_uctx_resp);
+		bnxt_re_uctx_req, bnxt_re_uctx_resp);
 DECLARE_DRV_CMD(ubnxt_re_mr, IB_USER_VERBS_CMD_REG_MR,
 		empty, empty);
 DECLARE_DRV_CMD(ubnxt_re_srq, IB_USER_VERBS_CMD_CREATE_SRQ,
@@ -145,7 +145,7 @@ enum bnxt_re_db_que_type {
 };
 
 enum bnxt_re_db_mask {
-	BNXT_RE_DB_INDX_MASK		= 0xFFFFFUL,
+	BNXT_RE_DB_INDX_MASK		= 0xFFFFFFUL,
 	BNXT_RE_DB_PILO_MASK		= 0x0FFUL,
 	BNXT_RE_DB_PILO_SHIFT		= 0x18,
 	BNXT_RE_DB_QID_MASK		= 0xFFFFFUL,
@@ -154,7 +154,8 @@ enum bnxt_re_db_mask {
 	BNXT_RE_DB_TYP_MASK             = 0x0FUL,
 	BNXT_RE_DB_TYP_SHIFT            = 0x1C,
 	BNXT_RE_DB_VALID_SHIFT          = 0x1A,
-	BNXT_RE_DB_EPOCH_SHIFT          = 0x18
+	BNXT_RE_DB_EPOCH_SHIFT          = 0x18,
+	BNXT_RE_DB_TOGGLE_SHIFT		= 0x19,
 };
 
 enum bnxt_re_psns_mask {
@@ -166,10 +167,21 @@ enum bnxt_re_psns_mask {
 	BNXT_RE_PSNS_FLAGS_SHIFT	= 0x18
 };
 
+enum bnxt_re_msns_mask {
+	BNXT_RE_SQ_MSN_SEARCH_START_PSN_MASK	= 0xFFFFFFUL,
+	BNXT_RE_SQ_MSN_SEARCH_START_PSN_SHIFT	= 0,
+	BNXT_RE_SQ_MSN_SEARCH_NEXT_PSN_MASK	= 0xFFFFFF000000ULL,
+	BNXT_RE_SQ_MSN_SEARCH_NEXT_PSN_SHIFT	= 0x18,
+	BNXT_RE_SQ_MSN_SEARCH_START_IDX_MASK	= 0xFFFF000000000000ULL,
+	BNXT_RE_SQ_MSN_SEARCH_START_IDX_SHIFT	= 0x30
+};
+
 enum bnxt_re_bcqe_mask {
 	BNXT_RE_BCQE_PH_MASK		= 0x01,
 	BNXT_RE_BCQE_TYPE_MASK		= 0x0F,
 	BNXT_RE_BCQE_TYPE_SHIFT		= 0x01,
+	BNXT_RE_BCQE_RESIZE_TOG_MASK	= 0x03,
+	BNXT_RE_BCQE_RESIZE_TOG_SHIFT	= 0x05,
 	BNXT_RE_BCQE_STATUS_MASK	= 0xFF,
 	BNXT_RE_BCQE_STATUS_SHIFT	= 0x08,
 	BNXT_RE_BCQE_FLAGS_MASK		= 0xFFFFU,
@@ -212,6 +224,19 @@ enum bnxt_re_ud_cqe_mask {
 enum {
 	BNXT_RE_COMP_MASK_UCNTX_WC_DPI_ENABLED = 0x01,
 	BNXT_RE_COMP_MASK_UCNTX_DBR_PACING_ENABLED = 0x02,
+	BNXT_RE_COMP_MASK_UCNTX_POW2_DISABLED = 0x04,
+};
+
+enum bnxt_re_que_flags_mask {
+	BNXT_RE_FLAG_EPOCH_TAIL_SHIFT	= 0x0UL,
+	BNXT_RE_FLAG_EPOCH_HEAD_SHIFT	= 0x1UL,
+	BNXT_RE_FLAG_EPOCH_TAIL_MASK	= 0x1UL,
+	BNXT_RE_FLAG_EPOCH_HEAD_MASK	= 0x2UL,
+};
+
+enum bnxt_re_db_epoch_flag_shift {
+	BNXT_RE_DB_EPOCH_TAIL_SHIFT	= BNXT_RE_DB_EPOCH_SHIFT,
+	BNXT_RE_DB_EPOCH_HEAD_SHIFT	= (BNXT_RE_DB_EPOCH_SHIFT - 1)
 };
 
 enum bnxt_re_modes {
@@ -283,6 +308,11 @@ struct bnxt_re_psns_ext {
 	__u16 st_slot_idx;
 	__u16 rsvd0;
 	__u32 rsvd1;
+};
+
+/* sq_msn_search (size:64b/8B) */
+struct bnxt_re_msns {
+	__le64  start_idx_next_psn_start_psn;
 };
 
 struct bnxt_re_sge {

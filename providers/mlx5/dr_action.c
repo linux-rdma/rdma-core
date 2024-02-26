@@ -667,6 +667,7 @@ int dr_actions_build_ste_arr(struct mlx5dv_dr_matcher *matcher,
 	uint8_t *last_ste;
 	int i;
 
+	attr.dmn = dmn;
 	attr.gvmi = dmn->info.caps.gvmi;
 	attr.hit_gvmi = dmn->info.caps.gvmi;
 	attr.final_icm_addr = nic_dmn->default_icm_addr;
@@ -684,6 +685,7 @@ int dr_actions_build_ste_arr(struct mlx5dv_dr_matcher *matcher,
 		switch (action_type) {
 		case DR_ACTION_TYP_DROP:
 			attr.final_icm_addr = nic_dmn->drop_icm_addr;
+			attr.hit_gvmi = nic_dmn->drop_icm_addr >> 48;
 			break;
 		case DR_ACTION_TYP_FT:
 		{
@@ -831,7 +833,7 @@ int dr_actions_build_ste_arr(struct mlx5dv_dr_matcher *matcher,
 			}
 
 			attr.reformat_size = action->reformat.reformat_size;
-			attr.reformat_id = action->reformat.dvo->object_id;
+			attr.reformat_id = dr_actions_reformat_get_id(action);
 			attr.prio_tag_required = dmn->info.caps.prio_tag_required;
 			break;
 		case DR_ACTION_TYP_METER:
@@ -872,10 +874,21 @@ int dr_actions_build_ste_arr(struct mlx5dv_dr_matcher *matcher,
 				dr_dbg(dmn, "Destination vport belongs to a different domain\n");
 				goto out_invalid_arg;
 			}
-			attr.hit_gvmi = action->vport.caps->vhca_gvmi;
-			attr.final_icm_addr = rx_rule ?
-				action->vport.caps->icm_address_rx :
-				action->vport.caps->icm_address_tx;
+			if (unlikely(rx_rule && action->vport.caps->num == WIRE_PORT)) {
+				if (dmn->type == MLX5DV_DR_DOMAIN_TYPE_NIC_RX) {
+					dr_dbg(dmn, "Forwarding to uplink vport on RX is not allowed\n");
+					goto out_invalid_arg;
+				}
+
+				/* silently drop the packets for RX side of FDB */
+				attr.final_icm_addr = nic_dmn->drop_icm_addr;
+				attr.hit_gvmi = nic_dmn->drop_icm_addr >> 48;
+			} else {
+				attr.hit_gvmi = action->vport.caps->vhca_gvmi;
+				attr.final_icm_addr = rx_rule ?
+						      action->vport.caps->icm_address_rx :
+						      action->vport.caps->icm_address_tx;
+			}
 			break;
 		case DR_ACTION_TYP_DEST_ARRAY:
 			if (action->dest_array.dmn != dmn) {
@@ -1527,8 +1540,9 @@ dr_action_verify_reformat_params(enum mlx5dv_flow_action_packet_reformat_type re
 				 size_t data_sz,
 				 void *data)
 {
-	if ((!data && data_sz) || (data && !data_sz) || reformat_type >
-	    MLX5DV_FLOW_ACTION_PACKET_REFORMAT_TYPE_L2_TO_L3_TUNNEL) {
+	if ((!data && data_sz) || (data && !data_sz) ||
+	    (dr_domain_is_support_sw_encap(dmn) && (data_sz > dmn->info.caps.max_encap_size)) ||
+	    reformat_type > MLX5DV_FLOW_ACTION_PACKET_REFORMAT_TYPE_L2_TO_L3_TUNNEL) {
 		dr_dbg(dmn, "Invalid reformat parameter!\n");
 		goto out_err;
 	}
@@ -1557,31 +1571,88 @@ out_err:
 	return errno;
 }
 
+static int dr_action_create_sw_reformat(struct mlx5dv_dr_domain *dmn,
+					struct mlx5dv_dr_action *action,
+					size_t data_sz, void *data)
+{
+	uint8_t *reformat_data;
+	int ret;
+
+	reformat_data = calloc(1, data_sz);
+	if (!reformat_data) {
+		errno = ENOMEM;
+		return errno;
+	}
+	memcpy(reformat_data, data, data_sz);
+	action->reformat.data = reformat_data;
+	action->reformat.reformat_size = data_sz;
+	ret = dr_ste_alloc_encap(action);
+	if (ret)
+		goto free_reformat_data;
+
+	return 0;
+
+free_reformat_data:
+	free(reformat_data);
+	action->reformat.data = NULL;
+
+	return ret;
+}
+
+static void dr_action_destroy_sw_reformat(struct mlx5dv_dr_action *action)
+{
+	dr_ste_free_encap(action);
+	free(action->reformat.data);
+}
+
+static int dr_action_create_devx_reformat(struct mlx5dv_dr_domain *dmn,
+					  struct mlx5dv_dr_action *action,
+					  size_t data_sz, void *data)
+{
+	struct mlx5dv_devx_obj *obj;
+	enum reformat_type rt;
+
+	if (action->action_type == DR_ACTION_TYP_L2_TO_TNL_L2)
+		rt = MLX5_REFORMAT_TYPE_L2_TO_L2_TUNNEL;
+	else
+		rt = MLX5_REFORMAT_TYPE_L2_TO_L3_TUNNEL;
+
+	obj = dr_devx_create_reformat_ctx(dmn->ctx, rt, data_sz, data);
+	if (!obj)
+		return errno;
+
+	action->reformat.dvo = obj;
+	action->reformat.reformat_size = data_sz;
+
+	return 0;
+}
+
+static void dr_action_destroy_devx_reformat(struct mlx5dv_dr_action *action)
+{
+	mlx5dv_devx_obj_destroy(action->reformat.dvo);
+}
+
 static int
 dr_action_create_reformat_action(struct mlx5dv_dr_domain *dmn,
 				 size_t data_sz, void *data,
 				 struct mlx5dv_dr_action *action)
 {
-	struct mlx5dv_devx_obj *obj;
 	uint8_t *hw_actions;
 
 	switch (action->action_type) {
 	case DR_ACTION_TYP_L2_TO_TNL_L2:
 	case DR_ACTION_TYP_L2_TO_TNL_L3:
 	{
-		enum reformat_type rt;
+		if (dr_domain_is_support_sw_encap(dmn) &&
+		    !dr_action_create_sw_reformat(dmn, action, data_sz, data))
+			return 0;
 
-		if (action->action_type == DR_ACTION_TYP_L2_TO_TNL_L2)
-			rt = MLX5_REFORMAT_TYPE_L2_TO_L2_TUNNEL;
-		else
-			rt = MLX5_REFORMAT_TYPE_L2_TO_L3_TUNNEL;
-
-		obj = dr_devx_create_reformat_ctx(dmn->ctx, rt, data_sz, data);
-		if (!obj)
+		/* When failed creating sw encap, fallback to
+		 * use devx to try again.
+		 */
+		if (dr_action_create_devx_reformat(dmn, action, data_sz, data))
 			return errno;
 
-		action->reformat.dvo = obj;
-		action->reformat.reformat_size = data_sz;
 		return 0;
 	}
 	case DR_ACTION_TYP_TNL_L2_TO_L2:
@@ -1718,6 +1789,14 @@ struct mlx5dv_dr_action *mlx5dv_dr_action_create_push_vlan(struct mlx5dv_dr_doma
 
 	action->push_vlan.vlan_hdr = vlan_hdr_h;
 	return action;
+}
+
+uint32_t dr_actions_reformat_get_id(struct mlx5dv_dr_action *action)
+{
+	if (action->reformat.chunk)
+		return action->reformat.index;
+
+	return action->reformat.dvo->object_id;
 }
 
 static int
@@ -2407,6 +2486,8 @@ dr_action_convert_to_fte_dest(struct mlx5dv_dr_domain *dmn,
 
 		fte_attr->action |= MLX5_FLOW_CONTEXT_ACTION_FWD_DEST;
 		dest_info->type = MLX5_FLOW_DEST_TYPE_VPORT;
+		if (dmn->info.caps.is_ecpf)
+			dest_info->vport_num = ECPF_PORT;
 		break;
 	case DR_ACTION_TYP_VPORT:
 		if (dmn->type != MLX5DV_DR_DOMAIN_TYPE_FDB)
@@ -2442,10 +2523,23 @@ dr_action_convert_to_fte_dest(struct mlx5dv_dr_domain *dmn,
 	}
 
 	if (dest_reformat) {
+		int ret = 0;
+
 		switch (dest_reformat->action_type) {
 		case DR_ACTION_TYP_L2_TO_TNL_L2:
 		case DR_ACTION_TYP_L2_TO_TNL_L3:
 			if (dest_reformat->reformat.is_root_level)
+				goto err_exit;
+
+			dr_domain_lock(dmn);
+			if (!dest_reformat->reformat.dvo) {
+				ret = dr_action_create_devx_reformat(dmn,
+							dest_reformat,
+							dest_reformat->reformat.reformat_size,
+							dest_reformat->reformat.data);
+			}
+			dr_domain_unlock(dmn);
+			if (ret)
 				goto err_exit;
 
 			fte_attr->extended_dest = true;
@@ -3013,10 +3107,15 @@ int mlx5dv_dr_action_destroy(struct mlx5dv_dr_action *action)
 		break;
 	case DR_ACTION_TYP_L2_TO_TNL_L2:
 	case DR_ACTION_TYP_L2_TO_TNL_L3:
-		if (action->reformat.is_root_level)
+		if (action->reformat.is_root_level) {
 			mlx5_destroy_flow_action(action->reformat.flow_action);
-		else
-			mlx5dv_devx_obj_destroy(action->reformat.dvo);
+		} else {
+			if (action->reformat.chunk)
+				dr_action_destroy_sw_reformat(action);
+
+			if (action->reformat.dvo)
+				dr_action_destroy_devx_reformat(action);
+		}
 		atomic_fetch_sub(&action->reformat.dmn->refcount, 1);
 		break;
 	case DR_ACTION_TYP_MODIFY_HDR:

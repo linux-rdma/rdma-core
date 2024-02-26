@@ -41,22 +41,6 @@ struct ibv_wq *mana_create_wq(struct ibv_context *context,
 	struct mana_create_wq_resp wq_resp = {};
 	struct mana_ib_create_wq *wq_cmd_drv;
 
-	if (attr->max_wr > MAX_SEND_BUFFERS_PER_QUEUE) {
-		verbs_err(verbs_get_ctx(context),
-			  "max_wr %d exceeds MAX_SEND_BUFFERS_PER_QUEUE\n",
-			  attr->max_wr);
-		errno = EINVAL;
-		return NULL;
-	}
-
-	if (get_wqe_size(attr->max_sge) > MAX_RX_WQE_SIZE) {
-		verbs_err(verbs_get_ctx(context),
-			  "max_sge %d exceeding WQE size limit\n",
-			  attr->max_sge);
-		errno = EINVAL;
-		return NULL;
-	}
-
 	if (!ctx->extern_alloc.alloc || !ctx->extern_alloc.free) {
 		verbs_err(verbs_get_ctx(context),
 			  "WQ buffer needs to be externally allocated\n");

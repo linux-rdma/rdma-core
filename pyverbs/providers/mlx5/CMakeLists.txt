@@ -7,6 +7,7 @@ rdma_cython_module(pyverbs/providers/mlx5 mlx5
   dr_matcher.pyx
   dr_rule.pyx
   dr_table.pyx
+  libmlx5.pyx
   mlx5_enums.pyx
   mlx5_vfio.pyx
   mlx5dv.pyx

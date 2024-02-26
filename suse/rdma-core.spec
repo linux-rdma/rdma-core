@@ -28,7 +28,7 @@
 
 %define         git_ver %{nil}
 Name:           rdma-core
-Version:        48.0
+Version:        50.0
 Release:        0
 Summary:        RDMA core userspace libraries and daemons
 License:        BSD-2-Clause OR GPL-2.0-only
@@ -478,7 +478,9 @@ mkdir -p %{buildroot}%{_unitdir}
 # Port type setup for mlx4 dual port cards
 install -D -m0644 redhat/rdma.mlx4.sys.modprobe %{buildroot}%{_modprobedir}/50-libmlx4.conf
 install -D -m0644 redhat/rdma.mlx4.conf %{buildroot}/%{_sysconfdir}/rdma/mlx4.conf
+%if 0%{?dma_coherent}
 chmod 0644 %{buildroot}%{_modprobedir}/mlx4.conf
+%endif
 install -D -m0755 redhat/rdma.mlx4-setup.sh %{buildroot}%{_libexecdir}/mlx4-setup.sh
 
 # Dracut file for IB support during boot

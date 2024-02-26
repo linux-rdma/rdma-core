@@ -422,6 +422,7 @@ struct mlx5_context {
 	pthread_mutex_t			crypto_login_mutex;
 	uint64_t			max_dc_rd_atom;
 	uint64_t			max_dc_init_rd_atom;
+	struct mlx5dv_reg		reg_c0;
 };
 
 struct mlx5_hugetlb_mem {

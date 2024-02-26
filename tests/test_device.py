@@ -236,7 +236,8 @@ class DeviceTest(PyverbsAPITestCase):
         assert 'Invalid' not in d.translate_mtu(attr.max_mtu)
         assert 'Invalid' not in d.translate_mtu(attr.active_mtu)
         assert 'Invalid' not in d.width_to_str(attr.active_width)
-        assert 'Invalid' not in d.speed_to_str(attr.active_speed)
+        assert 'Invalid' not in d.speed_to_str(attr.active_speed,
+                                               attr.active_speed_ex)
         assert 'Invalid' not in d.translate_link_layer(attr.link_layer)
         assert attr.max_msg_sz > 0x1000
 

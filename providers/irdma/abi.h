@@ -27,6 +27,8 @@ DECLARE_DRV_CMD(irdma_get_context, IB_USER_VERBS_CMD_GET_CONTEXT,
 		irdma_alloc_ucontext_req, irdma_alloc_ucontext_resp);
 DECLARE_DRV_CMD(irdma_ureg_mr, IB_USER_VERBS_CMD_REG_MR,
 		irdma_mem_reg_req, empty);
+DECLARE_DRV_CMD(irdma_urereg_mr, IB_USER_VERBS_CMD_REREG_MR,
+		irdma_mem_reg_req, empty);
 DECLARE_DRV_CMD(irdma_ucreate_ah, IB_USER_VERBS_CMD_CREATE_AH,
 		empty, irdma_create_ah_resp);
 

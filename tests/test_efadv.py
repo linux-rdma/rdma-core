@@ -1,5 +1,5 @@
 # SPDX-License-Identifier: (GPL-2.0 OR Linux-OpenIB)
-# Copyright 2020-2023 Amazon.com, Inc. or its affiliates. All rights reserved.
+# Copyright 2020-2024 Amazon.com, Inc. or its affiliates. All rights reserved.
 """
 Test module for efa direct-verbs.
 """
@@ -152,3 +152,24 @@ class EfaCqTest(EfaRDMATestCase):
         u.send(self.client, sg, e.IBV_WR_SEND, new_send=True, qp_idx=0, ah=ah_client)
         u.poll_cq_ex(self.client.cq)
         u.poll_cq_ex(self.server.cq, sgid=self.server.remote_gid)
+
+
+class EfaMRTest(EfaAPITestCase):
+    """
+    Test various functionalities of the EfaMR class.
+    """
+    def test_efadv_query_mr(self):
+        with PD(self.ctx) as pd:
+            try:
+                mr = efa.EfaMR(pd, 16, e.IBV_ACCESS_LOCAL_WRITE)
+                mr_attrs = mr.query()
+                if self.config['verbosity']:
+                    print(f'\n{mr_attrs}')
+
+                assert(mr_attrs.ic_id_validity & ~(efa_e.EFADV_MR_ATTR_VALIDITY_RECV_IC_ID |
+                                                   efa_e.EFADV_MR_ATTR_VALIDITY_RDMA_READ_IC_ID |
+                                                   efa_e.EFADV_MR_ATTR_VALIDITY_RDMA_RECV_IC_ID) == 0)
+            except PyverbsRDMAError as ex:
+                if ex.error_code in [errno.EOPNOTSUPP, errno.ENOTTY, errno.EPROTONOSUPPORT]:
+                    raise unittest.SkipTest(f'Query MR not supported, errno={ex.error_code}')
+                raise ex

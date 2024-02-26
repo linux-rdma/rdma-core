@@ -67,6 +67,11 @@ struct mlx5dv_alloc_dm_attr {
 		patterns/templates. Can be used for direct table and header modification
 		rules creation when allocated by a privileged user.
 
+	MLX5DV_DM_TYPE_ENCAP_SW_ICM
+		Device memory of type PACKET ENCAP SW ICM - This memory
+		is used by the device to store packet encap data.
+		Can be used for packet encap reformat rules creation
+		when allocated by a privileged user.
 
 *comp_mask*
 :	Bitmask specifying what fields in the structure are valid:

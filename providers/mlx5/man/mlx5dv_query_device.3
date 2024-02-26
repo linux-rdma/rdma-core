@@ -64,6 +64,7 @@ size_t max_wr_memcpy_length; /* max length that is supported by the DMA memcpy W
 struct mlx5dv_crypto_caps crypto_caps;
 uint64_t max_dc_rd_atom; /* Maximum number of outstanding RDMA read/atomic per DC QP as a requester */
 uint64_t max_dc_init_rd_atom; /* Maximum number of outstanding RDMA read/atomic per DC QP as a responder */
+struct mlx5dv_reg reg_c0; /* value and mask to match local vport egress traffic in FDB */
 .in -8
 };
 
@@ -104,6 +105,8 @@ MLX5DV_CONTEXT_MASK_SIGNATURE_OFFLOAD   = 1 << 10,
 MLX5DV_CONTEXT_MASK_DCI_STREAMS         = 1 << 11,
 MLX5DV_CONTEXT_MASK_WR_MEMCPY_LENGTH    = 1 << 12,
 MLX5DV_CONTEXT_MASK_CRYPTO_OFFLOAD      = 1 << 13,
+MLX5DV_CONTEXT_MASK_MAX_DC_RD_ATOM      = 1 << 14,
+MLX5DV_CONTEXT_MASK_REG_C0              = 1 << 15,
 .in -8
 };
 

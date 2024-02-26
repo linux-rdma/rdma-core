@@ -102,7 +102,6 @@ struct irdma_uqp {
 	struct ibv_recv_wr *pend_rx_wr;
 	struct irdma_qp_uk qp;
 	enum ibv_qp_type qp_type;
-	struct irdma_sge *recv_sges;
 };
 
 struct irdma_umr {
@@ -124,6 +123,8 @@ struct ibv_mr *irdma_ureg_mr_dmabuf(struct ibv_pd *pd, uint64_t offset,
 				    size_t length, uint64_t iova, int fd,
 				    int access);
 int irdma_udereg_mr(struct verbs_mr *vmr);
+int irdma_urereg_mr(struct verbs_mr *mr, int flags, struct ibv_pd *pd,
+		    void *addr, size_t length, int access);
 struct ibv_mw *irdma_ualloc_mw(struct ibv_pd *pd, enum ibv_mw_type type);
 int irdma_ubind_mw(struct ibv_qp *qp, struct ibv_mw *mw,
 		   struct ibv_mw_bind *mw_bind);

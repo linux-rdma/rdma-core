@@ -384,7 +384,8 @@ struct mlx5_ifc_device_mem_cap_bits {
 	u8         log_sw_icm_alloc_granularity[0x6];
 	u8         log_steering_sw_icm_size[0x8];
 
-	u8         reserved_at_120[0x18];
+	u8         log_indirect_encap_sw_icm_size[0x8];
+	u8         reserved_at_128[0x10];
 	u8         log_header_modify_pattern_sw_icm_size[0x8];
 
 	u8         header_modify_sw_icm_start_address[0x40];
@@ -393,7 +394,13 @@ struct mlx5_ifc_device_mem_cap_bits {
 
 	u8         header_modify_pattern_sw_icm_start_address[0x40];
 
-	u8         reserved_at_200[0x600];
+	u8         reserved_at_200[0x40];
+
+	u8         indirect_encap_sw_icm_start_address[0x40];
+
+	u8         indirect_encap_icm_base[0x40];
+
+	u8         reserved_at_2c0[0x540];
 };
 
 struct mlx5_ifc_flow_table_fields_supported_bits {

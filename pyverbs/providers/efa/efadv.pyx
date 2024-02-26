@@ -1,7 +1,7 @@
 # SPDX-License-Identifier: (GPL-2.0 OR Linux-OpenIB)
-# Copyright 2020-2023 Amazon.com, Inc. or its affiliates. All rights reserved.
+# Copyright 2020-2024 Amazon.com, Inc. or its affiliates. All rights reserved.
 
-cimport pyverbs.providers.efa.efadv_enums as dve
+cimport pyverbs.providers.efa.efa_enums as dve
 cimport pyverbs.providers.efa.libefa as dv
 
 from pyverbs.addr cimport GID
@@ -11,6 +11,7 @@ import pyverbs.enums as e
 cimport pyverbs.libibverbs as v
 from pyverbs.pd cimport PD
 from pyverbs.qp cimport QP, QPEx, QPInitAttr, QPInitAttrEx
+from pyverbs.mr cimport MR
 
 
 def dev_cap_to_str(flags):
@@ -250,3 +251,54 @@ cdef class EfaCQ(CQEX):
         if err:
             return None
         return sgid
+
+
+cdef class EfaDVMRAttr(PyverbsObject):
+    """
+    Represents efadv_mr_attr struct, which exposes efa-specific MR attributes,
+    reported by efadv_query_mr.
+    """
+    @property
+    def comp_mask(self):
+        return self.mr_attr.comp_mask
+
+    @property
+    def ic_id_validity(self):
+        return self.mr_attr.ic_id_validity
+
+    @property
+    def recv_ic_id(self):
+        return self.mr_attr.recv_ic_id
+
+    @property
+    def rdma_read_ic_id(self):
+        return self.mr_attr.rdma_read_ic_id
+
+    @property
+    def rdma_recv_ic_id(self):
+        return self.mr_attr.rdma_recv_ic_id
+
+    def __str__(self):
+        print_format = '{:28}: {:<20}\n'
+        return print_format.format('comp_mask', self.mr_attr.comp_mask) + \
+            print_format.format('Interconnect id validity', self.mr_attr.ic_id_validity) + \
+            print_format.format('Receive interconnect id', self.mr_attr.recv_ic_id) + \
+            print_format.format('RDMA read interconnect id', self.mr_attr.rdma_read_ic_id) + \
+            print_format.format('RDMA receive interconnect id', self.mr_attr.rdma_recv_ic_id)
+
+
+cdef class EfaMR(MR):
+    """
+    Represents an MR with EFA specific properties
+    """
+    def query(self):
+        """
+        Queries the MR for device-specific attributes.
+        :return: An EfaDVMRAttr containing the attributes.
+        """
+        mr_attr = EfaDVMRAttr()
+        rc = dv.efadv_query_mr(self.mr, &mr_attr.mr_attr, sizeof(mr_attr.mr_attr))
+        if rc:
+            raise PyverbsRDMAError(f'Failed to query EFA MR', rc)
+
+        return mr_attr

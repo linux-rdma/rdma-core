@@ -750,6 +750,8 @@ typedef struct {
 #define IB_PORT_CAP2_IS_LINK_WIDTH_2X_SUPPORTED htobe16(0x0010)
 #define IB_PORT_CAP2_IS_LINK_SPEED_HDR_SUPPORTED htobe16(0x0020)
 #define IB_PORT_CAP2_IS_LINK_SPEED_NDR_SUPPORTED htobe16(0x0400)
+#define IB_PORT_CAP2_IS_EXT_SPEEDS_2_SUPPORTED htobe16(0x0800)
+#define IB_PORT_CAP2_IS_LINK_SPEED_XDR_SUPPORTED htobe16(0x1000)
 typedef struct {
 	__be32 cap_mask;
 	__be16 fec_mode_active;

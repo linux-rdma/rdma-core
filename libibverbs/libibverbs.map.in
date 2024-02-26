@@ -208,6 +208,7 @@ IBVERBS_PRIVATE_@IBVERBS_PABI_VERSION@ {
 		ibv_cmd_detach_mcast;
 		ibv_cmd_free_dm;
 		ibv_cmd_get_context;
+		ibv_cmd_modify_cq;
 		ibv_cmd_modify_flow_action_esp;
 		ibv_cmd_modify_qp;
 		ibv_cmd_modify_qp_ex;
@@ -235,11 +236,11 @@ IBVERBS_PRIVATE_@IBVERBS_PABI_VERSION@ {
 		ibv_cmd_resize_cq;
 		ibv_query_gid_type;
 		ibv_read_ibdev_sysfs_file;
+		ibv_wr_opcode_str;
 		verbs_allow_disassociate_destroy;
+		verbs_init_cq;
 		verbs_open_device;
 		verbs_register_driver_@IBVERBS_PABI_VERSION@;
 		verbs_set_ops;
 		verbs_uninit_context;
-		verbs_init_cq;
-		ibv_cmd_modify_cq;
 };

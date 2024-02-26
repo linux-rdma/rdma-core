@@ -637,7 +637,8 @@ static int exec_srq_create_cmd(struct ibv_context *context,
 
 	cmd_ex.buf_addr = (uintptr_t)srq->wqe_buf.buf;
 	cmd_ex.que_addr = (uintptr_t)srq->idx_que.buf.buf;
-	cmd_ex.db_addr = (uintptr_t)srq->db;
+	cmd_ex.db_addr = (uintptr_t)srq->rdb;
+	cmd_ex.req_cap_flags |= HNS_ROCE_SRQ_CAP_RECORD_DB;
 
 	ret = ibv_cmd_create_srq_ex(context, &srq->verbs_srq, init_attr,
 				    &cmd_ex.ibv_cmd, sizeof(cmd_ex),
@@ -646,6 +647,7 @@ static int exec_srq_create_cmd(struct ibv_context *context,
 		return ret;
 
 	srq->srqn = resp_ex.srqn;
+	srq->cap_flags = resp_ex.cap_flags;
 
 	return 0;
 }
@@ -674,11 +676,11 @@ static struct ibv_srq *create_srq(struct ibv_context *context,
 	if (alloc_srq_buf(srq))
 		goto err_free_srq;
 
-	srq->db = hns_roce_alloc_db(hr_ctx, HNS_ROCE_QP_TYPE_DB);
-	if (!srq->db)
+	srq->rdb = hns_roce_alloc_db(hr_ctx, HNS_ROCE_SRQ_TYPE_DB);
+	if (!srq->rdb)
 		goto err_srq_buf;
 
-	*srq->db = 0;
+	*srq->rdb = 0;
 
 	ret = exec_srq_create_cmd(context, srq, init_attr);
 	if (ret)
@@ -698,7 +700,7 @@ err_destroy_srq:
 	ibv_cmd_destroy_srq(&srq->verbs_srq.srq);
 
 err_srq_db:
-	hns_roce_free_db(hr_ctx, srq->db, HNS_ROCE_QP_TYPE_DB);
+	hns_roce_free_db(hr_ctx, srq->rdb, HNS_ROCE_SRQ_TYPE_DB);
 
 err_srq_buf:
 	free_srq_buf(srq);
@@ -776,7 +778,7 @@ int hns_roce_u_destroy_srq(struct ibv_srq *ibv_srq)
 
 	hns_roce_clear_srq(ctx, srq->srqn);
 
-	hns_roce_free_db(ctx, srq->db, HNS_ROCE_QP_TYPE_DB);
+	hns_roce_free_db(ctx, srq->rdb, HNS_ROCE_SRQ_TYPE_DB);
 	free_srq_buf(srq);
 	free(srq);
 
@@ -1446,7 +1448,7 @@ static int get_tclass(struct ibv_context *context, struct ibv_ah_attr *attr,
 struct ibv_ah *hns_roce_u_create_ah(struct ibv_pd *pd, struct ibv_ah_attr *attr)
 {
 	struct hns_roce_device *hr_dev = to_hr_dev(pd->context->device);
-	struct ib_uverbs_create_ah_resp resp = {};
+	struct hns_roce_create_ah_resp resp = {};
 	struct hns_roce_ah *ah;
 
 	/* HIP08 don't support create ah */
@@ -1474,10 +1476,14 @@ struct ibv_ah *hns_roce_u_create_ah(struct ibv_pd *pd, struct ibv_ah_attr *attr)
 		memcpy(ah->av.dgid, attr->grh.dgid.raw, ARRAY_SIZE(ah->av.dgid));
 	}
 
-	if (ibv_cmd_create_ah(pd, &ah->ibv_ah, attr, &resp, sizeof(resp)))
+	if (ibv_cmd_create_ah(pd, &ah->ibv_ah, attr, &resp.ibv_resp,
+			      sizeof(resp)))
 		goto err;
 
-	if (ibv_resolve_eth_l2_from_gid(pd->context, attr, ah->av.mac, NULL))
+	if (memcmp(ah->av.mac, resp.dmac, ETH_ALEN))
+		memcpy(ah->av.mac, resp.dmac, ETH_ALEN);
+	else if (ibv_resolve_eth_l2_from_gid(pd->context, attr,
+					     ah->av.mac, NULL))
 		goto err;
 
 	ah->av.udp_sport = get_ah_udp_sport(attr);

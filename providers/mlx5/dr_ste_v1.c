@@ -755,7 +755,7 @@ static void dr_ste_v1_set_actions_tx(uint8_t *action_type_set,
 	}
 
 	if (action_type_set[DR_ACTION_TYP_ASO_CT]) {
-		if (attr->aso->dmn->info.caps.gvmi != attr->gvmi ||
+		if (attr->aso->dmn != attr->dmn ||
 		    action_sz < DR_STE_ACTION_DOUBLE_SZ) {
 			dr_ste_v1_arr_init_next_match(&last_ste, added_stes,
 						      attr->gvmi);
@@ -764,7 +764,7 @@ static void dr_ste_v1_set_actions_tx(uint8_t *action_type_set,
 			action_sz = DR_STE_ACTION_TRIPLE_SZ;
 		}
 
-		if (attr->aso->dmn->info.caps.gvmi != attr->gvmi) {
+		if (attr->aso->dmn != attr->dmn) {
 			attr->aso_ste_loc = ste_loc;
 		} else {
 			dr_ste_v1_set_aso_ct(action,
@@ -1023,7 +1023,7 @@ static void dr_ste_v1_set_actions_rx(uint8_t *action_type_set,
 	}
 
 	if (action_type_set[DR_ACTION_TYP_ASO_CT]) {
-		if (attr->aso->dmn->info.caps.gvmi != attr->gvmi ||
+		if (attr->aso->dmn != attr->dmn ||
 		    action_sz < DR_STE_ACTION_DOUBLE_SZ) {
 			dr_ste_v1_arr_init_next_match(&last_ste, added_stes,
 						      attr->gvmi);
@@ -1033,7 +1033,7 @@ static void dr_ste_v1_set_actions_rx(uint8_t *action_type_set,
 			allow_ctr = true;
 		}
 
-		if (attr->aso->dmn->info.caps.gvmi != attr->gvmi) {
+		if (attr->aso->dmn != attr->dmn) {
 			attr->aso_ste_loc = ste_loc;
 		} else {
 			dr_ste_v1_set_aso_ct(action,

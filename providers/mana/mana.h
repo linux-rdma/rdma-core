@@ -8,7 +8,6 @@
 
 #include "manadv.h"
 
-#define MAX_SEND_BUFFERS_PER_QUEUE 256
 #define COMP_ENTRY_SIZE 64
 #define MANA_IB_TOEPLITZ_HASH_KEY_SIZE_IN_BYTES 40
 
@@ -18,8 +17,6 @@
 #define INLINE_OOB_LARGE_SIZE 24
 
 #define GDMA_WQE_ALIGNMENT_UNIT_SIZE 32
-#define MAX_TX_WQE_SIZE 512
-#define MAX_RX_WQE_SIZE 256
 
 /* The size of a SGE in WQE */
 #define SGE_SIZE 16

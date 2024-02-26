@@ -14,7 +14,7 @@ from pyverbs.providers.mlx5.mlx5dv_crypto cimport Mlx5CryptoLoginAttr, Mlx5Crypt
 from pyverbs.pyverbs_error import PyverbsUserError, PyverbsRDMAError, PyverbsError
 from pyverbs.providers.mlx5.dr_action cimport DrActionFlowCounter, DrActionDestTir
 from pyverbs.providers.mlx5.mlx5dv_sched cimport Mlx5dvSchedLeaf
-cimport pyverbs.providers.mlx5.mlx5dv_enums as dve
+cimport pyverbs.providers.mlx5.mlx5_enums as dve
 cimport pyverbs.providers.mlx5.libmlx5 as dv
 from pyverbs.mem_alloc import posix_memalign
 from pyverbs.qp cimport QPInitAttrEx, QPEx

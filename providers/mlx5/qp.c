@@ -42,6 +42,7 @@
 
 #include "mlx5.h"
 #include "mlx5_ifc.h"
+#include "mlx5_trace.h"
 #include "wqe.h"
 
 #define MLX5_ATOMIC_SIZE 8
@@ -1137,6 +1138,12 @@ static inline int _mlx5_post_send(struct ibv_qp *ibqp, struct ibv_send_wr *wr,
 		if (mlx5_debug_mask & MLX5_DBG_QP_SEND)
 			dump_wqe(to_mctx(ibqp->context), idx, size, qp);
 #endif
+
+		rdma_tracepoint(rdma_core_mlx5, post_send,
+				ibqp->context->device->name,
+				ibqp->qp_num,
+				(char *)ibv_wr_opcode_str(wr->opcode),
+				wr->num_sge);
 	}
 
 out:

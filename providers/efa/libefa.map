@@ -19,3 +19,8 @@ EFA_1.2 {
 		efadv_create_cq;
 		efadv_wc_read_sgid;
 } EFA_1.1;
+
+EFA_1.3 {
+	global:
+		efadv_query_mr;
+} EFA_1.2;

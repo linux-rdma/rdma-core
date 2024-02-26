@@ -1,6 +1,6 @@
 /* SPDX-License-Identifier: GPL-2.0 OR BSD-2-Clause */
 /*
- * Copyright 2019-2023 Amazon.com, Inc. or its affiliates. All rights reserved.
+ * Copyright 2019-2024 Amazon.com, Inc. or its affiliates. All rights reserved.
  */
 
 #ifndef __EFADV_H__
@@ -93,6 +93,22 @@ static inline int efadv_wc_read_sgid(struct efadv_cq *efadv_cq,
 {
 	return efadv_cq->wc_read_sgid(efadv_cq, sgid);
 }
+
+enum {
+	EFADV_MR_ATTR_VALIDITY_RECV_IC_ID = 1 << 0,
+	EFADV_MR_ATTR_VALIDITY_RDMA_READ_IC_ID = 1 << 1,
+	EFADV_MR_ATTR_VALIDITY_RDMA_RECV_IC_ID = 1 << 2,
+};
+
+struct efadv_mr_attr {
+	uint64_t comp_mask;
+	uint16_t ic_id_validity;
+	uint16_t recv_ic_id;
+	uint16_t rdma_read_ic_id;
+	uint16_t rdma_recv_ic_id;
+};
+
+int efadv_query_mr(struct ibv_mr *ibvmr, struct efadv_mr_attr *attr, uint32_t inlen);
 
 #ifdef __cplusplus
 }

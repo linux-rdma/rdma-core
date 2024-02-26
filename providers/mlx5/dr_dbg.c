@@ -186,12 +186,12 @@ static int dr_dump_rule_action(FILE *f, const uint64_t rule_id,
 	case DR_ACTION_TYP_L2_TO_TNL_L2:
 		ret = fprintf(f, "%d,0x%" PRIx64 ",0x%" PRIx64 ",0x%x\n",
 			      DR_DUMP_REC_TYPE_ACTION_ENCAP_L2, action_id,
-			      rule_id, action->reformat.dvo->object_id);
+			      rule_id, dr_actions_reformat_get_id(action));
 		break;
 	case DR_ACTION_TYP_L2_TO_TNL_L3:
 		ret = fprintf(f, "%d,0x%" PRIx64 ",0x%" PRIx64 ",0x%x\n",
 			      DR_DUMP_REC_TYPE_ACTION_ENCAP_L3, action_id,
-			      rule_id, action->reformat.dvo->object_id);
+			      rule_id, dr_actions_reformat_get_id(action));
 		break;
 	case DR_ACTION_TYP_METER:
 		ret = fprintf(f, "%d,0x%" PRIx64 ",0x%" PRIx64 ",0x%" PRIx64 ",0x%x,0x%" PRIx64 ",0x%" PRIx64 "\n",

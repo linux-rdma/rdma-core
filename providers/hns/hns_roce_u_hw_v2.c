@@ -362,7 +362,7 @@ static int hns_roce_u_v2_modify_qp(struct ibv_qp *qp, struct ibv_qp_attr *attr,
 
 static int hns_roce_flush_cqe(struct hns_roce_qp *hr_qp, uint8_t status)
 {
-	struct ibv_qp_attr attr;
+	struct ibv_qp_attr attr = {};
 	int attr_mask;
 
 	if (status != HNS_ROCE_V2_CQE_WR_FLUSH_ERR) {
@@ -1260,8 +1260,8 @@ int hns_roce_u_v2_post_send(struct ibv_qp *ibvqp, struct ibv_send_wr *wr,
 	struct hns_roce_qp *qp = to_hr_qp(ibvqp);
 	struct hns_roce_sge_info sge_info = {};
 	struct hns_roce_rc_sq_wqe *wqe;
+	struct ibv_qp_attr attr = {};
 	unsigned int wqe_idx, nreq;
-	struct ibv_qp_attr attr;
 	int ret;
 
 	ret = check_qp_send(ibvqp);
@@ -1411,7 +1411,7 @@ static int hns_roce_u_v2_post_recv(struct ibv_qp *ibvqp, struct ibv_recv_wr *wr,
 	struct hns_roce_context *ctx = to_hr_ctx(ibvqp->context);
 	struct hns_roce_qp *qp = to_hr_qp(ibvqp);
 	unsigned int wqe_idx, nreq, max_sge;
-	struct ibv_qp_attr attr;
+	struct ibv_qp_attr attr = {};
 	int ret;
 
 	ret = check_qp_recv(ibvqp);
@@ -1467,20 +1467,21 @@ out:
 static void __hns_roce_v2_cq_clean(struct hns_roce_cq *cq, uint32_t qpn,
 				   struct hns_roce_srq *srq)
 {
-	int nfreed = 0;
-	bool is_recv_cqe;
-	uint8_t owner_bit;
-	uint16_t wqe_index;
-	uint32_t prod_index;
-	struct hns_roce_v2_cqe *cqe, *dest;
 	struct hns_roce_context *ctx = to_hr_ctx(cq->verbs_cq.cq.context);
+	uint64_t cons_index = cq->cons_index;
+	uint64_t prod_index = cq->cons_index;
+	struct hns_roce_v2_cqe *cqe, *dest;
+	uint16_t wqe_index;
+	uint8_t owner_bit;
+	bool is_recv_cqe;
+	int nfreed = 0;
 
-	for (prod_index = cq->cons_index; get_sw_cqe_v2(cq, prod_index);
-	     ++prod_index)
-		if (prod_index > cq->cons_index + cq->verbs_cq.cq.cqe)
+	for (; get_sw_cqe_v2(cq, prod_index); ++prod_index)
+		if (prod_index > cons_index + cq->verbs_cq.cq.cqe)
 			break;
 
-	while ((int) --prod_index - (int) cq->cons_index >= 0) {
+	while (prod_index - cons_index > 0) {
+		prod_index--;
 		cqe = get_cqe_v2(cq, prod_index & cq->verbs_cq.cq.cqe);
 		if (hr_reg_read(cqe, CQE_LCL_QPN) == qpn) {
 			is_recv_cqe = hr_reg_read(cqe, CQE_S_R);
@@ -1551,6 +1552,8 @@ static int hns_roce_u_v2_modify_qp(struct ibv_qp *qp, struct ibv_qp_attr *attr,
 	ret = ibv_cmd_modify_qp(qp, attr, attr_mask, &cmd, sizeof(cmd));
 
 	if (flag) {
+		if (!ret)
+			qp->state = IBV_QPS_ERR;
 		pthread_spin_unlock(&hr_qp->rq.lock);
 		pthread_spin_unlock(&hr_qp->sq.lock);
 	}
@@ -1715,11 +1718,15 @@ static void fill_wqe_idx(struct hns_roce_srq *srq, unsigned int wqe_idx)
 	idx_que->head++;
 }
 
-static void update_srq_db(struct hns_roce_db *db, struct hns_roce_srq *srq)
+static void update_srq_db(struct hns_roce_context *ctx, struct hns_roce_db *db,
+			  struct hns_roce_srq *srq)
 {
 	hr_reg_write(db, DB_TAG, srq->srqn);
 	hr_reg_write(db, DB_CMD, HNS_ROCE_V2_SRQ_DB);
 	hr_reg_write(db, DB_PI, srq->idx_que.head);
+
+	hns_roce_write64(ctx->uar + ROCEE_VF_DB_CFG0_OFFSET,
+			 (__le32 *)db);
 }
 
 static int hns_roce_u_v2_post_srq_recv(struct ibv_srq *ib_srq,
@@ -1766,10 +1773,10 @@ static int hns_roce_u_v2_post_srq_recv(struct ibv_srq *ib_srq,
 		 */
 		udma_to_device_barrier();
 
-		update_srq_db(&srq_db, srq);
-
-		hns_roce_write64(ctx->uar + ROCEE_VF_DB_CFG0_OFFSET,
-				 (__le32 *)&srq_db);
+		if (srq->cap_flags & HNS_ROCE_RSP_SRQ_CAP_RECORD_DB)
+			*srq->rdb = srq->idx_que.head & 0xffff;
+		else
+			update_srq_db(ctx, &srq_db, srq);
 	}
 
 	pthread_spin_unlock(&srq->lock);
@@ -2547,7 +2554,7 @@ static int wr_complete(struct ibv_qp_ex *ibv_qp)
 	struct hns_roce_context *ctx = to_hr_ctx(ibv_qp->qp_base.context);
 	struct hns_roce_qp *qp = to_hr_qp(&ibv_qp->qp_base);
 	unsigned int nreq = qp->sq.head - qp->rb_sq_head;
-	struct ibv_qp_attr attr;
+	struct ibv_qp_attr attr = {};
 	int err = qp->err;
 
 	if (err) {

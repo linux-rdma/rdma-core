@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: GPL-2.0 OR BSD-2-Clause
 /*
- * Copyright 2019-2023 Amazon.com, Inc. or its affiliates. All rights reserved.
+ * Copyright 2019-2024 Amazon.com, Inc. or its affiliates. All rights reserved.
  */
 
 #include <assert.h>
@@ -277,6 +277,62 @@ struct ibv_mr *efa_reg_mr(struct ibv_pd *ibvpd, void *sva, size_t len,
 	}
 
 	return &mr->vmr.ibv_mr;
+}
+
+int efadv_query_mr(struct ibv_mr *ibvmr, struct efadv_mr_attr *attr, uint32_t inlen)
+{
+	uint16_t rdma_read_ic_id = 0;
+	uint16_t rdma_recv_ic_id = 0;
+	uint16_t ic_id_validity = 0;
+	uint16_t recv_ic_id = 0;
+	int err;
+
+	DECLARE_COMMAND_BUFFER(cmd,
+			       UVERBS_OBJECT_MR,
+			       EFA_IB_METHOD_MR_QUERY,
+			       5);
+
+	if (!is_efa_dev(ibvmr->context->device)) {
+		verbs_err(verbs_get_ctx(ibvmr->context), "Not an EFA device\n");
+		return EOPNOTSUPP;
+	}
+
+	if (!vext_field_avail(typeof(*attr), rdma_recv_ic_id, inlen)) {
+		verbs_err(verbs_get_ctx(ibvmr->context), "Compatibility issues\n");
+		return EINVAL;
+	}
+
+	memset(attr, 0, inlen);
+	fill_attr_in_obj(cmd, EFA_IB_ATTR_QUERY_MR_HANDLE, ibvmr->handle);
+	fill_attr_out(cmd, EFA_IB_ATTR_QUERY_MR_RESP_IC_ID_VALIDITY,
+		      &ic_id_validity, sizeof(ic_id_validity));
+	fill_attr_out(cmd, EFA_IB_ATTR_QUERY_MR_RESP_RECV_IC_ID,
+		      &recv_ic_id, sizeof(recv_ic_id));
+	fill_attr_out(cmd, EFA_IB_ATTR_QUERY_MR_RESP_RDMA_READ_IC_ID,
+		      &rdma_read_ic_id, sizeof(rdma_read_ic_id));
+	fill_attr_out(cmd, EFA_IB_ATTR_QUERY_MR_RESP_RDMA_RECV_IC_ID,
+		      &rdma_recv_ic_id, sizeof(rdma_recv_ic_id));
+
+	err = execute_ioctl(ibvmr->context, cmd);
+	if (err) {
+		verbs_err(verbs_get_ctx(ibvmr->context), "Failed to query MR\n");
+		return err;
+	}
+
+	if (ic_id_validity & EFA_QUERY_MR_VALIDITY_RECV_IC_ID) {
+		attr->recv_ic_id = recv_ic_id;
+		attr->ic_id_validity |= EFADV_MR_ATTR_VALIDITY_RECV_IC_ID;
+	}
+	if (ic_id_validity & EFA_QUERY_MR_VALIDITY_RDMA_READ_IC_ID) {
+		attr->rdma_read_ic_id = rdma_read_ic_id;
+		attr->ic_id_validity |= EFADV_MR_ATTR_VALIDITY_RDMA_READ_IC_ID;
+	}
+	if (ic_id_validity & EFA_QUERY_MR_VALIDITY_RDMA_RECV_IC_ID) {
+		attr->rdma_recv_ic_id = rdma_recv_ic_id;
+		attr->ic_id_validity |= EFADV_MR_ATTR_VALIDITY_RDMA_RECV_IC_ID;
+	}
+
+	return 0;
 }
 
 int efa_dereg_mr(struct verbs_mr *vmr)
@@ -596,8 +652,8 @@ static void efa_process_cqe(struct efa_cq *cq, struct ibv_wc *wc,
 	 */
 	wc->wr_id = cq->cur_wq->wrid[wrid_idx];
 
-	rdma_tracepoint(rdma_core_efa, process_completion, wc->wr_id, wc->status, wc->qp_num,
-			wc->opcode, wc->byte_len);
+	rdma_tracepoint(rdma_core_efa, process_completion, cq->dev->name, wc->wr_id, wc->status,
+			wc->qp_num, wc->opcode, wc->byte_len);
 }
 
 static void efa_process_ex_cqe(struct efa_cq *cq, struct efa_qp *qp)
@@ -618,8 +674,8 @@ static void efa_process_ex_cqe(struct efa_cq *cq, struct efa_qp *qp)
 	ibvcqx->wr_id = cq->cur_wq->wrid[wrid_idx];
 	ibvcqx->status = to_ibv_status(cqe->status);
 
-	rdma_tracepoint(rdma_core_efa, process_completion, ibvcqx->wr_id, ibvcqx->status,
-			qp->verbs_qp.qp.qp_num, efa_wc_read_opcode(ibvcqx),
+	rdma_tracepoint(rdma_core_efa, process_completion, cq->dev->name, ibvcqx->wr_id,
+			ibvcqx->status,	qp->verbs_qp.qp.qp_num, efa_wc_read_opcode(ibvcqx),
 			efa_wc_read_byte_len(ibvcqx));
 }
 
@@ -861,6 +917,7 @@ static struct ibv_cq_ex *create_cq(struct ibv_context *ibvctx,
 	cq->buf_size = resp.q_mmap_size;
 	cq->num_sub_cqs = num_sub_cqs;
 	cq->cqe_size = cqe_size;
+	cq->dev = ibvctx->device;
 
 	cq->buf = mmap(NULL, cq->buf_size, PROT_READ, MAP_SHARED,
 		       ibvctx->cmd_fd, resp.q_mmap_key);
@@ -974,7 +1031,7 @@ int efa_destroy_cq(struct ibv_cq *ibvcq)
 		return err;
 	}
 
-	munmap(cq->db, to_efa_dev(cq->verbs_cq.cq.context->device)->pg_sz);
+	munmap(cq->db, to_efa_dev(cq->dev)->pg_sz);
 	munmap(cq->buf, cq->buf_size);
 
 	pthread_spin_destroy(&cq->lock);
@@ -1406,6 +1463,7 @@ static struct ibv_qp *create_qp(struct ibv_context *ibvctx,
 	ibvqp = &qp->verbs_qp.qp;
 	ibvqp->state = IBV_QPS_RESET;
 	qp->sq_sig_all = attr->sq_sig_all;
+	qp->dev = ibvctx->device;
 
 	err = efa_rq_initialize(qp, &resp);
 	if (err)
@@ -1860,8 +1918,8 @@ int efa_post_send(struct ibv_qp *ibvqp, struct ibv_send_wr *wr,
 			efa_sq_ring_doorbell(sq, wq->pc);
 			mmio_wc_start();
 		}
-		rdma_tracepoint(rdma_core_efa, post_send, wr->wr_id, ibvqp->qp_num,
-				meta_desc->dest_qp_num, ah->efa_ah);
+		rdma_tracepoint(rdma_core_efa, post_send, qp->dev->name, wr->wr_id,
+				EFA_IO_SEND, ibvqp->qp_num, meta_desc->dest_qp_num, ah->efa_ah);
 		wr = wr->next;
 	}
 
@@ -2141,8 +2199,9 @@ static void efa_send_wr_set_addr(struct ibv_qp_ex *ibvqpx,
 	tx_wqe->meta.ah = ah->efa_ah;
 	tx_wqe->meta.qkey = remote_qkey;
 
-	rdma_tracepoint(rdma_core_efa, post_send, ibvqpx->wr_id, ibvqpx->qp_base.qp_num,
-			remote_qpn, ah->efa_ah);
+	rdma_tracepoint(rdma_core_efa, post_send, qp->dev->name, ibvqpx->wr_id,
+			EFA_GET(&tx_wqe->meta.ctrl1, EFA_IO_TX_META_DESC_OP_TYPE),
+			ibvqpx->qp_base.qp_num, remote_qpn, ah->efa_ah);
 }
 
 static void efa_send_wr_start(struct ibv_qp_ex *ibvqpx)
@@ -2356,7 +2415,8 @@ int efa_post_recv(struct ibv_qp *ibvqp, struct ibv_recv_wr *wr,
 			/* reset descriptor for next iov */
 			memset(&rx_buf, 0, sizeof(rx_buf));
 		}
-		rdma_tracepoint(rdma_core_efa, post_recv, wr->wr_id, ibvqp->qp_num, wr->num_sge);
+		rdma_tracepoint(rdma_core_efa, post_recv, qp->dev->name, wr->wr_id,
+				ibvqp->qp_num, wr->num_sge);
 		wr = wr->next;
 	}
 
