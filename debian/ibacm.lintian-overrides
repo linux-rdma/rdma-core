@@ -1,2 +1,2 @@
 # The wantedby target rdma-hw.target is intentional (see rdma-core)
-ibacm: systemd-service-file-refers-to-unusual-wantedby-target rdma-hw.target [lib/systemd/system/ibacm.service]
+ibacm: systemd-service-file-refers-to-unusual-wantedby-target rdma-hw.target [usr/lib/systemd/system/ibacm.service]

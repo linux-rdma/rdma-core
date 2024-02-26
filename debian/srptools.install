@@ -1,9 +1,9 @@
 etc/rdma/modules/srp_daemon.conf
 etc/srp_daemon.conf
-lib/systemd/system/srp_daemon.service
-lib/systemd/system/srp_daemon_port@.service
-lib/udev/rules.d/60-srp_daemon.rules
 usr/lib/srp_daemon/start_on_all_ports
+usr/lib/systemd/system/srp_daemon.service
+usr/lib/systemd/system/srp_daemon_port@.service
+usr/lib/udev/rules.d/60-srp_daemon.rules
 usr/sbin/ibsrpdm
 usr/sbin/srp_daemon
 usr/share/doc/rdma-core/ibsrpdm.md usr/share/doc/srptools/

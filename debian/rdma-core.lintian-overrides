@@ -1,5 +1,5 @@
 # "module -i ib_qib" will executes code. This cannot be replaced by the softdep command.
 rdma-core: obsolete-command-in-modprobe.d-file install [etc/modprobe.d/truescale.conf]
 # The rdma-ndd service is started by udev.
-rdma-core: systemd-service-file-missing-install-key [lib/systemd/system/iwpmd.service]
-rdma-core: systemd-service-file-missing-install-key [lib/systemd/system/rdma-ndd.service]
+rdma-core: systemd-service-file-missing-install-key [usr/lib/systemd/system/iwpmd.service]
+rdma-core: systemd-service-file-missing-install-key [usr/lib/systemd/system/rdma-ndd.service]
