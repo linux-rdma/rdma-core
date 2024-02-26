@@ -65,7 +65,7 @@ Create an on-demand paging MR
 Huge pages are guaranteed to be used for this MR, applicable with IBV_ACCESS_ON_DEMAND in explicit mode only
 .TP
 .B IBV_ACCESS_RELAXED_ORDERING\fR
-This setting allows the NIC to relax the order that data is transfered between the
+This setting allows the NIC to relax the order that data is transferred between the
 network and the target memory region.  Relaxed ordering allows network initiated
 writes (such as incoming message send or RDMA write operations) to reach memory
 in an arbitrary order.  This can improve the performance of some applications.

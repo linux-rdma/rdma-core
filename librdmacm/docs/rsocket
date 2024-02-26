@@ -109,7 +109,7 @@ with the meaning of the lower 29 bits determined by the upper bits.
 
 Bits    Message             Meaning of
 31:29    Type               Bits 28:0
-000    Data Transfer     bytes transfered
+000    Data Transfer     bytes transferred
 001    reserved
 010    reserved - used internally, available for future use
 011    reserved
