@@ -1,3 +1,15 @@
+rdma-core (50.0-1) unstable; urgency=medium
+
+  * New upstream release.
+    - support cython 3.0.x (Closes: #1056882)
+    - add support for loongarch64 (Closes: #1059022)
+  * Replace obsolete pkg-config by pkgconf
+  * Update years in debian/copyright
+  * Use unversioned library names in package description
+  * Installs udev/systemd files below /usr/lib (Closes: #1059188)
+
+ -- Benjamin Drung <bdrung@ubuntu.com>  Mon, 26 Feb 2024 17:41:04 +0100
+
 rdma-core (48.0-1) unstable; urgency=medium
 
   * New upstream release.
