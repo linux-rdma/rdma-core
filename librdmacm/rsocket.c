@@ -2362,7 +2362,7 @@ static int rs_poll_all(struct rsocket *rs)
  * We use hardware flow control to prevent over running the remote
  * receive queue.  However, data transfers still require space in
  * the remote rmsg queue, or we risk losing notification that data
- * has been transfered.
+ * has been transferred.
  *
  * Be careful with race conditions in the check below.  The target SGL
  * may be updated by a remote RDMA write.
