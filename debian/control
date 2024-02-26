@@ -240,7 +240,7 @@ Description: Development files for the librdmacm library
  provided by libibverbs, which provides the interface used to actually
  transfer data.
  .
- This package is needed to compile programs against librdmacm1.
+ This package is needed to compile programs against librdmacm.
  It contains the header files and static libraries (optionally)
  needed for compiling.
 
@@ -305,7 +305,7 @@ Description: Examples for the librdmacm library
  provided by libibverbs, which provides the interface used to actually
  transfer data.
  .
- This package contains useful librdmacm1 example programs such as
+ This package contains useful librdmacm example programs such as
  rping and udaddy.
 
 Package: srptools
@@ -437,5 +437,5 @@ Description: InfiniBand diagnostics library headers
  failover, and it is designed to be scalable.
  .
  This package provides development files required to build
- applications aginast the libibnetdisc5 InfiniBand diagnostic
+ applications against the libibnetdisc InfiniBand diagnostic
  libraries.
