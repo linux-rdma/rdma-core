@@ -1,6 +1,7 @@
 libibnetdisc.so.5 libibnetdisc5 #MINVER#
 * Build-Depends-Package: libibnetdisc-dev
  IBNETDISC_1.0@IBNETDISC_1.0 1.6.1
+ IBNETDISC_1.1@IBNETDISC_1.1 49
  ibnd_cache_fabric@IBNETDISC_1.0 1.6.1
  ibnd_destroy_fabric@IBNETDISC_1.0 1.6.1
  ibnd_discover_fabric@IBNETDISC_1.0 1.6.1
@@ -19,11 +20,11 @@ libibnetdisc.so.5 libibnetdisc5 #MINVER#
  ibnd_iter_nodes_type@IBNETDISC_1.0 1.6.1
  ibnd_iter_ports@IBNETDISC_1.0 1.6.1
  ibnd_load_fabric@IBNETDISC_1.0 1.6.1
- ibnd_get_agg_linkspeedext_field@IBNETDISC_1.1 1.6.1
- ibnd_get_agg_linkspeedext@IBNETDISC_1.1 1.6.1
- ibnd_get_agg_linkspeedexten@IBNETDISC_1.1 1.6.1
- ibnd_get_agg_linkspeedextsup@IBNETDISC_1.1 1.6.1
- ibnd_dump_agg_linkspeedext_bits@IBNETDISC_1.1 1.6.1
- ibnd_dump_agg_linkspeedext@IBNETDISC_1.1 1.6.1
- ibnd_dump_agg_linkspeedexten@IBNETDISC_1.1 1.6.1
- ibnd_dump_agg_linkspeedextsup@IBNETDISC_1.1 1.6.1
+ ibnd_get_agg_linkspeedext_field@IBNETDISC_1.1 49
+ ibnd_get_agg_linkspeedext@IBNETDISC_1.1 49
+ ibnd_get_agg_linkspeedexten@IBNETDISC_1.1 49
+ ibnd_get_agg_linkspeedextsup@IBNETDISC_1.1 49
+ ibnd_dump_agg_linkspeedext_bits@IBNETDISC_1.1 49
+ ibnd_dump_agg_linkspeedext@IBNETDISC_1.1 49
+ ibnd_dump_agg_linkspeedexten@IBNETDISC_1.1 49
+ ibnd_dump_agg_linkspeedextsup@IBNETDISC_1.1 49
