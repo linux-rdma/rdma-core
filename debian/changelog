@@ -2,7 +2,39 @@ rdma-core (51.0-1) unstable; urgency=medium
 
   * New upstream release.
 
- -- Jason Gunthorpe <jgg@obsidianresearch.com>  Tue, 03 Jan 2023 17:46:57 +0100
+ -- Jason Gunthorpe <jgg@obsidianresearch.com>  Tue, 27 Feb 2024 11:32:22 +0100
+
+rdma-core (50.0-1) unstable; urgency=medium
+
+  * New upstream release.
+    - support cython 3.0.x (Closes: #1056882)
+    - add support for loongarch64 (Closes: #1059022)
+  * Replace obsolete pkg-config by pkgconf
+  * Update years in debian/copyright
+  * Use unversioned library names in package description
+  * Installs udev/systemd files below /usr/lib (Closes: #1059188)
+
+ -- Benjamin Drung <bdrung@ubuntu.com>  Mon, 26 Feb 2024 17:41:04 +0100
+
+rdma-core (48.0-1) unstable; urgency=medium
+
+  * New upstream release.
+
+ -- Benjamin Drung <bdrung@ubuntu.com>  Mon, 23 Oct 2023 18:40:29 +0200
+
+rdma-core (47.0-1) unstable; urgency=medium
+
+  * New upstream release.
+  * Drop obsolete versioned dependency on lsb-base
+
+ -- Benjamin Drung <bdrung@ubuntu.com>  Mon, 07 Aug 2023 11:26:40 +0200
+
+rdma-core (44.0-2) unstable; urgency=medium
+
+  * debian: Add 32-bit MIPS architectures to COHERENT_DMA_ARCHS and
+    inverse the list to NON_COHERENT_DMA_ARCHS (Closes: #1026088)
+
+ -- Benjamin Drung <bdrung@ubuntu.com>  Tue, 10 Jan 2023 13:59:10 +0100
 
 rdma-core (44.0-1) unstable; urgency=medium
 
