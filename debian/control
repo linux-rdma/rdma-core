@@ -6,7 +6,7 @@ Build-Depends: cmake (>= 2.8.11),
                cython3,
                debhelper-compat (= 13),
                dh-python,
-               dpkg-dev (>= 1.17),
+               dpkg-dev (>= 1.22.5),
                libnl-3-dev,
                libnl-route-3-dev,
                libsystemd-dev,
@@ -191,7 +191,7 @@ Package: librdmacm-dev
 Section: libdevel
 Architecture: linux-any
 Multi-Arch: same
-Depends: libibverbs-dev, librdmacm1 (= ${binary:Version}), ${misc:Depends}
+Depends: libibverbs-dev, librdmacm1t64 (= ${binary:Version}), ${misc:Depends}
 Description: Development files for the librdmacm library
  librdmacm is a library that allows applications to set up reliable
  connected and unreliable datagram transfers when using RDMA adapters.
@@ -210,7 +210,10 @@ Description: Development files for the librdmacm library
  It contains the header files and static libraries (optionally)
  needed for compiling.
 
-Package: librdmacm1
+Package: librdmacm1t64
+Provides: ${t64:Provides}
+Replaces: librdmacm1
+Breaks: librdmacm1 (<< ${source:Version})
 Architecture: linux-any
 Multi-Arch: same
 Section: libs
@@ -280,7 +283,7 @@ Description: Python bindings for rdma-core
 
 Package: infiniband-diags
 Architecture: linux-any
-Depends: libibnetdisc5 (= ${binary:Version}),
+Depends: libibnetdisc5t64 (= ${binary:Version}),
          ${misc:Depends},
          ${perl:Depends},
          ${shlibs:Depends}
@@ -322,7 +325,10 @@ Description: Development files for libibmad
  It contains the header files and static libraries (optionally)
  needed for compiling.
 
-Package: libibnetdisc5
+Package: libibnetdisc5t64
+Provides: ${t64:Provides}
+Replaces: libibnetdisc5
+Breaks: libibnetdisc5 (<< ${source:Version})
 Section: libs
 Architecture: linux-any
 Multi-Arch: same
@@ -341,7 +347,7 @@ Package: libibnetdisc-dev
 Section: libdevel
 Architecture: linux-any
 Multi-Arch: same
-Depends: libibnetdisc5 (= ${binary:Version}), ${misc:Depends}
+Depends: libibnetdisc5t64 (= ${binary:Version}), ${misc:Depends}
 Breaks: infiniband-diags (<< 2.0.0)
 Replaces: infiniband-diags (<< 2.0.0)
 Description: InfiniBand diagnostics library headers

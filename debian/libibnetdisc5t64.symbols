@@ -1,4 +1,4 @@
-libibnetdisc.so.5 libibnetdisc5 #MINVER#
+libibnetdisc.so.5 libibnetdisc5t64 #MINVER#
 * Build-Depends-Package: libibnetdisc-dev
  IBNETDISC_1.0@IBNETDISC_1.0 1.6.1
  IBNETDISC_1.1@IBNETDISC_1.1 49
