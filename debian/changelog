@@ -1,3 +1,9 @@
+rdma-core (50.0-2) unstable; urgency=medium
+
+  * Rename libraries for 64-bit time_t transition (Closes: #1064313)
+
+ -- Benjamin Drung <bdrung@ubuntu.com>  Thu, 29 Feb 2024 03:11:46 +0100
+
 rdma-core (50.0-1) unstable; urgency=medium
 
   * New upstream release.
