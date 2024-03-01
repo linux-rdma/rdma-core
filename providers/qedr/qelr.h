@@ -81,24 +81,6 @@ do {								\
 	fflush(fd); \
 } while (0)
 
-#define DP_NOTICE(fd, fmt, ...)					\
-do {								\
-	if (qelr_dp_level <= QELR_LEVEL_NOTICE)	{\
-		fprintf(fd, "[%s:%d]" fmt,			\
-		      __func__, __LINE__,			\
-		      ##__VA_ARGS__);				\
-		      fflush(fd); }				\
-} while (0)
-
-#define DP_INFO(fd, fmt, ...)					\
-do {								\
-	if (qelr_dp_level <= QELR_LEVEL_INFO)	{		\
-		fprintf(fd, "[%s:%d]" fmt,			\
-		      __func__, __LINE__,			\
-		      ##__VA_ARGS__); fflush(fd);		\
-	}							\
-} while (0)
-
 #define DP_VERBOSE(fd, module, fmt, ...)			\
 do {								\
 	if ((qelr_dp_level <= QELR_LEVEL_VERBOSE) &&		\
