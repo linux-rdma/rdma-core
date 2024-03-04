@@ -232,7 +232,7 @@ struct ibv_cq *qelr_create_cq(struct ibv_context *context, int cqe,
 		   context, cqe, channel, comp_vector);
 
 	if (!cqe || cqe > cxt->max_cqes) {
-		DP_ERR(cxt->dbg_fp,
+		verbs_err(&cxt->ibv_ctx,
 		       "create cq: failed. attempted to allocate %d cqes but valid range is 1...%d\n",
 		       cqe, cxt->max_cqes);
 		errno = EINVAL;
@@ -257,7 +257,7 @@ struct ibv_cq *qelr_create_cq(struct ibv_context *context, int cqe,
 			       &cq->ibv_cq, &cmd.ibv_cmd, sizeof(cmd),
 			       &resp.ibv_resp, sizeof(resp));
 	if (rc) {
-		DP_ERR(cxt->dbg_fp, "create cq: failed with rc = %d\n", rc);
+		verbs_err(&cxt->ibv_ctx, "create cq: failed with rc = %d\n", rc);
 		goto err_1;
 	}
 
@@ -274,7 +274,7 @@ struct ibv_cq *qelr_create_cq(struct ibv_context *context, int cqe,
 		if (cq->db_rec_map == MAP_FAILED) {
 			int errsv = errno;
 
-			DP_ERR(cxt->dbg_fp,
+			verbs_err(&cxt->ibv_ctx,
 			       "alloc context: doorbell rec mapping failed resp.db_rec_addr = %llx size=%d context->cmd_fd=%d errno=%d\n",
 			       resp.db_rec_addr, cxt->kernel_page_size,
 			       context->cmd_fd, errsv);
@@ -338,7 +338,7 @@ int qelr_destroy_cq(struct ibv_cq *ibv_cq)
 static struct qelr_srq *qelr_get_srq(struct qelr_devctx *cxt, uint32_t srq_id)
 {
 	if (unlikely(srq_id >= QELR_MAX_SRQ_ID)) {
-		DP_ERR(cxt->dbg_fp, "invalid srq_id %u\n", srq_id);
+		verbs_err(&cxt->ibv_ctx, "invalid srq_id %u\n", srq_id);
 		return NULL;
 	}
 
@@ -430,7 +430,7 @@ static int qelr_create_srq_buffers(struct qelr_devctx *cxt,
 	rc = qelr_chain_alloc(&srq->hw_srq.chain, chain_size,
 			      cxt->kernel_page_size, QELR_RQE_ELEMENT_SIZE);
 	if (rc) {
-		DP_ERR(cxt->dbg_fp,
+		verbs_err(&cxt->ibv_ctx,
 		       "create srq: failed to map srq, got %d", rc);
 		return rc;
 	}
@@ -440,7 +440,7 @@ static int qelr_create_srq_buffers(struct qelr_devctx *cxt,
 		    MAP_PRIVATE | MAP_ANONYMOUS, -1,
 		    0);
 	if (addr == MAP_FAILED) {
-		DP_ERR(cxt->dbg_fp,
+		verbs_err(&cxt->ibv_ctx,
 		       "create srq: failed to map producer, got %d", errno);
 		qelr_chain_free(&srq->hw_srq.chain);
 		return errno;
@@ -544,7 +544,7 @@ static inline int qelr_create_qp_buffers_sq(struct qelr_devctx *cxt,
 	rc = qelr_chain_alloc(&qp->sq.chain, chain_size, cxt->kernel_page_size,
 			      QELR_SQE_ELEMENT_SIZE);
 	if (rc)
-		DP_ERR(cxt->dbg_fp, "create qp: failed to map SQ chain, got %d", rc);
+		verbs_err(&cxt->ibv_ctx, "create qp: failed to map SQ chain, got %d", rc);
 
 	qp->sq.max_wr = max_send_wr;
 	qp->sq.max_sges = cxt->sges_per_send_wr;
@@ -571,7 +571,7 @@ static inline int qelr_create_qp_buffers_rq(struct qelr_devctx *cxt,
 	rc = qelr_chain_alloc(&qp->rq.chain, chain_size, cxt->kernel_page_size,
 			      QELR_RQE_ELEMENT_SIZE);
 	if (rc)
-		DP_ERR(cxt->dbg_fp, "create qp: failed to map RQ chain, got %d", rc);
+		verbs_err(&cxt->ibv_ctx, "create qp: failed to map RQ chain, got %d", rc);
 
 	qp->rq.max_wr = max_recv_wr;
 	qp->rq.max_sges = cxt->sges_per_recv_wr;
@@ -624,7 +624,7 @@ static inline int qelr_configure_qp_sq(struct qelr_devctx *cxt,
 		if (qp->sq.db_rec_map == MAP_FAILED) {
 			int errsv = errno;
 
-			DP_ERR(cxt->dbg_fp,
+			verbs_err(&cxt->ibv_ctx,
 			       "alloc context: doorbell rec mapping failed resp.db_rec_addr = %llx size=%d context->cmd_fd=%d errno=%d\n",
 			       resp->sq_db_rec_addr, cxt->kernel_page_size,
 			       cxt->ibv_ctx.context.cmd_fd, errsv);
@@ -642,7 +642,7 @@ static inline int qelr_configure_qp_sq(struct qelr_devctx *cxt,
 	qp->sq.max_wr++;	/* prod/cons method requires N+1 elements */
 	qp->wqe_wr_id = calloc(qp->sq.max_wr, sizeof(*qp->wqe_wr_id));
 	if (!qp->wqe_wr_id) {
-		DP_ERR(cxt->dbg_fp,
+		verbs_err(&cxt->ibv_ctx,
 		       "create qp: failed shadow SQ memory allocation\n");
 		return -ENOMEM;
 	}
@@ -670,7 +670,7 @@ static inline int qelr_configure_qp_rq(struct qelr_devctx *cxt,
 		if (qp->rq.db_rec_map == MAP_FAILED) {
 			int errsv = errno;
 
-			DP_ERR(cxt->dbg_fp,
+			verbs_err(&cxt->ibv_ctx,
 			       "alloc context: doorbell rec mapping failed resp.db_rec_addr = %llx size=%d context->cmd_fd=%d errno=%d\n",
 			       resp->rq_db_rec_addr, cxt->kernel_page_size,
 			       cxt->ibv_ctx.context.cmd_fd, errsv);
@@ -688,7 +688,7 @@ static inline int qelr_configure_qp_rq(struct qelr_devctx *cxt,
 	qp->rq.max_wr++;	/* prod/cons method requires N+1 elements */
 	qp->rqe_wr_id = calloc(qp->rq.max_wr, sizeof(*qp->rqe_wr_id));
 	if (!qp->rqe_wr_id) {
-		DP_ERR(cxt->dbg_fp,
+		verbs_err(&cxt->ibv_ctx,
 		       "create qp: failed shadow RQ memory allocation\n");
 		return -ENOMEM;
 	}
@@ -1004,7 +1004,7 @@ int qelr_modify_qp(struct ibv_qp *ibqp, struct ibv_qp_attr *attr,
 
 	rc = ibv_cmd_modify_qp(ibqp, attr, attr_mask, &cmd, sizeof(cmd));
 	if (rc) {
-		DP_ERR(cxt->dbg_fp, "QP Modify: Failed command. rc=%d\n", rc);
+		verbs_err(&cxt->ibv_ctx, "QP Modify: Failed command. rc=%d\n", rc);
 		return rc;
 	}
 
@@ -1014,7 +1014,7 @@ int qelr_modify_qp(struct ibv_qp *ibqp, struct ibv_qp_attr *attr,
 			   "QP Modify state %d->%d, rc=%d\n", qp->state,
 			   attr->qp_state, rc);
 		if (rc) {
-			DP_ERR(cxt->dbg_fp,
+			verbs_err(&cxt->ibv_ctx,
 			       "QP Modify: Failed to update state. rc=%d\n",
 			       rc);
 
@@ -1035,7 +1035,7 @@ int qelr_modify_qp(struct ibv_qp *ibqp, struct ibv_qp_attr *attr,
 				   "QP Modify: %p, edpm_disabled=%d\n", qp,
 				   qp->edpm_disabled);
 		} else  {
-			DP_ERR(cxt->dbg_fp,
+			verbs_err(&cxt->ibv_ctx,
 			       "QP Modify: Failed querying GID. rc=%d\n",
 			       rc);
 		}
@@ -1054,7 +1054,7 @@ int qelr_destroy_qp(struct ibv_qp *ibqp)
 
 	rc = ibv_cmd_destroy_qp(ibqp);
 	if (rc) {
-		DP_ERR(cxt->dbg_fp,
+		verbs_err(&cxt->ibv_ctx,
 		       "destroy qp: failed to destroy %p, got %d.\n", qp, rc);
 		return rc;
 	}
@@ -1497,7 +1497,7 @@ static inline int qelr_can_post_send(struct qelr_devctx *cxt,
 {
 	/* Invalid WR */
 	if (wr->num_sge > qp->sq.max_sges) {
-		DP_ERR(cxt->dbg_fp,
+		verbs_err(&cxt->ibv_ctx,
 		       "error: WR is bad. Post send on QP %p failed\n",
 		       qp);
 		return -EINVAL;
@@ -1505,7 +1505,7 @@ static inline int qelr_can_post_send(struct qelr_devctx *cxt,
 
 	/* WR overflow */
 	if (qelr_wq_is_full(&qp->sq)) {
-		DP_ERR(cxt->dbg_fp,
+		verbs_err(&cxt->ibv_ctx,
 		       "error: WQ is full. Post send on QP %p failed (this error appears only once)\n",
 		       qp);
 		return -ENOMEM;
@@ -1514,7 +1514,7 @@ static inline int qelr_can_post_send(struct qelr_devctx *cxt,
 	/* WQE overflow */
 	if (qelr_chain_get_elem_left_u32(&qp->sq.chain) <
 			QELR_MAX_SQ_WQE_SIZE) {
-		DP_ERR(cxt->dbg_fp,
+		verbs_err(&cxt->ibv_ctx,
 		       "error: WQ PBL is full. Post send on QP %p failed (this error appears only once)\n",
 		       qp);
 		return -ENOMEM;
@@ -1523,13 +1523,13 @@ static inline int qelr_can_post_send(struct qelr_devctx *cxt,
 	if ((wr->opcode == IBV_WR_ATOMIC_CMP_AND_SWP ||
 	     wr->opcode == IBV_WR_ATOMIC_FETCH_AND_ADD) &&
 	    !qp->atomic_supported) {
-		DP_ERR(cxt->dbg_fp, "Atomic not supported on this machine\n");
+		verbs_err(&cxt->ibv_ctx, "Atomic not supported on this machine\n");
 		return -EINVAL;
 	}
 
 	if ((wr->send_flags & IBV_SEND_INLINE) &&
 	    (data_size > ROCE_REQ_MAX_INLINE_DATA_SIZE)) {
-		DP_ERR(cxt->dbg_fp, "Too much inline data in WR: %d\n", data_size);
+		verbs_err(&cxt->ibv_ctx, "Too much inline data in WR: %d\n", data_size);
 		return -EINVAL;
 	}
 
@@ -1785,7 +1785,7 @@ static int __qelr_post_send(struct qelr_devctx *cxt, struct qelr_qp *qp,
 		qp->prev_wqe_size = wqe->prev_wqe_size;
 
 		rc = -EINVAL;
-		DP_ERR(cxt->dbg_fp,
+		verbs_err(&cxt->ibv_ctx,
 		       "Invalid opcode %d in work request on QP %p\n",
 		       wr->opcode, qp);
 		break;
@@ -1887,7 +1887,7 @@ int qelr_post_srq_recv(struct ibv_srq *ibsrq, struct ibv_recv_wr *wr,
 
 		if (!qelr_srq_elem_left(hw_srq) ||
 		    wr->num_sge > srq->hw_srq.max_sges) {
-			DP_ERR(cxt->dbg_fp,
+			verbs_err(&cxt->ibv_ctx,
 			       "Can't post WR  (%d,%d) || (%d > %d)\n",
 			       hw_srq->wr_prod_cnt, hw_srq->wr_cons_cnt,
 			       wr->num_sge,
@@ -1956,7 +1956,7 @@ int qelr_post_recv(struct ibv_qp *ibqp, struct ibv_recv_wr *wr,
 	uint8_t iwarp = IS_IWARP(ibqp->context->device);
 
 	if (unlikely(qp->srq)) {
-		DP_ERR(cxt->dbg_fp,
+		verbs_err(&cxt->ibv_ctx,
 		       "QP is associated with SRQ, cannot post RQ buffers\n");
 		*bad_wr = wr;
 		return -EINVAL;
@@ -1975,7 +1975,7 @@ int qelr_post_recv(struct ibv_qp *ibqp, struct ibv_recv_wr *wr,
 
 		if (qelr_chain_get_elem_left_u32(&qp->rq.chain) <
 		    QELR_MAX_RQ_WQE_SIZE || wr->num_sge > qp->rq.max_sges) {
-			DP_ERR(cxt->dbg_fp,
+			verbs_err(&cxt->ibv_ctx,
 			       "Can't post WR  (%d < %d) || (%d > %d)\n",
 			       qelr_chain_get_elem_left_u32(&qp->rq.chain),
 			       QELR_MAX_RQ_WQE_SIZE, wr->num_sge,
@@ -2139,7 +2139,7 @@ static int qelr_poll_cq_req(struct qelr_qp *qp, struct qelr_cq *cq,
 				  IBV_WC_SUCCESS, 0);
 		break;
 	case RDMA_CQE_REQ_STS_WORK_REQUEST_FLUSHED_ERR:
-		DP_ERR(cxt->dbg_fp,
+		verbs_err(&cxt->ibv_ctx,
 		       "Error: POLL CQ with ROCE_CQE_REQ_STS_WORK_REQUEST_FLUSHED_ERR. QP icid=0x%x\n",
 		       qp->sq.icid);
 		cnt = process_req(qp, cq, num_entries, wc, sq_cons,
@@ -2157,67 +2157,67 @@ static int qelr_poll_cq_req(struct qelr_qp *qp, struct qelr_cq *cq,
 
 			switch (req->status) {
 			case    RDMA_CQE_REQ_STS_BAD_RESPONSE_ERR:
-				DP_ERR(cxt->dbg_fp,
+				verbs_err(&cxt->ibv_ctx,
 				       "Error: POLL CQ with RDMA_CQE_REQ_STS_BAD_RESPONSE_ERR. QP icid=0x%x\n",
 				       qp->sq.icid);
 				wc_status = IBV_WC_BAD_RESP_ERR;
 				break;
 			case    RDMA_CQE_REQ_STS_LOCAL_LENGTH_ERR:
-				DP_ERR(cxt->dbg_fp,
+				verbs_err(&cxt->ibv_ctx,
 				       "Error: POLL CQ with RDMA_CQE_REQ_STS_LOCAL_LENGTH_ERR. QP icid=0x%x\n",
 				       qp->sq.icid);
 				wc_status = IBV_WC_LOC_LEN_ERR;
 				break;
 			case    RDMA_CQE_REQ_STS_LOCAL_QP_OPERATION_ERR:
-				DP_ERR(cxt->dbg_fp,
+				verbs_err(&cxt->ibv_ctx,
 				       "Error: POLL CQ with RDMA_CQE_REQ_STS_LOCAL_QP_OPERATION_ERR. QP icid=0x%x\n",
 				       qp->sq.icid);
 				wc_status = IBV_WC_LOC_QP_OP_ERR;
 				break;
 			case    RDMA_CQE_REQ_STS_LOCAL_PROTECTION_ERR:
-				DP_ERR(cxt->dbg_fp,
+				verbs_err(&cxt->ibv_ctx,
 				       "Error: POLL CQ with RDMA_CQE_REQ_STS_LOCAL_PROTECTION_ERR. QP icid=0x%x\n",
 				       qp->sq.icid);
 				wc_status = IBV_WC_LOC_PROT_ERR;
 				break;
 			case    RDMA_CQE_REQ_STS_MEMORY_MGT_OPERATION_ERR:
-				DP_ERR(cxt->dbg_fp,
+				verbs_err(&cxt->ibv_ctx,
 				       "Error: POLL CQ with RDMA_CQE_REQ_STS_MEMORY_MGT_OPERATION_ERR. QP icid=0x%x\n",
 				       qp->sq.icid);
 				wc_status = IBV_WC_MW_BIND_ERR;
 				break;
 			case    RDMA_CQE_REQ_STS_REMOTE_INVALID_REQUEST_ERR:
-				DP_ERR(cxt->dbg_fp,
+				verbs_err(&cxt->ibv_ctx,
 				       "Error: POLL CQ with RDMA_CQE_REQ_STS_REMOTE_INVALID_REQUEST_ERR. QP icid=0x%x\n",
 				       qp->sq.icid);
 				wc_status = IBV_WC_REM_INV_REQ_ERR;
 				break;
 			case    RDMA_CQE_REQ_STS_REMOTE_ACCESS_ERR:
-				DP_ERR(cxt->dbg_fp,
+				verbs_err(&cxt->ibv_ctx,
 				       "Error: POLL CQ with RDMA_CQE_REQ_STS_REMOTE_ACCESS_ERR. QP icid=0x%x\n",
 				       qp->sq.icid);
 				wc_status = IBV_WC_REM_ACCESS_ERR;
 				break;
 			case    RDMA_CQE_REQ_STS_REMOTE_OPERATION_ERR:
-				DP_ERR(cxt->dbg_fp,
+				verbs_err(&cxt->ibv_ctx,
 				       "Error: POLL CQ with RDMA_CQE_REQ_STS_REMOTE_OPERATION_ERR. QP icid=0x%x\n",
 				       qp->sq.icid);
 				wc_status = IBV_WC_REM_OP_ERR;
 				break;
 			case    RDMA_CQE_REQ_STS_RNR_NAK_RETRY_CNT_ERR:
-				DP_ERR(cxt->dbg_fp,
+				verbs_err(&cxt->ibv_ctx,
 				       "Error: POLL CQ with RDMA_CQE_REQ_STS_RNR_NAK_RETRY_CNT_ERR. QP icid=0x%x\n",
 				       qp->sq.icid);
 				wc_status = IBV_WC_RNR_RETRY_EXC_ERR;
 				break;
 			case    RDMA_CQE_REQ_STS_TRANSPORT_RETRY_CNT_ERR:
-				DP_ERR(cxt->dbg_fp,
+				verbs_err(&cxt->ibv_ctx,
 				       "RDMA_CQE_REQ_STS_TRANSPORT_RETRY_CNT_ERR. QP icid=0x%x\n",
 				       qp->sq.icid);
 				wc_status = IBV_WC_RETRY_EXC_ERR;
 				break;
 			default:
-				DP_ERR(cxt->dbg_fp,
+				verbs_err(&cxt->ibv_ctx,
 				       "IBV_WC_GENERAL_ERR. QP icid=0x%x\n",
 				       qp->sq.icid);
 				wc_status = IBV_WC_GENERAL_ERR;
@@ -2284,7 +2284,7 @@ static void __process_resp_one(struct qelr_devctx *cxt, struct qelr_cq *cq,
 			wc->wc_flags |= IBV_WC_WITH_INV;
 			break;
 		case QELR_RESP_RDMA:
-			DP_ERR(cxt->dbg_fp, "Invalid flags detected\n");
+			verbs_err(&cxt->ibv_ctx, "Invalid flags detected\n");
 			break;
 		default:
 			/* valid configuration, but nothing to do here */
@@ -2294,7 +2294,7 @@ static void __process_resp_one(struct qelr_devctx *cxt, struct qelr_cq *cq,
 		break;
 	default:
 		wc->status = IBV_WC_GENERAL_ERR;
-		DP_ERR(cxt->dbg_fp, "Invalid CQE status detected\n");
+		verbs_err(&cxt->ibv_ctx, "Invalid CQE status detected\n");
 	}
 
 	/* fill WC */
@@ -2450,7 +2450,7 @@ static struct qelr_srq *qelr_get_xrc_srq_from_cqe(struct qelr_cq *cq,
 	cxt = get_qelr_ctx(cq->ibv_cq.context);
 	srq = qelr_get_srq(cxt, srq_id);
 	if (unlikely(!srq)) {
-		DP_ERR(cxt->dbg_fp, "srq handle is null\n");
+		verbs_err(&cxt->ibv_ctx, "srq handle is null\n");
 		return NULL;
 	}
 
@@ -2478,7 +2478,7 @@ int qelr_poll_cq(struct ibv_cq *ibcq, int num_entries, struct ibv_wc *wc)
 		qp = cqe_get_qp(cqe);
 		if (!qp &&
 		    cqe_get_type(cqe) != RDMA_CQE_TYPE_RESPONDER_XRC_SRQ) {
-			DP_ERR(stderr,
+			verbs_err(verbs_get_ctx(qp->ibv_qp->context),
 			       "Error: CQE QP pointer is NULL. CQE=%p\n", cqe);
 			break;
 		}
@@ -2608,7 +2608,7 @@ struct ibv_xrcd *qelr_open_xrcd(struct ibv_context *context,
 	rc = ibv_cmd_open_xrcd(context, xrcd, sizeof(*xrcd), init_attr, &cmd,
 			       sizeof(cmd), &resp, sizeof(resp));
 	if (rc) {
-		DP_ERR(cxt->dbg_fp, "open xrcd: failed with rc=%d.\n", rc);
+		verbs_err(&cxt->ibv_ctx, "open xrcd: failed with rc=%d.\n", rc);
 		free(xrcd);
 		return NULL;
 	}
@@ -2624,7 +2624,7 @@ int qelr_close_xrcd(struct ibv_xrcd *ibxrcd)
 
 	rc = ibv_cmd_close_xrcd(xrcd);
 	if (rc) {
-		DP_ERR(cxt->dbg_fp, "close xrcd: failed with rc=%d.\n", rc);
+		verbs_err(&cxt->ibv_ctx, "close xrcd: failed with rc=%d.\n", rc);
 		free(xrcd);
 	}
 
@@ -2680,7 +2680,7 @@ err1:
 	qelr_destroy_srq_buffers(ibv_srq);
 	free(srq);
 err0:
-	DP_ERR(cxt->dbg_fp,
+	verbs_err(&cxt->ibv_ctx,
 	       "create srq: failed to create. rc=%d\n", rc);
 	return NULL;
 }
@@ -2706,7 +2706,7 @@ struct ibv_srq *qelr_create_srq_ex(struct ibv_context *context,
 	if (init_attr->srq_type == IBV_SRQT_XRC)
 		return qelr_create_xrc_srq(context, init_attr);
 
-	DP_ERR(cxt->dbg_fp, "failed to create srq type %d\n",
+	verbs_err(&cxt->ibv_ctx, "failed to create srq type %d\n",
 	       init_attr->srq_type);
 
 	return NULL;
@@ -2748,7 +2748,7 @@ static struct ibv_qp *create_qp(struct ibv_context *context,
 				  attrx, &req.ibv_cmd, sizeof(req),
 				  &resp.ibv_resp, sizeof(resp));
 	if (rc) {
-		DP_ERR(cxt->dbg_fp,
+		verbs_err(&cxt->ibv_ctx,
 		       "create qp: failed on ibv_cmd_create_qp with %d\n", rc);
 		goto err1;
 	}
@@ -2769,7 +2769,7 @@ static struct ibv_qp *create_qp(struct ibv_context *context,
 err2:
 	rc = ibv_cmd_destroy_qp(get_ibv_qp(qp));
 	if (rc)
-		DP_ERR(cxt->dbg_fp, "create qp: fatal fault. rc=%d\n", rc);
+		verbs_err(&cxt->ibv_ctx, "create qp: fatal fault. rc=%d\n", rc);
 err1:
 	if (qelr_qp_has_sq(qp))
 		qelr_chain_free(&qp->sq.chain);

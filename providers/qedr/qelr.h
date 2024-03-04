@@ -50,8 +50,6 @@
 #include "qelr_hsi.h"
 #include "qelr_chain.h"
 
-#define qelr_err(format, arg...) printf(format, ##arg)
-
 extern uint32_t qelr_dp_level;
 extern uint32_t qelr_dp_module;
 
@@ -72,14 +70,6 @@ enum DP_LEVEL {
 	QELR_LEVEL_NOTICE	= 0x2,
 	QELR_LEVEL_ERR		= 0x3,
 };
-
-#define DP_ERR(fd, fmt, ...)					\
-do {								\
-	fprintf(fd, "[%s:%d]" fmt,				\
-		__func__, __LINE__,				\
-		##__VA_ARGS__);					\
-	fflush(fd); \
-} while (0)
 
 struct qelr_buf {
 	void		*addr;

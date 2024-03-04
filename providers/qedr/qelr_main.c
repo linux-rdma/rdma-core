@@ -203,7 +203,7 @@ static struct verbs_context *qelr_alloc_context(struct ibv_device *ibdev,
 
 	ctx->srq_table = calloc(QELR_MAX_SRQ_ID, sizeof(*ctx->srq_table));
 	if (!ctx->srq_table) {
-		DP_ERR(ctx->dbg_fp, "failed to allocate srq_table\n");
+		verbs_err(&ctx->ibv_ctx, "failed to allocate srq_table\n");
 		goto cmd_err;
 	}
 
@@ -252,7 +252,7 @@ static struct verbs_context *qelr_alloc_context(struct ibv_device *ibdev,
 	if (ctx->db_addr == MAP_FAILED) {
 		int errsv = errno;
 
-		DP_ERR(ctx->dbg_fp,
+		verbs_err(&ctx->ibv_ctx,
 		       "alloc context: doorbell mapping failed resp.db_pa = %llx resp.db_size=%d context->cmd_fd=%d errno=%d\n",
 		       resp.db_pa, resp.db_size, cmd_fd, errsv);
 		goto free_srq_tbl;
@@ -264,7 +264,7 @@ free_srq_tbl:
 	free(ctx->srq_table);
 
 cmd_err:
-	qelr_err("%s: Failed to allocate context for device.\n", __func__);
+	verbs_err(&ctx->ibv_ctx, "Failed to allocate context for device.\n");
 	qelr_close_debug_file(ctx);
 	verbs_uninit_context(&ctx->ibv_ctx);
 	free(ctx);
