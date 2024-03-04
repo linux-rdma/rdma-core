@@ -64,9 +64,6 @@ static void qelr_free_context(struct ibv_context *ibctx);
 #define PCI_DEVICE_ID_QLOGIC_AHP        (0x8170)
 #define PCI_DEVICE_ID_QLOGIC_AHP_IOV    (0x8190)
 
-uint32_t qelr_dp_level;
-uint32_t qelr_dp_module;
-
 #define QHCA(d)                                                                \
 	VERBS_PCI_MATCH(PCI_VENDOR_ID_QLOGIC, PCI_DEVICE_ID_QLOGIC_##d, NULL)
 static const struct verbs_match_ent hca_table[] = {
@@ -128,51 +125,6 @@ static void qelr_uninit_device(struct verbs_device *verbs_device)
 	free(dev);
 }
 
-static void qelr_open_debug_file(struct qelr_devctx *ctx)
-{
-	char *env;
-
-	env = getenv("QELR_DEBUG_FILE");
-	if (!env) {
-		ctx->dbg_fp = stderr;
-		verbs_debug(&ctx->ibv_ctx, "Debug file opened: stderr\n");
-		return;
-	}
-
-	ctx->dbg_fp = fopen(env, "aw+");
-	if (!ctx->dbg_fp) {
-		fprintf(stderr, "Failed opening debug file %s, using stderr\n",
-			env);
-		ctx->dbg_fp = stderr;
-		verbs_debug(&ctx->ibv_ctx, "Debug file opened: stderr\n");
-		return;
-	}
-
-	verbs_debug(&ctx->ibv_ctx, "Debug file opened: %s\n", env);
-}
-
-static void qelr_close_debug_file(struct qelr_devctx *ctx)
-{
-	if (ctx->dbg_fp && ctx->dbg_fp != stderr)
-		fclose(ctx->dbg_fp);
-}
-
-static void qelr_set_debug_mask(void)
-{
-	char *env;
-
-	qelr_dp_level = QELR_LEVEL_NOTICE;
-	qelr_dp_module = 0;
-
-	env = getenv("QELR_DP_LEVEL");
-	if (env)
-		qelr_dp_level = atoi(env);
-
-	env = getenv("QELR_DP_MODULE");
-	if (env)
-		qelr_dp_module = atoi(env);
-}
-
 static struct verbs_context *qelr_alloc_context(struct ibv_device *ibdev,
 						int cmd_fd,
 						void *private_data)
@@ -187,9 +139,6 @@ static struct verbs_context *qelr_alloc_context(struct ibv_device *ibdev,
 		return NULL;
 
 	memset(&resp, 0, sizeof(resp));
-
-	qelr_open_debug_file(ctx);
-	qelr_set_debug_mask();
 
 	cmd.context_flags = QEDR_ALLOC_UCTX_DB_REC | QEDR_SUPPORT_DPM_SIZES;
 	cmd.context_flags |= QEDR_ALLOC_UCTX_EDPM_MODE;
@@ -265,7 +214,6 @@ free_srq_tbl:
 
 cmd_err:
 	verbs_err(&ctx->ibv_ctx, "Failed to allocate context for device.\n");
-	qelr_close_debug_file(ctx);
 	verbs_uninit_context(&ctx->ibv_ctx);
 	free(ctx);
 	return NULL;
@@ -279,7 +227,6 @@ static void qelr_free_context(struct ibv_context *ibctx)
 		munmap(ctx->db_addr, ctx->db_size);
 
 	free(ctx->srq_table);
-	qelr_close_debug_file(ctx);
 	verbs_uninit_context(&ctx->ibv_ctx);
 	free(ctx);
 }
