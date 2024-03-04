@@ -135,8 +135,7 @@ static void qelr_open_debug_file(struct qelr_devctx *ctx)
 	env = getenv("QELR_DEBUG_FILE");
 	if (!env) {
 		ctx->dbg_fp = stderr;
-		DP_VERBOSE(ctx->dbg_fp, QELR_MSG_INIT,
-			   "Debug file opened: stderr\n");
+		verbs_debug(&ctx->ibv_ctx, "Debug file opened: stderr\n");
 		return;
 	}
 
@@ -145,12 +144,11 @@ static void qelr_open_debug_file(struct qelr_devctx *ctx)
 		fprintf(stderr, "Failed opening debug file %s, using stderr\n",
 			env);
 		ctx->dbg_fp = stderr;
-		DP_VERBOSE(ctx->dbg_fp, QELR_MSG_INIT,
-			   "Debug file opened: stderr\n");
+		verbs_debug(&ctx->ibv_ctx, "Debug file opened: stderr\n");
 		return;
 	}
 
-	DP_VERBOSE(ctx->dbg_fp, QELR_MSG_INIT, "Debug file opened: %s\n", env);
+	verbs_debug(&ctx->ibv_ctx, "Debug file opened: %s\n", env);
 }
 
 static void qelr_close_debug_file(struct qelr_devctx *ctx)

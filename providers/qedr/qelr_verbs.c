@@ -132,7 +132,7 @@ struct ibv_pd *qelr_alloc_pd(struct ibv_context *context)
 
 	pd->pd_id = resp.pd_id;
 
-	DP_VERBOSE(cxt->dbg_fp, QELR_MSG_INIT, "Allocated pd: %d\n", pd->pd_id);
+	verbs_debug(&cxt->ibv_ctx, "Allocated pd: %d\n", pd->pd_id);
 
 	return &pd->ibv_pd;
 }
@@ -143,7 +143,7 @@ int qelr_dealloc_pd(struct ibv_pd *ibpd)
 	struct qelr_pd *pd = get_qelr_pd(ibpd);
 	struct qelr_devctx *cxt = get_qelr_ctx(ibpd->context);
 
-	DP_VERBOSE(cxt->dbg_fp, QELR_MSG_INIT, "Deallocated pd: %d\n",
+	verbs_debug(&cxt->ibv_ctx, "Deallocated pd: %d\n",
 		   pd->pd_id);
 
 	rc = ibv_cmd_dealloc_pd(ibpd);
@@ -177,7 +177,7 @@ struct ibv_mr *qelr_reg_mr(struct ibv_pd *ibpd, void *addr, size_t len,
 		return NULL;
 	}
 
-	DP_VERBOSE(cxt->dbg_fp, QELR_MSG_MR,
+	verbs_debug(&cxt->ibv_ctx,
 		   "MR Register %p completed successfully pd_id=%d addr=%p len=%zu access=%d lkey=%x rkey=%x\n",
 		   mr, pd->pd_id, addr, len, access, mr->vmr.ibv_mr.lkey,
 		   mr->vmr.ibv_mr.rkey);
@@ -194,7 +194,7 @@ int qelr_dereg_mr(struct verbs_mr *vmr)
 	if (rc)
 		return rc;
 
-	DP_VERBOSE(cxt->dbg_fp, QELR_MSG_MR,
+	verbs_debug(&cxt->ibv_ctx,
 		   "MR DERegister %p completed successfully\n", vmr);
 
 	free(vmr);
@@ -227,7 +227,7 @@ struct ibv_cq *qelr_create_cq(struct ibv_context *context, int cqe,
 	int chain_size;
 	int rc;
 
-	DP_VERBOSE(cxt->dbg_fp, QELR_MSG_CQ,
+	verbs_debug(&cxt->ibv_ctx,
 		   "create cq: context=%p, cqe=%d, channel=%p, comp_vector=%d\n",
 		   context, cqe, channel, comp_vector);
 
@@ -294,7 +294,7 @@ struct ibv_cq *qelr_create_cq(struct ibv_context *context, int cqe,
 	cq->latest_cqe = NULL; /* must be different from chain_toggle */
 	consume_cqe(cq);
 
-	DP_VERBOSE(cxt->dbg_fp, QELR_MSG_CQ,
+	verbs_debug(&cxt->ibv_ctx,
 		   "create cq: successfully created %p\n", cq);
 
 	return &cq->ibv_cq;
@@ -313,11 +313,11 @@ int qelr_destroy_cq(struct ibv_cq *ibv_cq)
 	struct qelr_cq *cq = get_qelr_cq(ibv_cq);
 	int rc;
 
-	DP_VERBOSE(cxt->dbg_fp, QELR_MSG_CQ, "destroy cq: %p\n", cq);
+	verbs_debug(&cxt->ibv_ctx, "destroy cq: %p\n", cq);
 
 	rc = ibv_cmd_destroy_cq(ibv_cq);
 	if (rc) {
-		DP_VERBOSE(cxt->dbg_fp, QELR_MSG_CQ,
+		verbs_debug(&cxt->ibv_ctx,
 		           "destroy cq: failed to destroy %p, got %d.\n", cq,
 			   rc);
 		return rc;
@@ -327,7 +327,7 @@ int qelr_destroy_cq(struct ibv_cq *ibv_cq)
 	if (cq->db_rec_map)
 		munmap(cq->db_rec_map, cxt->kernel_page_size);
 
-	DP_VERBOSE(cxt->dbg_fp, QELR_MSG_CQ,
+	verbs_debug(&cxt->ibv_ctx,
 		   "destroy cq: successfully destroyed %p\n", cq);
 
 	free(cq);
@@ -729,7 +729,7 @@ static inline int qelr_configure_qp(struct qelr_devctx *cxt, struct qelr_qp *qp,
 static inline void qelr_print_qp_init_attr(struct qelr_devctx *cxt,
 					   struct ibv_qp_init_attr_ex *attrx)
 {
-	DP_VERBOSE(cxt->dbg_fp, QELR_MSG_QP,
+	verbs_debug(&cxt->ibv_ctx,
 		   "create qp: send_cq=%p, recv_cq=%p, srq=%p, max_inline_data=%d, max_recv_sge=%d, max_recv_wr=%d, max_send_sge=%d, max_send_wr=%d, qp_type=%d, sq_sig_all=%d\n",
 		   attrx->send_cq, attrx->recv_cq, attrx->srq,
 		   attrx->cap.max_inline_data, attrx->cap.max_recv_sge,
@@ -781,7 +781,7 @@ static inline void qelr_basic_qp_config(struct qelr_qp *qp,
 
 static void qelr_print_ah_attr(struct qelr_devctx *cxt, struct ibv_ah_attr *attr)
 {
-	DP_VERBOSE(cxt->dbg_fp, QELR_MSG_QP,
+	verbs_debug(&cxt->ibv_ctx,
 		   "grh.dgid=[%#" PRIx64 ":%#" PRIx64 "], grh.flow_label=%d, grh.sgid_index=%d, grh.hop_limit=%d, grh.traffic_class=%d, dlid=%d, sl=%d, src_path_bits=%d, static_rate = %d, port_num=%d\n",
 		   be64toh(attr->grh.dgid.global.interface_id),
 		   be64toh(attr->grh.dgid.global.subnet_prefix),
@@ -793,7 +793,7 @@ static void qelr_print_ah_attr(struct qelr_devctx *cxt, struct ibv_ah_attr *attr
 
 static void qelr_print_qp_attr(struct qelr_devctx *cxt, struct ibv_qp_attr *attr)
 {
-	DP_VERBOSE(cxt->dbg_fp, QELR_MSG_QP,
+	verbs_debug(&cxt->ibv_ctx,
 		   "\tqp_state=%d\tcur_qp_state=%d\tpath_mtu=%d\tpath_mig_state=%d\tqkey=%d\trq_psn=%d\tsq_psn=%d\tdest_qp_num=%d\tqp_access_flags=%d\tmax_inline_data=%d\tmax_recv_sge=%d\tmax_recv_wr=%d\tmax_send_sge=%d\tmax_send_wr=%d\tpkey_index=%d\talt_pkey_index=%d\ten_sqd_async_notify=%d\tsq_draining=%d\tmax_rd_atomic=%d\tmax_dest_rd_atomic=%d\tmin_rnr_timer=%d\tport_num=%d\ttimeout=%d\tretry_cnt=%d\trnr_retry=%d\talt_port_num=%d\talt_timeout=%d\n",
 		   attr->qp_state, attr->cur_qp_state, attr->path_mtu,
 		   attr->path_mig_state, attr->qkey, attr->rq_psn, attr->sq_psn,
@@ -818,7 +818,7 @@ int qelr_query_qp(struct ibv_qp *qp, struct ibv_qp_attr *attr,
 	struct qelr_devctx *cxt = get_qelr_ctx(qp->context);
 	int rc;
 
-	DP_VERBOSE(cxt->dbg_fp, QELR_MSG_QP, "QP Query %p, attr_mask=0x%x\n",
+	verbs_debug(&cxt->ibv_ctx, "QP Query %p, attr_mask=0x%x\n",
 		   get_qelr_qp(qp), attr_mask);
 
 	rc = ibv_cmd_query_qp(qp, attr, attr_mask,
@@ -997,7 +997,7 @@ int qelr_modify_qp(struct ibv_qp *ibqp, struct ibv_qp_attr *attr,
 	union ibv_gid sgid, *p_dgid;
 	int rc;
 
-	DP_VERBOSE(cxt->dbg_fp, QELR_MSG_QP, "QP Modify %p, attr_mask=0x%x\n",
+	verbs_debug(&cxt->ibv_ctx, "QP Modify %p, attr_mask=0x%x\n",
 		   qp, attr_mask);
 
 	qelr_print_qp_attr(cxt, attr);
@@ -1010,7 +1010,7 @@ int qelr_modify_qp(struct ibv_qp *ibqp, struct ibv_qp_attr *attr,
 
 	if (attr_mask & IBV_QP_STATE) {
 		rc = qelr_update_qp_state(qp, attr->qp_state);
-		DP_VERBOSE(cxt->dbg_fp, QELR_MSG_QP,
+		verbs_debug(&cxt->ibv_ctx,
 			   "QP Modify state %d->%d, rc=%d\n", qp->state,
 			   attr->qp_state, rc);
 		if (rc) {
@@ -1031,7 +1031,7 @@ int qelr_modify_qp(struct ibv_qp *ibqp, struct ibv_qp_attr *attr,
 			p_dgid = &attr->ah_attr.grh.dgid;
 			qp->edpm_disabled = !memcmp(&sgid, p_dgid,
 						    sizeof(sgid));
-			DP_VERBOSE(cxt->dbg_fp, QELR_MSG_QP,
+			verbs_debug(&cxt->ibv_ctx,
 				   "QP Modify: %p, edpm_disabled=%d\n", qp,
 				   qp->edpm_disabled);
 		} else  {
@@ -1050,7 +1050,7 @@ int qelr_destroy_qp(struct ibv_qp *ibqp)
 	struct qelr_qp *qp = get_qelr_qp(ibqp);
 	int rc = 0;
 
-	DP_VERBOSE(cxt->dbg_fp, QELR_MSG_QP, "destroy qp: %p\n", qp);
+	verbs_debug(&cxt->ibv_ctx, "destroy qp: %p\n", qp);
 
 	rc = ibv_cmd_destroy_qp(ibqp);
 	if (rc) {
@@ -1068,8 +1068,7 @@ int qelr_destroy_qp(struct ibv_qp *ibqp)
 	if (qp->rq.db_rec_map)
 		munmap(qp->rq.db_rec_map, cxt->kernel_page_size);
 
-	DP_VERBOSE(cxt->dbg_fp, QELR_MSG_QP,
-		   "destroy cq: successfully destroyed %p\n", qp);
+	verbs_debug(&cxt->ibv_ctx, "destroy cq: successfully destroyed %p\n", qp);
 
 	free(qp);
 
@@ -1906,7 +1905,7 @@ int qelr_post_srq_recv(struct ibv_srq *ibsrq, struct ibv_recv_wr *wr,
 		hw_srq->wqe_prod++;
 		hw_srq->sge_prod++;
 
-		DP_VERBOSE(cxt->dbg_fp, QELR_MSG_SRQ,
+		verbs_debug(&cxt->ibv_ctx,
 			   "SRQ WR: SGEs: %d with wr_id[%d] = %" PRIx64 "\n",
 			    wr->num_sge, hw_srq->wqe_prod, wr->wr_id);
 
@@ -1917,7 +1916,7 @@ int qelr_post_srq_recv(struct ibv_srq *ibsrq, struct ibv_recv_wr *wr,
 			SRQ_SGE_SET(srq_sge, wr->sg_list[i].addr,
 				    wr->sg_list[i].length, wr->sg_list[i].lkey);
 
-			DP_VERBOSE(cxt->dbg_fp, QELR_MSG_SRQ,
+			verbs_debug(&cxt->ibv_ctx,
 				   "[%d]: len %d key %x addr %x:%x\n",
 				   i, srq_sge->length, srq_sge->l_key,
 				   srq_sge->addr.hi, srq_sge->addr.lo);
@@ -1939,7 +1938,7 @@ int qelr_post_srq_recv(struct ibv_srq *ibsrq, struct ibv_recv_wr *wr,
 		wr = wr->next;
 	}
 
-	DP_VERBOSE(cxt->dbg_fp, QELR_MSG_SRQ,
+	verbs_debug(&cxt->ibv_ctx,
 		   "POST: Elements in SRQ: %d\n",
 		   qelr_chain_get_elem_left_u32(chain));
 	pthread_spin_unlock(&srq->lock);
@@ -2095,7 +2094,7 @@ static int process_req(struct qelr_qp *qp, struct qelr_cq *cq, int num_entries,
 		switch (wc->opcode) {
 		case IBV_WC_RDMA_WRITE:
 			wc->byte_len = qp->wqe_wr_id[qp->sq.cons].bytes_len;
-			DP_VERBOSE(cxt->dbg_fp, QELR_MSG_CQ,
+			verbs_debug(&cxt->ibv_ctx,
 				   "POLL REQ CQ: IBV_WC_RDMA_WRITE byte_len=%d\n",
 				   qp->wqe_wr_id[qp->sq.cons].bytes_len);
 			break;
@@ -2107,7 +2106,7 @@ static int process_req(struct qelr_qp *qp, struct qelr_cq *cq, int num_entries,
 		case IBV_WC_SEND:
 		case IBV_WC_BIND_MW:
 			wc->byte_len = qp->wqe_wr_id[qp->sq.cons].bytes_len;
-			DP_VERBOSE(cxt->dbg_fp, QELR_MSG_CQ,
+			verbs_debug(&cxt->ibv_ctx,
 				   "POLL REQ CQ: IBV_WC_RDMA_READ / IBV_WC_SEND\n");
 			break;
 		default:
@@ -2672,7 +2671,7 @@ qelr_create_xrc_srq(struct ibv_context *context,
 
 	cxt->srq_table[resp.srq_id] = srq;
 
-	DP_VERBOSE(cxt->dbg_fp, QELR_MSG_SRQ,
+	verbs_debug(&cxt->ibv_ctx,
 		   "create srq_ex: successfully created %p.\n", srq);
 
 	return ibv_srq;
@@ -2758,7 +2757,7 @@ static struct ibv_qp *create_qp(struct ibv_context *context,
 	if (rc)
 		goto err2;
 
-	DP_VERBOSE(cxt->dbg_fp, QELR_MSG_QP,
+	verbs_debug(&cxt->ibv_ctx,
 		   "create qp: successfully created %p. handle_hi=%x handle_lo=%x\n",
 		   qp, req.qp_handle_hi, req.qp_handle_lo);
 
