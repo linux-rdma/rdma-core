@@ -29,6 +29,7 @@ usr/lib/*/pkgconfig/libmana.pc
 usr/lib/*/pkgconfig/libmlx4.pc
 usr/lib/*/pkgconfig/libmlx5.pc
 usr/share/man/man3/efadv_*.3
+usr/share/man/man3/hnsdv_*.3
 usr/share/man/man3/ibv_*
 usr/share/man/man3/mbps_to_ibv_rate.3
 usr/share/man/man3/manadv_*.3
@@ -36,6 +37,7 @@ usr/share/man/man3/mlx4dv_*.3
 usr/share/man/man3/mlx5dv_*.3
 usr/share/man/man3/mult_to_ibv_rate.3
 usr/share/man/man7/efadv.7
+usr/share/man/man7/hnsdv.7
 usr/share/man/man7/manadv.7
 usr/share/man/man7/mlx4dv.7
 usr/share/man/man7/mlx5dv.7
