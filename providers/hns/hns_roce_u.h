@@ -158,6 +158,7 @@ struct hns_roce_device {
 	int				page_size;
 	const struct hns_roce_u_hw	*u_hw;
 	int				hw_version;
+	uint8_t                         congest_cap;
 };
 
 struct hns_roce_buf {

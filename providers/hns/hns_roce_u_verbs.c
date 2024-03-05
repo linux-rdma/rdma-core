@@ -786,7 +786,7 @@ int hns_roce_u_destroy_srq(struct ibv_srq *ibv_srq)
 }
 
 enum {
-	HNSDV_QP_SUP_COMP_MASK = 0,
+	HNSDV_QP_SUP_COMP_MASK = HNSDV_QP_INIT_ATTR_MASK_QP_CONGEST_TYPE,
 };
 
 static int check_hnsdv_qp_attr(struct hns_roce_context *ctx,
@@ -1209,10 +1209,33 @@ static int hns_roce_store_qp(struct hns_roce_context *ctx,
 	return 0;
 }
 
+static int to_cmd_cong_type(uint8_t cong_type, __u64 *cmd_cong_type)
+{
+	switch (cong_type) {
+	case HNSDV_QP_CREATE_ENABLE_DCQCN:
+		*cmd_cong_type = HNS_ROCE_CREATE_QP_FLAGS_DCQCN;
+		break;
+	case HNSDV_QP_CREATE_ENABLE_LDCP:
+		*cmd_cong_type = HNS_ROCE_CREATE_QP_FLAGS_LDCP;
+		break;
+	case HNSDV_QP_CREATE_ENABLE_HC3:
+		*cmd_cong_type = HNS_ROCE_CREATE_QP_FLAGS_HC3;
+		break;
+	case HNSDV_QP_CREATE_ENABLE_DIP:
+		*cmd_cong_type = HNS_ROCE_CREATE_QP_FLAGS_DIP;
+		break;
+	default:
+		return EINVAL;
+	}
+
+	return 0;
+}
+
 static int qp_exec_create_cmd(struct ibv_qp_init_attr_ex *attr,
 			      struct hns_roce_qp *qp,
 			      struct hns_roce_context *ctx,
-			      uint64_t *dwqe_mmap_key)
+			      uint64_t *dwqe_mmap_key,
+			      struct hnsdv_qp_init_attr *hns_attr)
 {
 	struct hns_roce_create_qp_ex_resp resp_ex = {};
 	struct hns_roce_create_qp_ex cmd_ex = {};
@@ -1223,6 +1246,15 @@ static int qp_exec_create_cmd(struct ibv_qp_init_attr_ex *attr,
 	cmd_ex.buf_addr = (uintptr_t)qp->buf.buf;
 	cmd_ex.log_sq_stride = qp->sq.wqe_shift;
 	cmd_ex.log_sq_bb_count = hr_ilog32(qp->sq.wqe_cnt);
+
+	if (hns_attr &&
+	    hns_attr->comp_mask & HNSDV_QP_INIT_ATTR_MASK_QP_CONGEST_TYPE) {
+		ret = to_cmd_cong_type(hns_attr->congest_type,
+				       &cmd_ex.cong_type_flags);
+		if (ret)
+			return ret;
+		cmd_ex.comp_mask |= HNS_ROCE_CREATE_QP_MASK_CONGEST_TYPE;
+	}
 
 	ret = ibv_cmd_create_qp_ex2(&ctx->ibv_ctx.context, &qp->verbs_qp, attr,
 				    &cmd_ex.ibv_cmd, sizeof(cmd_ex),
@@ -1322,7 +1354,7 @@ static struct ibv_qp *create_qp(struct ibv_context *ibv_ctx,
 	if (ret)
 		goto err_buf;
 
-	ret = qp_exec_create_cmd(attr, qp, context, &dwqe_mmap_key);
+	ret = qp_exec_create_cmd(attr, qp, context, &dwqe_mmap_key, hns_attr);
 	if (ret)
 		goto err_cmd;
 
@@ -1403,9 +1435,9 @@ struct ibv_qp *hnsdv_create_qp(struct ibv_context *context,
 int hnsdv_query_device(struct ibv_context *context,
 		       struct hnsdv_context *attrs_out)
 {
-	struct hns_roce_context *ctx = context ? to_hr_ctx(context) : NULL;
+	struct hns_roce_device *hr_dev = to_hr_dev(context->device);
 
-	if (!ctx || !attrs_out)
+	if (!hr_dev || !attrs_out)
 		return EINVAL;
 
 	if (!is_hns_dev(context->device)) {
@@ -1413,6 +1445,9 @@ int hnsdv_query_device(struct ibv_context *context,
 		return EOPNOTSUPP;
 	}
 	memset(attrs_out, 0, sizeof(*attrs_out));
+
+	attrs_out->comp_mask |= HNSDV_CONTEXT_MASK_CONGEST_TYPE;
+	attrs_out->congest_type = hr_dev->congest_cap;
 
 	return 0;
 }

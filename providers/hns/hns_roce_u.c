@@ -135,6 +135,7 @@ static int set_context_attr(struct hns_roce_device *hr_dev,
 		return EIO;
 
 	hr_dev->hw_version = dev_attrs.hw_ver;
+	hr_dev->congest_cap = resp->congest_type;
 	context->max_qp_wr = dev_attrs.max_qp_wr;
 	context->max_sge = dev_attrs.max_sge;
 	context->max_cqe = dev_attrs.max_cqe;
