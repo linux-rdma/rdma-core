@@ -786,6 +786,25 @@ int hns_roce_u_destroy_srq(struct ibv_srq *ibv_srq)
 }
 
 enum {
+	HNSDV_QP_SUP_COMP_MASK = 0,
+};
+
+static int check_hnsdv_qp_attr(struct hns_roce_context *ctx,
+			       struct hnsdv_qp_init_attr *hns_attr)
+{
+	if (!hns_attr)
+		return 0;
+
+	if (!check_comp_mask(hns_attr->comp_mask, HNSDV_QP_SUP_COMP_MASK)) {
+		verbs_err(&ctx->ibv_ctx, "invalid hnsdv comp_mask 0x%x.\n",
+			  hns_attr->comp_mask);
+		return EINVAL;
+	}
+
+	return 0;
+}
+
+enum {
 	CREATE_QP_SUP_COMP_MASK = IBV_QP_INIT_ATTR_PD | IBV_QP_INIT_ATTR_XRCD |
 				  IBV_QP_INIT_ATTR_SEND_OPS_FLAGS,
 };
@@ -866,11 +885,16 @@ static int verify_qp_create_cap(struct hns_roce_context *ctx,
 }
 
 static int verify_qp_create_attr(struct hns_roce_context *ctx,
-				 struct ibv_qp_init_attr_ex *attr)
+				 struct ibv_qp_init_attr_ex *attr,
+				 struct hnsdv_qp_init_attr *hns_attr)
 {
 	int ret;
 
 	ret = check_qp_create_mask(ctx, attr);
+	if (ret)
+		return ret;
+
+	ret = check_hnsdv_qp_attr(ctx, hns_attr);
 	if (ret)
 		return ret;
 
@@ -1274,14 +1298,15 @@ static int mmap_dwqe(struct ibv_context *ibv_ctx, struct hns_roce_qp *qp,
 }
 
 static struct ibv_qp *create_qp(struct ibv_context *ibv_ctx,
-				struct ibv_qp_init_attr_ex *attr)
+				struct ibv_qp_init_attr_ex *attr,
+				struct hnsdv_qp_init_attr *hns_attr)
 {
 	struct hns_roce_context *context = to_hr_ctx(ibv_ctx);
 	struct hns_roce_qp *qp;
 	uint64_t dwqe_mmap_key;
 	int ret;
 
-	ret = verify_qp_create_attr(context, attr);
+	ret = verify_qp_create_attr(context, attr, hns_attr);
 	if (ret)
 		goto err;
 
@@ -1345,7 +1370,7 @@ struct ibv_qp *hns_roce_u_create_qp(struct ibv_pd *pd,
 	attrx.comp_mask = IBV_QP_INIT_ATTR_PD;
 	attrx.pd = pd;
 
-	qp = create_qp(pd->context, &attrx);
+	qp = create_qp(pd->context, &attrx, NULL);
 	if (qp)
 		memcpy(attr, &attrx, sizeof(*attr));
 
@@ -1355,7 +1380,41 @@ struct ibv_qp *hns_roce_u_create_qp(struct ibv_pd *pd,
 struct ibv_qp *hns_roce_u_create_qp_ex(struct ibv_context *context,
 				       struct ibv_qp_init_attr_ex *attr)
 {
-	return create_qp(context, attr);
+	return create_qp(context, attr, NULL);
+}
+
+struct ibv_qp *hnsdv_create_qp(struct ibv_context *context,
+			       struct ibv_qp_init_attr_ex *qp_attr,
+			       struct hnsdv_qp_init_attr *hns_attr)
+{
+	if (!context || !qp_attr) {
+		errno = EINVAL;
+		return NULL;
+	}
+
+	if (!is_hns_dev(context->device)) {
+		errno = EOPNOTSUPP;
+		return NULL;
+	}
+
+	return create_qp(context, qp_attr, hns_attr);
+}
+
+int hnsdv_query_device(struct ibv_context *context,
+		       struct hnsdv_context *attrs_out)
+{
+	struct hns_roce_context *ctx = context ? to_hr_ctx(context) : NULL;
+
+	if (!ctx || !attrs_out)
+		return EINVAL;
+
+	if (!is_hns_dev(context->device)) {
+		verbs_err(verbs_get_ctx(context), "not a HNS RoCE device!\n");
+		return EOPNOTSUPP;
+	}
+	memset(attrs_out, 0, sizeof(*attrs_out));
+
+	return 0;
 }
 
 struct ibv_qp *hns_roce_u_open_qp(struct ibv_context *context,
