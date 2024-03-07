@@ -174,6 +174,7 @@ struct bnxt_re_srq {
 };
 
 struct bnxt_re_joint_queue {
+	struct bnxt_re_context *cntx;
 	struct bnxt_re_queue *hwque;
 	struct bnxt_re_wrid *swque;
 	uint32_t start_idx;
@@ -205,7 +206,7 @@ struct bnxt_re_qp {
 	uint8_t push_st_en;
 	uint16_t max_push_sz;
 	uint8_t qptyp;
-	/* irdord? */
+	struct bnxt_re_mem *mem;
 };
 
 struct bnxt_re_mr {

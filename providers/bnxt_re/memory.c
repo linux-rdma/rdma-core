@@ -38,6 +38,7 @@
  */
 
 #include <string.h>
+#include <malloc.h>
 #include <sys/mman.h>
 #include <util/util.h>
 
@@ -74,4 +75,65 @@ void bnxt_re_free_aligned(struct bnxt_re_queue *que)
 		munmap(que->va, que->bytes);
 		que->bytes = 0;
 	}
+}
+
+void bnxt_re_free_mem(struct bnxt_re_mem *mem)
+{
+	if (mem->va_head) {
+		ibv_dofork_range(mem->va_head, mem->size);
+		munmap(mem->va_head, mem->size);
+	}
+
+	free(mem);
+}
+
+void *bnxt_re_alloc_mem(size_t size, uint32_t pg_size)
+{
+	struct bnxt_re_mem *mem;
+
+	mem = calloc(1, sizeof(*mem));
+	if (!mem)
+		return NULL;
+
+	size = align(size, pg_size);
+	mem->size = size;
+	mem->va_head = mmap(NULL, size, PROT_READ | PROT_WRITE,
+			    MAP_PRIVATE | MAP_ANONYMOUS, -1, 0);
+	if (mem->va_head == MAP_FAILED)
+		goto bail;
+
+	if (ibv_dontfork_range(mem->va_head, size))
+		goto unmap;
+
+	mem->head = 0;
+	mem->tail = 0;
+	mem->va_tail = (void *)((char *)mem->va_head + size);
+	return mem;
+unmap:
+	munmap(mem->va_head, size);
+bail:
+	free(mem);
+	return NULL;
+}
+
+void *bnxt_re_get_obj(struct bnxt_re_mem *mem, size_t req)
+{
+	void *va;
+
+	if ((mem->size - mem->tail - req) < mem->head)
+		return NULL;
+	mem->tail += req;
+	va = (void *)((char *)mem->va_tail - mem->tail);
+	return va;
+}
+
+void *bnxt_re_get_ring(struct bnxt_re_mem *mem, size_t req)
+{
+	void *va;
+
+	if ((mem->head + req) > (mem->size - mem->tail))
+		return NULL;
+	va = (void *)((char *)mem->va_head + mem->head);
+	mem->head += req;
+	return va;
 }
