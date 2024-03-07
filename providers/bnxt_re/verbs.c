@@ -1095,75 +1095,6 @@ static int bnxt_re_check_qp_limits(struct bnxt_re_context *cntx,
 	return 0;
 }
 
-static void bnxt_re_free_queue_ptr(struct bnxt_re_qp *qp)
-{
-	if (qp->jrqq) {
-		free(qp->jrqq->hwque);
-		free(qp->jrqq);
-	}
-	if (qp->jsqq) {
-		free(qp->jsqq->hwque);
-		free(qp->jsqq);
-	}
-}
-
-static int bnxt_re_alloc_queue_ptr(struct bnxt_re_qp *qp,
-				   struct ibv_qp_init_attr *attr)
-{
-	int rc = -ENOMEM;
-
-	qp->jsqq = calloc(1, sizeof(struct bnxt_re_joint_queue));
-	if (!qp->jsqq)
-		return rc;
-	qp->jsqq->hwque = calloc(1, sizeof(struct bnxt_re_queue));
-	if (!qp->jsqq->hwque)
-		goto fail;
-
-	if (!attr->srq) {
-		qp->jrqq = calloc(1, sizeof(struct bnxt_re_joint_queue));
-		if (!qp->jrqq)
-			goto fail;
-
-		qp->jrqq->hwque = calloc(1, sizeof(struct bnxt_re_queue));
-		if (!qp->jrqq->hwque)
-			goto fail;
-	}
-	return 0;
-fail:
-	bnxt_re_free_queue_ptr(qp);
-	return rc;
-}
-
-static void bnxt_re_free_queues(struct bnxt_re_qp *qp)
-{
-	if (qp->jrqq) {
-		free(qp->jrqq->swque);
-		pthread_spin_destroy(&qp->jrqq->hwque->qlock);
-		bnxt_re_free_aligned(qp->jrqq->hwque);
-	}
-
-	free(qp->jsqq->swque);
-	pthread_spin_destroy(&qp->jsqq->hwque->qlock);
-	bnxt_re_free_aligned(qp->jsqq->hwque);
-}
-
-static int bnxt_re_alloc_init_swque(struct bnxt_re_joint_queue *jqq, int nwr)
-{
-	int indx;
-
-	jqq->swque = calloc(nwr, sizeof(struct bnxt_re_wrid));
-	if (!jqq->swque)
-		return -ENOMEM;
-	jqq->start_idx = 0;
-	jqq->last_idx = nwr - 1;
-	for (indx = 0; indx < nwr; indx++)
-		jqq->swque[indx].next_idx = indx + 1;
-	jqq->swque[jqq->last_idx].next_idx = 0;
-	jqq->last_idx = 0;
-
-	return 0;
-}
-
 static int bnxt_re_calc_wqe_sz(int nsge)
 {
 	/* This is used for both sq and rq. In case hdr size differs
@@ -1172,9 +1103,8 @@ static int bnxt_re_calc_wqe_sz(int nsge)
 	return sizeof(struct bnxt_re_sge) * nsge + bnxt_re_get_sqe_hdr_sz();
 }
 
-static int bnxt_re_get_rq_slots(struct bnxt_re_dev *rdev,
-				struct bnxt_re_qp *qp, uint32_t nrwr,
-				uint32_t nsge)
+static int bnxt_re_get_rq_slots(struct bnxt_re_dev *rdev, uint8_t qpmode,
+				uint32_t nrwr, uint32_t nsge, uint32_t *esz)
 {
 	uint32_t max_wqesz;
 	uint32_t wqe_size;
@@ -1184,24 +1114,25 @@ static int bnxt_re_get_rq_slots(struct bnxt_re_dev *rdev,
 	stride = sizeof(struct bnxt_re_sge);
 	max_wqesz = bnxt_re_calc_wqe_sz(rdev->devattr.max_sge);
 
+	if (qpmode == BNXT_RE_WQE_MODE_STATIC)
+		nsge = BNXT_RE_STATIC_WQE_MAX_SGE;
+
 	wqe_size = bnxt_re_calc_wqe_sz(nsge);
 	if (wqe_size > max_wqesz)
 		return -EINVAL;
 
-	if (qp->qpmode == BNXT_RE_WQE_MODE_STATIC)
-		wqe_size = bnxt_re_calc_wqe_sz(6);
-
-	qp->jrqq->hwque->esize = wqe_size;
-	qp->jrqq->hwque->max_slots = wqe_size / stride;
+	if (esz)
+		*esz = wqe_size;
 
 	slots = (nrwr * wqe_size) / stride;
 	return slots;
 }
 
 static int bnxt_re_get_sq_slots(struct bnxt_re_dev *rdev,
-				struct bnxt_re_qp *qp, uint32_t nswr,
-				uint32_t nsge, uint32_t *ils)
+				uint8_t qpmode, uint32_t nswr,
+				uint32_t nsge, uint32_t ils, uint32_t *esize)
 {
+	uint32_t align_bytes;
 	uint32_t max_wqesz;
 	uint32_t wqe_size;
 	uint32_t cal_ils;
@@ -1212,8 +1143,11 @@ static int bnxt_re_get_sq_slots(struct bnxt_re_dev *rdev,
 
 	hdr_sz = bnxt_re_get_sqe_hdr_sz();
 	stride = sizeof(struct bnxt_re_sge);
+	align_bytes = hdr_sz;
+	if (qpmode == BNXT_RE_WQE_MODE_VARIABLE)
+		align_bytes = stride;
 	max_wqesz = bnxt_re_calc_wqe_sz(rdev->devattr.max_sge);
-	ilsize = align(*ils, hdr_sz);
+	ilsize = align(ils, align_bytes);
 
 	wqe_size = bnxt_re_calc_wqe_sz(nsge);
 	if (ilsize) {
@@ -1224,133 +1158,246 @@ static int bnxt_re_get_sq_slots(struct bnxt_re_dev *rdev,
 	if (wqe_size > max_wqesz)
 		return -EINVAL;
 
-	if (qp->qpmode == BNXT_RE_WQE_MODE_STATIC)
+	if (qpmode == BNXT_RE_WQE_MODE_STATIC)
 		wqe_size = bnxt_re_calc_wqe_sz(6);
 
-	if (*ils)
-		*ils = wqe_size - hdr_sz;
-	qp->jsqq->hwque->esize = wqe_size;
-	qp->jsqq->hwque->max_slots = (qp->qpmode == BNXT_RE_WQE_MODE_STATIC) ?
-		wqe_size / stride : 1;
+	if (esize)
+		*esize = wqe_size;
 	slots = (nswr * wqe_size) / stride;
 	return slots;
 }
 
-static int bnxt_re_alloc_queues(struct bnxt_re_context *cntx,
-				struct bnxt_re_qp *qp,
-				struct ibv_qp_init_attr *attr,
-				uint32_t pg_size)
+static int bnxt_re_get_sqmem_size(struct bnxt_re_context *cntx,
+				  struct ibv_qp_init_attr *attr,
+				  struct bnxt_re_qattr *qattr)
 {
-	struct bnxt_re_psns_ext *psns_ext;
-	struct bnxt_re_wrid *swque;
-	struct bnxt_re_queue *que;
-	struct bnxt_re_psns *psns;
-	uint32_t nswr, diff;
-	uint32_t psn_depth;
-	uint32_t psn_size;
-	uint32_t nsge;
-	int ret, indx;
+	uint32_t nsge, nswr, diff = 0;
+	size_t bytes = 0;
+	uint32_t npsn;
+	uint32_t ils;
+	uint8_t mode;
+	uint32_t esz;
 	int nslots;
 
-	que = qp->jsqq->hwque;
-	diff = (qp->qpmode == BNXT_RE_WQE_MODE_VARIABLE) ?
-		0 : BNXT_RE_FULL_FLAG_DELTA;
-	nswr = bnxt_re_init_depth(attr->cap.max_send_wr + 1 + diff, cntx->comp_mask);
+	mode = cntx->wqe_mode & BNXT_RE_WQE_MODE_VARIABLE;
 	nsge = attr->cap.max_send_sge;
-	if (nsge % 2)
-		nsge++;
-	nslots = bnxt_re_get_sq_slots(cntx->rdev, qp, nswr, nsge,
-				      &attr->cap.max_inline_data);
+	diff = BNXT_RE_FULL_FLAG_DELTA;
+	nswr = attr->cap.max_send_wr + 1 + diff;
+	nswr = bnxt_re_init_depth(nswr, cntx->comp_mask);
+	ils = attr->cap.max_inline_data;
+	nslots = bnxt_re_get_sq_slots(cntx->rdev, mode, nswr,
+				      nsge, ils, &esz);
 	if (nslots < 0)
-		 return nslots;
-	que->stride = sizeof(struct bnxt_re_sge);
-	que->depth = nslots;
-	que->diff = (diff * que->esize) / que->stride;
+		return nslots;
+	npsn = bnxt_re_get_npsn(mode, nswr, nslots);
+	if (BNXT_RE_HW_RETX(cntx))
+		npsn = roundup_pow_of_two(npsn);
 
-	que->pad = (que->va + que->depth * que->stride);
-	/* psn_depth extra entries of size que->stride */
-	psn_size = bnxt_re_get_psne_size(qp->cntx);
-	psn_depth = (nswr * psn_size) / que->stride;
-	que->pad_stride_log2 = (uint32_t)ilog32(psn_size);
-	if ((nswr * psn_size) % que->stride)
-		psn_depth++;
-	que->depth += psn_depth;
+	qattr->nwr = nswr;
+	qattr->slots = nslots;
+	qattr->esize = esz;
+	if (mode)
+		qattr->sw_nwr = nslots;
+	else
+		qattr->sw_nwr = nswr;
+
+	bytes = nslots * sizeof(struct bnxt_re_sge); /* ring */
+	bytes += npsn * bnxt_re_get_psne_size(cntx); /* psn */
+	qattr->sz_ring = align(bytes, cntx->rdev->pg_size);
+	qattr->sz_shad = qattr->sw_nwr * sizeof(struct bnxt_re_wrid); /* shadow */
+	return 0;
+}
+
+static int bnxt_re_get_rqmem_size(struct bnxt_re_context *cntx,
+				  struct ibv_qp_init_attr *attr,
+				  struct bnxt_re_qattr *qattr)
+{
+	uint32_t nrwr, nsge;
+	size_t bytes = 0;
+	uint32_t esz;
+	int nslots;
+
+	nsge = attr->cap.max_recv_sge;
+	nrwr = attr->cap.max_recv_wr + 1;
+	nrwr = bnxt_re_init_depth(nrwr, cntx->comp_mask);
+	nslots = bnxt_re_get_rq_slots(cntx->rdev, cntx->wqe_mode,
+				      nrwr, nsge, &esz);
+	if (nslots < 0)
+		return nslots;
+	qattr->nwr = nrwr;
+	qattr->slots = nslots;
+	qattr->esize = esz;
+	qattr->sw_nwr = nrwr;
+
+	bytes = nslots * sizeof(struct bnxt_re_sge);
+	qattr->sz_ring = align(bytes, cntx->rdev->pg_size);
+	qattr->sz_shad = nrwr * sizeof(struct bnxt_re_wrid);
+	return 0;
+}
+
+static int bnxt_re_get_qpmem_size(struct bnxt_re_context *cntx,
+				  struct ibv_qp_init_attr *attr,
+				  struct bnxt_re_qattr *qattr)
+{
+	int size = 0;
+	int tmp;
+	int rc;
+
+	size = sizeof(struct bnxt_re_qp);
+	tmp = sizeof(struct bnxt_re_joint_queue);
+	tmp += sizeof(struct bnxt_re_queue);
+	size += tmp;
+
+	rc = bnxt_re_get_sqmem_size(cntx, attr, &qattr[BNXT_RE_QATTR_SQ_INDX]);
+	if (rc < 0)
+		return -EINVAL;
+	size += qattr[BNXT_RE_QATTR_SQ_INDX].sz_ring;
+	size += qattr[BNXT_RE_QATTR_SQ_INDX].sz_shad;
+
+	if (!attr->srq) {
+		tmp = sizeof(struct bnxt_re_joint_queue);
+		tmp += sizeof(struct bnxt_re_queue);
+		size += tmp;
+		rc = bnxt_re_get_rqmem_size(cntx, attr,
+					    &qattr[BNXT_RE_QATTR_RQ_INDX]);
+		if (rc < 0)
+			return -EINVAL;
+		size += qattr[BNXT_RE_QATTR_RQ_INDX].sz_ring;
+		size += qattr[BNXT_RE_QATTR_RQ_INDX].sz_shad;
+	}
+	return size;
+}
+
+static void *bnxt_re_alloc_qpslab(struct bnxt_re_context *cntx,
+				  struct ibv_qp_init_attr *attr,
+				  struct bnxt_re_qattr *qattr)
+{
+	int bytes;
+
+	bytes = bnxt_re_get_qpmem_size(cntx, attr, qattr);
+	if (bytes < 0)
+		return NULL;
+	return bnxt_re_alloc_mem(bytes, cntx->rdev->pg_size);
+}
+
+static int bnxt_re_alloc_queue_ptr(struct bnxt_re_qp *qp,
+				   struct ibv_qp_init_attr *attr)
+{
+	int rc = -ENOMEM;
+	int jqsz, qsz;
+
+	jqsz = sizeof(struct bnxt_re_joint_queue);
+	qsz = sizeof(struct bnxt_re_queue);
+	qp->jsqq = bnxt_re_get_obj(qp->mem, jqsz);
+	if (!qp->jsqq)
+		return rc;
+	qp->jsqq->hwque = bnxt_re_get_obj(qp->mem, qsz);
+	if (!qp->jsqq->hwque)
+		goto fail;
+
+	if (!attr->srq) {
+		qp->jrqq = bnxt_re_get_obj(qp->mem, jqsz);
+		if (!qp->jrqq)
+			goto fail;
+		qp->jrqq->hwque = bnxt_re_get_obj(qp->mem, qsz);
+		if (!qp->jrqq->hwque)
+			goto fail;
+	}
+
+	return 0;
+fail:
+	return rc;
+}
+
+static int bnxt_re_alloc_init_swque(struct bnxt_re_joint_queue *jqq,
+				    struct bnxt_re_mem *mem,
+				    struct bnxt_re_qattr *qattr)
+{
+	int indx;
+
+	jqq->swque = bnxt_re_get_obj(mem, qattr->sz_shad);
+	if (!jqq->swque)
+		return -ENOMEM;
+	jqq->start_idx = 0;
+	jqq->last_idx = qattr->sw_nwr - 1;
+	for (indx = 0; indx < qattr->sw_nwr; indx++)
+		jqq->swque[indx].next_idx = indx + 1;
+	jqq->swque[jqq->last_idx].next_idx = 0;
+	jqq->last_idx = 0;
+
+	return 0;
+}
+
+static int bnxt_re_alloc_queues(struct bnxt_re_qp *qp,
+				struct ibv_qp_init_attr *attr,
+				struct bnxt_re_qattr *qattr)
+{
+	struct bnxt_re_queue *que;
+	uint32_t psn_size;
+	uint8_t indx;
+	int ret;
+
+	indx = BNXT_RE_QATTR_SQ_INDX;
+	que = qp->jsqq->hwque;
+	que->stride = sizeof(struct bnxt_re_sge);
+	que->depth = qattr[indx].slots;
+	que->diff = (BNXT_RE_FULL_FLAG_DELTA * qattr[indx].esize) /
+		     que->stride;
+	que->va = bnxt_re_get_ring(qp->mem, qattr[indx].sz_ring);
+	if (!que->va)
+		return -ENOMEM;
 	/* PSN-search memory is allocated without checking for
-	 * QP-Type. Kenrel driver do not map this memory if it
+	 * QP-Type. Kernel driver do not map this memory if it
 	 * is UD-qp. UD-qp use this memory to maintain WC-opcode.
 	 * See definition of bnxt_re_fill_psns() for the use case.
 	 */
-	ret = bnxt_re_alloc_aligned(que, pg_size);
+	que->pad = (que->va + que->depth * que->stride);
+	psn_size = bnxt_re_get_psne_size(qp->cntx);
+	que->pad_stride_log2 = ilog32(psn_size);
+
+	ret = bnxt_re_alloc_init_swque(qp->jsqq, qp->mem, &qattr[indx]);
 	if (ret)
-		return ret;
-	/* exclude psns depth*/
-	que->depth -= psn_depth;
-	/* start of spsn space sizeof(struct bnxt_re_psns) each. */
-	psns = (que->va + que->stride * que->depth);
-	psns_ext = (struct bnxt_re_psns_ext *)psns;
-
-	ret = bnxt_re_alloc_init_swque(qp->jsqq, nswr);
-	if (ret) {
-		ret = -ENOMEM;
 		goto fail;
-	}
 
-	swque = qp->jsqq->swque;
-	for (indx = 0 ; indx < nswr; indx++, psns++)
-		swque[indx].psns = psns;
-	if (qp->cctx->gen_p5_p7) {
-		for (indx = 0 ; indx < nswr; indx++, psns_ext++) {
-			swque[indx].psns_ext = psns_ext;
-			swque[indx].psns = (struct bnxt_re_psns *)psns_ext;
-		}
-	}
+	qp->cap.max_swr = qattr[indx].sw_nwr;
+	qp->jsqq->cntx = qp->cntx;
+	que->dbtail = (qp->qpmode == BNXT_RE_WQE_MODE_VARIABLE) ?
+		       &que->tail : &qp->jsqq->start_idx;
+
 	/* Init and adjust MSN table size according to qp mode */
 	if (!BNXT_RE_HW_RETX(qp->cntx))
 		goto skip_msn;
 	que->msn = 0;
 	que->msn_tbl_sz = 0;
 	if (qp->qpmode & BNXT_RE_WQE_MODE_VARIABLE)
-		que->msn_tbl_sz = roundup_pow_of_two(nslots) / 2;
+		que->msn_tbl_sz = roundup_pow_of_two(qattr->slots) / 2;
 	else
-		que->msn_tbl_sz = roundup_pow_of_two(nswr);
+		que->msn_tbl_sz = roundup_pow_of_two(qattr->nwr);
 skip_msn:
-
-	qp->cap.max_swr = nswr;
 	pthread_spin_init(&que->qlock, PTHREAD_PROCESS_PRIVATE);
 
-	que->dbtail = (qp->qpmode == BNXT_RE_WQE_MODE_VARIABLE) ?
-		       &que->tail : &qp->jsqq->start_idx;
-
 	if (qp->jrqq) {
+		indx = BNXT_RE_QATTR_RQ_INDX;
 		que = qp->jrqq->hwque;
-		nswr = bnxt_re_init_depth(attr->cap.max_recv_wr + 1, cntx->comp_mask);
-		nsge = attr->cap.max_recv_sge;
-		if (nsge % 2)
-			nsge++;
-		nslots = bnxt_re_get_rq_slots(cntx->rdev, qp, nswr, nsge);
-		if (nslots < 0) {
-			ret = nslots;
-			goto fail;
-		}
 		que->stride = sizeof(struct bnxt_re_sge);
-		que->depth = nslots;
-		que->diff = 0;
+		que->depth = qattr[indx].slots;
+		que->max_slots = qattr[indx].esize / que->stride;
 		que->dbtail = &qp->jrqq->start_idx;
-
-		ret = bnxt_re_alloc_aligned(que, pg_size);
-		if (ret)
-			goto fail;
+		que->va = bnxt_re_get_ring(qp->mem, qattr[indx].sz_ring);
+		if (!que->va)
+			return -ENOMEM;
 		/* For RQ only bnxt_re_wri.wrid is used. */
-		ret = bnxt_re_alloc_init_swque(qp->jrqq, nswr);
+		ret = bnxt_re_alloc_init_swque(qp->jrqq, qp->mem, &qattr[indx]);
 		if (ret)
 			goto fail;
+
 		pthread_spin_init(&que->qlock, PTHREAD_PROCESS_PRIVATE);
-		qp->cap.max_rwr = nswr;
+		qp->cap.max_rwr = qattr[indx].nwr;
+		qp->jrqq->cntx = qp->cntx;
 	}
 
 	return 0;
 fail:
-	bnxt_re_free_queues(qp);
 	return ret;
 }
 
@@ -1388,29 +1435,37 @@ void bnxt_re_async_event(struct ibv_context *context,
 struct ibv_qp *bnxt_re_create_qp(struct ibv_pd *ibvpd,
 				 struct ibv_qp_init_attr *attr)
 {
-	struct ubnxt_re_qp_resp resp;
+	struct bnxt_re_context *cntx = to_bnxt_re_context(ibvpd->context);
+	struct bnxt_re_dev *dev = to_bnxt_re_dev(cntx->ibvctx.context.device);
+	struct ubnxt_re_qp_resp resp = {};
+	struct bnxt_re_qattr qattr[2];
 	struct bnxt_re_qpcap *cap;
 	struct ubnxt_re_qp req;
 	struct bnxt_re_qp *qp;
-
-	struct bnxt_re_context *cntx = to_bnxt_re_context(ibvpd->context);
-	struct bnxt_re_dev *dev = to_bnxt_re_dev(cntx->ibvctx.context.device);
+	void *mem;
 
 	if (bnxt_re_check_qp_limits(cntx, attr))
 		return NULL;
 
-	qp = calloc(1, sizeof(*qp));
-	if (!qp)
+	memset(qattr, 0, (2 * sizeof(*qattr)));
+	mem = bnxt_re_alloc_qpslab(cntx, attr, qattr);
+	if (!mem)
 		return NULL;
+	qp = bnxt_re_get_obj(mem, sizeof(*qp));
+	if (!qp)
+		goto fail;
+	qp->mem = mem;
+
+	qp->cctx = &cntx->cctx;
+
+	qp->cntx = cntx;
+	qp->qpmode = cntx->wqe_mode & BNXT_RE_WQE_MODE_VARIABLE;
 	/* alloc queue pointers */
 	if (bnxt_re_alloc_queue_ptr(qp, attr))
 		goto fail;
 	/* alloc queues */
-	qp->cctx = &cntx->cctx;
-	qp->qpmode = cntx->wqe_mode & BNXT_RE_WQE_MODE_VARIABLE;
-	qp->cntx = cntx;
-	if (bnxt_re_alloc_queues(cntx, qp, attr, dev->pg_size))
-		goto failq;
+	if (bnxt_re_alloc_queues(qp, attr, qattr))
+		goto fail;
 	/* Fill ibv_cmd */
 	cap = &qp->cap;
 	req.qpsva = (uintptr_t)qp->jsqq->hwque->va;
@@ -1418,9 +1473,8 @@ struct ibv_qp *bnxt_re_create_qp(struct ibv_pd *ibvpd,
 	req.qp_handle = (uintptr_t)qp;
 
 	if (ibv_cmd_create_qp(ibvpd, &qp->ibvqp, attr, &req.ibv_cmd, sizeof(req),
-			      &resp.ibv_resp, sizeof(resp))) {
-		goto failcmd;
-	}
+			      &resp.ibv_resp, sizeof(resp)))
+		goto fail;
 
 	qp->qpid = resp.qpid;
 	qp->qptyp = attr->qp_type;
@@ -1446,13 +1500,8 @@ struct ibv_qp *bnxt_re_create_qp(struct ibv_pd *ibvpd,
 	}
 
 	return &qp->ibvqp;
-failcmd:
-	bnxt_re_free_queues(qp);
-failq:
-	bnxt_re_free_queue_ptr(qp);
 fail:
-	free(qp);
-
+	bnxt_re_free_mem(mem);
 	return NULL;
 }
 
@@ -1511,6 +1560,7 @@ int bnxt_re_query_qp(struct ibv_qp *ibvqp, struct ibv_qp_attr *attr,
 int bnxt_re_destroy_qp(struct ibv_qp *ibvqp)
 {
 	struct bnxt_re_qp *qp = to_bnxt_re_qp(ibvqp);
+	struct bnxt_re_mem *mem;
 	int status;
 
 	qp->qpst = IBV_QPS_RESET;
@@ -1520,10 +1570,8 @@ int bnxt_re_destroy_qp(struct ibv_qp *ibvqp)
 
 	bnxt_re_cleanup_cq(qp, qp->rcq);
 	bnxt_re_cleanup_cq(qp, qp->scq);
-	bnxt_re_free_queues(qp);
-	bnxt_re_free_queue_ptr(qp);
-	free(qp);
-
+	mem = qp->mem;
+	bnxt_re_free_mem(mem);
 	return 0;
 }
 
@@ -1732,9 +1780,8 @@ static void bnxt_re_fill_psns(struct bnxt_re_qp *qp, struct bnxt_re_wrid *wrid,
 	uint8_t opcode = wrid->wc_opcd;
 	struct bnxt_re_psns *psns;
 
-	psns = wrid->psns;
-	psns_ext = wrid->psns_ext;
-	len = wrid->bytes;
+	psns = bnxt_re_pull_psn_buff(qp->jsqq->hwque, false);
+	psns_ext = (struct bnxt_re_psns_ext *)psns;
 
 	if (qp->qptyp == IBV_QPT_RC) {
 		opc_spsn = qp->sq_psn & BNXT_RE_PSNS_SPSN_MASK;
