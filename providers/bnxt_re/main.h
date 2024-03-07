@@ -93,9 +93,10 @@ struct bnxt_re_cq {
 	struct ibv_cq ibvcq;
 	uint32_t cqid;
 	struct bnxt_re_context *cntx;
-	struct bnxt_re_queue cqq;
-	struct bnxt_re_queue resize_cqq;
+	struct bnxt_re_queue *cqq;
 	struct bnxt_re_dpi *udpi;
+	struct bnxt_re_mem *mem;
+	struct bnxt_re_mem *resize_mem;
 	struct list_head sfhead;
 	struct list_head rfhead;
 	struct list_head prev_cq_head;
@@ -531,7 +532,7 @@ static inline uint8_t bnxt_re_is_cqe_valid(struct bnxt_re_cq *cq,
 
 static inline void bnxt_re_change_cq_phase(struct bnxt_re_cq *cq)
 {
-	if (!cq->cqq.head)
+	if (!cq->cqq->head)
 		cq->phase = (~cq->phase & BNXT_RE_BCQE_PH_MASK);
 }
 

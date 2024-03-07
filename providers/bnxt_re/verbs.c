@@ -298,6 +298,24 @@ int bnxt_re_dereg_mr(struct verbs_mr *vmr)
 	return 0;
 }
 
+static void *bnxt_re_alloc_cqslab(struct bnxt_re_context *cntx,
+				  uint32_t ncqe, uint32_t cur)
+{
+	struct bnxt_re_mem *mem;
+	uint32_t depth, sz;
+
+	depth = bnxt_re_init_depth(ncqe + 1, cntx->comp_mask);
+	if (depth > cntx->rdev->max_cq_depth + 1)
+		depth = cntx->rdev->max_cq_depth + 1;
+	if (depth == cur)
+		return NULL;
+	sz = align((depth * cntx->rdev->cqe_size), cntx->rdev->pg_size);
+	mem = bnxt_re_alloc_mem(sz, cntx->rdev->pg_size);
+	if (mem)
+		mem->pad = depth;
+	return mem;
+}
+
 struct ibv_cq *bnxt_re_create_cq(struct ibv_context *ibvctx, int ncqe,
 				 struct ibv_comp_channel *channel, int vec)
 {
@@ -310,12 +328,10 @@ struct ibv_cq *bnxt_re_create_cq(struct ibv_context *ibvctx, int ncqe,
 	struct bnxt_re_context *cntx = to_bnxt_re_context(ibvctx);
 	struct bnxt_re_dev *dev = to_bnxt_re_dev(ibvctx->device);
 
-	if (!ncqe || ncqe > dev->max_cq_depth) {
-		errno = EINVAL;
+	if (ncqe > dev->max_cq_depth)
 		return NULL;
-	}
 
-	cq = calloc(1, sizeof(*cq));
+	cq = calloc(1, (sizeof(*cq) + sizeof(struct bnxt_re_queue)));
 	if (!cq)
 		return NULL;
 
@@ -325,16 +341,25 @@ struct ibv_cq *bnxt_re_create_cq(struct ibv_context *ibvctx, int ncqe,
 		ncqe = 2 * ncqe;
 	}
 
-	cq->cqq.depth = bnxt_re_init_depth(ncqe + 1, cntx->comp_mask);
-	if (cq->cqq.depth > dev->max_cq_depth + 1)
-		cq->cqq.depth = dev->max_cq_depth + 1;
-	cq->cqq.stride = dev->cqe_size;
-	if (bnxt_re_alloc_aligned(&cq->cqq, dev->pg_size))
+	cq->cqq = (void *)((char *)cq + sizeof(*cq));
+	if (!cq->cqq)
 		goto fail;
 
-	pthread_spin_init(&cq->cqq.qlock, PTHREAD_PROCESS_PRIVATE);
+	cq->mem = bnxt_re_alloc_cqslab(cntx, ncqe, 0);
+	if (!cq->mem)
+		goto fail;
+	cq->cqq->depth = cq->mem->pad;
+	cq->cqq->stride = dev->cqe_size;
+	/* As an exception no need to call get_ring api we know
+	 * this is the only consumer
+	 */
+	cq->cqq->va = cq->mem->va_head;
+	if (!cq->cqq->va)
+		goto fail;
 
-	cmd.cq_va = (uintptr_t)cq->cqq.va;
+	pthread_spin_init(&cq->cqq->qlock, PTHREAD_PROCESS_PRIVATE);
+
+	cmd.cq_va = (uintptr_t)cq->cqq->va;
 	cmd.cq_handle = (uintptr_t)cq;
 
 	memset(&resp, 0, sizeof(resp));
@@ -345,7 +370,7 @@ struct ibv_cq *bnxt_re_create_cq(struct ibv_context *ibvctx, int ncqe,
 
 	cq->cqid = resp.cqid;
 	cq->phase = resp.phase;
-	cq->cqq.tail = resp.tail;
+	cq->cqq->tail = resp.tail;
 	cq->udpi = &cntx->udpi;
 	cq->cntx = cntx;
 	cq->rand.seed = cq->cqid;
@@ -369,12 +394,13 @@ struct ibv_cq *bnxt_re_create_cq(struct ibv_context *ibvctx, int ncqe,
 
 	return &cq->ibvcq;
 cmdfail:
-	bnxt_re_free_aligned(&cq->cqq);
+	bnxt_re_free_mem(cq->mem);
 fail:
 	free(cq);
 	return NULL;
 }
 
+#define BNXT_RE_QUEUE_START_PHASE	0x01
 /*
  * Function to complete the last steps in CQ resize. Invoke poll function
  * in the kernel driver; this serves as a signal to the driver to complete CQ
@@ -384,11 +410,24 @@ fail:
  */
 static void bnxt_re_resize_cq_complete(struct bnxt_re_cq *cq)
 {
+	struct bnxt_re_context *cntx = to_bnxt_re_context(cq->ibvcq.context);
 	struct ibv_wc tmp_wc;
 
 	ibv_cmd_poll_cq(&cq->ibvcq, 1, &tmp_wc);
-	bnxt_re_free_aligned(&cq->cqq);
-	memcpy(&cq->cqq, &cq->resize_cqq, sizeof(cq->cqq));
+	bnxt_re_free_mem(cq->mem);
+
+	cq->mem = cq->resize_mem;
+	cq->resize_mem = NULL;
+	cq->cqq->va = cq->mem->va_head;
+
+	cq->cqq->depth = cq->mem->pad;
+	cq->cqq->stride = cntx->rdev->cqe_size;
+	cq->cqq->head = 0;
+	cq->cqq->tail = 0;
+	cq->phase = BNXT_RE_QUEUE_START_PHASE;
+	/* Reset epoch portion of the flags */
+	cq->cqq->flags &= ~(BNXT_RE_FLAG_EPOCH_TAIL_MASK |
+			    BNXT_RE_FLAG_EPOCH_HEAD_MASK);
 	bnxt_re_ring_cq_arm_db(cq, BNXT_RE_QUE_TYPE_CQ_CUT_ACK);
 }
 
@@ -414,21 +453,21 @@ int bnxt_re_resize_cq(struct ibv_cq *ibvcq, int ncqe)
 		cq->deffered_db_sup = true;
 	}
 
-	pthread_spin_lock(&cq->cqq.qlock);
-	cq->resize_cqq.depth = bnxt_re_init_depth(ncqe + 1, cntx->comp_mask);
-	if (cq->resize_cqq.depth > dev->max_cq_depth + 1)
-		cq->resize_cqq.depth = dev->max_cq_depth + 1;
-	cq->resize_cqq.stride = dev->cqe_size;
-	if (bnxt_re_alloc_aligned(&cq->resize_cqq, dev->pg_size))
+	pthread_spin_lock(&cq->cqq->qlock);
+
+	cq->resize_mem = bnxt_re_alloc_cqslab(cntx, ncqe, cq->cqq->depth);
+	if (unlikely(!cq->resize_mem)) {
+		rc = -ENOMEM;
 		goto done;
+	}
 	/* As an exception no need to call get_ring api we know
 	 * this is the only consumer
 	 */
-	cmd.cq_va = (uintptr_t)cq->resize_cqq.va;
+	cmd.cq_va = (uintptr_t)cq->resize_mem->va_head;
 	rc = ibv_cmd_resize_cq(ibvcq, ncqe, &cmd.ibv_cmd,
 			       sizeof(cmd), &resp, sizeof(resp));
 	if (rc) {
-		bnxt_re_free_aligned(&cq->resize_cqq);
+		bnxt_re_free_mem(cq->mem);
 		goto done;
 	}
 
@@ -452,7 +491,7 @@ int bnxt_re_resize_cq(struct ibv_cq *ibvcq, int ncqe)
 		}
 	}
 done:
-	pthread_spin_unlock(&cq->cqq.qlock);
+	pthread_spin_unlock(&cq->cqq->qlock);
 	return rc;
 }
 
@@ -480,9 +519,8 @@ int bnxt_re_destroy_cq(struct ibv_cq *ibvcq)
 	if (status)
 		return status;
 	bnxt_re_destroy_resize_cq_list(cq);
-	bnxt_re_free_aligned(&cq->cqq);
+	bnxt_re_free_mem(cq->mem);
 	free(cq);
-
 	return 0;
 }
 
@@ -777,7 +815,7 @@ static inline void bnxt_re_check_and_ring_cq_db(struct bnxt_re_cq *cq,
 	 * least half when deferred db mode is active
 	 */
 	if (cq->deffered_db_sup) {
-		if (cq->hw_cqes < cq->cqq.depth / 2)
+		if (cq->hw_cqes < cq->cqq->depth / 2)
 			return;
 		*hw_polled = 0;
 		cq->hw_cqes = 0;
@@ -789,7 +827,7 @@ static int bnxt_re_poll_one(struct bnxt_re_cq *cq, int nwc, struct ibv_wc *wc,
 			    uint32_t *resize)
 {
 	int type, cnt = 0, dqed = 0, hw_polled = 0;
-	struct bnxt_re_queue *cqq = &cq->cqq;
+	struct bnxt_re_queue *cqq = cq->cqq;
 	struct bnxt_re_req_cqe *scqe;
 	struct bnxt_re_ud_cqe *rcqe;
 	uint64_t *qp_handle = NULL;
@@ -858,7 +896,7 @@ static int bnxt_re_poll_one(struct bnxt_re_cq *cq, int nwc, struct ibv_wc *wc,
 			*qp_handle = 0x0ULL; /* mark cqe as read */
 			qp_handle = NULL;
 		}
-		bnxt_re_incr_head(&cq->cqq, 1);
+		bnxt_re_incr_head(cq->cqq, 1);
 		bnxt_re_change_cq_phase(cq);
 skipp_real:
 		if (cnt) {
@@ -999,7 +1037,7 @@ int bnxt_re_poll_cq(struct ibv_cq *ibvcq, int nwc, struct ibv_wc *wc)
 	int dqed = 0, left = 0;
 	uint32_t resize = 0;
 
-	pthread_spin_lock(&cq->cqq.qlock);
+	pthread_spin_lock(&cq->cqq->qlock);
 	left = nwc;
 	/* Check  whether we have anything to be completed
 	 * from prev cq context.
@@ -1008,7 +1046,7 @@ int bnxt_re_poll_cq(struct ibv_cq *ibvcq, int nwc, struct ibv_wc *wc)
 		dqed = bnxt_re_poll_resize_cq_list(cq, nwc, wc);
 		left = nwc - dqed;
 		if (!left) {
-			pthread_spin_unlock(&cq->cqq.qlock);
+			pthread_spin_unlock(&cq->cqq->qlock);
 			return dqed;
 		}
 	}
@@ -1018,14 +1056,14 @@ int bnxt_re_poll_cq(struct ibv_cq *ibvcq, int nwc, struct ibv_wc *wc)
 			      !list_empty(&cq->rfhead))))
 		/* Check if anything is there to flush. */
 		dqed += bnxt_re_poll_flush_lists(cq, left, (wc + dqed));
-	pthread_spin_unlock(&cq->cqq.qlock);
+	pthread_spin_unlock(&cq->cqq->qlock);
 
 	return dqed;
 }
 
 static void bnxt_re_cleanup_cq(struct bnxt_re_qp *qp, struct bnxt_re_cq *cq)
 {
-	struct bnxt_re_queue *que = &cq->cqq;
+	struct bnxt_re_queue *que = cq->cqq;
 	struct bnxt_re_bcqe *hdr;
 	struct bnxt_re_req_cqe *scqe;
 	struct bnxt_re_rc_cqe *rcqe;
@@ -1063,11 +1101,11 @@ int bnxt_re_arm_cq(struct ibv_cq *ibvcq, int flags)
 {
 	struct bnxt_re_cq *cq = to_bnxt_re_cq(ibvcq);
 
-	pthread_spin_lock(&cq->cqq.qlock);
+	pthread_spin_lock(&cq->cqq->qlock);
 	flags = !flags ? BNXT_RE_QUE_TYPE_CQ_ARMALL :
 			 BNXT_RE_QUE_TYPE_CQ_ARMSE;
 	bnxt_re_ring_cq_arm_db(cq, flags);
-	pthread_spin_unlock(&cq->cqq.qlock);
+	pthread_spin_unlock(&cq->cqq->qlock);
 
 	return 0;
 }
