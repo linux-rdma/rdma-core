@@ -89,8 +89,6 @@ struct bnxt_re_queue {
 	uint32_t msn_tbl_sz;
 };
 
-int bnxt_re_alloc_aligned(struct bnxt_re_queue *que, uint32_t pg_size);
-void bnxt_re_free_aligned(struct bnxt_re_queue *que);
 
 /* Basic queue operation */
 static inline void *bnxt_re_get_hwqe(struct bnxt_re_queue *que, uint32_t idx)
