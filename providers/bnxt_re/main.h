@@ -168,6 +168,7 @@ struct bnxt_re_srq {
 	struct bnxt_re_wrid *srwrid;
 	struct bnxt_re_dpi *udpi;
 	struct xorshift32_state rand;
+	struct bnxt_re_mem *mem;
 	uint32_t srqid;
 	int start_idx;
 	int last_idx;

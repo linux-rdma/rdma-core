@@ -2129,88 +2129,109 @@ int bnxt_re_post_recv(struct ibv_qp *ibvqp, struct ibv_recv_wr *wr,
 	return rc;
 }
 
-static void bnxt_re_srq_free_queue_ptr(struct bnxt_re_srq *srq)
+static size_t bnxt_re_get_srqmem_size(struct bnxt_re_context *cntx,
+				      struct ibv_srq_init_attr *attr,
+				      struct bnxt_re_qattr *qattr)
 {
-	free(srq->srqq);
-	free(srq);
+	uint32_t stride, nswr;
+	size_t size = 0;
+
+	size = sizeof(struct bnxt_re_srq);
+	size += sizeof(struct bnxt_re_queue);
+	/* allocate 1 extra to determin full condition */
+	nswr = attr->attr.max_wr + 1;
+	nswr = bnxt_re_init_depth(nswr, cntx->comp_mask);
+
+	stride = bnxt_re_get_srqe_sz();
+
+	qattr->nwr = nswr;
+	qattr->slots = nswr;
+	qattr->esize = stride;
+
+	qattr->sz_ring = align((nswr * stride), cntx->rdev->pg_size);
+	qattr->sz_shad = nswr * sizeof(struct bnxt_re_wrid); /* shadow */
+
+	size += qattr->sz_ring;
+	size += qattr->sz_shad;
+	return size;
 }
 
-static struct bnxt_re_srq *bnxt_re_srq_alloc_queue_ptr(void)
+static void *bnxt_re_alloc_srqslab(struct bnxt_re_context *cntx,
+				   struct ibv_srq_init_attr *attr,
+				   struct bnxt_re_qattr *qattr)
+{
+	size_t bytes;
+
+	bytes = bnxt_re_get_srqmem_size(cntx, attr, qattr);
+	return bnxt_re_alloc_mem(bytes, cntx->rdev->pg_size);
+}
+
+static struct bnxt_re_srq *bnxt_re_srq_alloc_queue_ptr(struct bnxt_re_mem *mem)
 {
 	struct bnxt_re_srq *srq;
 
-	srq = calloc(1, sizeof(struct bnxt_re_srq));
+	srq = bnxt_re_get_obj(mem, sizeof(*srq));
 	if (!srq)
 		return NULL;
-
-	srq->srqq = calloc(1, sizeof(struct bnxt_re_queue));
-	if (!srq->srqq) {
-		free(srq);
+	srq->srqq = bnxt_re_get_obj(mem, sizeof(struct bnxt_re_queue));
+	if (!srq->srqq)
 		return NULL;
-	}
-
 	return srq;
 }
 
-static void bnxt_re_srq_free_queue(struct bnxt_re_srq *srq)
-{
-	free(srq->srwrid);
-	pthread_spin_destroy(&srq->srqq->qlock);
-	bnxt_re_free_aligned(srq->srqq);
-}
-
-static int bnxt_re_srq_alloc_queue(struct bnxt_re_context *cntx,
-				   struct bnxt_re_srq *srq,
+static int bnxt_re_srq_alloc_queue(struct bnxt_re_srq *srq,
 				   struct ibv_srq_init_attr *attr,
-				   uint32_t pg_size)
+				   struct bnxt_re_qattr *qattr)
 {
 	struct bnxt_re_queue *que;
-	int ret, idx;
+	int ret = -ENOMEM;
+	int idx;
 
 	que = srq->srqq;
-	que->depth = bnxt_re_init_depth(attr->attr.max_wr + 1, cntx->comp_mask);
-	que->diff = que->depth - attr->attr.max_wr;
-	que->stride = bnxt_re_get_srqe_sz();
-	ret = bnxt_re_alloc_aligned(que, pg_size);
-	if (ret)
+	que->depth = qattr->slots;
+	que->stride = qattr->esize;
+	que->va = bnxt_re_get_ring(srq->mem, qattr->sz_ring);
+	if (!que->va)
 		goto bail;
 	pthread_spin_init(&que->qlock, PTHREAD_PROCESS_PRIVATE);
 	/* For SRQ only bnxt_re_wrid.wrid is used. */
-	srq->srwrid = calloc(que->depth, sizeof(struct bnxt_re_wrid));
-	if (!srq->srwrid) {
-		ret = -ENOMEM;
+	srq->srwrid = bnxt_re_get_obj(srq->mem, qattr->sz_shad);
+	if (!srq->srwrid)
 		goto bail;
-	}
 
 	srq->start_idx = 0;
 	srq->last_idx = que->depth - 1;
 	for (idx = 0; idx < que->depth; idx++)
 		srq->srwrid[idx].next_idx = idx + 1;
 	srq->srwrid[srq->last_idx].next_idx = -1;
-
 	/*TODO: update actual max depth. */
 	return 0;
 bail:
-	bnxt_re_srq_free_queue(srq);
+	pthread_spin_destroy(&srq->srqq->qlock);
 	return ret;
 }
 
 struct ibv_srq *bnxt_re_create_srq(struct ibv_pd *ibvpd,
 				   struct ibv_srq_init_attr *attr)
 {
-	struct bnxt_re_srq *srq;
-	struct ubnxt_re_srq req;
-	struct ubnxt_re_srq_resp resp;
 	struct bnxt_re_context *cntx = to_bnxt_re_context(ibvpd->context);
-	struct bnxt_re_dev *dev = to_bnxt_re_dev(cntx->ibvctx.context.device);
+	struct bnxt_re_qattr qattr = {};
+	struct ubnxt_re_srq_resp resp;
+	struct ubnxt_re_srq req;
+	struct bnxt_re_srq *srq;
+	void *mem;
 	int ret;
 
-	/*TODO: Check max limit on queue depth and sge.*/
-	srq = bnxt_re_srq_alloc_queue_ptr();
+	mem = bnxt_re_alloc_srqslab(cntx, attr, &qattr);
+	if (!mem)
+		return NULL;
+
+	srq = bnxt_re_srq_alloc_queue_ptr(mem);
 	if (!srq)
 		goto fail;
-
-	if (bnxt_re_srq_alloc_queue(cntx, srq, attr, dev->pg_size))
+	srq->cntx = cntx;
+	srq->mem = mem;
+	if (bnxt_re_srq_alloc_queue(srq, attr, &qattr))
 		goto fail;
 
 	req.srqva = (uintptr_t)srq->srqq->va;
@@ -2233,7 +2254,7 @@ struct ibv_srq *bnxt_re_create_srq(struct ibv_pd *ibvpd,
 
 	return &srq->ibvsrq;
 fail:
-	bnxt_re_srq_free_queue_ptr(srq);
+	bnxt_re_free_mem(mem);
 	return NULL;
 }
 
@@ -2257,14 +2278,15 @@ int bnxt_re_modify_srq(struct ibv_srq *ibvsrq, struct ibv_srq_attr *attr,
 int bnxt_re_destroy_srq(struct ibv_srq *ibvsrq)
 {
 	struct bnxt_re_srq *srq = to_bnxt_re_srq(ibvsrq);
+	struct bnxt_re_mem *mem;
 	int ret;
 
 	ret = ibv_cmd_destroy_srq(ibvsrq);
 	if (ret)
 		return ret;
-	bnxt_re_srq_free_queue(srq);
-	bnxt_re_srq_free_queue_ptr(srq);
 
+	mem = srq->mem;
+	bnxt_re_free_mem(mem);
 	return 0;
 }
 
