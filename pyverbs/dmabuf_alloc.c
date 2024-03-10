@@ -43,7 +43,7 @@ static int i915_alloc(struct drm *drm, uint64_t size, uint32_t *handle, int gtt)
 	return 0;
 }
 
-static int amdgpu_alloc(struct drm *drm, size_t size, uint32_t *handle, int gtt)
+static int amdgpu_alloc(struct drm *drm, uint64_t size, uint32_t *handle, int gtt)
 {
 	union drm_amdgpu_gem_create gem_create = {{}};
 	int err;
