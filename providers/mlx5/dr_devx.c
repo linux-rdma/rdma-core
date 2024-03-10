@@ -237,6 +237,9 @@ int dr_devx_query_device(struct ibv_context *ctx, struct dr_devx_caps *caps)
 	caps->sw_format_ver = DEVX_GET(query_hca_cap_out, out,
 				       capability.cmd_hca_cap.steering_format_version);
 
+	caps->roce_caps.qp_ts_format = DEVX_GET(query_hca_cap_out, out,
+						capability.cmd_hca_cap.sq_ts_format);
+
 	if (caps->flex_protocols & MLX5_FLEX_PARSER_ICMP_V4_ENABLED) {
 		caps->flex_parser_id_icmp_dw0 =
 			DEVX_GET(query_hca_cap_out,
