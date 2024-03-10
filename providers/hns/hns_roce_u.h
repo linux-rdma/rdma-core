@@ -158,6 +158,7 @@ struct hns_roce_device {
 	int				page_size;
 	const struct hns_roce_u_hw	*u_hw;
 	int				hw_version;
+	uint8_t                         congest_cap;
 };
 
 struct hns_roce_buf {
@@ -493,6 +494,8 @@ void hns_roce_free_buf(struct hns_roce_buf *buf);
 void hns_roce_free_qp_buf(struct hns_roce_qp *qp, struct hns_roce_context *ctx);
 
 void hns_roce_init_qp_indices(struct hns_roce_qp *qp);
+
+bool is_hns_dev(struct ibv_device *device);
 
 extern const struct hns_roce_u_hw hns_roce_u_hw_v2;
 

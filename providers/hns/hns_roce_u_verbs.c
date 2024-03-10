@@ -786,6 +786,25 @@ int hns_roce_u_destroy_srq(struct ibv_srq *ibv_srq)
 }
 
 enum {
+	HNSDV_QP_SUP_COMP_MASK = HNSDV_QP_INIT_ATTR_MASK_QP_CONGEST_TYPE,
+};
+
+static int check_hnsdv_qp_attr(struct hns_roce_context *ctx,
+			       struct hnsdv_qp_init_attr *hns_attr)
+{
+	if (!hns_attr)
+		return 0;
+
+	if (!check_comp_mask(hns_attr->comp_mask, HNSDV_QP_SUP_COMP_MASK)) {
+		verbs_err(&ctx->ibv_ctx, "invalid hnsdv comp_mask 0x%x.\n",
+			  hns_attr->comp_mask);
+		return EINVAL;
+	}
+
+	return 0;
+}
+
+enum {
 	CREATE_QP_SUP_COMP_MASK = IBV_QP_INIT_ATTR_PD | IBV_QP_INIT_ATTR_XRCD |
 				  IBV_QP_INIT_ATTR_SEND_OPS_FLAGS,
 };
@@ -866,11 +885,16 @@ static int verify_qp_create_cap(struct hns_roce_context *ctx,
 }
 
 static int verify_qp_create_attr(struct hns_roce_context *ctx,
-				 struct ibv_qp_init_attr_ex *attr)
+				 struct ibv_qp_init_attr_ex *attr,
+				 struct hnsdv_qp_init_attr *hns_attr)
 {
 	int ret;
 
 	ret = check_qp_create_mask(ctx, attr);
+	if (ret)
+		return ret;
+
+	ret = check_hnsdv_qp_attr(ctx, hns_attr);
 	if (ret)
 		return ret;
 
@@ -1185,10 +1209,33 @@ static int hns_roce_store_qp(struct hns_roce_context *ctx,
 	return 0;
 }
 
+static int to_cmd_cong_type(uint8_t cong_type, __u64 *cmd_cong_type)
+{
+	switch (cong_type) {
+	case HNSDV_QP_CREATE_ENABLE_DCQCN:
+		*cmd_cong_type = HNS_ROCE_CREATE_QP_FLAGS_DCQCN;
+		break;
+	case HNSDV_QP_CREATE_ENABLE_LDCP:
+		*cmd_cong_type = HNS_ROCE_CREATE_QP_FLAGS_LDCP;
+		break;
+	case HNSDV_QP_CREATE_ENABLE_HC3:
+		*cmd_cong_type = HNS_ROCE_CREATE_QP_FLAGS_HC3;
+		break;
+	case HNSDV_QP_CREATE_ENABLE_DIP:
+		*cmd_cong_type = HNS_ROCE_CREATE_QP_FLAGS_DIP;
+		break;
+	default:
+		return EINVAL;
+	}
+
+	return 0;
+}
+
 static int qp_exec_create_cmd(struct ibv_qp_init_attr_ex *attr,
 			      struct hns_roce_qp *qp,
 			      struct hns_roce_context *ctx,
-			      uint64_t *dwqe_mmap_key)
+			      uint64_t *dwqe_mmap_key,
+			      struct hnsdv_qp_init_attr *hns_attr)
 {
 	struct hns_roce_create_qp_ex_resp resp_ex = {};
 	struct hns_roce_create_qp_ex cmd_ex = {};
@@ -1199,6 +1246,15 @@ static int qp_exec_create_cmd(struct ibv_qp_init_attr_ex *attr,
 	cmd_ex.buf_addr = (uintptr_t)qp->buf.buf;
 	cmd_ex.log_sq_stride = qp->sq.wqe_shift;
 	cmd_ex.log_sq_bb_count = hr_ilog32(qp->sq.wqe_cnt);
+
+	if (hns_attr &&
+	    hns_attr->comp_mask & HNSDV_QP_INIT_ATTR_MASK_QP_CONGEST_TYPE) {
+		ret = to_cmd_cong_type(hns_attr->congest_type,
+				       &cmd_ex.cong_type_flags);
+		if (ret)
+			return ret;
+		cmd_ex.comp_mask |= HNS_ROCE_CREATE_QP_MASK_CONGEST_TYPE;
+	}
 
 	ret = ibv_cmd_create_qp_ex2(&ctx->ibv_ctx.context, &qp->verbs_qp, attr,
 				    &cmd_ex.ibv_cmd, sizeof(cmd_ex),
@@ -1274,14 +1330,15 @@ static int mmap_dwqe(struct ibv_context *ibv_ctx, struct hns_roce_qp *qp,
 }
 
 static struct ibv_qp *create_qp(struct ibv_context *ibv_ctx,
-				struct ibv_qp_init_attr_ex *attr)
+				struct ibv_qp_init_attr_ex *attr,
+				struct hnsdv_qp_init_attr *hns_attr)
 {
 	struct hns_roce_context *context = to_hr_ctx(ibv_ctx);
 	struct hns_roce_qp *qp;
 	uint64_t dwqe_mmap_key;
 	int ret;
 
-	ret = verify_qp_create_attr(context, attr);
+	ret = verify_qp_create_attr(context, attr, hns_attr);
 	if (ret)
 		goto err;
 
@@ -1297,7 +1354,7 @@ static struct ibv_qp *create_qp(struct ibv_context *ibv_ctx,
 	if (ret)
 		goto err_buf;
 
-	ret = qp_exec_create_cmd(attr, qp, context, &dwqe_mmap_key);
+	ret = qp_exec_create_cmd(attr, qp, context, &dwqe_mmap_key, hns_attr);
 	if (ret)
 		goto err_cmd;
 
@@ -1345,7 +1402,7 @@ struct ibv_qp *hns_roce_u_create_qp(struct ibv_pd *pd,
 	attrx.comp_mask = IBV_QP_INIT_ATTR_PD;
 	attrx.pd = pd;
 
-	qp = create_qp(pd->context, &attrx);
+	qp = create_qp(pd->context, &attrx, NULL);
 	if (qp)
 		memcpy(attr, &attrx, sizeof(*attr));
 
@@ -1355,7 +1412,44 @@ struct ibv_qp *hns_roce_u_create_qp(struct ibv_pd *pd,
 struct ibv_qp *hns_roce_u_create_qp_ex(struct ibv_context *context,
 				       struct ibv_qp_init_attr_ex *attr)
 {
-	return create_qp(context, attr);
+	return create_qp(context, attr, NULL);
+}
+
+struct ibv_qp *hnsdv_create_qp(struct ibv_context *context,
+			       struct ibv_qp_init_attr_ex *qp_attr,
+			       struct hnsdv_qp_init_attr *hns_attr)
+{
+	if (!context || !qp_attr) {
+		errno = EINVAL;
+		return NULL;
+	}
+
+	if (!is_hns_dev(context->device)) {
+		errno = EOPNOTSUPP;
+		return NULL;
+	}
+
+	return create_qp(context, qp_attr, hns_attr);
+}
+
+int hnsdv_query_device(struct ibv_context *context,
+		       struct hnsdv_context *attrs_out)
+{
+	struct hns_roce_device *hr_dev = to_hr_dev(context->device);
+
+	if (!hr_dev || !attrs_out)
+		return EINVAL;
+
+	if (!is_hns_dev(context->device)) {
+		verbs_err(verbs_get_ctx(context), "not a HNS RoCE device!\n");
+		return EOPNOTSUPP;
+	}
+	memset(attrs_out, 0, sizeof(*attrs_out));
+
+	attrs_out->comp_mask |= HNSDV_CONTEXT_MASK_CONGEST_TYPE;
+	attrs_out->congest_type = hr_dev->congest_cap;
+
+	return 0;
 }
 
 struct ibv_qp *hns_roce_u_open_qp(struct ibv_context *context,

@@ -97,6 +97,54 @@ static uint32_t calc_table_shift(uint32_t entry_count, uint32_t size_shift)
 	return count_shift > size_shift ? count_shift - size_shift : 0;
 }
 
+static int set_context_attr(struct hns_roce_device *hr_dev,
+			    struct hns_roce_context *context,
+			    struct hns_roce_alloc_ucontext_resp *resp)
+{
+	struct ibv_device_attr dev_attrs;
+	int i;
+
+	if (!resp->cqe_size)
+		context->cqe_size = HNS_ROCE_CQE_SIZE;
+	else if (resp->cqe_size <= HNS_ROCE_V3_CQE_SIZE)
+		context->cqe_size = resp->cqe_size;
+	else
+		context->cqe_size = HNS_ROCE_V3_CQE_SIZE;
+
+	context->config = resp->config;
+	if (resp->config & HNS_ROCE_RSP_EXSGE_FLAGS)
+		context->max_inline_data = resp->max_inline_data;
+
+	context->qp_table_shift = calc_table_shift(resp->qp_tab_size,
+						   HNS_ROCE_QP_TABLE_BITS);
+	context->qp_table_mask = (1 << context->qp_table_shift) - 1;
+	for (i = 0; i < HNS_ROCE_QP_TABLE_SIZE; ++i)
+		context->qp_table[i].refcnt = 0;
+
+	context->srq_table_shift = calc_table_shift(resp->srq_tab_size,
+						    HNS_ROCE_SRQ_TABLE_BITS);
+	context->srq_table_mask = (1 << context->srq_table_shift) - 1;
+	for (i = 0; i < HNS_ROCE_SRQ_TABLE_SIZE; ++i)
+		context->srq_table[i].refcnt = 0;
+
+	if (hns_roce_u_query_device(&context->ibv_ctx.context, NULL,
+				    container_of(&dev_attrs,
+						 struct ibv_device_attr_ex,
+						 orig_attr),
+				    sizeof(dev_attrs)))
+		return EIO;
+
+	hr_dev->hw_version = dev_attrs.hw_ver;
+	hr_dev->congest_cap = resp->congest_type;
+	context->max_qp_wr = dev_attrs.max_qp_wr;
+	context->max_sge = dev_attrs.max_sge;
+	context->max_cqe = dev_attrs.max_cqe;
+	context->max_srq_wr = dev_attrs.max_srq_wr;
+	context->max_srq_sge = dev_attrs.max_srq_sge;
+
+	return 0;
+}
+
 static struct verbs_context *hns_roce_alloc_context(struct ibv_device *ibdev,
 						    int cmd_fd,
 						    void *private_data)
@@ -104,9 +152,7 @@ static struct verbs_context *hns_roce_alloc_context(struct ibv_device *ibdev,
 	struct hns_roce_device *hr_dev = to_hr_dev(ibdev);
 	struct hns_roce_alloc_ucontext_resp resp = {};
 	struct hns_roce_alloc_ucontext cmd = {};
-	struct ibv_device_attr dev_attrs;
 	struct hns_roce_context *context;
-	int i;
 
 	context = verbs_init_and_alloc_context(ibdev, cmd_fd, context, ibv_ctx,
 					       RDMA_DRIVER_HNS);
@@ -119,50 +165,16 @@ static struct verbs_context *hns_roce_alloc_context(struct ibv_device *ibdev,
 				&resp.ibv_resp, sizeof(resp)))
 		goto err_free;
 
-	if (!resp.cqe_size)
-		context->cqe_size = HNS_ROCE_CQE_SIZE;
-	else if (resp.cqe_size <= HNS_ROCE_V3_CQE_SIZE)
-		context->cqe_size = resp.cqe_size;
-	else
-		context->cqe_size = HNS_ROCE_V3_CQE_SIZE;
-
-	context->config = resp.config;
-	if (resp.config & HNS_ROCE_RSP_EXSGE_FLAGS)
-		context->max_inline_data = resp.max_inline_data;
-
-	context->qp_table_shift = calc_table_shift(resp.qp_tab_size,
-						   HNS_ROCE_QP_TABLE_BITS);
-	context->qp_table_mask = (1 << context->qp_table_shift) - 1;
-	pthread_mutex_init(&context->qp_table_mutex, NULL);
-	for (i = 0; i < HNS_ROCE_QP_TABLE_SIZE; ++i)
-		context->qp_table[i].refcnt = 0;
-
-	context->srq_table_shift = calc_table_shift(resp.srq_tab_size,
-						    HNS_ROCE_SRQ_TABLE_BITS);
-	context->srq_table_mask = (1 << context->srq_table_shift) - 1;
-	pthread_mutex_init(&context->srq_table_mutex, NULL);
-	for (i = 0; i < HNS_ROCE_SRQ_TABLE_SIZE; ++i)
-		context->srq_table[i].refcnt = 0;
-
-	if (hns_roce_u_query_device(&context->ibv_ctx.context, NULL,
-				    container_of(&dev_attrs,
-						 struct ibv_device_attr_ex,
-						 orig_attr),
-				    sizeof(dev_attrs)))
+	if (set_context_attr(hr_dev, context, &resp))
 		goto err_free;
-
-	hr_dev->hw_version = dev_attrs.hw_ver;
-	context->max_qp_wr = dev_attrs.max_qp_wr;
-	context->max_sge = dev_attrs.max_sge;
-	context->max_cqe = dev_attrs.max_cqe;
-	context->max_srq_wr = dev_attrs.max_srq_wr;
-	context->max_srq_sge = dev_attrs.max_srq_sge;
 
 	context->uar = mmap(NULL, hr_dev->page_size, PROT_READ | PROT_WRITE,
 			    MAP_SHARED, cmd_fd, 0);
 	if (context->uar == MAP_FAILED)
 		goto err_free;
 
+	pthread_mutex_init(&context->qp_table_mutex, NULL);
+	pthread_mutex_init(&context->srq_table_mutex, NULL);
 	pthread_spin_init(&context->uar_lock, PTHREAD_PROCESS_PRIVATE);
 
 	verbs_set_ops(&context->ibv_ctx, &hns_common_ops);
@@ -216,4 +228,17 @@ static const struct verbs_device_ops hns_roce_dev_ops = {
 	.uninit_device = hns_uninit_device,
 	.alloc_context = hns_roce_alloc_context,
 };
+
+bool is_hns_dev(struct ibv_device *device)
+{
+	struct verbs_device *verbs_device = verbs_get_device(device);
+
+	return verbs_device->ops == &hns_roce_dev_ops;
+}
+
+bool hnsdv_is_supported(struct ibv_device *device)
+{
+	return is_hns_dev(device);
+}
+
 PROVIDER_DRIVER(hns, hns_roce_dev_ops);
