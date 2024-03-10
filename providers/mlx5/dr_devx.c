@@ -240,6 +240,9 @@ int dr_devx_query_device(struct ibv_context *ctx, struct dr_devx_caps *caps)
 			capability.cmd_hca_cap.general_obj_types) &
 			(1LL << MLX5_OBJ_TYPE_HEADER_MODIFY_ARGUMENT);
 
+	caps->roce_caps.qp_ts_format = DEVX_GET(query_hca_cap_out, out,
+						capability.cmd_hca_cap.sq_ts_format);
+
 	if (caps->support_modify_argument) {
 		caps->log_header_modify_argument_granularity =
 			DEVX_GET(query_hca_cap_out, out,
