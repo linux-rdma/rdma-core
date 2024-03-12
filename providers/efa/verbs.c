@@ -610,17 +610,25 @@ static void efa_process_cqe(struct efa_cq *cq, struct ibv_wc *wc,
 	wc->vendor_err = cqe->status;
 	wc->wc_flags = 0;
 	wc->qp_num = cqe->qp_num;
-	wc->slid = UINT16_MAX;
 
+	wrid_idx = cqe->req_id;
 	op_type = EFA_GET(&cqe->flags, EFA_IO_CDESC_COMMON_OP_TYPE);
-
-	if (EFA_GET(&cqe->flags, EFA_IO_CDESC_COMMON_Q_TYPE) ==
-	    EFA_IO_SEND_QUEUE) {
+	if (EFA_GET(&cqe->flags, EFA_IO_CDESC_COMMON_Q_TYPE) == EFA_IO_SEND_QUEUE) {
 		cq->cur_wq = &qp->sq.wq;
 		if (op_type == EFA_IO_RDMA_WRITE)
 			wc->opcode = IBV_WC_RDMA_WRITE;
 		else
 			wc->opcode = IBV_WC_SEND;
+
+		/* We do not have to take the WQ lock here,
+		 * because this wrid index has not been freed yet,
+		 * so there is no contention on this index.
+		 */
+		wc->wr_id = cq->cur_wq->wrid[wrid_idx];
+
+		rdma_tracepoint(rdma_core_efa, process_completion, cq->dev->name, wc->wr_id,
+				wc->status, wc->opcode, wc->qp_num, UINT32_MAX, UINT16_MAX,
+				wc->byte_len);
 	} else {
 		struct efa_io_rx_cdesc_ex *rcqe =
 			container_of(cqe, struct efa_io_rx_cdesc_ex, base.common);
@@ -644,17 +652,13 @@ static void efa_process_cqe(struct efa_cq *cq, struct ibv_wc *wc,
 			wc->imm_data = htobe32(rcqe->base.imm);
 			wc->wc_flags |= IBV_WC_WITH_IMM;
 		}
+
+		wc->wr_id = cq->cur_wq->wrid[wrid_idx];
+
+		rdma_tracepoint(rdma_core_efa, process_completion, cq->dev->name, wc->wr_id,
+				wc->status, wc->opcode, wc->src_qp, wc->qp_num, wc->slid,
+				wc->byte_len);
 	}
-
-	wrid_idx = cqe->req_id;
-	/* We do not have to take the WQ lock here,
-	 * because this wrid index has not been freed yet,
-	 * so there is no contention on this index.
-	 */
-	wc->wr_id = cq->cur_wq->wrid[wrid_idx];
-
-	rdma_tracepoint(rdma_core_efa, process_completion, cq->dev->name, wc->wr_id, wc->status,
-			wc->opcode, wc->src_qp, wc->qp_num, wc->slid, wc->byte_len);
 }
 
 static void efa_process_ex_cqe(struct efa_cq *cq, struct efa_qp *qp)
@@ -665,19 +669,24 @@ static void efa_process_ex_cqe(struct efa_cq *cq, struct efa_qp *qp)
 
 	wrid_idx = cqe->req_id;
 
-	if (EFA_GET(&cqe->flags, EFA_IO_CDESC_COMMON_Q_TYPE) ==
-		    EFA_IO_SEND_QUEUE) {
+	if (EFA_GET(&cqe->flags, EFA_IO_CDESC_COMMON_Q_TYPE) == EFA_IO_SEND_QUEUE) {
 		cq->cur_wq = &qp->sq.wq;
+		ibvcqx->wr_id = cq->cur_wq->wrid[wrid_idx];
+		ibvcqx->status = to_ibv_status(cqe->status);
+
+		rdma_tracepoint(rdma_core_efa, process_completion, cq->dev->name, ibvcqx->wr_id,
+				ibvcqx->status, efa_wc_read_opcode(ibvcqx), cqe->qp_num,
+				UINT32_MAX, UINT16_MAX, efa_wc_read_byte_len(ibvcqx));
 	} else {
 		cq->cur_wq = &qp->rq.wq;
+		ibvcqx->wr_id = cq->cur_wq->wrid[wrid_idx];
+		ibvcqx->status = to_ibv_status(cqe->status);
+
+		rdma_tracepoint(rdma_core_efa, process_completion, cq->dev->name, ibvcqx->wr_id,
+				ibvcqx->status, efa_wc_read_opcode(ibvcqx),
+				efa_wc_read_src_qp(ibvcqx), cqe->qp_num, efa_wc_read_slid(ibvcqx),
+				efa_wc_read_byte_len(ibvcqx));
 	}
-
-	ibvcqx->wr_id = cq->cur_wq->wrid[wrid_idx];
-	ibvcqx->status = to_ibv_status(cqe->status);
-
-	rdma_tracepoint(rdma_core_efa, process_completion, cq->dev->name, ibvcqx->wr_id,
-			ibvcqx->status,	qp->verbs_qp.qp.qp_num, efa_wc_read_opcode(ibvcqx),
-			efa_wc_read_byte_len(ibvcqx));
 }
 
 static inline int efa_poll_sub_cq(struct efa_cq *cq, struct efa_sub_cq *sub_cq,
