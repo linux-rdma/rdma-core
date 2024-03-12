@@ -41,6 +41,27 @@
 #define __MEMORY_H__
 
 #include <pthread.h>
+#include "main.h"
+
+struct bnxt_re_mem {
+	void *va_head;
+	void *va_tail;
+	uint32_t head;
+	uint32_t tail;
+	uint32_t size;
+	uint32_t pad;
+};
+
+#define BNXT_RE_QATTR_SQ_INDX	0
+#define BNXT_RE_QATTR_RQ_INDX	1
+struct bnxt_re_qattr {
+	uint32_t esize;
+	uint32_t slots;
+	uint32_t nwr;
+	uint32_t sz_ring;
+	uint32_t sz_shad;
+	uint32_t sw_nwr;
+};
 
 struct bnxt_re_queue {
 	void *va;
@@ -68,8 +89,6 @@ struct bnxt_re_queue {
 	uint32_t msn_tbl_sz;
 };
 
-int bnxt_re_alloc_aligned(struct bnxt_re_queue *que, uint32_t pg_size);
-void bnxt_re_free_aligned(struct bnxt_re_queue *que);
 
 /* Basic queue operation */
 static inline void *bnxt_re_get_hwqe(struct bnxt_re_queue *que, uint32_t idx)
@@ -122,5 +141,10 @@ static inline void bnxt_re_incr_head(struct bnxt_re_queue *que, uint8_t cnt)
 		que->flags ^= 1UL << BNXT_RE_FLAG_EPOCH_HEAD_SHIFT;
 	}
 }
+
+void bnxt_re_free_mem(struct bnxt_re_mem *mem);
+void *bnxt_re_alloc_mem(size_t size, uint32_t pg_size);
+void *bnxt_re_get_obj(struct bnxt_re_mem *mem, size_t req);
+void *bnxt_re_get_ring(struct bnxt_re_mem *mem, size_t req);
 
 #endif

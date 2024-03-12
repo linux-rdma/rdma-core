@@ -93,9 +93,10 @@ struct bnxt_re_cq {
 	struct ibv_cq ibvcq;
 	uint32_t cqid;
 	struct bnxt_re_context *cntx;
-	struct bnxt_re_queue cqq;
-	struct bnxt_re_queue resize_cqq;
+	struct bnxt_re_queue *cqq;
 	struct bnxt_re_dpi *udpi;
+	struct bnxt_re_mem *mem;
+	struct bnxt_re_mem *resize_mem;
 	struct list_head sfhead;
 	struct list_head rfhead;
 	struct list_head prev_cq_head;
@@ -167,6 +168,7 @@ struct bnxt_re_srq {
 	struct bnxt_re_wrid *srwrid;
 	struct bnxt_re_dpi *udpi;
 	struct xorshift32_state rand;
+	struct bnxt_re_mem *mem;
 	uint32_t srqid;
 	int start_idx;
 	int last_idx;
@@ -174,6 +176,7 @@ struct bnxt_re_srq {
 };
 
 struct bnxt_re_joint_queue {
+	struct bnxt_re_context *cntx;
 	struct bnxt_re_queue *hwque;
 	struct bnxt_re_wrid *swque;
 	uint32_t start_idx;
@@ -205,7 +208,7 @@ struct bnxt_re_qp {
 	uint8_t push_st_en;
 	uint16_t max_push_sz;
 	uint8_t qptyp;
-	/* irdord? */
+	struct bnxt_re_mem *mem;
 };
 
 struct bnxt_re_mr {
@@ -530,7 +533,7 @@ static inline uint8_t bnxt_re_is_cqe_valid(struct bnxt_re_cq *cq,
 
 static inline void bnxt_re_change_cq_phase(struct bnxt_re_cq *cq)
 {
-	if (!cq->cqq.head)
+	if (!cq->cqq->head)
 		cq->phase = (~cq->phase & BNXT_RE_BCQE_PH_MASK);
 }
 

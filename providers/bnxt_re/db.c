@@ -171,8 +171,8 @@ void bnxt_re_ring_cq_db(struct bnxt_re_cq *cq)
 	uint32_t epoch;
 
 	bnxt_re_do_pacing(cq->cntx, &cq->rand);
-	epoch = (cq->cqq.flags & BNXT_RE_FLAG_EPOCH_HEAD_MASK) << BNXT_RE_DB_EPOCH_HEAD_SHIFT;
-	bnxt_re_init_db_hdr(&hdr, cq->cqq.head | epoch, cq->cqid, 0, BNXT_RE_QUE_TYPE_CQ);
+	epoch = (cq->cqq->flags & BNXT_RE_FLAG_EPOCH_HEAD_MASK) << BNXT_RE_DB_EPOCH_HEAD_SHIFT;
+	bnxt_re_init_db_hdr(&hdr, cq->cqq->head | epoch, cq->cqid, 0, BNXT_RE_QUE_TYPE_CQ);
 	bnxt_re_ring_db(cq->udpi, &hdr);
 }
 
@@ -191,8 +191,8 @@ void bnxt_re_ring_cq_arm_db(struct bnxt_re_cq *cq, uint8_t aflag)
 	}
 
 	bnxt_re_do_pacing(cq->cntx, &cq->rand);
-	epoch = (cq->cqq.flags & BNXT_RE_FLAG_EPOCH_HEAD_MASK) <<  BNXT_RE_DB_EPOCH_HEAD_SHIFT;
-	bnxt_re_init_db_hdr(&hdr, cq->cqq.head | epoch, cq->cqid, toggle, aflag);
+	epoch = (cq->cqq->flags & BNXT_RE_FLAG_EPOCH_HEAD_MASK) <<  BNXT_RE_DB_EPOCH_HEAD_SHIFT;
+	bnxt_re_init_db_hdr(&hdr, cq->cqq->head | epoch, cq->cqid, toggle, aflag);
 	bnxt_re_ring_db(cq->udpi, &hdr);
 }
 

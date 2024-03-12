@@ -239,6 +239,8 @@ enum bnxt_re_db_epoch_flag_shift {
 	BNXT_RE_DB_EPOCH_HEAD_SHIFT	= (BNXT_RE_DB_EPOCH_SHIFT - 1)
 };
 
+#define BNXT_RE_STATIC_WQE_MAX_SGE              0x06
+
 enum bnxt_re_modes {
 	BNXT_RE_WQE_MODE_STATIC =	0x00,
 	BNXT_RE_WQE_MODE_VARIABLE =	0x01
