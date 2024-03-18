@@ -249,7 +249,7 @@ static int post_sends(struct cmatest_node *node, int signal_flag)
 
 	sge.length = message_size;
 	sge.lkey = node->mr->lkey;
-	sge.addr = (uintptr_t) node->mem;
+	sge.addr = (uintptr_t) node->mem + sizeof(struct ibv_grh);
 
 	for (i = 0; i < message_count && !ret; i++) {
 		ret = ibv_post_send(node->cma_id->qp, &send_wr, &bad_send_wr);
