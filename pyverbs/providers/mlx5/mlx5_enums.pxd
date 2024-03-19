@@ -334,3 +334,6 @@ cdef extern from 'infiniband/mlx5_api.h':
     cdef int MLX5DV_FLOW_ACTION_PACKET_REFORMAT_TYPE_L2_TO_L3_TUNNEL
 
     cdef int MLX5DV_REG_DMABUF_ACCESS_DATA_DIRECT
+
+    cpdef enum mlx5dv_devx_create_event_channel_flags:
+        MLX5DV_DEVX_CREATE_EVENT_CHANNEL_FLAGS_OMIT_EV_DATA

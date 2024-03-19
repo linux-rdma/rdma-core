@@ -356,6 +356,13 @@ cdef extern from 'infiniband/mlx5dv.h':
         uint8_t     signature
         uint8_t     op_own
 
+    cdef struct mlx5dv_devx_event_channel:
+        int fd
+
+    cdef struct mlx5dv_devx_async_event_hdr:
+        uint64_t cookie
+        uint8_t  *out_data
+
 
     void mlx5dv_set_ctrl_seg(mlx5_wqe_ctrl_seg *seg, uint16_t pi, uint8_t opcode,
                              uint8_t opmod, uint32_t qp_num, uint8_t fm_ce_se,
@@ -567,6 +574,16 @@ cdef extern from 'infiniband/mlx5dv.h':
     mlx5dv_devx_eq *mlx5dv_devx_create_eq(v.ibv_context *context, const void *_in,
                                           size_t inlen, void *out, size_t outlen)
     int mlx5dv_devx_destroy_eq(mlx5dv_devx_eq *eq)
+    mlx5dv_devx_event_channel *mlx5dv_devx_create_event_channel(v.ibv_context *context,
+                                                    mlx5dv_devx_create_event_channel_flags flags)
+    void mlx5dv_devx_destroy_event_channel(mlx5dv_devx_event_channel *dv_event_channel)
+    int mlx5dv_devx_subscribe_devx_event(mlx5dv_devx_event_channel *event_channel,
+                                         mlx5dv_devx_obj *obj, uint16_t events_sz,
+                                         uint16_t events_num[], uint64_t cookie)
+    int mlx5dv_devx_subscribe_devx_event_fd(mlx5dv_devx_event_channel *event_channel, int fd,
+                                            mlx5dv_devx_obj *obj, uint16_t event_num)
+    ssize_t mlx5dv_devx_get_event(mlx5dv_devx_event_channel *event_channel,
+                                  mlx5dv_devx_async_event_hdr *event_data, size_t event_resp_len)
 
     # Mkey setters
     void mlx5dv_wr_mkey_configure(mlx5dv_qp_ex *mqp, mlx5dv_mkey *mkey,

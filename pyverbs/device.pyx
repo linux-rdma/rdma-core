@@ -122,6 +122,7 @@ cdef class Context(PyverbsCM):
         self.wqs = weakref.WeakSet()
         self.rwq_ind_tbls = weakref.WeakSet()
         self.crypto_logins = weakref.WeakSet()
+        self.event_channels = weakref.WeakSet()
 
         self.name = kwargs.get('name')
         provider_attr = kwargs.get('attr')
@@ -178,7 +179,7 @@ cdef class Context(PyverbsCM):
                 self.logger.debug('Closing Context')
             close_weakrefs([self.qps, self.crypto_logins, self.rwq_ind_tbls, self.wqs, self.ccs, self.cqs,
                             self.dms, self.pds, self.xrcds, self.vars, self.sched_leafs,
-                            self.sched_nodes, self.dr_domains])
+                            self.sched_nodes, self.dr_domains, self.event_channels])
             rc = v.ibv_close_device(self.context)
             if rc != 0:
                 raise PyverbsRDMAErrno(f'Failed to close device {self.name}')
