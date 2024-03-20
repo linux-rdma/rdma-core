@@ -36,6 +36,7 @@
 #include <config.h>
 
 #include <stdint.h>
+#include <stdbool.h>
 #include <assert.h>
 #include <rdma/rdma_user_ioctl_cmds.h>
 #include <infiniband/verbs.h>
@@ -245,6 +246,18 @@ static inline struct ib_uverbs_attr *attr_optional(struct ib_uverbs_attr *attr)
 	return attr;
 }
 
+/*
+ * Get output attribute validity. Can be called on an optional output attribute
+ * after executing ioctl to check whether its data was filled in the kernel.
+ */
+static inline bool attr_output_valid(struct ib_uverbs_attr *attr)
+{
+	if (!attr)
+		return false;
+
+	return !!(attr->flags & UVERBS_ATTR_F_VALID_OUTPUT);
+}
+
 /* Send attributes of kernel type UVERBS_ATTR_TYPE_IDR */
 static inline struct ib_uverbs_attr *
 fill_attr_in_obj(struct ibv_command_buffer *cmd, uint16_t attr_id, uint32_t idr)
@@ -409,6 +422,21 @@ fill_attr_in_objs_arr(struct ibv_command_buffer *cmd, uint16_t attr_id,
 {
 	return fill_attr_in(cmd, attr_id, idrs_arr,
 			    _array_len(sizeof(*idrs_arr), nelems));
+}
+
+static inline struct ib_uverbs_attr *
+find_attr_by_id(struct ibv_command_buffer *link, uint16_t attr_id)
+{
+	struct ib_uverbs_attr *attr;
+
+	for (; link; link = link->next) {
+		for (attr = link->hdr.attrs; attr < link->next_attr; attr++) {
+			if (attr->attr_id == attr_id)
+				return attr;
+		}
+	}
+
+	return NULL;
 }
 
 #endif
