@@ -33,6 +33,7 @@
 #define _GNU_SOURCE
 #include <endian.h>
 #include <getopt.h>
+#include <libgen.h>
 #include <stdlib.h>
 #include <string.h>
 #include <stdio.h>
