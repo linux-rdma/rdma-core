@@ -2,6 +2,7 @@
 /* Copyright (c) 2019, Mellanox Technologies. All rights reserved. See COPYING file */
 
 #define _GNU_SOURCE
+#include <libgen.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
