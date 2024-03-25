@@ -19,6 +19,7 @@
 #include <linux/pci_regs.h>
 #include <util/rdma_nl.h>
 
+#include "util/util.h"
 /*
  * Rename modes:
  * NAME_FALLBACK - Try to name devices in the following order:
@@ -259,7 +260,7 @@ static int fill_pci_info(struct data *d, struct pci_info *p)
 
 	buf[ret] = 0;
 
-	pci = basename(buf);
+	pci = rdma_basename(buf);
 	/*
 	 * pci = 0000:00:0c.0
 	 */
@@ -377,7 +378,7 @@ static int by_pci(struct data *d)
 	}
 	buf[ret] = 0;
 
-	subs = basename(buf);
+	subs = rdma_basename(buf);
 	if (strcmp(subs, "pci")) {
 		/* Ball out virtual devices */
 		pr_dbg("%s: Non-PCI device (%s) was detected\n", d->curr, subs);

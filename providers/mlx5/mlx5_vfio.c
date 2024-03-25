@@ -3508,7 +3508,7 @@ static int mlx5_vfio_get_iommu_group_id(const char *pci_name)
 		return -1;
 
 	iommu_group_path[len] = 0;
-	group_name = basename(iommu_group_path);
+	group_name = rdma_basename(iommu_group_path);
 
 	if (sscanf(group_name, "%d", &groupid) != 1)
 		return -1;

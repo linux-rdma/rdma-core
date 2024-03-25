@@ -45,6 +45,7 @@
 #include <inttypes.h>
 #include <rdma/rdma_cma.h>
 #include "common.h"
+#include "util/util.h"
 
 static int debug = 0;
 #define DEBUG_LOG if (debug) printf
@@ -1253,9 +1254,9 @@ static int get_addr(char *dst, struct sockaddr *addr)
 static void usage(const char *name)
 {
 	printf("%s -s [-vVd] [-S size] [-C count] [-a addr] [-p port]\n", 
-	       basename(name));
+	       rdma_basename(name));
 	printf("%s -c [-vVd] [-S size] [-C count] [-I addr] -a addr [-p port]\n", 
-	       basename(name));
+	       rdma_basename(name));
 	printf("\t-c\t\tclient side\n");
 	printf("\t-I\t\tSource address to bind to for client.\n");
 	printf("\t-s\t\tserver side.  To bind to any address with IPv6 use -a ::0\n");

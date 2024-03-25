@@ -65,3 +65,10 @@ uint32_t xorshift32(struct xorshift32_state *state)
 	x ^= x << 5;
 	return state->seed = x;
 }
+/* implement a common basename function which behaves like
+   GNU version */
+char *rdma_basename(const char *path)
+{
+  char *p = strrchr(path, '/');
+  return p ? p + 1 : (char *)path;
+}

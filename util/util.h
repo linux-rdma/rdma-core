@@ -100,4 +100,7 @@ int open_cdev(const char *devname_hint, dev_t cdev);
 unsigned int get_random(void);
 
 bool check_env(const char *var);
+
+char *rdma_basename(const char *path);
+
 #endif
