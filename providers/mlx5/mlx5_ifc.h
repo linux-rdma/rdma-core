@@ -1183,7 +1183,8 @@ struct mlx5_ifc_cmd_hca_cap_bits {
 
 	u8         general_obj_types[0x40];
 
-	u8         reserved_at_440[0x4];
+	u8         sq_ts_format[0x2];
+	u8         rq_ts_format[0x2];
 	u8         steering_format_version[0x4];
 	u8         create_qp_start_hint[0x18];
 
