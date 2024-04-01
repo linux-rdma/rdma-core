@@ -28,6 +28,7 @@ rdma_python_test(tests
   test_mlx5_cuda_umem.py
   test_mlx5_dc.py
   test_mlx5_devx.py
+  test_mlx5_devx_async_events.py
   test_mlx5_dm_ops.py
   test_mlx5_dma_memcpy.py
   test_mlx5_dmabuf.py
