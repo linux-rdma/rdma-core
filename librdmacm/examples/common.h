@@ -103,4 +103,5 @@ int size_to_count(int size);
 void format_buf(void *buf, int size);
 int verify_buf(void *buf, int size);
 int do_poll(struct pollfd *fds, int timeout);
-struct rdma_event_channel *create_first_event_channel(void);
+
+struct rdma_event_channel *create_event_channel(void);

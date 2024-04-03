@@ -1362,7 +1362,7 @@ int main(int argc, char *argv[])
 		goto out;
 	}
 
-	cb->cm_channel = create_first_event_channel();
+	cb->cm_channel = create_event_channel();
 	if (!cb->cm_channel) {
 		ret = errno;
 		goto out;

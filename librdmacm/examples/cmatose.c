@@ -486,11 +486,9 @@ static int migrate_channel(struct rdma_cm_id *listen_id)
 
 	printf("migrating to new event channel\n");
 
-	channel = rdma_create_event_channel();
-	if (!channel) {
-		perror("cmatose: failed to create event channel");
+	channel = create_event_channel();
+	if (!channel)
 		return -1;
-	}
 
 	ret = 0;
 	if (listen_id)
@@ -715,7 +713,7 @@ int main(int argc, char **argv)
 
 	test.connects_left = connections;
 
-	test.channel = create_first_event_channel();
+	test.channel = create_event_channel();
 	if (!test.channel) {
 		exit(1);
 	}

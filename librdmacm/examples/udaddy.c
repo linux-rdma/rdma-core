@@ -671,7 +671,7 @@ int main(int argc, char **argv)
 
 	test.connects_left = connections;
 
-	test.channel = create_first_event_channel();
+	test.channel = create_event_channel();
 	if (!test.channel) {
 		exit(1);
 	}

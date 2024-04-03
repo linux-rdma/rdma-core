@@ -649,9 +649,9 @@ int main(int argc, char **argv)
 	if (ret)
 		goto out;
 
-	channel = create_first_event_channel();
+	channel = create_event_channel();
 	if (!channel) {
-		ret = -ENOMEM;
+		ret = -errno;
 		goto freeinfo;
 	}
 
