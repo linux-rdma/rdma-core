@@ -351,13 +351,9 @@ static void cma_handler(struct rdma_cm_id *id, struct rdma_cm_event *event)
 	rdma_ack_cm_event(event);
 }
 
-static int alloc_nodes(void)
+static int create_ids(void)
 {
 	int ret, i;
-
-	nodes = calloc(sizeof *nodes, connections);
-	if (!nodes)
-		return -ENOMEM;
 
 	printf("creating id\n");
 	start_time(STEP_CREATE_ID);
@@ -377,11 +373,10 @@ static int alloc_nodes(void)
 err:
 	while (--i >= 0)
 		rdma_destroy_id(nodes[i].id);
-	free(nodes);
 	return ret;
 }
 
-static void cleanup_nodes(void)
+static void destroy_ids(void)
 {
 	int i;
 
@@ -666,19 +661,30 @@ int main(int argc, char **argv)
 	}
 
 	if (dst_addr) {
-		alloc_nodes();
+		nodes = calloc(sizeof *nodes, connections);
+		if (!nodes) {
+			ret = -ENOMEM;
+			goto destroy;
+		}
+
+		ret = create_ids();
+		if (ret)
+			goto freenodes;
 		ret = run_client();
+		destroy_ids();
+
+		show_perf();
+freenodes:
+		free(nodes);
 	} else {
 		hints.ai_flags |= RAI_PASSIVE;
 		ret = run_server();
 	}
 
-	cleanup_nodes();
+destroy:
 	rdma_destroy_event_channel(channel);
 	if (rai)
 		rdma_freeaddrinfo(rai);
 
-	show_perf();
-	free(nodes);
 	return ret;
 }
