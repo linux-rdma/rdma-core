@@ -459,10 +459,8 @@ static int run_server(void)
 	}
 
 	ret = get_rdma_addr(src_addr, dst_addr, port, &hints, &rai);
-	if (ret) {
-		printf("getrdmaaddr error: %s\n", gai_strerror(ret));
+	if (ret)
 		goto out;
-	}
 
 	ret = rdma_bind_addr(listen_id, rai->ai_src_addr);
 	if (ret) {
@@ -488,10 +486,8 @@ static int run_client(void)
 	int i, ret;
 
 	ret = get_rdma_addr(src_addr, dst_addr, port, &hints, &rai);
-	if (ret) {
+	if (ret)
 		printf("getaddrinfo error: %s\n", gai_strerror(ret));
-		return ret;
-	}
 
 	conn_param.responder_resources = 1;
 	conn_param.initiator_depth = 1;
