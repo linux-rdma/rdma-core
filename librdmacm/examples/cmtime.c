@@ -31,6 +31,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include <strings.h>
+#include <stdbool.h>
 #include <errno.h>
 #include <getopt.h>
 #include <sys/types.h>
@@ -113,6 +114,11 @@ static struct rdma_conn_param conn_param;
 #define end_perf(n, s)		gettimeofday(&((n)->times[s][1]), NULL)
 #define start_time(s)		gettimeofday(&times[s][0], NULL)
 #define end_time(s)		gettimeofday(&times[s][1], NULL)
+
+static inline bool is_client(void)
+{
+	return dst_addr != NULL;
+}
 
 static inline void __list_delete(struct list_head *list)
 {
@@ -370,12 +376,10 @@ static int create_ids(void)
 	start_time(STEP_CREATE_ID);
 	for (i = 0; i < connections; i++) {
 		start_perf(&nodes[i], STEP_CREATE_ID);
-		if (dst_addr) {
-			ret = rdma_create_id(channel, &nodes[i].id, &nodes[i],
-					     hints.ai_port_space);
-			if (ret)
-				goto err;
-		}
+		ret = rdma_create_id(channel, &nodes[i].id, &nodes[i],
+					hints.ai_port_space);
+		if (ret)
+			goto err;
 		end_perf(&nodes[i], STEP_CREATE_ID);
 	}
 	end_time(STEP_CREATE_ID);
@@ -655,7 +659,7 @@ int main(int argc, char **argv)
 	init_qp_attr.cap.max_recv_sge = 1;
 	init_qp_attr.qp_type = IBV_QPT_RC;
 
-	if (!dst_addr)
+	if (!is_client())
 		hints.ai_flags |= RAI_PASSIVE;
 	ret = get_rdma_addr(src_addr, dst_addr, port, &hints, &rai);
 	if (ret)
@@ -667,7 +671,7 @@ int main(int argc, char **argv)
 		goto freeinfo;
 	}
 
-	if (dst_addr) {
+	if (is_client()) {
 		nodes = calloc(sizeof *nodes, connections);
 		if (!nodes) {
 			ret = -ENOMEM;
