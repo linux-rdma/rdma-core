@@ -78,15 +78,11 @@ static const char *step_str[] = {
 };
 
 struct node {
+	struct node *next;
 	struct rdma_cm_id *id;
 	struct timeval times[STEP_CNT][2];
 	int error;
 	int retries;
-};
-
-struct work_item {
-	struct work_item *next;
-	struct rdma_cm_id *id;
 };
 
 struct work_queue {
@@ -94,9 +90,9 @@ struct work_queue {
 	pthread_cond_t cond;
 	pthread_t thread;
 
-	void (*work_handler)(struct work_item *item);
-	struct work_item *head;
-	struct work_item *tail;
+	void (*work_handler)(struct node *node);
+	struct node *head;
+	struct node *tail;
 };
 
 static void *wq_handler(void *arg);
@@ -104,6 +100,7 @@ static struct work_queue req_wq;
 static struct work_queue disc_wq;
 
 static struct node *nodes;
+static int node_index;
 static struct timeval times[STEP_CNT][2];
 static int connections = 100;
 static volatile int disc_events;
@@ -124,7 +121,7 @@ static inline bool is_client(void)
 }
 
 static int
-wq_init(struct work_queue *wq, void (*work_handler)(struct work_item *))
+wq_init(struct work_queue *wq, void (*work_handler)(struct node *))
 {
 	int ret;
 
@@ -160,33 +157,34 @@ static void wq_cleanup(struct work_queue *wq)
 	pthread_mutex_destroy(&wq->lock);
 }
 
-static void wq_insert(struct work_queue *wq, struct work_item *item)
+static void wq_insert(struct work_queue *wq, struct node *n)
 {
 	bool empty;
 
-	item->next = NULL;
+	n->next = NULL;
 	pthread_mutex_lock(&wq->lock);
 	if (wq->head) {
-		wq->tail->next = item;
+		wq->tail->next = n;
 		empty = false;
 	} else {
-		wq->head = item;
+		wq->head = n;
 		empty = true;
 	}
-	wq->tail = item;
+	wq->tail = n;
 	pthread_mutex_unlock(&wq->lock);
 
 	if (empty)
 		pthread_cond_signal(&wq->cond);
 }
 
-static struct work_item *wq_remove(struct work_queue *wq)
+static struct node *wq_remove(struct work_queue *wq)
 {
-	struct work_item *item;
+	struct node *n;
 
-	item = wq->head;
+	n = wq->head;
 	wq->head = wq->head->next;
-	return item;
+	n->next = NULL;
+	return n;
 }
 
 static int zero_time(struct timeval *t)
@@ -254,12 +252,12 @@ static void disc_handler(struct node *n)
 	completed[STEP_DISCONNECT]++;
 }
 
-static void req_work_handler(struct work_item *item)
+static void req_work_handler(struct node *n)
 {
 	struct rdma_cm_id *id;
 	int ret;
 
-	id = item->id;
+	id = n->id;
 	ret = rdma_create_qp(id, NULL, &init_qp_attr);
 	if (ret) {
 		perror("failure creating qp");
@@ -282,28 +280,27 @@ err1:
 	return;
 }
 
-static void disc_work_handler(struct work_item *item)
+static void disc_work_handler(struct node *n)
 {
-	rdma_disconnect(item->id);
-	rdma_destroy_qp(item->id);
-	rdma_destroy_id(item->id);
+	rdma_disconnect(n->id);
+	rdma_destroy_qp(n->id);
+	rdma_destroy_id(n->id);
 }
 
 static void *wq_handler(void *arg)
 {
 	struct work_queue *wq = arg;
-	struct work_item *item;
+	struct node *n;
 	int i;
 
 	for (i = 0; i < connections; i++) {
 		pthread_mutex_lock(&wq->lock);
 		if (!wq->head)
 			pthread_cond_wait(&wq->cond, &wq->lock);
-		item = wq_remove(wq);
+		n = wq_remove(wq);
 		pthread_mutex_unlock(&wq->lock);
 
-		wq->work_handler(item);
-		free(item);
+		wq->work_handler(n);
 	}
 
 	return NULL;
@@ -312,7 +309,6 @@ static void *wq_handler(void *arg)
 static void cma_handler(struct rdma_cm_id *id, struct rdma_cm_event *event)
 {
 	struct node *n = id->context;
-	struct work_item *item;
 
 	switch (event->event) {
 	case RDMA_CM_EVENT_ADDR_RESOLVED:
@@ -322,18 +318,13 @@ static void cma_handler(struct rdma_cm_id *id, struct rdma_cm_event *event)
 		route_handler(n);
 		break;
 	case RDMA_CM_EVENT_CONNECT_REQUEST:
-		item = malloc(sizeof *item);
-		if (!item) {
-			perror("out of memory accepting connect request");
-			rdma_reject(id, NULL, 0);
-			rdma_destroy_id(id);
-		} else {
-			item->id = id;
-			wq_insert(&req_wq, item);
-		}
+		n = &nodes[node_index++];
+		n->id = id;
+		id->context = n;
+		wq_insert(&req_wq, n);
 		break;
 	case RDMA_CM_EVENT_ESTABLISHED:
-		if (n)
+		if (is_client())
 			conn_handler(n);
 		break;
 	case RDMA_CM_EVENT_ADDR_ERROR:
@@ -365,20 +356,10 @@ static void cma_handler(struct rdma_cm_id *id, struct rdma_cm_event *event)
 		break;
 	case RDMA_CM_EVENT_DISCONNECTED:
 		disc_events++;
-		if (!n) {
-			item = malloc(sizeof *item);
-			if (!item) {
-				perror("out of memory queueing disconnect request, handling synchronously");
-				rdma_disconnect(id);
-				rdma_destroy_qp(id);
-				rdma_destroy_id(id);
-			} else {
-				item->id = id;
-				wq_insert(&disc_wq, item);
-			}
-		} else {
+		if (is_client())
 			disc_handler(n);
-		}
+		else
+			wq_insert(&disc_wq, n);
 		break;
 	case RDMA_CM_EVENT_DEVICE_REMOVAL:
 		/* Cleanup will occur after test completes. */
@@ -663,13 +644,13 @@ int main(int argc, char **argv)
 		goto freeinfo;
 	}
 
-	if (is_client()) {
-		nodes = calloc(sizeof *nodes, connections);
-		if (!nodes) {
-			ret = -ENOMEM;
-			goto destchan;
-		}
+	nodes = calloc(sizeof *nodes, connections);
+	if (!nodes) {
+		ret = -ENOMEM;
+		goto destchan;
+	}
 
+	if (is_client()) {
 		ret = create_ids();
 		if (ret)
 			goto freenodes;
@@ -677,12 +658,12 @@ int main(int argc, char **argv)
 		destroy_ids();
 
 		show_perf();
-freenodes:
-		free(nodes);
 	} else {
 		ret = run_server();
 	}
 
+freenodes:
+	free(nodes);
 destchan:
 	rdma_destroy_event_channel(channel);
 freeinfo:
