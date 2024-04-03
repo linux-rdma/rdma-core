@@ -102,6 +102,8 @@ static struct work_list disc_work;
 static struct node *nodes;
 static struct timeval times[STEP_CNT][2];
 static int connections = 100;
+static volatile int disc_events;
+
 static volatile int started[STEP_CNT];
 static volatile int completed[STEP_CNT];
 static struct ibv_qp_init_attr init_qp_attr;
@@ -230,6 +232,7 @@ static void __req_handler(struct rdma_cm_id *id)
 		goto err2;
 	}
 	return;
+
 err2:
 	rdma_destroy_qp(id);
 err1:
@@ -242,7 +245,9 @@ err1:
 static void *req_handler_thread(void *arg)
 {
 	struct list_head *work;
-	do {
+	int i;
+
+	for (i = 0; i < connections; i++) {
 		pthread_mutex_lock(&req_work.lock);
 		if (__list_empty(&req_work))
 			pthread_cond_wait(&req_work.cond, &req_work.lock);
@@ -250,14 +255,17 @@ static void *req_handler_thread(void *arg)
 		pthread_mutex_unlock(&req_work.lock);
 		__req_handler(work->id);
 		free(work);
-	} while (1);
+	}
+
 	return NULL;
 }
 
 static void *disc_handler_thread(void *arg)
 {
 	struct list_head *work;
-	do {
+	int i;
+
+	for (i = 0; i < connections; i++) {
 		pthread_mutex_lock(&disc_work.lock);
 		if (__list_empty(&disc_work))
 			pthread_cond_wait(&disc_work.cond, &disc_work.lock);
@@ -267,7 +275,8 @@ static void *disc_handler_thread(void *arg)
 		rdma_destroy_qp(work->id);
 		rdma_destroy_id(work->id);
 		free(work);
-	} while (1);
+	};
+
 	return NULL;
 }
 
@@ -327,6 +336,7 @@ static void cma_handler(struct rdma_cm_id *id, struct rdma_cm_event *event)
 		n->error = 1;
 		break;
 	case RDMA_CM_EVENT_DISCONNECTED:
+		disc_events++;
 		if (!n) {
 			request = malloc(sizeof *request);
 			if (!request) {
@@ -339,8 +349,9 @@ static void cma_handler(struct rdma_cm_id *id, struct rdma_cm_event *event)
 				request->id = id;
 				list_add_tail(&disc_work, request);
 			}
-		} else
+		} else {
 			disc_handler(n);
+		}
 		break;
 	case RDMA_CM_EVENT_DEVICE_REMOVAL:
 		/* Cleanup will occur after test completes. */
@@ -396,7 +407,7 @@ static void *process_events(void *arg)
 	struct rdma_cm_event *event;
 	int ret = 0;
 
-	while (!ret) {
+	while (!ret && disc_events < connections) {
 		ret = rdma_get_cm_event(channel, &event);
 		if (!ret) {
 			cma_handler(event->id, event);
@@ -405,6 +416,7 @@ static void *process_events(void *arg)
 			ret = errno;
 		}
 	}
+
 	return NULL;
 }
 
