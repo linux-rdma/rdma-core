@@ -62,7 +62,14 @@ enum step {
 	STEP_RESOLVE_ADDR,
 	STEP_RESOLVE_ROUTE,
 	STEP_CREATE_QP,
+	STEP_INIT_QP_ATTR,
+	STEP_INIT_QP,
+	STEP_RTR_QP_ATTR,
+	STEP_RTR_QP,
+	STEP_RTS_QP_ATTR,
+	STEP_RTS_QP,
 	STEP_CONNECT,
+	STEP_ESTABLISH,
 	STEP_DISCONNECT,
 	STEP_DESTROY_ID,
 	STEP_DESTROY_QP,
@@ -75,7 +82,14 @@ static const char *step_str[] = {
 	"resolve addr",
 	"resolve route",
 	"create qp",
+	"init qp attr",
+	"init qp",
+	"rtr qp attr",
+	"rtr qp",
+	"rts qp attr",
+	"rts qp",
 	"connect",
+	"establish",
 	"disconnect",
 	"destroy id",
 	"destroy qp"
@@ -84,6 +98,8 @@ static const char *step_str[] = {
 struct node {
 	struct node *next;
 	struct rdma_cm_id *id;
+	struct ibv_qp *qp;
+
 	struct timeval times[STEP_CNT][2];
 	int error;
 	int retries;
@@ -111,13 +127,15 @@ static volatile int disc_events;
 
 static volatile int started[STEP_CNT];
 static volatile int completed[STEP_CNT];
-static struct ibv_qp_init_attr init_qp_attr;
-static struct rdma_conn_param conn_param;
+
+static struct ibv_pd *pd;
+static struct ibv_cq *cq;
 
 #define start_perf(n, s)	gettimeofday(&((n)->times[s][0]), NULL)
 #define end_perf(n, s)		gettimeofday(&((n)->times[s][1]), NULL)
 #define start_time(s)		gettimeofday(&times[s][0], NULL)
 #define end_time(s)		gettimeofday(&times[s][1], NULL)
+
 
 static inline bool is_client(void)
 {
@@ -233,6 +251,122 @@ static void show_perf(void)
 	}
 }
 
+static inline bool need_verbs(void)
+{
+	return pd == NULL;
+}
+
+static int open_verbs(struct rdma_cm_id *id)
+{
+	pd = ibv_alloc_pd(id->verbs);
+	if (!pd) {
+		perror("ibv_alloc_pd");
+		return -errno;
+	}
+
+	cq = ibv_create_cq(id->verbs, 1, NULL, NULL, 0);
+	if (!cq) {
+		perror("ibv_create_cq");
+		return -errno;
+	}
+	return 0;
+}
+
+static int create_qp(struct node *n)
+{
+	struct ibv_qp_init_attr attr;
+	int ret;
+
+	if (need_verbs()) {
+		ret = open_verbs(n->id);
+		if (ret)
+			return ret;
+	}
+
+	attr.qp_context = n;
+	attr.send_cq = cq;
+	attr.recv_cq = cq;
+	attr.srq = NULL;
+	attr.qp_type = IBV_QPT_RC;
+	attr.sq_sig_all = 1;
+
+	attr.cap.max_send_wr = 1;
+	attr.cap.max_recv_wr = 1;
+	attr.cap.max_send_sge = 1;
+	attr.cap.max_recv_sge = 1;
+	attr.cap.max_inline_data = 0;
+
+	start_perf(n, STEP_CREATE_QP);
+	n->qp = ibv_create_qp(pd, &attr);
+	if (!n->qp) {
+		ret = -errno;
+		perror("ibv_create_qp");
+		n->error = 1;
+	}
+	end_perf(n, STEP_CREATE_QP);
+
+	return ret;
+}
+
+static int
+modify_qp(struct node *n, enum ibv_qp_state state, enum step attr_step)
+{
+	struct ibv_qp_attr attr;
+	int mask, ret;
+
+	attr.qp_state = state;
+	start_perf(n, attr_step);
+	ret = rdma_init_qp_attr(n->id, &attr, &mask);
+	if (ret) {
+		perror("rdma_init_qp_attr");
+		n->error = 1;
+		return ret;
+	}
+	end_perf(n, attr_step);
+
+	start_perf(n, attr_step + 1);
+	ret = ibv_modify_qp(n->qp, &attr, mask);
+	if (ret) {
+		perror("ibv_modify_qp");
+		n->error = 1;
+		return ret;
+	}
+	end_perf(n, attr_step + 1);
+
+	return 0;
+}
+
+static void init_conn_param(struct node *n, struct rdma_conn_param *param)
+{
+	param->private_data = rai->ai_connect;
+	param->private_data_len = rai->ai_connect_len;
+	param->responder_resources = 1;
+	param->initiator_depth = 1;
+	param->flow_control = 0;
+	param->retry_count = 0;
+	param->rnr_retry_count = 0;
+	param->srq = 0;
+	param->qp_num = n->qp->qp_num;
+}
+
+static void connect_qp(struct node *n)
+{
+	struct rdma_conn_param conn_param;
+	int ret;
+
+	init_conn_param(n, &conn_param);
+
+	start_perf(n, STEP_CONNECT);
+	ret = rdma_connect(n->id, &conn_param);
+	if (ret) {
+		perror("rdma_connect");
+		n->error = 1;
+		return;
+	}
+
+	started[STEP_CONNECT]++;
+}
+
 static void addr_handler(struct node *n)
 {
 	end_perf(n, STEP_RESOLVE_ADDR);
@@ -247,6 +381,27 @@ static void route_handler(struct node *n)
 
 static void conn_handler(struct node *n)
 {
+	int ret;
+
+	if (n->error)
+		goto endperf;
+
+	ret = modify_qp(n, IBV_QPS_RTR, STEP_RTR_QP_ATTR);
+	if (ret)
+		goto out;
+
+	ret = modify_qp(n, IBV_QPS_RTS, STEP_RTS_QP_ATTR);
+	if (ret)
+		goto out;
+
+	start_perf(n, STEP_ESTABLISH);
+	rdma_establish(n->id);
+	end_perf(n, STEP_ESTABLISH);
+
+out:
+	if (ret)
+		n->error = 1;
+endperf:
 	end_perf(n, STEP_CONNECT);
 	completed[STEP_CONNECT]++;
 }
@@ -259,29 +414,40 @@ static void disc_handler(struct node *n)
 
 static void req_work_handler(struct node *n)
 {
-	struct rdma_cm_id *id;
+	struct rdma_conn_param conn_param;
 	int ret;
 
-	id = n->id;
-	ret = rdma_create_qp(id, NULL, &init_qp_attr);
-	if (ret) {
-		perror("failure creating qp");
+	ret = create_qp(n);
+	if (ret)
 		goto err1;
-	}
 
-	ret = rdma_accept(id, NULL);
+	ret = modify_qp(n, IBV_QPS_INIT, STEP_INIT_QP_ATTR);
+	if (ret)
+		goto err2;
+
+	ret = modify_qp(n, IBV_QPS_RTR, STEP_RTR_QP_ATTR);
+	if (ret)
+		goto err2;
+
+	ret = modify_qp(n, IBV_QPS_RTS, STEP_RTS_QP_ATTR);
+	if (ret)
+		goto err2;
+
+	init_conn_param(n, &conn_param);
+	ret = rdma_accept(n->id, &conn_param);
 	if (ret) {
 		perror("failure accepting");
+		n->error = 1;
 		goto err2;
 	}
 	return;
 
 err2:
-	rdma_destroy_qp(id);
+	ibv_destroy_qp(n->qp);
 err1:
 	printf("failing connection request\n");
-	rdma_reject(id, NULL, 0);
-	rdma_destroy_id(id);
+	rdma_reject(n->id, NULL, 0);
+	rdma_destroy_id(n->id);
 	return;
 }
 
@@ -331,9 +497,10 @@ static void cma_handler(struct rdma_cm_id *id, struct rdma_cm_event *event)
 		id->context = n;
 		wq_insert(&req_wq, n);
 		break;
+	case RDMA_CM_EVENT_CONNECT_RESPONSE:
+		conn_handler(n);
+		break;
 	case RDMA_CM_EVENT_ESTABLISHED:
-		if (is_client())
-			conn_handler(n);
 		break;
 	case RDMA_CM_EVENT_ADDR_ERROR:
 		if (n->retries--) {
@@ -359,8 +526,8 @@ static void cma_handler(struct rdma_cm_id *id, struct rdma_cm_event *event)
 	case RDMA_CM_EVENT_REJECTED:
 		printf("event: %s, error: %d\n",
 		       rdma_event_str(event->event), event->status);
-		conn_handler(n);
 		n->error = 1;
+		conn_handler(n);
 		break;
 	case RDMA_CM_EVENT_DISCONNECTED:
 		disc_events++;
@@ -428,7 +595,7 @@ static void destroy_qps(void)
 	for (i = 0; i < connections; i++) {
 		start_perf(&nodes[i], STEP_DESTROY_QP);
 		if (nodes[i].id)
-			rdma_destroy_qp(nodes[i].id);
+			ibv_destroy_qp(nodes[i].qp);
 		end_perf(&nodes[i], STEP_DESTROY_QP);
 	}
 	end_time(STEP_DESTROY_QP);
@@ -483,13 +650,6 @@ err:
 
 static void reset_test(int iter)
 {
-	memset(&init_qp_attr, 0, sizeof init_qp_attr);
-	init_qp_attr.cap.max_send_wr = 1;
-	init_qp_attr.cap.max_recv_wr = 1;
-	init_qp_attr.cap.max_send_sge = 1;
-	init_qp_attr.cap.max_recv_sge = 1;
-	init_qp_attr.qp_type = IBV_QPT_RC;
-
 	node_index = 0;
 	disc_events = 0;
 	connections = iter;
@@ -527,12 +687,6 @@ static int client_connect(int iter)
 {
 	pthread_t event_thread;
 	int i, ret;
-
-	conn_param.responder_resources = 1;
-	conn_param.initiator_depth = 1;
-	conn_param.retry_count = retries;
-	conn_param.private_data = rai->ai_connect;
-	conn_param.private_data_len = rai->ai_connect_len;
 
 	reset_test(iter);
 	ret = pthread_create(&event_thread, NULL, process_events, NULL);
@@ -605,30 +759,29 @@ static int client_connect(int iter)
 	for (i = 0; i < connections; i++) {
 		if (nodes[i].error)
 			continue;
-		start_perf(&nodes[i], STEP_CREATE_QP);
-		ret = rdma_create_qp(nodes[i].id, NULL, &init_qp_attr);
-		if (ret) {
-			perror("failure creating qp");
-			nodes[i].error = 1;
+		ret = create_qp(&nodes[i]);
+		if (ret)
 			continue;
-		}
-		end_perf(&nodes[i], STEP_CREATE_QP);
 	}
 	end_time(STEP_CREATE_QP);
+
+	printf("init qp\n");
+	start_time(STEP_INIT_QP);
+	for (i = 0; i < connections; i++) {
+		if (nodes[i].error)
+			continue;
+		ret = modify_qp(&nodes[i], IBV_QPS_INIT, STEP_INIT_QP_ATTR);
+		if (ret)
+			continue;
+	}
+	end_time(STEP_INIT_QP);
 
 	printf("connecting\n");
 	start_time(STEP_CONNECT);
 	for (i = 0; i < connections; i++) {
 		if (nodes[i].error)
 			continue;
-		start_perf(&nodes[i], STEP_CONNECT);
-		ret = rdma_connect(nodes[i].id, &conn_param);
-		if (ret) {
-			perror("failure rconnecting");
-			nodes[i].error = 1;
-			continue;
-		}
-		started[STEP_CONNECT]++;
+		connect_qp(&nodes[i]);
 	}
 	while (started[STEP_CONNECT] != completed[STEP_CONNECT])
 		sched_yield();
