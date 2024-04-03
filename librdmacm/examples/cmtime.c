@@ -130,7 +130,7 @@ static inline int __list_empty(struct work_list *list)
 static inline struct list_head *__list_remove_head(struct work_list *work_list)
 {
 	struct list_head *list_item;
-	
+
 	list_item = work_list->list.next;
 	__list_delete(list_item);
 	return list_item;
@@ -542,7 +542,8 @@ static int run_client(void)
 		}
 		started[STEP_RESOLVE_ADDR]++;
 	}
-	while (started[STEP_RESOLVE_ADDR] != completed[STEP_RESOLVE_ADDR]) sched_yield();
+	while (started[STEP_RESOLVE_ADDR] != completed[STEP_RESOLVE_ADDR])
+		sched_yield();
 	end_time(STEP_RESOLVE_ADDR);
 
 	printf("resolving route\n");
@@ -560,7 +561,8 @@ static int run_client(void)
 		}
 		started[STEP_RESOLVE_ROUTE]++;
 	}
-	while (started[STEP_RESOLVE_ROUTE] != completed[STEP_RESOLVE_ROUTE]) sched_yield();
+	while (started[STEP_RESOLVE_ROUTE] != completed[STEP_RESOLVE_ROUTE])
+		sched_yield();
 	end_time(STEP_RESOLVE_ROUTE);
 
 	printf("creating qp\n");
@@ -593,7 +595,8 @@ static int run_client(void)
 		}
 		started[STEP_CONNECT]++;
 	}
-	while (started[STEP_CONNECT] != completed[STEP_CONNECT]) sched_yield();
+	while (started[STEP_CONNECT] != completed[STEP_CONNECT])
+		sched_yield();
 	end_time(STEP_CONNECT);
 
 	printf("disconnecting\n");
@@ -606,7 +609,8 @@ static int run_client(void)
 		rdma_destroy_qp(nodes[i].id);
 		started[STEP_DISCONNECT]++;
 	}
-	while (started[STEP_DISCONNECT] != completed[STEP_DISCONNECT]) sched_yield();
+	while (started[STEP_DISCONNECT] != completed[STEP_DISCONNECT])
+		sched_yield();
 	end_time(STEP_DISCONNECT);
 
 	return ret;
