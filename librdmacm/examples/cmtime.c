@@ -458,10 +458,6 @@ static int run_server(void)
 		return ret;
 	}
 
-	ret = get_rdma_addr(src_addr, dst_addr, port, &hints, &rai);
-	if (ret)
-		goto out;
-
 	ret = rdma_bind_addr(listen_id, rai->ai_src_addr);
 	if (ret) {
 		perror("bind address failed");
@@ -484,10 +480,6 @@ static int run_client(void)
 {
 	pthread_t event_thread;
 	int i, ret;
-
-	ret = get_rdma_addr(src_addr, dst_addr, port, &hints, &rai);
-	if (ret)
-		printf("getaddrinfo error: %s\n", gai_strerror(ret));
 
 	conn_param.responder_resources = 1;
 	conn_param.initiator_depth = 1;
@@ -651,16 +643,23 @@ int main(int argc, char **argv)
 	init_qp_attr.cap.max_recv_sge = 1;
 	init_qp_attr.qp_type = IBV_QPT_RC;
 
+	if (!dst_addr)
+		hints.ai_flags |= RAI_PASSIVE;
+	ret = get_rdma_addr(src_addr, dst_addr, port, &hints, &rai);
+	if (ret)
+		goto out;
+
 	channel = create_first_event_channel();
 	if (!channel) {
-		exit(1);
+		ret = -ENOMEM;
+		goto freeinfo;
 	}
 
 	if (dst_addr) {
 		nodes = calloc(sizeof *nodes, connections);
 		if (!nodes) {
 			ret = -ENOMEM;
-			goto destroy;
+			goto destchan;
 		}
 
 		ret = create_ids();
@@ -673,12 +672,13 @@ int main(int argc, char **argv)
 freenodes:
 		free(nodes);
 	} else {
-		hints.ai_flags |= RAI_PASSIVE;
 		ret = run_server();
 	}
 
-destroy:
+destchan:
 	rdma_destroy_event_channel(channel);
+freeinfo:
 	rdma_freeaddrinfo(rai);
+out:
 	return ret;
 }
