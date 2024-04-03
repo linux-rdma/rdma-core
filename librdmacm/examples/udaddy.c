@@ -693,8 +693,7 @@ int main(int argc, char **argv)
 	printf("test complete\n");
 	destroy_nodes();
 	rdma_destroy_event_channel(test.channel);
-	if (test.rai)
-		rdma_freeaddrinfo(test.rai);
+	rdma_freeaddrinfo(test.rai);
 
 	printf("return status %d\n", ret);
 	return ret;

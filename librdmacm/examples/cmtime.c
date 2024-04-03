@@ -683,8 +683,6 @@ freenodes:
 
 destroy:
 	rdma_destroy_event_channel(channel);
-	if (rai)
-		rdma_freeaddrinfo(rai);
-
+	rdma_freeaddrinfo(rai);
 	return ret;
 }
