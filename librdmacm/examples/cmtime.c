@@ -106,7 +106,7 @@ static struct work_queue disc_wq;
 static struct node *nodes;
 static int node_index;
 static struct timeval times[STEP_CNT][2];
-static int connections = 100;
+static int connections;
 static volatile int disc_events;
 
 static volatile int started[STEP_CNT];
@@ -159,6 +159,7 @@ static void wq_cleanup(struct work_queue *wq)
 	pthread_join(wq->thread, NULL);
 	pthread_cond_destroy(&wq->cond);
 	pthread_mutex_destroy(&wq->lock);
+	pthread_join(wq->thread, NULL);
 }
 
 static void wq_insert(struct work_queue *wq, struct node *n)
@@ -480,10 +481,30 @@ err:
 	return ret;
 }
 
-static int server_connect(void)
+static void reset_test(int iter)
+{
+	memset(&init_qp_attr, 0, sizeof init_qp_attr);
+	init_qp_attr.cap.max_send_wr = 1;
+	init_qp_attr.cap.max_recv_wr = 1;
+	init_qp_attr.cap.max_send_sge = 1;
+	init_qp_attr.cap.max_recv_sge = 1;
+	init_qp_attr.qp_type = IBV_QPT_RC;
+
+	node_index = 0;
+	disc_events = 0;
+	connections = iter;
+
+	memset(times, 0, sizeof times);
+	memset((void *) started, 0, sizeof started);
+	memset((void *) completed, 0, sizeof completed);
+	memset(nodes, 0, sizeof(*nodes) * iter);
+}
+
+static int server_connect(int iter)
 {
 	int ret;
 
+	reset_test(iter);
 	ret = wq_init(&req_wq, req_work_handler);
 	if (ret)
 		return ret;
@@ -494,12 +515,15 @@ static int server_connect(void)
 
 	process_events(NULL);
 
+	/* Wait for event threads to exit before destroying resources */
 	wq_cleanup(&req_wq);
 	wq_cleanup(&disc_wq);
+	destroy_qps();
+	destroy_ids();
 	return ret;
 }
 
-static int client_connect(void)
+static int client_connect(int iter)
 {
 	pthread_t event_thread;
 	int i, ret;
@@ -510,11 +534,16 @@ static int client_connect(void)
 	conn_param.private_data = rai->ai_connect;
 	conn_param.private_data_len = rai->ai_connect_len;
 
+	reset_test(iter);
 	ret = pthread_create(&event_thread, NULL, process_events, NULL);
 	if (ret) {
 		perror("failure creating event thread");
 		return ret;
 	}
+
+	ret = create_ids();
+	if (ret)
+		return ret;
 
 	if (src_addr) {
 		printf("binding source address\n");
@@ -618,11 +647,15 @@ static int client_connect(void)
 		sched_yield();
 	end_time(STEP_DISCONNECT);
 
+	destroy_qps();
+	destroy_ids();
+
 	return ret;
 }
 
 int main(int argc, char **argv)
 {
+	int iter = 100;
 	int op, ret;
 
 	hints.ai_port_space = RDMA_PS_TCP;
@@ -636,7 +669,7 @@ int main(int argc, char **argv)
 			src_addr = optarg;
 			break;
 		case 'c':
-			connections = atoi(optarg);
+			iter = atoi(optarg);
 			break;
 		case 'p':
 			port = optarg;
@@ -659,12 +692,6 @@ int main(int argc, char **argv)
 		}
 	}
 
-	init_qp_attr.cap.max_send_wr = 1;
-	init_qp_attr.cap.max_recv_wr = 1;
-	init_qp_attr.cap.max_send_sge = 1;
-	init_qp_attr.cap.max_recv_sge = 1;
-	init_qp_attr.qp_type = IBV_QPT_RC;
-
 	if (!is_client())
 		hints.ai_flags |= RAI_PASSIVE;
 	ret = get_rdma_addr(src_addr, dst_addr, port, &hints, &rai);
@@ -677,29 +704,29 @@ int main(int argc, char **argv)
 		goto freeinfo;
 	}
 
-	nodes = calloc(sizeof *nodes, connections);
+	nodes = calloc(sizeof *nodes, iter);
 	if (!nodes) {
 		ret = -ENOMEM;
 		goto destchan;
 	}
 
 	if (is_client()) {
-		ret = create_ids();
+		ret = client_connect(1);
 		if (ret)
 			goto freenodes;
-		ret = client_connect();
-
+		ret = client_connect(iter);
 	} else {
 		ret = server_listen();
 		if (ret)
-			goto destroy;
-		ret = server_connect();
+			goto freenodes;
+
+		ret = server_connect(1);
+		if (ret)
+			goto freenodes;
+		ret = server_connect(iter);
 		rdma_destroy_id(listen_id);
 	}
 
-destroy:
-	destroy_qps();
-	destroy_ids();
 	show_perf();
 freenodes:
 	free(nodes);
