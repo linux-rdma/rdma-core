@@ -62,7 +62,8 @@ enum step {
 	STEP_CREATE_QP,
 	STEP_CONNECT,
 	STEP_DISCONNECT,
-	STEP_DESTROY,
+	STEP_DESTROY_ID,
+	STEP_DESTROY_QP,
 	STEP_CNT
 };
 
@@ -74,7 +75,8 @@ static const char *step_str[] = {
 	"create qp",
 	"connect",
 	"disconnect",
-	"destroy"
+	"destroy id",
+	"destroy qp"
 };
 
 struct node {
@@ -282,9 +284,12 @@ err1:
 
 static void disc_work_handler(struct node *n)
 {
+	start_perf(n, STEP_DISCONNECT);
 	rdma_disconnect(n->id);
-	rdma_destroy_qp(n->id);
-	rdma_destroy_id(n->id);
+	end_perf(n, STEP_DISCONNECT);
+
+	if (disc_events >= connections)
+		end_time(STEP_DISCONNECT);
 }
 
 static void *wq_handler(void *arg)
@@ -356,10 +361,13 @@ static void cma_handler(struct rdma_cm_id *id, struct rdma_cm_event *event)
 		break;
 	case RDMA_CM_EVENT_DISCONNECTED:
 		disc_events++;
-		if (is_client())
+		if (is_client()) {
 			disc_handler(n);
-		else
+		} else {
+			if (disc_events == 1)
+				start_time(STEP_DISCONNECT);
 			wq_insert(&disc_wq, n);
+		}
 		break;
 	case RDMA_CM_EVENT_DEVICE_REMOVAL:
 		/* Cleanup will occur after test completes. */
@@ -398,14 +406,29 @@ static void destroy_ids(void)
 	int i;
 
 	printf("destroying id\n");
-	start_time(STEP_DESTROY);
+	start_time(STEP_DESTROY_ID);
 	for (i = 0; i < connections; i++) {
-		start_perf(&nodes[i], STEP_DESTROY);
+		start_perf(&nodes[i], STEP_DESTROY_ID);
 		if (nodes[i].id)
 			rdma_destroy_id(nodes[i].id);
-		end_perf(&nodes[i], STEP_DESTROY);
+		end_perf(&nodes[i], STEP_DESTROY_ID);
 	}
-	end_time(STEP_DESTROY);
+	end_time(STEP_DESTROY_ID);
+}
+
+static void destroy_qps(void)
+{
+	int i;
+
+	printf("destroying qp\n");
+	start_time(STEP_DESTROY_QP);
+	for (i = 0; i < connections; i++) {
+		start_perf(&nodes[i], STEP_DESTROY_QP);
+		if (nodes[i].id)
+			rdma_destroy_qp(nodes[i].id);
+		end_perf(&nodes[i], STEP_DESTROY_QP);
+	}
+	end_time(STEP_DESTROY_QP);
 }
 
 static void *process_events(void *arg)
@@ -578,7 +601,6 @@ static int run_client(void)
 			continue;
 		start_perf(&nodes[i], STEP_DISCONNECT);
 		rdma_disconnect(nodes[i].id);
-		rdma_destroy_qp(nodes[i].id);
 		started[STEP_DISCONNECT]++;
 	}
 	while (started[STEP_DISCONNECT] != completed[STEP_DISCONNECT])
@@ -655,12 +677,14 @@ int main(int argc, char **argv)
 		if (ret)
 			goto freenodes;
 		ret = run_client();
-		destroy_ids();
 
-		show_perf();
 	} else {
 		ret = run_server();
 	}
+
+	destroy_qps();
+	destroy_ids();
+	show_perf();
 
 freenodes:
 	free(nodes);
