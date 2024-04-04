@@ -210,44 +210,50 @@ static struct node *wq_remove(struct work_queue *wq)
 	return n;
 }
 
-static int zero_time(struct timeval *t)
+static bool zero_time(struct timeval *t)
 {
 	return !(t->tv_sec || t->tv_usec);
 }
 
-static float diff_us(struct timeval *end, struct timeval *start)
+static uint64_t diff_us(struct timeval *end, struct timeval *start)
 {
-	return (end->tv_sec - start->tv_sec) * 1000000. + (end->tv_usec - start->tv_usec);
+	return (end->tv_sec - start->tv_sec) * 1000000 +
+	       (end->tv_usec - start->tv_usec);
 }
 
 static void show_perf(void)
 {
-	int c, i;
-	float us, max[STEP_CNT], min[STEP_CNT];
+	uint32_t diff, max[STEP_CNT], min[STEP_CNT], sum[STEP_CNT];
+	int i, c;
 
 	for (i = 0; i < STEP_CNT; i++) {
+		sum[i] = 0;
 		max[i] = 0;
-		min[i] = 999999999.;
+		min[i] = UINT32_MAX;
 		for (c = 0; c < connections; c++) {
 			if (!zero_time(&nodes[c].times[i][0]) &&
 			    !zero_time(&nodes[c].times[i][1])) {
-				us = diff_us(&nodes[c].times[i][1], &nodes[c].times[i][0]);
-				if (us > max[i])
-					max[i] = us;
-				if (us < min[i])
-					min[i] = us;
+				diff = diff_us(&nodes[c].times[i][1],
+					       &nodes[c].times[i][0]);
+				sum[i] += diff;
+				if (diff > max[i])
+					max[i] = diff;
+				if (diff < min[i])
+					min[i] = diff;
 			}
 		}
+		/* Print 0 if we have no data */
+		if (min[i] == UINT32_MAX)
+			min[i] = 0;
 	}
 
-	printf("step              total ms     max ms     min us  us / conn\n");
+	printf("step              us/conn    sum(us)    max(us)    min(us)  total(us)   avg/iter\n");
 	for (i = 0; i < STEP_CNT; i++) {
-		if (i == STEP_BIND && !src_addr)
-			continue;
+		diff = diff_us(&times[i][1], &times[i][0]);
 
-		us = diff_us(&times[i][1], &times[i][0]);
-		printf("%-13s: %11.2f%11.2f%11.2f%11.2f\n", step_str[i], us / 1000.,
-			max[i] / 1000., min[i], us / connections);
+		printf("%-13s: %10u %10u %10u %10u %10d %10u\n",
+			step_str[i], sum[i] / connections, sum[i],
+			max[i], min[i], diff, diff / connections);
 	}
 }
 
@@ -258,6 +264,7 @@ static inline bool need_verbs(void)
 
 static int open_verbs(struct rdma_cm_id *id)
 {
+	printf("\tAllocating verbs resources\n");
 	pd = ibv_alloc_pd(id->verbs);
 	if (!pd) {
 		perror("ibv_alloc_pd");
@@ -552,7 +559,7 @@ static int create_ids(void)
 {
 	int ret, i;
 
-	printf("creating id\n");
+	printf("\tCreating IDs\n");
 	start_time(STEP_CREATE_ID);
 	for (i = 0; i < connections; i++) {
 		start_perf(&nodes[i], STEP_CREATE_ID);
@@ -575,7 +582,6 @@ static void destroy_ids(void)
 {
 	int i;
 
-	printf("destroying id\n");
 	start_time(STEP_DESTROY_ID);
 	for (i = 0; i < connections; i++) {
 		start_perf(&nodes[i], STEP_DESTROY_ID);
@@ -590,7 +596,6 @@ static void destroy_qps(void)
 {
 	int i;
 
-	printf("destroying qp\n");
 	start_time(STEP_DESTROY_QP);
 	for (i = 0; i < connections; i++) {
 		start_perf(&nodes[i], STEP_DESTROY_QP);
@@ -700,7 +705,7 @@ static int client_connect(int iter)
 		return ret;
 
 	if (src_addr) {
-		printf("binding source address\n");
+		printf("\tBinding addresses\n");
 		start_time(STEP_BIND);
 		for (i = 0; i < connections; i++) {
 			start_perf(&nodes[i], STEP_BIND);
@@ -715,7 +720,7 @@ static int client_connect(int iter)
 		end_time(STEP_BIND);
 	}
 
-	printf("resolving address\n");
+	printf("\tResolving addresses\n");
 	start_time(STEP_RESOLVE_ADDR);
 	for (i = 0; i < connections; i++) {
 		if (nodes[i].error)
@@ -735,7 +740,7 @@ static int client_connect(int iter)
 		sched_yield();
 	end_time(STEP_RESOLVE_ADDR);
 
-	printf("resolving route\n");
+	printf("\tResolving routes\n");
 	start_time(STEP_RESOLVE_ROUTE);
 	for (i = 0; i < connections; i++) {
 		if (nodes[i].error)
@@ -754,7 +759,7 @@ static int client_connect(int iter)
 		sched_yield();
 	end_time(STEP_RESOLVE_ROUTE);
 
-	printf("creating qp\n");
+	printf("\tCreating QPs\n");
 	start_time(STEP_CREATE_QP);
 	for (i = 0; i < connections; i++) {
 		if (nodes[i].error)
@@ -765,7 +770,7 @@ static int client_connect(int iter)
 	}
 	end_time(STEP_CREATE_QP);
 
-	printf("init qp\n");
+	printf("\tModify QPs to INIT\n");
 	start_time(STEP_INIT_QP);
 	for (i = 0; i < connections; i++) {
 		if (nodes[i].error)
@@ -776,7 +781,7 @@ static int client_connect(int iter)
 	}
 	end_time(STEP_INIT_QP);
 
-	printf("connecting\n");
+	printf("\tConnecting\n");
 	start_time(STEP_CONNECT);
 	for (i = 0; i < connections; i++) {
 		if (nodes[i].error)
@@ -787,7 +792,7 @@ static int client_connect(int iter)
 		sched_yield();
 	end_time(STEP_CONNECT);
 
-	printf("disconnecting\n");
+	printf("\tDisconnecting\n");
 	start_time(STEP_DISCONNECT);
 	for (i = 0; i < connections; i++) {
 		if (nodes[i].error)
@@ -800,7 +805,9 @@ static int client_connect(int iter)
 		sched_yield();
 	end_time(STEP_DISCONNECT);
 
+	printf("\tDestroying QPs\n");
 	destroy_qps();
+	printf("\tDestroying IDs\n");
 	destroy_ids();
 
 	return ret;
@@ -864,18 +871,24 @@ int main(int argc, char **argv)
 	}
 
 	if (is_client()) {
+		printf("Client warmup\n");
 		ret = client_connect(1);
 		if (ret)
 			goto freenodes;
+
+		printf("Connect (%d) QPs test\n", iter);
 		ret = client_connect(iter);
 	} else {
 		ret = server_listen();
 		if (ret)
 			goto freenodes;
 
+		printf("Server warmup\n");
 		ret = server_connect(1);
 		if (ret)
 			goto freenodes;
+
+		printf("Accept (%d) QPs test\n", iter);
 		ret = server_connect(iter);
 		rdma_destroy_id(listen_id);
 	}
