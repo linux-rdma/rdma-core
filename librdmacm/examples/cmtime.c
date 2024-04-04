@@ -46,8 +46,10 @@
 #include <rdma/rdma_cma.h>
 #include "common.h"
 
+
 static struct rdma_addrinfo hints, *rai;
 static struct rdma_event_channel *channel;
+static struct rdma_cm_id *listen_id;
 static const char *port = "7471";
 static char *dst_addr;
 static char *src_addr;
@@ -449,18 +451,9 @@ static void *process_events(void *arg)
 	return NULL;
 }
 
-static int run_server(void)
+static int server_listen(void)
 {
-	struct rdma_cm_id *listen_id;
 	int ret;
-
-	ret = wq_init(&req_wq, req_work_handler);
-	if (ret)
-		return ret;
-
-	ret = wq_init(&disc_wq, disc_work_handler);
-	if (ret)
-		return ret;
 
 	ret = rdma_create_id(channel, &listen_id, NULL, hints.ai_port_space);
 	if (ret) {
@@ -471,24 +464,42 @@ static int run_server(void)
 	ret = rdma_bind_addr(listen_id, rai->ai_src_addr);
 	if (ret) {
 		perror("bind address failed");
-		goto out;
+		goto err;
 	}
 
 	ret = rdma_listen(listen_id, 0);
 	if (ret) {
 		perror("failure trying to listen");
-		goto out;
+		goto err;
 	}
 
-	process_events(NULL);
- out:
+	return 0;
+
+err:
 	rdma_destroy_id(listen_id);
+	return ret;
+}
+
+static int server_connect(void)
+{
+	int ret;
+
+	ret = wq_init(&req_wq, req_work_handler);
+	if (ret)
+		return ret;
+
+	ret = wq_init(&disc_wq, disc_work_handler);
+	if (ret)
+		return ret;
+
+	process_events(NULL);
+
 	wq_cleanup(&req_wq);
 	wq_cleanup(&disc_wq);
 	return ret;
 }
 
-static int run_client(void)
+static int client_connect(void)
 {
 	pthread_t event_thread;
 	int i, ret;
@@ -676,16 +687,20 @@ int main(int argc, char **argv)
 		ret = create_ids();
 		if (ret)
 			goto freenodes;
-		ret = run_client();
+		ret = client_connect();
 
 	} else {
-		ret = run_server();
+		ret = server_listen();
+		if (ret)
+			goto destroy;
+		ret = server_connect();
+		rdma_destroy_id(listen_id);
 	}
 
+destroy:
 	destroy_qps();
 	destroy_ids();
 	show_perf();
-
 freenodes:
 	free(nodes);
 destchan:
