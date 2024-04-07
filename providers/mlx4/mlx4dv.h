@@ -382,7 +382,7 @@ struct mlx4_wqe_datagram_seg {
 	__be32			dqpn;
 	__be32			qkey;
 	__be16			vlan;
-	uint8_t			mac[6];
+	uint8_t			mac[ETHERNET_LL_SIZE];
 };
 
 struct mlx4_wqe_data_seg {
@@ -509,7 +509,7 @@ void mlx4dv_set_dgram_seg(struct mlx4_wqe_datagram_seg *seg, uint32_t port_pd,
 	seg->dqpn = htobe32(dqpn);
 	seg->qkey = htobe32(qkey);
 	seg->vlan = htobe16(vlan);
-	memcpy(seg->mac, mac, 6);
+	memcpy(seg->mac, mac, ETHERNET_LL_SIZE);
 }
 
 /*

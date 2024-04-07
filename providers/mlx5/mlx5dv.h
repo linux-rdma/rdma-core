@@ -1279,7 +1279,7 @@ struct mlx5_wqe_av {
 	uint8_t		fl_mlid;
 	__be16		rlid;
 	uint8_t		reserved0[4];
-	uint8_t		rmac[6];
+	uint8_t		rmac[ETHERNET_LL_SIZE];
 	uint8_t		tclass;
 	uint8_t		hop_limit;
 	__be32		grh_gid_fl;
@@ -1526,7 +1526,7 @@ void mlx5dv_set_dgram_seg(struct mlx5_wqe_datagram_seg *seg,
 	seg->av.stat_rate_sl	= stat_rate_sl;
 	seg->av.fl_mlid		= fl_mlid;
 	seg->av.rlid		= htobe16(rlid);
-	memcpy(seg->av.rmac, rmac, 6);
+	memcpy(seg->av.rmac, rmac, ETHERNET_LL_SIZE);
 	seg->av.tclass		= tclass;
 	seg->av.hop_limit	= hop_limit;
 	seg->av.grh_gid_fl	= htobe32(grh_gid_fi);

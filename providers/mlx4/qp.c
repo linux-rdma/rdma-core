@@ -179,7 +179,7 @@ static void set_datagram_seg(struct mlx4_wqe_datagram_seg *dseg,
 	dseg->dqpn = htobe32(wr->wr.ud.remote_qpn);
 	dseg->qkey = htobe32(wr->wr.ud.remote_qkey);
 	dseg->vlan = htobe16(to_mah(wr->wr.ud.ah)->vlan);
-	memcpy(dseg->mac, to_mah(wr->wr.ud.ah)->mac, 6);
+	memcpy(dseg->mac, to_mah(wr->wr.ud.ah)->mac, ETHERNET_LL_SIZE);
 }
 
 static void __set_data_seg(struct mlx4_wqe_data_seg *dseg, struct ibv_sge *sg)
