@@ -100,7 +100,7 @@ struct node {
 	struct rdma_cm_id *id;
 	struct ibv_qp *qp;
 
-	struct timeval times[STEP_CNT][2];
+	uint64_t times[STEP_CNT][2];
 	int error;
 	int retries;
 };
@@ -121,7 +121,7 @@ static struct work_queue disc_wq;
 
 static struct node *nodes;
 static int node_index;
-static struct timeval times[STEP_CNT][2];
+static uint64_t times[STEP_CNT][2];
 static int connections;
 static volatile int disc_events;
 
@@ -131,10 +131,10 @@ static volatile int completed[STEP_CNT];
 static struct ibv_pd *pd;
 static struct ibv_cq *cq;
 
-#define start_perf(n, s)	gettimeofday(&((n)->times[s][0]), NULL)
-#define end_perf(n, s)		gettimeofday(&((n)->times[s][1]), NULL)
-#define start_time(s)		gettimeofday(&times[s][0], NULL)
-#define end_time(s)		gettimeofday(&times[s][1], NULL)
+#define start_perf(n, s)	do { (n)->times[s][0] = gettime_us(); } while (0)
+#define end_perf(n, s)		do { (n)->times[s][1] = gettime_us(); } while (0)
+#define start_time(s)		do { times[s][0] = gettime_us(); } while (0)
+#define end_time(s)		do { times[s][1] = gettime_us(); } while (0)
 
 
 static inline bool is_client(void)
@@ -210,17 +210,6 @@ static struct node *wq_remove(struct work_queue *wq)
 	return n;
 }
 
-static bool zero_time(struct timeval *t)
-{
-	return !(t->tv_sec || t->tv_usec);
-}
-
-static uint64_t diff_us(struct timeval *end, struct timeval *start)
-{
-	return (end->tv_sec - start->tv_sec) * 1000000 +
-	       (end->tv_usec - start->tv_usec);
-}
-
 static void show_perf(void)
 {
 	uint32_t diff, max[STEP_CNT], min[STEP_CNT], sum[STEP_CNT];
@@ -231,10 +220,9 @@ static void show_perf(void)
 		max[i] = 0;
 		min[i] = UINT32_MAX;
 		for (c = 0; c < connections; c++) {
-			if (!zero_time(&nodes[c].times[i][0]) &&
-			    !zero_time(&nodes[c].times[i][1])) {
-				diff = diff_us(&nodes[c].times[i][1],
-					       &nodes[c].times[i][0]);
+			if (nodes[c].times[i][0] && nodes[c].times[i][1]) {
+				diff = (uint32_t) (nodes[c].times[i][1] -
+						   nodes[c].times[i][0]);
 				sum[i] += diff;
 				if (diff > max[i])
 					max[i] = diff;
@@ -249,7 +237,7 @@ static void show_perf(void)
 
 	printf("step              us/conn    sum(us)    max(us)    min(us)  total(us)   avg/iter\n");
 	for (i = 0; i < STEP_CNT; i++) {
-		diff = diff_us(&times[i][1], &times[i][0]);
+		diff = (uint32_t) (times[i][1] - times[i][0]);
 
 		printf("%-13s: %10u %10u %10u %10u %10d %10u\n",
 			step_str[i], sum[i] / connections, sum[i],

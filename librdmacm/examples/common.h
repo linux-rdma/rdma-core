@@ -36,6 +36,7 @@
 #include <sys/types.h>
 #include <endian.h>
 #include <poll.h>
+#include <time.h>
 
 #include <rdma/rdma_cma.h>
 #include <rdma/rsocket.h>
@@ -105,3 +106,16 @@ int verify_buf(void *buf, int size);
 int do_poll(struct pollfd *fds, int timeout);
 
 struct rdma_event_channel *create_event_channel(void);
+
+static inline uint64_t gettime_ns(void)
+{
+	struct timespec now;
+
+	clock_gettime(CLOCK_MONOTONIC, &now);
+	return now.tv_sec * 1000000000 + now.tv_nsec;
+}
+
+static inline uint64_t gettime_us(void)
+{
+	return gettime_ns() / 1000;
+}
