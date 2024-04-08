@@ -183,6 +183,11 @@ enum hns_roce_pktype {
 	HNS_ROCE_PKTYPE_ROCE_V2_IPV4,
 };
 
+enum hns_roce_tc_map_mode {
+	HNS_ROCE_TC_MAP_MODE_PRIO,
+	HNS_ROCE_TC_MAP_MODE_DSCP,
+};
+
 struct hns_roce_db_page {
 	struct hns_roce_db_page	*prev, *next;
 	struct hns_roce_buf	buf;
@@ -324,6 +329,8 @@ struct hns_roce_qp {
 	unsigned int			next_sge;
 	int				port_num;
 	uint8_t				sl;
+	uint8_t				tc_mode;
+	uint8_t				priority;
 	unsigned int			qkey;
 	enum ibv_mtu			path_mtu;
 
