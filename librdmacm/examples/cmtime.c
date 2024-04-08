@@ -57,6 +57,7 @@ static int timeout = 2000;
 static int retries = 2;
 
 enum step {
+	STEP_FULL_CONNECT,
 	STEP_CREATE_ID,
 	STEP_BIND,
 	STEP_RESOLVE_ADDR,
@@ -77,6 +78,7 @@ enum step {
 };
 
 static const char *step_str[] = {
+	"full connect",
 	"create id",
 	"bind addr",
 	"resolve addr",
@@ -88,7 +90,7 @@ static const char *step_str[] = {
 	"rtr qp",
 	"rts qp attr",
 	"rts qp",
-	"connect",
+	"cm connect",
 	"establish",
 	"disconnect",
 	"destroy id",
@@ -234,6 +236,9 @@ static void show_perf(void)
 		if (min[i] == UINT32_MAX)
 			min[i] = 0;
 	}
+
+	/* Reporting the 'sum' of the full connect is meaningless */
+	sum[STEP_FULL_CONNECT] = 0;
 
 	printf("step              us/conn    sum(us)    max(us)    min(us)  total(us)   avg/iter\n");
 	for (i = 0; i < STEP_CNT; i++) {
@@ -398,6 +403,7 @@ out:
 		n->error = 1;
 endperf:
 	end_perf(n, STEP_CONNECT);
+	end_perf(n, STEP_FULL_CONNECT);
 	completed[STEP_CONNECT]++;
 }
 
@@ -550,6 +556,7 @@ static int create_ids(void)
 	printf("\tCreating IDs\n");
 	start_time(STEP_CREATE_ID);
 	for (i = 0; i < connections; i++) {
+		start_perf(&nodes[i], STEP_FULL_CONNECT);
 		start_perf(&nodes[i], STEP_CREATE_ID);
 		ret = rdma_create_id(channel, &nodes[i].id, &nodes[i],
 					hints.ai_port_space);
@@ -688,6 +695,7 @@ static int client_connect(int iter)
 		return ret;
 	}
 
+	start_time(STEP_FULL_CONNECT);
 	ret = create_ids();
 	if (ret)
 		return ret;
@@ -779,6 +787,7 @@ static int client_connect(int iter)
 	while (started[STEP_CONNECT] != completed[STEP_CONNECT])
 		sched_yield();
 	end_time(STEP_CONNECT);
+	end_time(STEP_FULL_CONNECT);
 
 	printf("\tDisconnecting\n");
 	start_time(STEP_DISCONNECT);
