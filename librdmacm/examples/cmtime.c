@@ -1,5 +1,6 @@
 /*
  * Copyright (c) 2013 Intel Corporation.  All rights reserved.
+ * Copyright (c) Nvidia Corporation.  All rights reserved.
  *
  * This software is available to you under the OpenIB.org BSD license
  * below:
@@ -55,6 +56,8 @@ static char *dst_addr;
 static char *src_addr;
 static int timeout = 2000;
 static int retries = 2;
+static uint32_t base_qpn = 1000;
+static uint32_t use_qpn;
 
 enum step {
 	STEP_FULL_CONNECT,
@@ -297,11 +300,13 @@ static int create_qp(struct node *n)
 	attr.cap.max_inline_data = 0;
 
 	start_perf(n, STEP_CREATE_QP);
-	n->qp = ibv_create_qp(pd, &attr);
-	if (!n->qp) {
-		ret = -errno;
-		perror("ibv_create_qp");
-		n->error = 1;
+	if (!use_qpn) {
+		n->qp = ibv_create_qp(pd, &attr);
+		if (!n->qp) {
+			ret = -errno;
+			perror("ibv_create_qp");
+			n->error = 1;
+		}
 	}
 	end_perf(n, STEP_CREATE_QP);
 
@@ -325,11 +330,13 @@ modify_qp(struct node *n, enum ibv_qp_state state, enum step attr_step)
 	end_perf(n, attr_step);
 
 	start_perf(n, attr_step + 1);
-	ret = ibv_modify_qp(n->qp, &attr, mask);
-	if (ret) {
-		perror("ibv_modify_qp");
-		n->error = 1;
-		return ret;
+	if (n->qp) {
+		ret = ibv_modify_qp(n->qp, &attr, mask);
+		if (ret) {
+			perror("ibv_modify_qp");
+			n->error = 1;
+			return ret;
+		}
 	}
 	end_perf(n, attr_step + 1);
 
@@ -346,7 +353,7 @@ static void init_conn_param(struct node *n, struct rdma_conn_param *param)
 	param->retry_count = 0;
 	param->rnr_retry_count = 0;
 	param->srq = 0;
-	param->qp_num = n->qp->qp_num;
+	param->qp_num = n->qp ? n->qp->qp_num : use_qpn++;
 }
 
 static void connect_qp(struct node *n)
@@ -444,7 +451,8 @@ static void req_work_handler(struct node *n)
 	return;
 
 err2:
-	ibv_destroy_qp(n->qp);
+	if (n->qp)
+		ibv_destroy_qp(n->qp);
 err1:
 	printf("failing connection request\n");
 	rdma_reject(n->id, NULL, 0);
@@ -594,7 +602,7 @@ static void destroy_qps(void)
 	start_time(STEP_DESTROY_QP);
 	for (i = 0; i < connections; i++) {
 		start_perf(&nodes[i], STEP_DESTROY_QP);
-		if (nodes[i].id)
+		if (nodes[i].qp)
 			ibv_destroy_qp(nodes[i].qp);
 		end_perf(&nodes[i], STEP_DESTROY_QP);
 	}
@@ -817,7 +825,7 @@ int main(int argc, char **argv)
 
 	hints.ai_port_space = RDMA_PS_TCP;
 	hints.ai_qp_type = IBV_QPT_RC;
-	while ((op = getopt(argc, argv, "s:b:c:p:r:t:")) != -1) {
+	while ((op = getopt(argc, argv, "s:b:c:p:q:r:t:")) != -1) {
 		switch (op) {
 		case 's':
 			dst_addr = optarg;
@@ -831,6 +839,9 @@ int main(int argc, char **argv)
 		case 'p':
 			port = optarg;
 			break;
+		case 'q':
+			base_qpn = (uint32_t) atoi(optarg);
+			break;
 		case 'r':
 			retries = atoi(optarg);
 			break;
@@ -843,6 +854,7 @@ int main(int argc, char **argv)
 			printf("\t[-b bind_address]\n");
 			printf("\t[-c connections]\n");
 			printf("\t[-p port_number]\n");
+			printf("\t[-q base_qpn]\n");
 			printf("\t[-r retries]\n");
 			printf("\t[-t timeout_ms]\n");
 			exit(1);
@@ -875,6 +887,13 @@ int main(int argc, char **argv)
 
 		printf("Connect (%d) QPs test\n", iter);
 		ret = client_connect(iter);
+		if (ret)
+			goto freenodes;
+		show_perf();
+
+		printf("Connect (%d) test - no QPs\n", iter);
+		use_qpn = base_qpn;
+		ret = client_connect(iter);
 	} else {
 		ret = server_listen();
 		if (ret)
@@ -887,6 +906,15 @@ int main(int argc, char **argv)
 
 		printf("Accept (%d) QPs test\n", iter);
 		ret = server_connect(iter);
+		if (ret)
+			goto freenodes;
+		show_perf();
+
+		printf("Accept (%d) test - no QPs\n", iter);
+		use_qpn = base_qpn;
+		ret = server_connect(iter);
+		if (ret)
+			goto freenodes;
 		rdma_destroy_id(listen_id);
 	}
 
