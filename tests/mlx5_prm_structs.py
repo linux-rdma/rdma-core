@@ -36,6 +36,7 @@ class DevxOps:
     MLX5_QPC_PM_STATE_MIGRATED = 0x3
     MLX5_CMD_OP_QUERY_HCA_CAP = 0x100
     MLX5_CMD_OP_QUERY_QOS_CAP = 0xc
+    MLX5_CMD_OP_QUERY_ODP_CAP = 0x2
     MLX5_CMD_OP_ALLOC_FLOW_COUNTER = 0x939
     MLX5_CMD_OP_DEALLOC_FLOW_COUNTER = 0x93a
     MLX5_CMD_OP_QUERY_FLOW_COUNTER = 0x93b
@@ -1973,6 +1974,65 @@ class QueryQosCapOut(PRMPacket):
         IntField('syndrome', 0),
         StrFixedLenField('reserved2', None, length=8),
         PadField(PacketField('capability', QosCaps(), QosCaps), 4096, padwith=b"\x00"),
+    ]
+
+
+class OdpPerTransportServiceCap(PRMPacket):
+    fields_desc = [
+        BitField('send', 0, 1),
+        BitField('receive', 0, 1),
+        BitField('write', 0, 1),
+        BitField('read', 0, 1),
+        BitField('atomic', 0, 1),
+        BitField('rmp', 0, 1),
+        BitField('tag_matching', 0, 1),
+        BitField('reserved1', 0, 25),
+    ]
+
+
+class OdpSchemeCap(PRMPacket):
+    fields_desc = [
+        StrFixedLenField('reserved1', None, length=8),
+        BitField('sig', 0, 1),
+        BitField('cross_vhca_mkey', 0, 1),
+        BitField('klm_null_mkey', 0, 1),
+        BitField('dpa_process_win', 0, 1),
+        BitField('reserved2', 0, 3),
+        BitField('mmo_wqe', 0, 1),
+        BitField('local_mmo_wqe', 0, 1),
+        BitField('aso_wqe', 0, 1),
+        BitField('umr_wqe', 0, 1),
+        BitField('get_psv_wqe', 0, 1),
+        BitField('rget_psv_wqe', 0, 1),
+        BitField('reserved3', 0, 19),
+        StrFixedLenField('reserved4', None, length=4),
+        PacketField('rc_odp_caps', OdpPerTransportServiceCap(), OdpPerTransportServiceCap),
+        PacketField('uc_odp_caps', OdpPerTransportServiceCap(), OdpPerTransportServiceCap),
+        PacketField('ud_odp_caps', OdpPerTransportServiceCap(), OdpPerTransportServiceCap),
+        PacketField('xrc_odp_caps', OdpPerTransportServiceCap(), OdpPerTransportServiceCap),
+        PacketField('dc_odp_caps', OdpPerTransportServiceCap(), OdpPerTransportServiceCap),
+        StrFixedLenField('reserved5', None, length=28),
+    ]
+
+
+class OdpCap(PRMPacket):
+    fields_desc = [
+        PacketField('transport_page_fault_scheme_cap', OdpSchemeCap(), OdpSchemeCap),
+        PacketField('memory_page_fault_scheme_cap', OdpSchemeCap(), OdpSchemeCap),
+        StrFixedLenField('reserved1', None, length=64),
+        BitField('mem_page_fault', 0, 1),
+        BitField('reserved2', 0, 31),
+        StrFixedLenField('reserved3', None, length=60),
+    ]
+
+
+class QueryOdpCapOut(PRMPacket):
+    fields_desc = [
+        ByteField('status', 0),
+        BitField('reserved1', 0, 24),
+        IntField('syndrome', 0),
+        StrFixedLenField('reserved2', None, length=8),
+        PadField(PacketField('capability', OdpCap(), OdpCap), 4096, padwith=b"\x00"),
     ]
 
 
