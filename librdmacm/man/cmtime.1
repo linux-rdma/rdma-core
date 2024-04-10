@@ -57,6 +57,11 @@ The server's port number.
 The first QP number to use when creating connections without allocating
 hardware QPs.  The test will use the values between base_qpn and base_qpn
 plus connections when connecting.  (default 1000)
+\-m mimic_qp_delay_us
+"Simulates" QP creation and modify calls by replacing them with a
+simple sleep function instead.  This allows testing the CM at larger
+scale than would be practical, or even possible given system
+configuration settings, if HW resources needed to be allocated.
 .TP
 \-r retries
 Number of retries when resolving address or route.  (default 2)

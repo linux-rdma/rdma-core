@@ -58,6 +58,8 @@ static int timeout = 2000;
 static int retries = 2;
 static uint32_t base_qpn = 1000;
 static uint32_t use_qpn;
+static uint32_t mimic_qp_delay;
+static bool mimic;
 
 enum step {
 	STEP_FULL_CONNECT,
@@ -307,6 +309,8 @@ static int create_qp(struct node *n)
 			perror("ibv_create_qp");
 			n->error = 1;
 		}
+	} else {
+		sleep_us(mimic_qp_delay);
 	}
 	end_perf(n, STEP_CREATE_QP);
 
@@ -337,6 +341,8 @@ modify_qp(struct node *n, enum ibv_qp_state state, enum step attr_step)
 			n->error = 1;
 			return ret;
 		}
+	} else {
+		sleep_us(mimic_qp_delay);
 	}
 	end_perf(n, attr_step + 1);
 
@@ -825,7 +831,7 @@ int main(int argc, char **argv)
 
 	hints.ai_port_space = RDMA_PS_TCP;
 	hints.ai_qp_type = IBV_QPT_RC;
-	while ((op = getopt(argc, argv, "s:b:c:p:q:r:t:")) != -1) {
+	while ((op = getopt(argc, argv, "s:b:c:m:p:q:r:t:")) != -1) {
 		switch (op) {
 		case 's':
 			dst_addr = optarg;
@@ -842,6 +848,10 @@ int main(int argc, char **argv)
 		case 'q':
 			base_qpn = (uint32_t) atoi(optarg);
 			break;
+		case 'm':
+			mimic_qp_delay = (uint32_t) atoi(optarg);
+			mimic = true;
+			break;
 		case 'r':
 			retries = atoi(optarg);
 			break;
@@ -855,6 +865,7 @@ int main(int argc, char **argv)
 			printf("\t[-c connections]\n");
 			printf("\t[-p port_number]\n");
 			printf("\t[-q base_qpn]\n");
+			printf("\t[-m mimic_qp_delay_us]\n");
 			printf("\t[-r retries]\n");
 			printf("\t[-t timeout_ms]\n");
 			exit(1);
@@ -885,7 +896,13 @@ int main(int argc, char **argv)
 		if (ret)
 			goto freenodes;
 
-		printf("Connect (%d) QPs test\n", iter);
+		if (!mimic) {
+			printf("Connect (%d) QPs test\n", iter);
+		} else {
+			printf("Connect (%d) simulated QPs test (delay %d us)\n",
+				iter, mimic_qp_delay);
+			use_qpn = base_qpn;
+		}
 		ret = client_connect(iter);
 		if (ret)
 			goto freenodes;
@@ -893,6 +910,7 @@ int main(int argc, char **argv)
 
 		printf("Connect (%d) test - no QPs\n", iter);
 		use_qpn = base_qpn;
+		mimic_qp_delay = 0;
 		ret = client_connect(iter);
 	} else {
 		ret = server_listen();
@@ -904,7 +922,13 @@ int main(int argc, char **argv)
 		if (ret)
 			goto freenodes;
 
-		printf("Accept (%d) QPs test\n", iter);
+		if (!mimic) {
+			printf("Accept (%d) QPs test\n", iter);
+		} else {
+			printf("Accept (%d) simulated QPs test (delay %d us)\n",
+				iter, mimic_qp_delay);
+			use_qpn = base_qpn;
+		}
 		ret = server_connect(iter);
 		if (ret)
 			goto freenodes;
@@ -912,6 +936,7 @@ int main(int argc, char **argv)
 
 		printf("Accept (%d) test - no QPs\n", iter);
 		use_qpn = base_qpn;
+		mimic_qp_delay = 0;
 		ret = server_connect(iter);
 		if (ret)
 			goto freenodes;

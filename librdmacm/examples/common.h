@@ -119,3 +119,15 @@ static inline uint64_t gettime_us(void)
 {
 	return gettime_ns() / 1000;
 }
+
+static inline int sleep_us(unsigned int time_us)
+{
+	struct timespec spec;
+
+	if (!time_us)
+		return 0;
+
+	spec.tv_sec = 0;
+	spec.tv_nsec = time_us * 1000;
+	return nanosleep(&spec, NULL);
+}
