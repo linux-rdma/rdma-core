@@ -50,7 +50,6 @@
 
 static struct rdma_addrinfo hints, *rai;
 static struct rdma_event_channel *channel;
-static struct rdma_cm_id *listen_id;
 static const char *port = "7471";
 static char *dst_addr;
 static char *src_addr;
@@ -633,23 +632,23 @@ static void *process_events(void *arg)
 	return NULL;
 }
 
-static int server_listen(void)
+static int server_listen(struct rdma_cm_id **listen_id)
 {
 	int ret;
 
-	ret = rdma_create_id(channel, &listen_id, NULL, hints.ai_port_space);
+	ret = rdma_create_id(channel, listen_id, NULL, hints.ai_port_space);
 	if (ret) {
 		perror("listen request failed");
 		return ret;
 	}
 
-	ret = rdma_bind_addr(listen_id, rai->ai_src_addr);
+	ret = rdma_bind_addr(*listen_id, rai->ai_src_addr);
 	if (ret) {
 		perror("bind address failed");
 		goto err;
 	}
 
-	ret = rdma_listen(listen_id, 0);
+	ret = rdma_listen(*listen_id, 0);
 	if (ret) {
 		perror("failure trying to listen");
 		goto err;
@@ -658,7 +657,8 @@ static int server_listen(void)
 	return 0;
 
 err:
-	rdma_destroy_id(listen_id);
+	rdma_destroy_id(*listen_id);
+	*listen_id = NULL;
 	return ret;
 }
 
@@ -824,6 +824,79 @@ static int client_connect(int iter)
 	return ret;
 }
 
+static int run_client(int iter)
+{
+	int ret;
+
+	printf("Client warmup\n");
+	ret = client_connect(1);
+	if (ret)
+		return ret;
+
+	if (!mimic) {
+		printf("Connect (%d) QPs test\n", iter);
+	} else {
+		printf("Connect (%d) simulated QPs test (delay %d us)\n",
+			iter, mimic_qp_delay);
+		use_qpn = base_qpn;
+	}
+	ret = client_connect(iter);
+	if (ret)
+		return ret;
+
+	show_perf();
+
+	printf("Connect (%d) test - no QPs\n", iter);
+	use_qpn = base_qpn;
+	mimic_qp_delay = 0;
+	ret = client_connect(iter);
+	if (ret)
+		return ret;
+
+	show_perf();
+	return 0;
+}
+
+static int run_server(int iter)
+{
+	struct rdma_cm_id *listen_id;
+	int ret;
+
+	ret = server_listen(&listen_id);
+	if (ret)
+		return ret;
+
+	printf("Server warmup\n");
+	ret = server_connect(1);
+	if (ret)
+		goto out;
+
+	if (!mimic) {
+		printf("Accept (%d) QPs test\n", iter);
+	} else {
+		printf("Accept (%d) simulated QPs test (delay %d us)\n",
+			iter, mimic_qp_delay);
+		use_qpn = base_qpn;
+	}
+	ret = server_connect(iter);
+	if (ret)
+		goto out;
+
+	show_perf();
+
+	printf("Accept (%d) test - no QPs\n", iter);
+	use_qpn = base_qpn;
+	mimic_qp_delay = 0;
+	ret = server_connect(iter);
+	if (ret)
+		goto out;
+
+	show_perf();
+out:
+	rdma_destroy_id(listen_id);
+	return ret;
+}
+
 int main(int argc, char **argv)
 {
 	int iter = 100;
@@ -891,60 +964,11 @@ int main(int argc, char **argv)
 	}
 
 	if (is_client()) {
-		printf("Client warmup\n");
-		ret = client_connect(1);
-		if (ret)
-			goto freenodes;
-
-		if (!mimic) {
-			printf("Connect (%d) QPs test\n", iter);
-		} else {
-			printf("Connect (%d) simulated QPs test (delay %d us)\n",
-				iter, mimic_qp_delay);
-			use_qpn = base_qpn;
-		}
-		ret = client_connect(iter);
-		if (ret)
-			goto freenodes;
-		show_perf();
-
-		printf("Connect (%d) test - no QPs\n", iter);
-		use_qpn = base_qpn;
-		mimic_qp_delay = 0;
-		ret = client_connect(iter);
+		ret = run_client(iter);
 	} else {
-		ret = server_listen();
-		if (ret)
-			goto freenodes;
-
-		printf("Server warmup\n");
-		ret = server_connect(1);
-		if (ret)
-			goto freenodes;
-
-		if (!mimic) {
-			printf("Accept (%d) QPs test\n", iter);
-		} else {
-			printf("Accept (%d) simulated QPs test (delay %d us)\n",
-				iter, mimic_qp_delay);
-			use_qpn = base_qpn;
-		}
-		ret = server_connect(iter);
-		if (ret)
-			goto freenodes;
-		show_perf();
-
-		printf("Accept (%d) test - no QPs\n", iter);
-		use_qpn = base_qpn;
-		mimic_qp_delay = 0;
-		ret = server_connect(iter);
-		if (ret)
-			goto freenodes;
-		rdma_destroy_id(listen_id);
+		ret = run_server(iter);
 	}
 
-	show_perf();
-freenodes:
 	free(nodes);
 destchan:
 	rdma_destroy_event_channel(channel);
