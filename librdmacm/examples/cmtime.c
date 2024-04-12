@@ -50,6 +50,7 @@
 
 static struct rdma_addrinfo hints, *rai;
 static struct rdma_event_channel *channel;
+static int oob_sock = -1;
 static const char *port = "7471";
 static char *dst_addr;
 static char *src_addr;
@@ -828,10 +829,14 @@ static int run_client(int iter)
 {
 	int ret;
 
+	ret = oob_client_setup(dst_addr, port, &oob_sock);
+	if (ret)
+		return ret;
+
 	printf("Client warmup\n");
 	ret = client_connect(1);
 	if (ret)
-		return ret;
+		goto out;
 
 	if (!mimic) {
 		printf("Connect (%d) QPs test\n", iter);
@@ -842,7 +847,7 @@ static int run_client(int iter)
 	}
 	ret = client_connect(iter);
 	if (ret)
-		return ret;
+		goto out;
 
 	show_perf();
 
@@ -851,9 +856,11 @@ static int run_client(int iter)
 	mimic_qp_delay = 0;
 	ret = client_connect(iter);
 	if (ret)
-		return ret;
+		goto out;
 
 	show_perf();
+out:
+	close(oob_sock);
 	return 0;
 }
 
@@ -862,9 +869,14 @@ static int run_server(int iter)
 	struct rdma_cm_id *listen_id;
 	int ret;
 
+	/* Make sure we're ready for RDMA prior to any OOB sync */
 	ret = server_listen(&listen_id);
 	if (ret)
 		return ret;
+
+	ret = oob_server_setup(src_addr, port, &oob_sock);
+	if (ret)
+		goto out;
 
 	printf("Server warmup\n");
 	ret = server_connect(1);
@@ -893,6 +905,7 @@ static int run_server(int iter)
 
 	show_perf();
 out:
+	close(oob_sock);
 	rdma_destroy_id(listen_id);
 	return ret;
 }

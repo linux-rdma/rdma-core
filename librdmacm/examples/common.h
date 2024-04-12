@@ -98,6 +98,11 @@ enum rs_optimization {
 int get_rdma_addr(const char *src, const char *dst, const char *port,
 		  struct rdma_addrinfo *hints, struct rdma_addrinfo **rai);
 
+int oob_server_setup(const char *src_addr, const char *port, int *sock);
+int oob_client_setup(const char *dst_addr, const char *port, int *sock);
+int oob_sendrecv(int sock, char val);
+int oob_recvsend(int sock, char val);
+
 void size_str(char *str, size_t ssize, long long size);
 void cnt_str(char *str, size_t ssize, long long cnt);
 int size_to_count(int size);
