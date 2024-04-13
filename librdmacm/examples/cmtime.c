@@ -471,6 +471,7 @@ static void disc_work_handler(struct node *n)
 
 	if (disc_events >= connections)
 		end_time(STEP_DISCONNECT);
+	completed[STEP_DISCONNECT]++;
 }
 
 static void *wq_handler(void *arg)
@@ -504,6 +505,10 @@ static void cma_handler(struct rdma_cm_id *id, struct rdma_cm_event *event)
 		route_handler(n);
 		break;
 	case RDMA_CM_EVENT_CONNECT_REQUEST:
+		if (node_index == 0) {
+			printf("\tAccepting\n");
+			start_time(STEP_CONNECT);
+		}
 		n = &nodes[node_index++];
 		n->id = id;
 		id->context = n;
@@ -513,6 +518,8 @@ static void cma_handler(struct rdma_cm_id *id, struct rdma_cm_event *event)
 		conn_handler(n);
 		break;
 	case RDMA_CM_EVENT_ESTABLISHED:
+		if (++completed[STEP_CONNECT] >= connections)
+			end_time(STEP_CONNECT);
 		break;
 	case RDMA_CM_EVENT_ADDR_ERROR:
 		if (n->retries--) {
@@ -542,12 +549,14 @@ static void cma_handler(struct rdma_cm_id *id, struct rdma_cm_event *event)
 		conn_handler(n);
 		break;
 	case RDMA_CM_EVENT_DISCONNECTED:
-		disc_events++;
 		if (is_client()) {
 			disc_handler(n);
 		} else {
-			if (disc_events == 1)
+			if (disc_events == 0) {
+				printf("\tDisconnecting\n");
 				start_time(STEP_DISCONNECT);
+			}
+			disc_events++;
 			wq_insert(&disc_wq, n);
 		}
 		break;
@@ -615,9 +624,9 @@ static void destroy_qps(int iter)
 static void *process_events(void *arg)
 {
 	struct rdma_cm_event *event;
-	int ret = 0;
+	int ret;
 
-	while (!ret && disc_events < connections) {
+	while (1) {
 		ret = rdma_get_cm_event(channel, &event);
 		if (!ret) {
 			cma_handler(event->id, event);
@@ -669,6 +678,11 @@ static void reset_test(int iter)
 	memset(times, 0, sizeof times);
 	memset((void *) completed, 0, sizeof completed);
 	memset(nodes, 0, sizeof(*nodes) * iter);
+
+	if (is_client())
+		oob_sendrecv(oob_sock, 0);
+	else
+		oob_recvsend(oob_sock, 0);
 }
 
 static int server_connect(int iter)
@@ -684,7 +698,15 @@ static int server_connect(int iter)
 	if (ret)
 		return ret;
 
-	process_events(NULL);
+	while (completed[STEP_CONNECT] != iter)
+		sched_yield();
+
+	oob_recvsend(oob_sock, STEP_CONNECT);
+
+	while (completed[STEP_DISCONNECT] != iter)
+		sched_yield();
+
+	oob_recvsend(oob_sock, STEP_DISCONNECT);
 
 	/* Wait for event threads to exit before destroying resources */
 	wq_cleanup(&req_wq);
@@ -696,16 +718,9 @@ static int server_connect(int iter)
 
 static int client_connect(int iter)
 {
-	pthread_t event_thread;
 	int i, ret;
 
 	reset_test(iter);
-	ret = pthread_create(&event_thread, NULL, process_events, NULL);
-	if (ret) {
-		perror("failure creating event thread");
-		return ret;
-	}
-
 	start_time(STEP_FULL_CONNECT);
 	ret = create_ids(iter);
 	if (ret)
@@ -798,6 +813,8 @@ static int client_connect(int iter)
 	end_time(STEP_CONNECT);
 	end_time(STEP_FULL_CONNECT);
 
+	oob_sendrecv(oob_sock, STEP_CONNECT);
+
 	printf("\tDisconnecting\n");
 	start_time(STEP_DISCONNECT);
 	for (i = 0; i < iter; i++) {
@@ -809,6 +826,8 @@ static int client_connect(int iter)
 	while (completed[STEP_DISCONNECT] != iter)
 		sched_yield();
 	end_time(STEP_DISCONNECT);
+
+	oob_sendrecv(oob_sock, STEP_DISCONNECT);
 
 	printf("\tDestroying QPs\n");
 	destroy_qps(iter);
@@ -905,6 +924,7 @@ out:
 
 int main(int argc, char **argv)
 {
+	pthread_t event_thread;
 	int iter = 100;
 	int op, ret;
 
@@ -961,6 +981,12 @@ int main(int argc, char **argv)
 	if (!channel) {
 		ret = -errno;
 		goto freeinfo;
+	}
+
+	ret = pthread_create(&event_thread, NULL, process_events, NULL);
+	if (ret) {
+		perror("pthread_create");
+		goto destchan;
 	}
 
 	nodes = calloc(sizeof *nodes, iter);
