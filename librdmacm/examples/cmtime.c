@@ -216,7 +216,7 @@ static struct node *wq_remove(struct work_queue *wq)
 	return n;
 }
 
-static void show_perf(void)
+static void show_perf(int iter)
 {
 	uint32_t diff, max[STEP_CNT], min[STEP_CNT], sum[STEP_CNT];
 	int i, c;
@@ -225,7 +225,7 @@ static void show_perf(void)
 		sum[i] = 0;
 		max[i] = 0;
 		min[i] = UINT32_MAX;
-		for (c = 0; c < connections; c++) {
+		for (c = 0; c < iter; c++) {
 			if (nodes[c].times[i][0] && nodes[c].times[i][1]) {
 				diff = (uint32_t) (nodes[c].times[i][1] -
 						   nodes[c].times[i][0]);
@@ -249,8 +249,8 @@ static void show_perf(void)
 		diff = (uint32_t) (times[i][1] - times[i][0]);
 
 		printf("%-13s: %10u %10u %10u %10u %10d %10u\n",
-			step_str[i], sum[i] / connections, sum[i],
-			max[i], min[i], diff, diff / connections);
+			step_str[i], sum[i] / iter, sum[i],
+			max[i], min[i], diff, diff / iter);
 	}
 }
 
@@ -560,13 +560,13 @@ static void cma_handler(struct rdma_cm_id *id, struct rdma_cm_event *event)
 	rdma_ack_cm_event(event);
 }
 
-static int create_ids(void)
+static int create_ids(int iter)
 {
 	int ret, i;
 
 	printf("\tCreating IDs\n");
 	start_time(STEP_CREATE_ID);
-	for (i = 0; i < connections; i++) {
+	for (i = 0; i < iter; i++) {
 		start_perf(&nodes[i], STEP_FULL_CONNECT);
 		start_perf(&nodes[i], STEP_CREATE_ID);
 		ret = rdma_create_id(channel, &nodes[i].id, &nodes[i],
@@ -584,12 +584,12 @@ err:
 	return ret;
 }
 
-static void destroy_ids(void)
+static void destroy_ids(int iter)
 {
 	int i;
 
 	start_time(STEP_DESTROY_ID);
-	for (i = 0; i < connections; i++) {
+	for (i = 0; i < iter; i++) {
 		start_perf(&nodes[i], STEP_DESTROY_ID);
 		if (nodes[i].id)
 			rdma_destroy_id(nodes[i].id);
@@ -598,12 +598,12 @@ static void destroy_ids(void)
 	end_time(STEP_DESTROY_ID);
 }
 
-static void destroy_qps(void)
+static void destroy_qps(int iter)
 {
 	int i;
 
 	start_time(STEP_DESTROY_QP);
-	for (i = 0; i < connections; i++) {
+	for (i = 0; i < iter; i++) {
 		start_perf(&nodes[i], STEP_DESTROY_QP);
 		if (nodes[i].qp)
 			ibv_destroy_qp(nodes[i].qp);
@@ -689,8 +689,8 @@ static int server_connect(int iter)
 	/* Wait for event threads to exit before destroying resources */
 	wq_cleanup(&req_wq);
 	wq_cleanup(&disc_wq);
-	destroy_qps();
-	destroy_ids();
+	destroy_qps(iter);
+	destroy_ids(iter);
 	return ret;
 }
 
@@ -707,14 +707,14 @@ static int client_connect(int iter)
 	}
 
 	start_time(STEP_FULL_CONNECT);
-	ret = create_ids();
+	ret = create_ids(iter);
 	if (ret)
 		return ret;
 
 	if (src_addr) {
 		printf("\tBinding addresses\n");
 		start_time(STEP_BIND);
-		for (i = 0; i < connections; i++) {
+		for (i = 0; i < iter; i++) {
 			start_perf(&nodes[i], STEP_BIND);
 			ret = rdma_bind_addr(nodes[i].id, rai->ai_src_addr);
 			if (ret) {
@@ -729,7 +729,7 @@ static int client_connect(int iter)
 
 	printf("\tResolving addresses\n");
 	start_time(STEP_RESOLVE_ADDR);
-	for (i = 0; i < connections; i++) {
+	for (i = 0; i < iter; i++) {
 		if (nodes[i].error)
 			continue;
 		nodes[i].retries = retries;
@@ -748,7 +748,7 @@ static int client_connect(int iter)
 
 	printf("\tResolving routes\n");
 	start_time(STEP_RESOLVE_ROUTE);
-	for (i = 0; i < connections; i++) {
+	for (i = 0; i < iter; i++) {
 		if (nodes[i].error)
 			continue;
 		nodes[i].retries = retries;
@@ -766,7 +766,7 @@ static int client_connect(int iter)
 
 	printf("\tCreating QPs\n");
 	start_time(STEP_CREATE_QP);
-	for (i = 0; i < connections; i++) {
+	for (i = 0; i < iter; i++) {
 		if (nodes[i].error)
 			continue;
 		ret = create_qp(&nodes[i]);
@@ -777,7 +777,7 @@ static int client_connect(int iter)
 
 	printf("\tModify QPs to INIT\n");
 	start_time(STEP_INIT_QP);
-	for (i = 0; i < connections; i++) {
+	for (i = 0; i < iter; i++) {
 		if (nodes[i].error)
 			continue;
 		ret = modify_qp(&nodes[i], IBV_QPS_INIT, STEP_INIT_QP_ATTR);
@@ -788,7 +788,7 @@ static int client_connect(int iter)
 
 	printf("\tConnecting\n");
 	start_time(STEP_CONNECT);
-	for (i = 0; i < connections; i++) {
+	for (i = 0; i < iter; i++) {
 		if (nodes[i].error)
 			continue;
 		connect_qp(&nodes[i]);
@@ -800,7 +800,7 @@ static int client_connect(int iter)
 
 	printf("\tDisconnecting\n");
 	start_time(STEP_DISCONNECT);
-	for (i = 0; i < connections; i++) {
+	for (i = 0; i < iter; i++) {
 		if (nodes[i].error)
 			continue;
 		start_perf(&nodes[i], STEP_DISCONNECT);
@@ -811,9 +811,9 @@ static int client_connect(int iter)
 	end_time(STEP_DISCONNECT);
 
 	printf("\tDestroying QPs\n");
-	destroy_qps();
+	destroy_qps(iter);
 	printf("\tDestroying IDs\n");
-	destroy_ids();
+	destroy_ids(iter);
 
 	return ret;
 }
@@ -842,7 +842,7 @@ static int run_client(int iter)
 	if (ret)
 		goto out;
 
-	show_perf();
+	show_perf(iter);
 
 	printf("Connect (%d) test - no QPs\n", iter);
 	use_qpn = base_qpn;
@@ -851,7 +851,7 @@ static int run_client(int iter)
 	if (ret)
 		goto out;
 
-	show_perf();
+	show_perf(iter);
 out:
 	close(oob_sock);
 	return 0;
@@ -887,7 +887,7 @@ static int run_server(int iter)
 	if (ret)
 		goto out;
 
-	show_perf();
+	show_perf(iter);
 
 	printf("Accept (%d) test - no QPs\n", iter);
 	use_qpn = base_qpn;
@@ -896,7 +896,7 @@ static int run_server(int iter)
 	if (ret)
 		goto out;
 
-	show_perf();
+	show_perf(iter);
 out:
 	close(oob_sock);
 	rdma_destroy_id(listen_id);
