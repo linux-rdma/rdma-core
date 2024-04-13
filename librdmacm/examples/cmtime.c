@@ -132,7 +132,6 @@ static uint64_t times[STEP_CNT][2];
 static int connections;
 static volatile int disc_events;
 
-static volatile int started[STEP_CNT];
 static volatile int completed[STEP_CNT];
 
 static struct ibv_pd *pd;
@@ -376,8 +375,6 @@ static void connect_qp(struct node *n)
 		n->error = 1;
 		return;
 	}
-
-	started[STEP_CONNECT]++;
 }
 
 static void addr_handler(struct node *n)
@@ -670,7 +667,6 @@ static void reset_test(int iter)
 	connections = iter;
 
 	memset(times, 0, sizeof times);
-	memset((void *) started, 0, sizeof started);
 	memset((void *) completed, 0, sizeof completed);
 	memset(nodes, 0, sizeof(*nodes) * iter);
 }
@@ -745,9 +741,8 @@ static int client_connect(int iter)
 			nodes[i].error = 1;
 			continue;
 		}
-		started[STEP_RESOLVE_ADDR]++;
 	}
-	while (started[STEP_RESOLVE_ADDR] != completed[STEP_RESOLVE_ADDR])
+	while (completed[STEP_RESOLVE_ADDR] != iter)
 		sched_yield();
 	end_time(STEP_RESOLVE_ADDR);
 
@@ -764,9 +759,8 @@ static int client_connect(int iter)
 			nodes[i].error = 1;
 			continue;
 		}
-		started[STEP_RESOLVE_ROUTE]++;
 	}
-	while (started[STEP_RESOLVE_ROUTE] != completed[STEP_RESOLVE_ROUTE])
+	while (completed[STEP_RESOLVE_ROUTE] != iter)
 		sched_yield();
 	end_time(STEP_RESOLVE_ROUTE);
 
@@ -799,7 +793,7 @@ static int client_connect(int iter)
 			continue;
 		connect_qp(&nodes[i]);
 	}
-	while (started[STEP_CONNECT] != completed[STEP_CONNECT])
+	while (completed[STEP_CONNECT] != iter)
 		sched_yield();
 	end_time(STEP_CONNECT);
 	end_time(STEP_FULL_CONNECT);
@@ -811,9 +805,8 @@ static int client_connect(int iter)
 			continue;
 		start_perf(&nodes[i], STEP_DISCONNECT);
 		rdma_disconnect(nodes[i].id);
-		started[STEP_DISCONNECT]++;
 	}
-	while (started[STEP_DISCONNECT] != completed[STEP_DISCONNECT])
+	while (completed[STEP_DISCONNECT] != iter)
 		sched_yield();
 	end_time(STEP_DISCONNECT);
 
