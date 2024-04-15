@@ -1523,7 +1523,9 @@ static void record_qp_attr(struct ibv_qp *qp, struct ibv_qp_attr *attr,
 	if (attr_mask & IBV_QP_PORT)
 		hr_qp->port_num = attr->port_num;
 
-	if (attr_mask & IBV_QP_AV)
+	if (hr_qp->tc_mode == HNS_ROCE_TC_MAP_MODE_DSCP)
+		hr_qp->sl = hr_qp->priority;
+	else if (attr_mask & IBV_QP_AV)
 		hr_qp->sl = attr->ah_attr.sl;
 
 	if (attr_mask & IBV_QP_QKEY)
@@ -1538,10 +1540,11 @@ static void record_qp_attr(struct ibv_qp *qp, struct ibv_qp_attr *attr,
 static int hns_roce_u_v2_modify_qp(struct ibv_qp *qp, struct ibv_qp_attr *attr,
 				   int attr_mask)
 {
-	int ret;
-	struct ibv_modify_qp cmd;
+	struct hns_roce_modify_qp_ex_resp resp_ex = {};
+	struct hns_roce_modify_qp_ex cmd_ex = {};
 	struct hns_roce_qp *hr_qp = to_hr_qp(qp);
 	bool flag = false; /* modify qp to error */
+	int ret;
 
 	if ((attr_mask & IBV_QP_STATE) && (attr->qp_state == IBV_QPS_ERR)) {
 		pthread_spin_lock(&hr_qp->sq.lock);
@@ -1549,7 +1552,9 @@ static int hns_roce_u_v2_modify_qp(struct ibv_qp *qp, struct ibv_qp_attr *attr,
 		flag = true;
 	}
 
-	ret = ibv_cmd_modify_qp(qp, attr, attr_mask, &cmd, sizeof(cmd));
+	ret = ibv_cmd_modify_qp_ex(qp, attr, attr_mask, &cmd_ex.ibv_cmd,
+				   sizeof(cmd_ex), &resp_ex.ibv_resp,
+				   sizeof(resp_ex));
 
 	if (flag) {
 		if (!ret)
@@ -1561,8 +1566,13 @@ static int hns_roce_u_v2_modify_qp(struct ibv_qp *qp, struct ibv_qp_attr *attr,
 	if (ret)
 		return ret;
 
-	if (attr_mask & IBV_QP_STATE)
+	if (attr_mask & IBV_QP_STATE) {
 		qp->state = attr->qp_state;
+		if (attr->qp_state == IBV_QPS_RTR) {
+			hr_qp->tc_mode = resp_ex.drv_payload.tc_mode;
+			hr_qp->priority = resp_ex.drv_payload.priority;
+		}
+	}
 
 	if ((attr_mask & IBV_QP_STATE) && attr->qp_state == IBV_QPS_RESET) {
 		if (qp->recv_cq)

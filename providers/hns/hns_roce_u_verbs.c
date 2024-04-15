@@ -1580,6 +1580,9 @@ struct ibv_ah *hns_roce_u_create_ah(struct ibv_pd *pd, struct ibv_ah_attr *attr)
 					     ah->av.mac, NULL))
 		goto err;
 
+	if (resp.tc_mode == HNS_ROCE_TC_MAP_MODE_DSCP)
+		ah->av.sl = resp.priority;
+
 	ah->av.udp_sport = get_ah_udp_sport(attr);
 
 	return &ah->ibv_ah;
