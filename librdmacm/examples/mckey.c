@@ -651,7 +651,7 @@ int main(int argc, char **argv)
 	test.dst_addr = (struct sockaddr *) &test.dst_in;
 	test.connects_left = connections;
 
-	test.channel = create_first_event_channel();
+	test.channel = create_event_channel();
 	if (!test.channel) {
 		exit(1);
 	}

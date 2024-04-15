@@ -487,12 +487,10 @@ close:
 	if (ret)
 		rs_close(rs);
 free:
-	if (rai)
-		rdma_freeaddrinfo(rai);
+	rdma_freeaddrinfo(rai);
 	if (ai)
 		freeaddrinfo(ai);
-	if (rai_src)
-		rdma_freeaddrinfo(rai_src);
+	rdma_freeaddrinfo(rai_src);
 	if (ai_src)
 		freeaddrinfo(ai_src);
 	return ret;

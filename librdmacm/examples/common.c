@@ -51,15 +51,17 @@ int get_rdma_addr(const char *src, const char *dst, const char *port,
 	struct rdma_addrinfo rai_hints, *res;
 	int ret;
 
-	if (hints->ai_flags & RAI_PASSIVE)
-		return rdma_getaddrinfo(src, port, hints, rai);
+	if (hints->ai_flags & RAI_PASSIVE) {
+		ret = rdma_getaddrinfo(src, port, hints, rai);
+		goto out;
+	}
 
 	rai_hints = *hints;
 	if (src) {
 		rai_hints.ai_flags |= RAI_PASSIVE;
 		ret = rdma_getaddrinfo(src, NULL, &rai_hints, &res);
 		if (ret)
-			return ret;
+			goto out;
 
 		rai_hints.ai_src_addr = res->ai_src_addr;
 		rai_hints.ai_src_len = res->ai_src_len;
@@ -70,6 +72,9 @@ int get_rdma_addr(const char *src, const char *dst, const char *port,
 	if (src)
 		rdma_freeaddrinfo(res);
 
+out:
+	if (ret)
+		printf("rdma_getaddrinfo error: %s\n", gai_strerror(ret));
 	return ret;
 }
 
@@ -162,7 +167,7 @@ int do_poll(struct pollfd *fds, int timeout)
 	return ret == 1 ? (fds->revents & (POLLERR | POLLHUP)) : ret;
 }
 
-struct rdma_event_channel *create_first_event_channel(void)
+struct rdma_event_channel *create_event_channel(void)
 {
 	struct rdma_event_channel *channel;
 

@@ -1,5 +1,6 @@
 /*
  * Copyright (c) 2013 Intel Corporation.  All rights reserved.
+ * Copyright (c) Nvidia Corporation.  All rights reserved.
  *
  * This software is available to you under the OpenIB.org BSD license
  * below:
@@ -31,6 +32,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include <strings.h>
+#include <stdbool.h>
 #include <errno.h>
 #include <getopt.h>
 #include <sys/types.h>
@@ -45,149 +47,331 @@
 #include <rdma/rdma_cma.h>
 #include "common.h"
 
+
 static struct rdma_addrinfo hints, *rai;
 static struct rdma_event_channel *channel;
+static struct rdma_cm_id *listen_id;
 static const char *port = "7471";
 static char *dst_addr;
 static char *src_addr;
 static int timeout = 2000;
 static int retries = 2;
+static uint32_t base_qpn = 1000;
+static uint32_t use_qpn;
 
 enum step {
+	STEP_FULL_CONNECT,
 	STEP_CREATE_ID,
 	STEP_BIND,
 	STEP_RESOLVE_ADDR,
 	STEP_RESOLVE_ROUTE,
 	STEP_CREATE_QP,
+	STEP_INIT_QP_ATTR,
+	STEP_INIT_QP,
+	STEP_RTR_QP_ATTR,
+	STEP_RTR_QP,
+	STEP_RTS_QP_ATTR,
+	STEP_RTS_QP,
 	STEP_CONNECT,
+	STEP_ESTABLISH,
 	STEP_DISCONNECT,
-	STEP_DESTROY,
+	STEP_DESTROY_ID,
+	STEP_DESTROY_QP,
 	STEP_CNT
 };
 
 static const char *step_str[] = {
+	"full connect",
 	"create id",
 	"bind addr",
 	"resolve addr",
 	"resolve route",
 	"create qp",
-	"connect",
+	"init qp attr",
+	"init qp",
+	"rtr qp attr",
+	"rtr qp",
+	"rts qp attr",
+	"rts qp",
+	"cm connect",
+	"establish",
 	"disconnect",
-	"destroy"
+	"destroy id",
+	"destroy qp"
 };
 
 struct node {
+	struct node *next;
 	struct rdma_cm_id *id;
-	struct timeval times[STEP_CNT][2];
+	struct ibv_qp *qp;
+
+	uint64_t times[STEP_CNT][2];
 	int error;
 	int retries;
 };
 
-struct list_head {
-	struct list_head	*prev;
-	struct list_head	*next;
-	struct rdma_cm_id	*id;
+struct work_queue {
+	pthread_mutex_t lock;
+	pthread_cond_t cond;
+	pthread_t thread;
+
+	void (*work_handler)(struct node *node);
+	struct node *head;
+	struct node *tail;
 };
 
-struct work_list {
-	pthread_mutex_t		lock;
-	pthread_cond_t		cond;
-	struct list_head	list;
-};
+static void *wq_handler(void *arg);
+static struct work_queue req_wq;
+static struct work_queue disc_wq;
 
-#define INIT_LIST(x) ((x)->prev = (x)->next = (x))
-
-static struct work_list req_work;
-static struct work_list disc_work;
 static struct node *nodes;
-static struct timeval times[STEP_CNT][2];
-static int connections = 100;
+static int node_index;
+static uint64_t times[STEP_CNT][2];
+static int connections;
+static volatile int disc_events;
+
 static volatile int started[STEP_CNT];
 static volatile int completed[STEP_CNT];
-static struct ibv_qp_init_attr init_qp_attr;
-static struct rdma_conn_param conn_param;
 
-#define start_perf(n, s)	gettimeofday(&((n)->times[s][0]), NULL)
-#define end_perf(n, s)		gettimeofday(&((n)->times[s][1]), NULL)
-#define start_time(s)		gettimeofday(&times[s][0], NULL)
-#define end_time(s)		gettimeofday(&times[s][1], NULL)
+static struct ibv_pd *pd;
+static struct ibv_cq *cq;
 
-static inline void __list_delete(struct list_head *list)
+#define start_perf(n, s)	do { (n)->times[s][0] = gettime_us(); } while (0)
+#define end_perf(n, s)		do { (n)->times[s][1] = gettime_us(); } while (0)
+#define start_time(s)		do { times[s][0] = gettime_us(); } while (0)
+#define end_time(s)		do { times[s][1] = gettime_us(); } while (0)
+
+
+static inline bool is_client(void)
 {
-	struct list_head *prev, *next;
-	prev = list->prev;
-	next = list->next;
-	prev->next = next;
-	next->prev = prev;
-	INIT_LIST(list);
+	return dst_addr != NULL;
 }
 
-static inline int __list_empty(struct work_list *list)
+static int
+wq_init(struct work_queue *wq, void (*work_handler)(struct node *))
 {
-	return list->list.next == &list->list;
+	int ret;
+
+	wq->head = NULL;
+	wq->tail = NULL;
+	wq->work_handler = work_handler;
+
+	ret = pthread_mutex_init(&wq->lock, NULL);
+	if (ret) {
+		perror("pthread_mutex_init");
+		return ret;
+	}
+
+	ret = pthread_cond_init(&wq->cond, NULL);
+	if (ret) {
+		perror("pthread_cond_init");
+		return ret;
+	}
+
+	ret = pthread_create(&wq->thread, NULL, wq_handler, wq);
+	if (ret) {
+		perror("pthread_create");
+		return ret;
+	}
+
+	return 0;
 }
 
-static inline struct list_head *__list_remove_head(struct work_list *work_list)
+static void wq_cleanup(struct work_queue *wq)
 {
-	struct list_head *list_item;
-	
-	list_item = work_list->list.next;
-	__list_delete(list_item);
-	return list_item;
+	pthread_join(wq->thread, NULL);
+	pthread_cond_destroy(&wq->cond);
+	pthread_mutex_destroy(&wq->lock);
+	pthread_join(wq->thread, NULL);
 }
 
-static inline void list_add_tail(struct work_list *work_list, struct list_head *req)
+static void wq_insert(struct work_queue *wq, struct node *n)
 {
-	int empty;
-	pthread_mutex_lock(&work_list->lock);
-	empty = __list_empty(work_list);
-	req->prev = work_list->list.prev;
-	req->next = &work_list->list;
-	req->prev->next = work_list->list.prev = req;
-	pthread_mutex_unlock(&work_list->lock);
+	bool empty;
+
+	n->next = NULL;
+	pthread_mutex_lock(&wq->lock);
+	if (wq->head) {
+		wq->tail->next = n;
+		empty = false;
+	} else {
+		wq->head = n;
+		empty = true;
+	}
+	wq->tail = n;
+	pthread_mutex_unlock(&wq->lock);
+
 	if (empty)
-		pthread_cond_signal(&work_list->cond);
+		pthread_cond_signal(&wq->cond);
 }
 
-static int zero_time(struct timeval *t)
+static struct node *wq_remove(struct work_queue *wq)
 {
-	return !(t->tv_sec || t->tv_usec);
-}
+	struct node *n;
 
-static float diff_us(struct timeval *end, struct timeval *start)
-{
-	return (end->tv_sec - start->tv_sec) * 1000000. + (end->tv_usec - start->tv_usec);
+	n = wq->head;
+	wq->head = wq->head->next;
+	n->next = NULL;
+	return n;
 }
 
 static void show_perf(void)
 {
-	int c, i;
-	float us, max[STEP_CNT], min[STEP_CNT];
+	uint32_t diff, max[STEP_CNT], min[STEP_CNT], sum[STEP_CNT];
+	int i, c;
 
 	for (i = 0; i < STEP_CNT; i++) {
+		sum[i] = 0;
 		max[i] = 0;
-		min[i] = 999999999.;
+		min[i] = UINT32_MAX;
 		for (c = 0; c < connections; c++) {
-			if (!zero_time(&nodes[c].times[i][0]) &&
-			    !zero_time(&nodes[c].times[i][1])) {
-				us = diff_us(&nodes[c].times[i][1], &nodes[c].times[i][0]);
-				if (us > max[i])
-					max[i] = us;
-				if (us < min[i])
-					min[i] = us;
+			if (nodes[c].times[i][0] && nodes[c].times[i][1]) {
+				diff = (uint32_t) (nodes[c].times[i][1] -
+						   nodes[c].times[i][0]);
+				sum[i] += diff;
+				if (diff > max[i])
+					max[i] = diff;
+				if (diff < min[i])
+					min[i] = diff;
 			}
 		}
+		/* Print 0 if we have no data */
+		if (min[i] == UINT32_MAX)
+			min[i] = 0;
 	}
 
-	printf("step              total ms     max ms     min us  us / conn\n");
+	/* Reporting the 'sum' of the full connect is meaningless */
+	sum[STEP_FULL_CONNECT] = 0;
+
+	printf("step              us/conn    sum(us)    max(us)    min(us)  total(us)   avg/iter\n");
 	for (i = 0; i < STEP_CNT; i++) {
-		if (i == STEP_BIND && !src_addr)
-			continue;
+		diff = (uint32_t) (times[i][1] - times[i][0]);
 
-		us = diff_us(&times[i][1], &times[i][0]);
-		printf("%-13s: %11.2f%11.2f%11.2f%11.2f\n", step_str[i], us / 1000.,
-			max[i] / 1000., min[i], us / connections);
+		printf("%-13s: %10u %10u %10u %10u %10d %10u\n",
+			step_str[i], sum[i] / connections, sum[i],
+			max[i], min[i], diff, diff / connections);
 	}
+}
+
+static inline bool need_verbs(void)
+{
+	return pd == NULL;
+}
+
+static int open_verbs(struct rdma_cm_id *id)
+{
+	printf("\tAllocating verbs resources\n");
+	pd = ibv_alloc_pd(id->verbs);
+	if (!pd) {
+		perror("ibv_alloc_pd");
+		return -errno;
+	}
+
+	cq = ibv_create_cq(id->verbs, 1, NULL, NULL, 0);
+	if (!cq) {
+		perror("ibv_create_cq");
+		return -errno;
+	}
+	return 0;
+}
+
+static int create_qp(struct node *n)
+{
+	struct ibv_qp_init_attr attr;
+	int ret;
+
+	if (need_verbs()) {
+		ret = open_verbs(n->id);
+		if (ret)
+			return ret;
+	}
+
+	attr.qp_context = n;
+	attr.send_cq = cq;
+	attr.recv_cq = cq;
+	attr.srq = NULL;
+	attr.qp_type = IBV_QPT_RC;
+	attr.sq_sig_all = 1;
+
+	attr.cap.max_send_wr = 1;
+	attr.cap.max_recv_wr = 1;
+	attr.cap.max_send_sge = 1;
+	attr.cap.max_recv_sge = 1;
+	attr.cap.max_inline_data = 0;
+
+	start_perf(n, STEP_CREATE_QP);
+	if (!use_qpn) {
+		n->qp = ibv_create_qp(pd, &attr);
+		if (!n->qp) {
+			ret = -errno;
+			perror("ibv_create_qp");
+			n->error = 1;
+		}
+	}
+	end_perf(n, STEP_CREATE_QP);
+
+	return ret;
+}
+
+static int
+modify_qp(struct node *n, enum ibv_qp_state state, enum step attr_step)
+{
+	struct ibv_qp_attr attr;
+	int mask, ret;
+
+	attr.qp_state = state;
+	start_perf(n, attr_step);
+	ret = rdma_init_qp_attr(n->id, &attr, &mask);
+	if (ret) {
+		perror("rdma_init_qp_attr");
+		n->error = 1;
+		return ret;
+	}
+	end_perf(n, attr_step);
+
+	start_perf(n, attr_step + 1);
+	if (n->qp) {
+		ret = ibv_modify_qp(n->qp, &attr, mask);
+		if (ret) {
+			perror("ibv_modify_qp");
+			n->error = 1;
+			return ret;
+		}
+	}
+	end_perf(n, attr_step + 1);
+
+	return 0;
+}
+
+static void init_conn_param(struct node *n, struct rdma_conn_param *param)
+{
+	param->private_data = rai->ai_connect;
+	param->private_data_len = rai->ai_connect_len;
+	param->responder_resources = 1;
+	param->initiator_depth = 1;
+	param->flow_control = 0;
+	param->retry_count = 0;
+	param->rnr_retry_count = 0;
+	param->srq = 0;
+	param->qp_num = n->qp ? n->qp->qp_num : use_qpn++;
+}
+
+static void connect_qp(struct node *n)
+{
+	struct rdma_conn_param conn_param;
+	int ret;
+
+	init_conn_param(n, &conn_param);
+
+	start_perf(n, STEP_CONNECT);
+	ret = rdma_connect(n->id, &conn_param);
+	if (ret) {
+		perror("rdma_connect");
+		n->error = 1;
+		return;
+	}
+
+	started[STEP_CONNECT]++;
 }
 
 static void addr_handler(struct node *n)
@@ -204,7 +388,29 @@ static void route_handler(struct node *n)
 
 static void conn_handler(struct node *n)
 {
+	int ret;
+
+	if (n->error)
+		goto endperf;
+
+	ret = modify_qp(n, IBV_QPS_RTR, STEP_RTR_QP_ATTR);
+	if (ret)
+		goto out;
+
+	ret = modify_qp(n, IBV_QPS_RTS, STEP_RTS_QP_ATTR);
+	if (ret)
+		goto out;
+
+	start_perf(n, STEP_ESTABLISH);
+	rdma_establish(n->id);
+	end_perf(n, STEP_ESTABLISH);
+
+out:
+	if (ret)
+		n->error = 1;
+endperf:
 	end_perf(n, STEP_CONNECT);
+	end_perf(n, STEP_FULL_CONNECT);
 	completed[STEP_CONNECT]++;
 }
 
@@ -214,67 +420,78 @@ static void disc_handler(struct node *n)
 	completed[STEP_DISCONNECT]++;
 }
 
-static void __req_handler(struct rdma_cm_id *id)
+static void req_work_handler(struct node *n)
 {
+	struct rdma_conn_param conn_param;
 	int ret;
 
-	ret = rdma_create_qp(id, NULL, &init_qp_attr);
-	if (ret) {
-		perror("failure creating qp");
+	ret = create_qp(n);
+	if (ret)
 		goto err1;
-	}
 
-	ret = rdma_accept(id, NULL);
+	ret = modify_qp(n, IBV_QPS_INIT, STEP_INIT_QP_ATTR);
+	if (ret)
+		goto err2;
+
+	ret = modify_qp(n, IBV_QPS_RTR, STEP_RTR_QP_ATTR);
+	if (ret)
+		goto err2;
+
+	ret = modify_qp(n, IBV_QPS_RTS, STEP_RTS_QP_ATTR);
+	if (ret)
+		goto err2;
+
+	init_conn_param(n, &conn_param);
+	ret = rdma_accept(n->id, &conn_param);
 	if (ret) {
 		perror("failure accepting");
+		n->error = 1;
 		goto err2;
 	}
 	return;
+
 err2:
-	rdma_destroy_qp(id);
+	if (n->qp)
+		ibv_destroy_qp(n->qp);
 err1:
 	printf("failing connection request\n");
-	rdma_reject(id, NULL, 0);
-	rdma_destroy_id(id);
+	rdma_reject(n->id, NULL, 0);
+	rdma_destroy_id(n->id);
 	return;
 }
 
-static void *req_handler_thread(void *arg)
+static void disc_work_handler(struct node *n)
 {
-	struct list_head *work;
-	do {
-		pthread_mutex_lock(&req_work.lock);
-		if (__list_empty(&req_work))
-			pthread_cond_wait(&req_work.cond, &req_work.lock);
-		work = __list_remove_head(&req_work);
-		pthread_mutex_unlock(&req_work.lock);
-		__req_handler(work->id);
-		free(work);
-	} while (1);
-	return NULL;
+	start_perf(n, STEP_DISCONNECT);
+	rdma_disconnect(n->id);
+	end_perf(n, STEP_DISCONNECT);
+
+	if (disc_events >= connections)
+		end_time(STEP_DISCONNECT);
 }
 
-static void *disc_handler_thread(void *arg)
+static void *wq_handler(void *arg)
 {
-	struct list_head *work;
-	do {
-		pthread_mutex_lock(&disc_work.lock);
-		if (__list_empty(&disc_work))
-			pthread_cond_wait(&disc_work.cond, &disc_work.lock);
-		work = __list_remove_head(&disc_work);
-		pthread_mutex_unlock(&disc_work.lock);
-		rdma_disconnect(work->id);
-		rdma_destroy_qp(work->id);
-		rdma_destroy_id(work->id);
-		free(work);
-	} while (1);
+	struct work_queue *wq = arg;
+	struct node *n;
+	int i;
+
+	for (i = 0; i < connections; i++) {
+		pthread_mutex_lock(&wq->lock);
+		if (!wq->head)
+			pthread_cond_wait(&wq->cond, &wq->lock);
+		n = wq_remove(wq);
+		pthread_mutex_unlock(&wq->lock);
+
+		wq->work_handler(n);
+	}
+
 	return NULL;
 }
 
 static void cma_handler(struct rdma_cm_id *id, struct rdma_cm_event *event)
 {
 	struct node *n = id->context;
-	struct list_head *request;
 
 	switch (event->event) {
 	case RDMA_CM_EVENT_ADDR_RESOLVED:
@@ -284,20 +501,15 @@ static void cma_handler(struct rdma_cm_id *id, struct rdma_cm_event *event)
 		route_handler(n);
 		break;
 	case RDMA_CM_EVENT_CONNECT_REQUEST:
-		request = malloc(sizeof *request);
-		if (!request) {
-			perror("out of memory accepting connect request");
-			rdma_reject(id, NULL, 0);
-			rdma_destroy_id(id);
-		} else {
-			INIT_LIST(request);
-			request->id = id;
-			list_add_tail(&req_work, request);
-		}
+		n = &nodes[node_index++];
+		n->id = id;
+		id->context = n;
+		wq_insert(&req_wq, n);
+		break;
+	case RDMA_CM_EVENT_CONNECT_RESPONSE:
+		conn_handler(n);
 		break;
 	case RDMA_CM_EVENT_ESTABLISHED:
-		if (n)
-			conn_handler(n);
 		break;
 	case RDMA_CM_EVENT_ADDR_ERROR:
 		if (n->retries--) {
@@ -323,24 +535,18 @@ static void cma_handler(struct rdma_cm_id *id, struct rdma_cm_event *event)
 	case RDMA_CM_EVENT_REJECTED:
 		printf("event: %s, error: %d\n",
 		       rdma_event_str(event->event), event->status);
-		conn_handler(n);
 		n->error = 1;
+		conn_handler(n);
 		break;
 	case RDMA_CM_EVENT_DISCONNECTED:
-		if (!n) {
-			request = malloc(sizeof *request);
-			if (!request) {
-				perror("out of memory queueing disconnect request, handling synchronously");
-				rdma_disconnect(id);
-				rdma_destroy_qp(id);
-				rdma_destroy_id(id);
-			} else {
-				INIT_LIST(request);
-				request->id = id;
-				list_add_tail(&disc_work, request);
-			}
-		} else
+		disc_events++;
+		if (is_client()) {
 			disc_handler(n);
+		} else {
+			if (disc_events == 1)
+				start_time(STEP_DISCONNECT);
+			wq_insert(&disc_wq, n);
+		}
 		break;
 	case RDMA_CM_EVENT_DEVICE_REMOVAL:
 		/* Cleanup will occur after test completes. */
@@ -351,24 +557,19 @@ static void cma_handler(struct rdma_cm_id *id, struct rdma_cm_event *event)
 	rdma_ack_cm_event(event);
 }
 
-static int alloc_nodes(void)
+static int create_ids(void)
 {
 	int ret, i;
 
-	nodes = calloc(sizeof *nodes, connections);
-	if (!nodes)
-		return -ENOMEM;
-
-	printf("creating id\n");
+	printf("\tCreating IDs\n");
 	start_time(STEP_CREATE_ID);
 	for (i = 0; i < connections; i++) {
+		start_perf(&nodes[i], STEP_FULL_CONNECT);
 		start_perf(&nodes[i], STEP_CREATE_ID);
-		if (dst_addr) {
-			ret = rdma_create_id(channel, &nodes[i].id, &nodes[i],
-					     hints.ai_port_space);
-			if (ret)
-				goto err;
-		}
+		ret = rdma_create_id(channel, &nodes[i].id, &nodes[i],
+					hints.ai_port_space);
+		if (ret)
+			goto err;
 		end_perf(&nodes[i], STEP_CREATE_ID);
 	}
 	end_time(STEP_CREATE_ID);
@@ -377,23 +578,35 @@ static int alloc_nodes(void)
 err:
 	while (--i >= 0)
 		rdma_destroy_id(nodes[i].id);
-	free(nodes);
 	return ret;
 }
 
-static void cleanup_nodes(void)
+static void destroy_ids(void)
 {
 	int i;
 
-	printf("destroying id\n");
-	start_time(STEP_DESTROY);
+	start_time(STEP_DESTROY_ID);
 	for (i = 0; i < connections; i++) {
-		start_perf(&nodes[i], STEP_DESTROY);
+		start_perf(&nodes[i], STEP_DESTROY_ID);
 		if (nodes[i].id)
 			rdma_destroy_id(nodes[i].id);
-		end_perf(&nodes[i], STEP_DESTROY);
+		end_perf(&nodes[i], STEP_DESTROY_ID);
 	}
-	end_time(STEP_DESTROY);
+	end_time(STEP_DESTROY_ID);
+}
+
+static void destroy_qps(void)
+{
+	int i;
+
+	start_time(STEP_DESTROY_QP);
+	for (i = 0; i < connections; i++) {
+		start_perf(&nodes[i], STEP_DESTROY_QP);
+		if (nodes[i].qp)
+			ibv_destroy_qp(nodes[i].qp);
+		end_perf(&nodes[i], STEP_DESTROY_QP);
+	}
+	end_time(STEP_DESTROY_QP);
 }
 
 static void *process_events(void *arg)
@@ -401,7 +614,7 @@ static void *process_events(void *arg)
 	struct rdma_cm_event *event;
 	int ret = 0;
 
-	while (!ret) {
+	while (!ret && disc_events < connections) {
 		ret = rdma_get_cm_event(channel, &event);
 		if (!ret) {
 			cma_handler(event->id, event);
@@ -410,52 +623,13 @@ static void *process_events(void *arg)
 			ret = errno;
 		}
 	}
+
 	return NULL;
 }
 
-static int run_server(void)
+static int server_listen(void)
 {
-	pthread_t req_thread, disc_thread;
-	struct rdma_cm_id *listen_id;
 	int ret;
-
-	INIT_LIST(&req_work.list);
-	INIT_LIST(&disc_work.list);
-	ret = pthread_mutex_init(&req_work.lock, NULL);
-	if (ret) {
-		perror("initializing mutex for req work");
-		return ret;
-	}
-
-	ret = pthread_mutex_init(&disc_work.lock, NULL);
-	if (ret) {
-		perror("initializing mutex for disc work");
-		return ret;
-	}
-
-	ret = pthread_cond_init(&req_work.cond, NULL);
-	if (ret) {
-		perror("initializing cond for req work");
-		return ret;
-	}
-
-	ret = pthread_cond_init(&disc_work.cond, NULL);
-	if (ret) {
-		perror("initializing cond for disc work");
-		return ret;
-	}
-
-	ret = pthread_create(&req_thread, NULL, req_handler_thread, NULL);
-	if (ret) {
-		perror("failed to create req handler thread");
-		return ret;
-	}
-
-	ret = pthread_create(&disc_thread, NULL, disc_handler_thread, NULL);
-	if (ret) {
-		perror("failed to create disconnect handler thread");
-		return ret;
-	}
 
 	ret = rdma_create_id(channel, &listen_id, NULL, hints.ai_port_space);
 	if (ret) {
@@ -463,55 +637,79 @@ static int run_server(void)
 		return ret;
 	}
 
-	ret = get_rdma_addr(src_addr, dst_addr, port, &hints, &rai);
-	if (ret) {
-		printf("getrdmaaddr error: %s\n", gai_strerror(ret));
-		goto out;
-	}
-
 	ret = rdma_bind_addr(listen_id, rai->ai_src_addr);
 	if (ret) {
 		perror("bind address failed");
-		goto out;
+		goto err;
 	}
 
 	ret = rdma_listen(listen_id, 0);
 	if (ret) {
 		perror("failure trying to listen");
-		goto out;
+		goto err;
 	}
 
-	process_events(NULL);
- out:
+	return 0;
+
+err:
 	rdma_destroy_id(listen_id);
 	return ret;
 }
 
-static int run_client(void)
+static void reset_test(int iter)
+{
+	node_index = 0;
+	disc_events = 0;
+	connections = iter;
+
+	memset(times, 0, sizeof times);
+	memset((void *) started, 0, sizeof started);
+	memset((void *) completed, 0, sizeof completed);
+	memset(nodes, 0, sizeof(*nodes) * iter);
+}
+
+static int server_connect(int iter)
+{
+	int ret;
+
+	reset_test(iter);
+	ret = wq_init(&req_wq, req_work_handler);
+	if (ret)
+		return ret;
+
+	ret = wq_init(&disc_wq, disc_work_handler);
+	if (ret)
+		return ret;
+
+	process_events(NULL);
+
+	/* Wait for event threads to exit before destroying resources */
+	wq_cleanup(&req_wq);
+	wq_cleanup(&disc_wq);
+	destroy_qps();
+	destroy_ids();
+	return ret;
+}
+
+static int client_connect(int iter)
 {
 	pthread_t event_thread;
 	int i, ret;
 
-	ret = get_rdma_addr(src_addr, dst_addr, port, &hints, &rai);
-	if (ret) {
-		printf("getaddrinfo error: %s\n", gai_strerror(ret));
-		return ret;
-	}
-
-	conn_param.responder_resources = 1;
-	conn_param.initiator_depth = 1;
-	conn_param.retry_count = retries;
-	conn_param.private_data = rai->ai_connect;
-	conn_param.private_data_len = rai->ai_connect_len;
-
+	reset_test(iter);
 	ret = pthread_create(&event_thread, NULL, process_events, NULL);
 	if (ret) {
 		perror("failure creating event thread");
 		return ret;
 	}
 
+	start_time(STEP_FULL_CONNECT);
+	ret = create_ids();
+	if (ret)
+		return ret;
+
 	if (src_addr) {
-		printf("binding source address\n");
+		printf("\tBinding addresses\n");
 		start_time(STEP_BIND);
 		for (i = 0; i < connections; i++) {
 			start_perf(&nodes[i], STEP_BIND);
@@ -526,7 +724,7 @@ static int run_client(void)
 		end_time(STEP_BIND);
 	}
 
-	printf("resolving address\n");
+	printf("\tResolving addresses\n");
 	start_time(STEP_RESOLVE_ADDR);
 	for (i = 0; i < connections; i++) {
 		if (nodes[i].error)
@@ -542,10 +740,11 @@ static int run_client(void)
 		}
 		started[STEP_RESOLVE_ADDR]++;
 	}
-	while (started[STEP_RESOLVE_ADDR] != completed[STEP_RESOLVE_ADDR]) sched_yield();
+	while (started[STEP_RESOLVE_ADDR] != completed[STEP_RESOLVE_ADDR])
+		sched_yield();
 	end_time(STEP_RESOLVE_ADDR);
 
-	printf("resolving route\n");
+	printf("\tResolving routes\n");
 	start_time(STEP_RESOLVE_ROUTE);
 	for (i = 0; i < connections; i++) {
 		if (nodes[i].error)
@@ -560,65 +759,73 @@ static int run_client(void)
 		}
 		started[STEP_RESOLVE_ROUTE]++;
 	}
-	while (started[STEP_RESOLVE_ROUTE] != completed[STEP_RESOLVE_ROUTE]) sched_yield();
+	while (started[STEP_RESOLVE_ROUTE] != completed[STEP_RESOLVE_ROUTE])
+		sched_yield();
 	end_time(STEP_RESOLVE_ROUTE);
 
-	printf("creating qp\n");
+	printf("\tCreating QPs\n");
 	start_time(STEP_CREATE_QP);
 	for (i = 0; i < connections; i++) {
 		if (nodes[i].error)
 			continue;
-		start_perf(&nodes[i], STEP_CREATE_QP);
-		ret = rdma_create_qp(nodes[i].id, NULL, &init_qp_attr);
-		if (ret) {
-			perror("failure creating qp");
-			nodes[i].error = 1;
+		ret = create_qp(&nodes[i]);
+		if (ret)
 			continue;
-		}
-		end_perf(&nodes[i], STEP_CREATE_QP);
 	}
 	end_time(STEP_CREATE_QP);
 
-	printf("connecting\n");
+	printf("\tModify QPs to INIT\n");
+	start_time(STEP_INIT_QP);
+	for (i = 0; i < connections; i++) {
+		if (nodes[i].error)
+			continue;
+		ret = modify_qp(&nodes[i], IBV_QPS_INIT, STEP_INIT_QP_ATTR);
+		if (ret)
+			continue;
+	}
+	end_time(STEP_INIT_QP);
+
+	printf("\tConnecting\n");
 	start_time(STEP_CONNECT);
 	for (i = 0; i < connections; i++) {
 		if (nodes[i].error)
 			continue;
-		start_perf(&nodes[i], STEP_CONNECT);
-		ret = rdma_connect(nodes[i].id, &conn_param);
-		if (ret) {
-			perror("failure rconnecting");
-			nodes[i].error = 1;
-			continue;
-		}
-		started[STEP_CONNECT]++;
+		connect_qp(&nodes[i]);
 	}
-	while (started[STEP_CONNECT] != completed[STEP_CONNECT]) sched_yield();
+	while (started[STEP_CONNECT] != completed[STEP_CONNECT])
+		sched_yield();
 	end_time(STEP_CONNECT);
+	end_time(STEP_FULL_CONNECT);
 
-	printf("disconnecting\n");
+	printf("\tDisconnecting\n");
 	start_time(STEP_DISCONNECT);
 	for (i = 0; i < connections; i++) {
 		if (nodes[i].error)
 			continue;
 		start_perf(&nodes[i], STEP_DISCONNECT);
 		rdma_disconnect(nodes[i].id);
-		rdma_destroy_qp(nodes[i].id);
 		started[STEP_DISCONNECT]++;
 	}
-	while (started[STEP_DISCONNECT] != completed[STEP_DISCONNECT]) sched_yield();
+	while (started[STEP_DISCONNECT] != completed[STEP_DISCONNECT])
+		sched_yield();
 	end_time(STEP_DISCONNECT);
+
+	printf("\tDestroying QPs\n");
+	destroy_qps();
+	printf("\tDestroying IDs\n");
+	destroy_ids();
 
 	return ret;
 }
 
 int main(int argc, char **argv)
 {
+	int iter = 100;
 	int op, ret;
 
 	hints.ai_port_space = RDMA_PS_TCP;
 	hints.ai_qp_type = IBV_QPT_RC;
-	while ((op = getopt(argc, argv, "s:b:c:p:r:t:")) != -1) {
+	while ((op = getopt(argc, argv, "s:b:c:p:q:r:t:")) != -1) {
 		switch (op) {
 		case 's':
 			dst_addr = optarg;
@@ -627,10 +834,13 @@ int main(int argc, char **argv)
 			src_addr = optarg;
 			break;
 		case 'c':
-			connections = atoi(optarg);
+			iter = atoi(optarg);
 			break;
 		case 'p':
 			port = optarg;
+			break;
+		case 'q':
+			base_qpn = (uint32_t) atoi(optarg);
 			break;
 		case 'r':
 			retries = atoi(optarg);
@@ -644,37 +854,77 @@ int main(int argc, char **argv)
 			printf("\t[-b bind_address]\n");
 			printf("\t[-c connections]\n");
 			printf("\t[-p port_number]\n");
+			printf("\t[-q base_qpn]\n");
 			printf("\t[-r retries]\n");
 			printf("\t[-t timeout_ms]\n");
 			exit(1);
 		}
 	}
 
-	init_qp_attr.cap.max_send_wr = 1;
-	init_qp_attr.cap.max_recv_wr = 1;
-	init_qp_attr.cap.max_send_sge = 1;
-	init_qp_attr.cap.max_recv_sge = 1;
-	init_qp_attr.qp_type = IBV_QPT_RC;
-
-	channel = create_first_event_channel();
-	if (!channel) {
-		exit(1);
-	}
-
-	if (dst_addr) {
-		alloc_nodes();
-		ret = run_client();
-	} else {
+	if (!is_client())
 		hints.ai_flags |= RAI_PASSIVE;
-		ret = run_server();
+	ret = get_rdma_addr(src_addr, dst_addr, port, &hints, &rai);
+	if (ret)
+		goto out;
+
+	channel = create_event_channel();
+	if (!channel) {
+		ret = -errno;
+		goto freeinfo;
 	}
 
-	cleanup_nodes();
-	rdma_destroy_event_channel(channel);
-	if (rai)
-		rdma_freeaddrinfo(rai);
+	nodes = calloc(sizeof *nodes, iter);
+	if (!nodes) {
+		ret = -ENOMEM;
+		goto destchan;
+	}
+
+	if (is_client()) {
+		printf("Client warmup\n");
+		ret = client_connect(1);
+		if (ret)
+			goto freenodes;
+
+		printf("Connect (%d) QPs test\n", iter);
+		ret = client_connect(iter);
+		if (ret)
+			goto freenodes;
+		show_perf();
+
+		printf("Connect (%d) test - no QPs\n", iter);
+		use_qpn = base_qpn;
+		ret = client_connect(iter);
+	} else {
+		ret = server_listen();
+		if (ret)
+			goto freenodes;
+
+		printf("Server warmup\n");
+		ret = server_connect(1);
+		if (ret)
+			goto freenodes;
+
+		printf("Accept (%d) QPs test\n", iter);
+		ret = server_connect(iter);
+		if (ret)
+			goto freenodes;
+		show_perf();
+
+		printf("Accept (%d) test - no QPs\n", iter);
+		use_qpn = base_qpn;
+		ret = server_connect(iter);
+		if (ret)
+			goto freenodes;
+		rdma_destroy_id(listen_id);
+	}
 
 	show_perf();
+freenodes:
 	free(nodes);
+destchan:
+	rdma_destroy_event_channel(channel);
+freeinfo:
+	rdma_freeaddrinfo(rai);
+out:
 	return ret;
 }
