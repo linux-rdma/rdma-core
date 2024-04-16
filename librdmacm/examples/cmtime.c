@@ -299,18 +299,6 @@ static void connect_qp(struct node *n)
 	}
 }
 
-static void addr_handler(struct node *n)
-{
-	end_perf(n, STEP_RESOLVE_ADDR);
-	completed[STEP_RESOLVE_ADDR]++;
-}
-
-static void route_handler(struct node *n)
-{
-	end_perf(n, STEP_RESOLVE_ROUTE);
-	completed[STEP_RESOLVE_ROUTE]++;
-}
-
 static void conn_handler(struct node *n)
 {
 	int ret;
@@ -337,12 +325,6 @@ endperf:
 	end_perf(n, STEP_CONNECT);
 	end_perf(n, STEP_FULL_CONNECT);
 	completed[STEP_CONNECT]++;
-}
-
-static void disc_handler(struct node *n)
-{
-	end_perf(n, STEP_DISCONNECT);
-	completed[STEP_DISCONNECT]++;
 }
 
 static void req_handler(struct work_item *item)
@@ -406,10 +388,12 @@ static void cma_handler(struct rdma_cm_id *id, struct rdma_cm_event *event)
 
 	switch (event->event) {
 	case RDMA_CM_EVENT_ADDR_RESOLVED:
-		addr_handler(n);
+		end_perf(n, STEP_RESOLVE_ADDR);
+		completed[STEP_RESOLVE_ADDR]++;
 		break;
 	case RDMA_CM_EVENT_ROUTE_RESOLVED:
-		route_handler(n);
+		end_perf(n, STEP_RESOLVE_ROUTE);
+		completed[STEP_RESOLVE_ROUTE]++;
 		break;
 	case RDMA_CM_EVENT_CONNECT_REQUEST:
 		if (node_index == 0) {
@@ -435,7 +419,8 @@ static void cma_handler(struct rdma_cm_id *id, struct rdma_cm_event *event)
 				break;
 		}
 		printf("RDMA_CM_EVENT_ADDR_ERROR, error: %d\n", event->status);
-		addr_handler(n);
+		end_perf(n, STEP_RESOLVE_ADDR);
+		completed[STEP_RESOLVE_ADDR]++;
 		n->error = 1;
 		break;
 	case RDMA_CM_EVENT_ROUTE_ERROR:
@@ -444,7 +429,8 @@ static void cma_handler(struct rdma_cm_id *id, struct rdma_cm_event *event)
 				break;
 		}
 		printf("RDMA_CM_EVENT_ROUTE_ERROR, error: %d\n", event->status);
-		route_handler(n);
+		end_perf(n, STEP_RESOLVE_ROUTE);
+		completed[STEP_RESOLVE_ROUTE]++;
 		n->error = 1;
 		break;
 	case RDMA_CM_EVENT_CONNECT_ERROR:
@@ -457,7 +443,8 @@ static void cma_handler(struct rdma_cm_id *id, struct rdma_cm_event *event)
 		break;
 	case RDMA_CM_EVENT_DISCONNECTED:
 		if (is_client()) {
-			disc_handler(n);
+			end_perf(n, STEP_DISCONNECT);
+			completed[STEP_DISCONNECT]++;
 		} else {
 			if (disc_events == 0) {
 				printf("\tDisconnecting\n");
