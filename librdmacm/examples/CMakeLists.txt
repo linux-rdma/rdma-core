@@ -2,9 +2,10 @@
 add_library(rdmacm_tools STATIC
   common.c
   )
+target_link_libraries(rdmacm_tools LINK_PRIVATE ${CMAKE_THREAD_LIBS_INIT})
 
 rdma_executable(cmtime cmtime.c)
-target_link_libraries(cmtime LINK_PRIVATE rdmacm ${CMAKE_THREAD_LIBS_INIT} rdmacm_tools)
+target_link_libraries(cmtime LINK_PRIVATE rdmacm rdmacm_tools)
 
 rdma_executable(mckey mckey.c)
 target_link_libraries(mckey LINK_PRIVATE rdmacm ${CMAKE_THREAD_LIBS_INIT} rdmacm_tools)

@@ -43,6 +43,7 @@
 #include <fcntl.h>
 #include <unistd.h>
 #include <netinet/tcp.h>
+#include <ccan/container_of.h>
 
 #include <rdma/rdma_cma.h>
 #include "common.h"
@@ -103,7 +104,7 @@ static const char *step_str[] = {
 };
 
 struct node {
-	struct node *next;
+	struct work_item work;
 	struct rdma_cm_id *id;
 	struct ibv_qp *qp;
 
@@ -112,24 +113,13 @@ struct node {
 	int retries;
 };
 
-struct work_queue {
-	pthread_mutex_t lock;
-	pthread_cond_t cond;
-	pthread_t thread;
-
-	void (*work_handler)(struct node *node);
-	struct node *head;
-	struct node *tail;
-};
-
-static void *wq_handler(void *arg);
-static struct work_queue req_wq;
-static struct work_queue disc_wq;
+static struct work_queue wq;
 
 static struct node *nodes;
 static int node_index;
 static uint64_t times[STEP_CNT][2];
 static int connections;
+static int num_threads = 1;
 static volatile int disc_events;
 
 static volatile int completed[STEP_CNT];
@@ -146,74 +136,6 @@ static struct ibv_cq *cq;
 static inline bool is_client(void)
 {
 	return dst_addr != NULL;
-}
-
-static int
-wq_init(struct work_queue *wq, void (*work_handler)(struct node *))
-{
-	int ret;
-
-	wq->head = NULL;
-	wq->tail = NULL;
-	wq->work_handler = work_handler;
-
-	ret = pthread_mutex_init(&wq->lock, NULL);
-	if (ret) {
-		perror("pthread_mutex_init");
-		return ret;
-	}
-
-	ret = pthread_cond_init(&wq->cond, NULL);
-	if (ret) {
-		perror("pthread_cond_init");
-		return ret;
-	}
-
-	ret = pthread_create(&wq->thread, NULL, wq_handler, wq);
-	if (ret) {
-		perror("pthread_create");
-		return ret;
-	}
-
-	return 0;
-}
-
-static void wq_cleanup(struct work_queue *wq)
-{
-	pthread_join(wq->thread, NULL);
-	pthread_cond_destroy(&wq->cond);
-	pthread_mutex_destroy(&wq->lock);
-	pthread_join(wq->thread, NULL);
-}
-
-static void wq_insert(struct work_queue *wq, struct node *n)
-{
-	bool empty;
-
-	n->next = NULL;
-	pthread_mutex_lock(&wq->lock);
-	if (wq->head) {
-		wq->tail->next = n;
-		empty = false;
-	} else {
-		wq->head = n;
-		empty = true;
-	}
-	wq->tail = n;
-	pthread_mutex_unlock(&wq->lock);
-
-	if (empty)
-		pthread_cond_signal(&wq->cond);
-}
-
-static struct node *wq_remove(struct work_queue *wq)
-{
-	struct node *n;
-
-	n = wq->head;
-	wq->head = wq->head->next;
-	n->next = NULL;
-	return n;
 }
 
 static void show_perf(int iter)
@@ -423,8 +345,10 @@ static void disc_handler(struct node *n)
 	completed[STEP_DISCONNECT]++;
 }
 
-static void req_work_handler(struct node *n)
+static void req_handler(struct work_item *item)
 {
+	struct node *n = container_of(item, struct node, work);
+
 	struct rdma_conn_param conn_param;
 	int ret;
 
@@ -463,8 +387,10 @@ err1:
 	return;
 }
 
-static void disc_work_handler(struct node *n)
+static void server_disconnect(struct work_item *item)
 {
+	struct node *n = container_of(item, struct node, work);
+
 	start_perf(n, STEP_DISCONNECT);
 	rdma_disconnect(n->id);
 	end_perf(n, STEP_DISCONNECT);
@@ -472,25 +398,6 @@ static void disc_work_handler(struct node *n)
 	if (disc_events >= connections)
 		end_time(STEP_DISCONNECT);
 	completed[STEP_DISCONNECT]++;
-}
-
-static void *wq_handler(void *arg)
-{
-	struct work_queue *wq = arg;
-	struct node *n;
-	int i;
-
-	for (i = 0; i < connections; i++) {
-		pthread_mutex_lock(&wq->lock);
-		if (!wq->head)
-			pthread_cond_wait(&wq->cond, &wq->lock);
-		n = wq_remove(wq);
-		pthread_mutex_unlock(&wq->lock);
-
-		wq->work_handler(n);
-	}
-
-	return NULL;
 }
 
 static void cma_handler(struct rdma_cm_id *id, struct rdma_cm_event *event)
@@ -512,7 +419,7 @@ static void cma_handler(struct rdma_cm_id *id, struct rdma_cm_event *event)
 		n = &nodes[node_index++];
 		n->id = id;
 		id->context = n;
-		wq_insert(&req_wq, n);
+		wq_insert(&wq, &n->work, req_handler);
 		break;
 	case RDMA_CM_EVENT_CONNECT_RESPONSE:
 		conn_handler(n);
@@ -557,7 +464,7 @@ static void cma_handler(struct rdma_cm_id *id, struct rdma_cm_event *event)
 				start_time(STEP_DISCONNECT);
 			}
 			disc_events++;
-			wq_insert(&disc_wq, n);
+			wq_insert(&wq, &n->work, server_disconnect);
 		}
 		break;
 	case RDMA_CM_EVENT_DEVICE_REMOVAL:
@@ -687,16 +594,7 @@ static void reset_test(int iter)
 
 static int server_connect(int iter)
 {
-	int ret;
-
 	reset_test(iter);
-	ret = wq_init(&req_wq, req_work_handler);
-	if (ret)
-		return ret;
-
-	ret = wq_init(&disc_wq, disc_work_handler);
-	if (ret)
-		return ret;
 
 	while (completed[STEP_CONNECT] != iter)
 		sched_yield();
@@ -708,12 +606,9 @@ static int server_connect(int iter)
 
 	oob_recvsend(oob_sock, STEP_DISCONNECT);
 
-	/* Wait for event threads to exit before destroying resources */
-	wq_cleanup(&req_wq);
-	wq_cleanup(&disc_wq);
 	destroy_qps(iter);
 	destroy_ids(iter);
-	return ret;
+	return 0;
 }
 
 static int client_connect(int iter)
@@ -995,12 +890,18 @@ int main(int argc, char **argv)
 		goto destchan;
 	}
 
+	ret = wq_init(&wq, num_threads);
+	if (ret)
+		goto free;
+
 	if (is_client()) {
 		ret = run_client(iter);
 	} else {
 		ret = run_server(iter);
 	}
 
+	wq_cleanup(&wq);
+free:
 	free(nodes);
 destchan:
 	rdma_destroy_event_channel(channel);

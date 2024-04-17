@@ -37,6 +37,8 @@
 #include <endian.h>
 #include <poll.h>
 #include <time.h>
+#include <stdbool.h>
+#include <pthread.h>
 
 #include <rdma/rdma_cma.h>
 #include <rdma/rsocket.h>
@@ -136,3 +138,27 @@ static inline int sleep_us(unsigned int time_us)
 	spec.tv_nsec = time_us * 1000;
 	return nanosleep(&spec, NULL);
 }
+
+
+struct work_item {
+	struct work_item *next;
+	void (*work_handler)(struct work_item *item);
+};
+
+struct work_queue {
+	pthread_mutex_t lock;
+	pthread_cond_t cond;
+
+	pthread_t *thread;
+	int thread_cnt;
+	bool running;
+
+	struct work_item *head;
+	struct work_item *tail;
+};
+
+int wq_init(struct work_queue *wq, int thread_cnt);
+void wq_cleanup(struct work_queue *wq);
+void wq_insert(struct work_queue *wq, struct work_item *item,
+	       void (*work_handler)(struct work_item *item));
+struct work_item *wq_remove(struct work_queue *wq);
