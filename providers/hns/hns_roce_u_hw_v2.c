@@ -499,7 +499,7 @@ static void parse_cqe_for_srq(struct hns_roce_v2_cqe *cqe, struct ibv_wc *wc,
 		handle_recv_cqe_inl_from_srq(cqe, srq);
 }
 
-static int parse_cqe_for_resp(struct hns_roce_v2_cqe *cqe, struct ibv_wc *wc,
+static void parse_cqe_for_resp(struct hns_roce_v2_cqe *cqe, struct ibv_wc *wc,
 			       struct hns_roce_qp *hr_qp)
 {
 	struct hns_roce_wq *wq;
@@ -515,8 +515,6 @@ static int parse_cqe_for_resp(struct hns_roce_v2_cqe *cqe, struct ibv_wc *wc,
 		handle_recv_cqe_inl_from_rq(cqe, hr_qp);
 	else if (hr_reg_read(cqe, CQE_RQ_INLINE))
 		handle_recv_rq_inl(cqe, hr_qp);
-
-	return 0;
 }
 
 static void parse_cqe_for_req(struct hns_roce_v2_cqe *cqe, struct ibv_wc *wc,
