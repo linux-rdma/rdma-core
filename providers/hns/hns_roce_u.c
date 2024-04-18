@@ -145,6 +145,47 @@ static int set_context_attr(struct hns_roce_device *hr_dev,
 	return 0;
 }
 
+static int hns_roce_init_context_lock(struct hns_roce_context *context)
+{
+	int ret;
+
+	ret = pthread_spin_init(&context->uar_lock, PTHREAD_PROCESS_PRIVATE);
+	if (ret)
+		return ret;
+
+	ret = pthread_mutex_init(&context->qp_table_mutex, NULL);
+	if (ret)
+		goto destroy_uar_lock;
+
+	ret = pthread_mutex_init(&context->srq_table_mutex, NULL);
+	if (ret)
+		goto destroy_qp_mutex;
+
+	ret = pthread_mutex_init(&context->db_list_mutex, NULL);
+	if (ret)
+		goto destroy_srq_mutex;
+
+	return 0;
+
+destroy_srq_mutex:
+	pthread_mutex_destroy(&context->srq_table_mutex);
+
+destroy_qp_mutex:
+	pthread_mutex_destroy(&context->qp_table_mutex);
+
+destroy_uar_lock:
+	pthread_spin_destroy(&context->uar_lock);
+	return ret;
+}
+
+static void hns_roce_destroy_context_lock(struct hns_roce_context *context)
+{
+	pthread_spin_destroy(&context->uar_lock);
+	pthread_mutex_destroy(&context->qp_table_mutex);
+	pthread_mutex_destroy(&context->srq_table_mutex);
+	pthread_mutex_destroy(&context->db_list_mutex);
+}
+
 static struct verbs_context *hns_roce_alloc_context(struct ibv_device *ibdev,
 						    int cmd_fd,
 						    void *private_data)
@@ -163,26 +204,28 @@ static struct verbs_context *hns_roce_alloc_context(struct ibv_device *ibdev,
 		      HNS_ROCE_CQE_INLINE_FLAGS;
 	if (ibv_cmd_get_context(&context->ibv_ctx, &cmd.ibv_cmd, sizeof(cmd),
 				&resp.ibv_resp, sizeof(resp)))
-		goto err_free;
+		goto err_ibv_cmd;
+
+	if (hns_roce_init_context_lock(context))
+		goto err_ibv_cmd;
 
 	if (set_context_attr(hr_dev, context, &resp))
-		goto err_free;
+		goto err_set_attr;
 
 	context->uar = mmap(NULL, hr_dev->page_size, PROT_READ | PROT_WRITE,
 			    MAP_SHARED, cmd_fd, 0);
 	if (context->uar == MAP_FAILED)
-		goto err_free;
+		goto err_set_attr;
 
-	pthread_mutex_init(&context->qp_table_mutex, NULL);
-	pthread_mutex_init(&context->srq_table_mutex, NULL);
-	pthread_spin_init(&context->uar_lock, PTHREAD_PROCESS_PRIVATE);
 
 	verbs_set_ops(&context->ibv_ctx, &hns_common_ops);
 	verbs_set_ops(&context->ibv_ctx, &hr_dev->u_hw->hw_ops);
 
 	return &context->ibv_ctx;
 
-err_free:
+err_set_attr:
+	hns_roce_destroy_context_lock(context);
+err_ibv_cmd:
 	verbs_uninit_context(&context->ibv_ctx);
 	free(context);
 	return NULL;
@@ -194,6 +237,7 @@ static void hns_roce_free_context(struct ibv_context *ibctx)
 	struct hns_roce_context *context = to_hr_ctx(ibctx);
 
 	munmap(context->uar, hr_dev->page_size);
+	hns_roce_destroy_context_lock(context);
 	verbs_uninit_context(&context->ibv_ctx);
 	free(context);
 }
