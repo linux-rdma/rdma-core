@@ -371,8 +371,6 @@ static struct ibv_cq_ex *create_cq(struct ibv_context *context,
 		goto err_db;
 	}
 
-	*cq->db = 0;
-
 	ret = exec_cq_create_cmd(context, cq, attr);
 	if (ret)
 		goto err_cmd;
@@ -684,8 +682,6 @@ static struct ibv_srq *create_srq(struct ibv_context *context,
 	srq->rdb = hns_roce_alloc_db(hr_ctx, HNS_ROCE_SRQ_TYPE_DB);
 	if (!srq->rdb)
 		goto err_srq_buf;
-
-	*srq->rdb = 0;
 
 	ret = exec_srq_create_cmd(context, srq, init_attr);
 	if (ret)
@@ -1175,8 +1171,6 @@ static int qp_alloc_db(struct ibv_qp_init_attr_ex *attr, struct hns_roce_qp *qp,
 		qp->sdb = hns_roce_alloc_db(ctx, HNS_ROCE_QP_TYPE_DB);
 		if (!qp->sdb)
 			return -ENOMEM;
-
-		*qp->sdb = 0;
 	}
 
 	if (attr->cap.max_recv_sge) {
@@ -1188,8 +1182,6 @@ static int qp_alloc_db(struct ibv_qp_init_attr_ex *attr, struct hns_roce_qp *qp,
 
 			return -ENOMEM;
 		}
-
-		*qp->rdb = 0;
 	}
 
 	return 0;
