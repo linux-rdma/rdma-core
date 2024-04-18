@@ -2088,8 +2088,6 @@ static void wr_set_sge_list_rc(struct ibv_qp_ex *ibv_qp, size_t num_sge,
 
 	wqe->msg_len = htole32(qp->sge_info.total_len);
 	hr_reg_write(wqe, RCWQE_SGE_NUM, qp->sge_info.valid_num);
-
-	enable_wqe(qp, wqe, qp->sq.head);
 }
 
 static void wr_send_rc(struct ibv_qp_ex *ibv_qp)
@@ -2281,7 +2279,6 @@ static void wr_set_inline_data_rc(struct ibv_qp_ex *ibv_qp, void *addr,
 
 	qp->sge_info.total_len = length;
 	set_inline_data_list_rc(qp, wqe, 1, &buff);
-	enable_wqe(qp, wqe, qp->sq.head);
 }
 
 static void wr_set_inline_data_list_rc(struct ibv_qp_ex *ibv_qp, size_t num_buf,
@@ -2299,7 +2296,6 @@ static void wr_set_inline_data_list_rc(struct ibv_qp_ex *ibv_qp, size_t num_buf,
 		qp->sge_info.total_len += buf_list[i].length;
 
 	set_inline_data_list_rc(qp, wqe, num_buf, buf_list);
-	enable_wqe(qp, wqe, qp->sq.head);
 }
 
 static struct hns_roce_ud_sq_wqe *
@@ -2436,7 +2432,6 @@ static void wr_set_sge_list_ud(struct ibv_qp_ex *ibv_qp, size_t num_sge,
 	hr_reg_write(wqe, UDWQE_SGE_NUM, cnt);
 
 	qp->sge_info.start_idx += cnt;
-	enable_wqe(qp, wqe, qp->sq.head);
 }
 
 static void set_inline_data_list_ud(struct hns_roce_qp *qp,
@@ -2502,7 +2497,6 @@ static void wr_set_inline_data_ud(struct ibv_qp_ex *ibv_qp, void *addr,
 
 	qp->sge_info.total_len = length;
 	set_inline_data_list_ud(qp, wqe, 1, &buff);
-	enable_wqe(qp, wqe, qp->sq.head);
 }
 
 static void wr_set_inline_data_list_ud(struct ibv_qp_ex *ibv_qp, size_t num_buf,
@@ -2520,7 +2514,6 @@ static void wr_set_inline_data_list_ud(struct ibv_qp_ex *ibv_qp, size_t num_buf,
 		qp->sge_info.total_len += buf_list[i].length;
 
 	set_inline_data_list_ud(qp, wqe, num_buf, buf_list);
-	enable_wqe(qp, wqe, qp->sq.head);
 }
 
 static void wr_start(struct ibv_qp_ex *ibv_qp)
