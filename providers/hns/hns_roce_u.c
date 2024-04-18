@@ -90,6 +90,39 @@ static uint32_t calc_table_shift(uint32_t entry_count, uint32_t size_shift)
 	return count_shift > size_shift ? count_shift - size_shift : 0;
 }
 
+static int hns_roce_init_context_lock(struct hns_roce_context *context)
+{
+	int ret;
+
+	ret = pthread_spin_init(&context->uar_lock, PTHREAD_PROCESS_PRIVATE);
+	if (ret)
+		return ret;
+
+	ret = pthread_mutex_init(&context->qp_table_mutex, NULL);
+	if (ret)
+		goto destroy_uar_lock;
+
+	ret = pthread_mutex_init(&context->db_list_mutex, NULL);
+	if (ret)
+		goto destroy_qp_mutex;
+
+	return 0;
+
+destroy_qp_mutex:
+	pthread_mutex_destroy(&context->qp_table_mutex);
+
+destroy_uar_lock:
+	pthread_spin_destroy(&context->uar_lock);
+	return ret;
+}
+
+static void hns_roce_destroy_context_lock(struct hns_roce_context *context)
+{
+	pthread_spin_destroy(&context->uar_lock);
+	pthread_mutex_destroy(&context->qp_table_mutex);
+	pthread_mutex_destroy(&context->db_list_mutex);
+}
+
 static struct verbs_context *hns_roce_alloc_context(struct ibv_device *ibdev,
 						    int cmd_fd,
 						    void *private_data)
@@ -109,20 +142,22 @@ static struct verbs_context *hns_roce_alloc_context(struct ibv_device *ibdev,
 
 	if (ibv_cmd_get_context(&context->ibv_ctx, &cmd, sizeof(cmd),
 				&resp.ibv_resp, sizeof(resp)))
-		goto err_free;
+		goto err_ibv_cmd;
+
+	if (hns_roce_init_context_lock(context))
+		goto err_ibv_cmd;
 
 	context->qp_table_shift = calc_table_shift(resp.qp_tab_size,
 						   HNS_ROCE_QP_TABLE_BITS);
 	context->qp_table_mask = (1 << context->qp_table_shift) - 1;
 
-	pthread_mutex_init(&context->qp_table_mutex, NULL);
 	for (i = 0; i < HNS_ROCE_QP_TABLE_SIZE; ++i)
 		context->qp_table[i].refcnt = 0;
 
 	context->uar = mmap(NULL, hr_dev->page_size, PROT_READ | PROT_WRITE,
 			    MAP_SHARED, cmd_fd, offset);
 	if (context->uar == MAP_FAILED)
-		goto err_free;
+		goto err_set_attr;
 
 	offset += hr_dev->page_size;
 
@@ -145,7 +180,6 @@ static struct verbs_context *hns_roce_alloc_context(struct ibv_device *ibdev,
 	else
 		context->cqe_size = HNS_ROCE_V3_CQE_SIZE;
 
-	pthread_spin_init(&context->uar_lock, PTHREAD_PROCESS_PRIVATE);
 
 	verbs_set_ops(&context->ibv_ctx, &hns_common_ops);
 	verbs_set_ops(&context->ibv_ctx, &hr_dev->u_hw->hw_ops);
@@ -170,7 +204,9 @@ db_free:
 	munmap(context->uar, hr_dev->page_size);
 	context->uar = NULL;
 
-err_free:
+err_set_attr:
+	hns_roce_destroy_context_lock(context);
+err_ibv_cmd:
 	verbs_uninit_context(&context->ibv_ctx);
 	free(context);
 	return NULL;
@@ -185,6 +221,7 @@ static void hns_roce_free_context(struct ibv_context *ibctx)
 	if (hr_dev->hw_version == HNS_ROCE_HW_VER1)
 		munmap(context->cq_tptr_base, HNS_ROCE_CQ_DB_BUF_SIZE);
 
+	hns_roce_destroy_context_lock(context);
 	verbs_uninit_context(&context->ibv_ctx);
 	free(context);
 }
