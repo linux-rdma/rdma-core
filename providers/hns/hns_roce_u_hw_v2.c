@@ -2242,8 +2242,8 @@ static void set_inline_data_list_rc(struct hns_roce_qp *qp,
 {
 	unsigned int msg_len = qp->sge_info.total_len;
 	void *dseg;
+	size_t i;
 	int ret;
-	int i;
 
 	hr_reg_enable(wqe, RCWQE_INLINE);
 
@@ -2302,7 +2302,7 @@ static void wr_set_inline_data_list_rc(struct ibv_qp_ex *ibv_qp, size_t num_buf,
 {
 	struct hns_roce_qp *qp = to_hr_qp(&ibv_qp->qp_base);
 	struct hns_roce_rc_sq_wqe *wqe = qp->cur_wqe;
-	int i;
+	size_t i;
 
 	if (!wqe)
 		return;
@@ -2432,7 +2432,7 @@ static void wr_set_sge_list_ud(struct ibv_qp_ex *ibv_qp, size_t num_sge,
 	}
 
 	hr_reg_write(wqe, UDWQE_MSG_START_SGE_IDX, sge_idx & mask);
-	for (int i = 0; i < num_sge; i++) {
+	for (size_t i = 0; i < num_sge; i++) {
 		if (!sg_list[i].length)
 			continue;
 
@@ -2458,8 +2458,8 @@ static void set_inline_data_list_ud(struct hns_roce_qp *qp,
 	uint8_t data[HNS_ROCE_MAX_UD_INL_INN_SZ] = {};
 	unsigned int msg_len = qp->sge_info.total_len;
 	void *tmp;
+	size_t i;
 	int ret;
-	int i;
 
 	if (!check_inl_data_len(qp, msg_len)) {
 		qp->err = EINVAL;
@@ -2520,7 +2520,7 @@ static void wr_set_inline_data_list_ud(struct ibv_qp_ex *ibv_qp, size_t num_buf,
 {
 	struct hns_roce_qp *qp = to_hr_qp(&ibv_qp->qp_base);
 	struct hns_roce_ud_sq_wqe *wqe = qp->cur_wqe;
-	int i;
+	size_t i;
 
 	if (!wqe)
 		return;
