@@ -42,6 +42,7 @@
 #include <netdb.h>
 #include <fcntl.h>
 #include <unistd.h>
+#include <stdatomic.h>
 #include <netinet/tcp.h>
 #include <ccan/container_of.h>
 
@@ -124,7 +125,7 @@ static int connections;
 static int num_threads = 1;
 static volatile int disc_events;
 
-static volatile int completed[STEP_CNT];
+static _Atomic(int) completed[STEP_CNT];
 
 static struct ibv_pd *pd;
 static struct ibv_cq *cq;
@@ -231,7 +232,7 @@ static void create_qp(struct work_item *item)
 		sleep_us(mimic_qp_delay);
 	}
 	end_perf(n, STEP_CREATE_QP);
-	completed[STEP_CREATE_QP]++;
+	atomic_fetch_add(&completed[STEP_CREATE_QP], 1);
 }
 
 static void
@@ -261,7 +262,7 @@ modify_qp(struct node *n, enum ibv_qp_state state, enum step attr_step)
 		sleep_us(mimic_qp_delay);
 	}
 	end_perf(n, attr_step);
-	completed[attr_step]++;
+	atomic_fetch_add(&completed[attr_step], 1);
 }
 
 static void modify_qp_work(struct work_item *item)
@@ -341,7 +342,7 @@ static void connect_response(struct work_item *item)
 
 	end_perf(n, STEP_CONNECT);
 	end_perf(n, STEP_FULL_CONNECT);
-	completed[STEP_CONNECT]++;
+	atomic_fetch_add(&completed[STEP_CONNECT], 1);
 }
 
 static void req_handler(struct work_item *item)
@@ -370,7 +371,7 @@ static void client_disconnect(struct work_item *item)
 	start_perf(n, STEP_DISCONNECT);
 	rdma_disconnect(n->id);
 	end_perf(n, STEP_DISCONNECT);
-	completed[STEP_DISCONNECT]++;
+	atomic_fetch_add(&completed[STEP_DISCONNECT], 1);
 }
 
 static void server_disconnect(struct work_item *item)
@@ -383,7 +384,7 @@ static void server_disconnect(struct work_item *item)
 
 	if (disc_events >= connections)
 		end_time(STEP_DISCONNECT);
-	completed[STEP_DISCONNECT]++;
+	atomic_fetch_add(&completed[STEP_DISCONNECT], 1);
 }
 
 static void cma_handler(struct rdma_cm_id *id, struct rdma_cm_event *event)
@@ -393,11 +394,11 @@ static void cma_handler(struct rdma_cm_id *id, struct rdma_cm_event *event)
 	switch (event->event) {
 	case RDMA_CM_EVENT_ADDR_RESOLVED:
 		end_perf(n, STEP_RESOLVE_ADDR);
-		completed[STEP_RESOLVE_ADDR]++;
+		atomic_fetch_add(&completed[STEP_RESOLVE_ADDR], 1);
 		break;
 	case RDMA_CM_EVENT_ROUTE_RESOLVED:
 		end_perf(n, STEP_RESOLVE_ROUTE);
-		completed[STEP_RESOLVE_ROUTE]++;
+		atomic_fetch_add(&completed[STEP_RESOLVE_ROUTE], 1);
 		break;
 	case RDMA_CM_EVENT_CONNECT_REQUEST:
 		if (node_index == 0) {
@@ -413,7 +414,8 @@ static void cma_handler(struct rdma_cm_id *id, struct rdma_cm_event *event)
 		wq_insert(&wq, &n->work, connect_response);
 		break;
 	case RDMA_CM_EVENT_ESTABLISHED:
-		if (++completed[STEP_CONNECT] >= connections)
+		if (atomic_fetch_add(&completed[STEP_CONNECT], 1) >=
+		    connections - 1)
 			end_time(STEP_CONNECT);
 		break;
 	case RDMA_CM_EVENT_ADDR_ERROR:
@@ -448,7 +450,7 @@ static void cma_handler(struct rdma_cm_id *id, struct rdma_cm_event *event)
 			 * not wait for a response from the server.  The
 			 * OOB sync handles that coordiation
 			end_perf(n, STEP_DISCONNECT);
-			completed[STEP_DISCONNECT]++;
+			atomic_fetch_add(&completed[STEP_DISCONNECT], 1);
 		} else {
 			 */
 			if (disc_events == 0) {
@@ -561,13 +563,17 @@ static void server_listen(struct rdma_cm_id **listen_id)
 
 static void reset_test(int iter)
 {
+	int i;
+
 	node_index = 0;
 	disc_events = 0;
 	connections = iter;
 
 	memset(times, 0, sizeof times);
-	memset((void *) completed, 0, sizeof completed);
 	memset(nodes, 0, sizeof(*nodes) * iter);
+
+	for (i = 0; i < STEP_CNT; i++)
+		atomic_store(&completed[i], 0);
 
 	if (is_client())
 		oob_sendrecv(oob_sock, 0);
@@ -579,12 +585,12 @@ static void server_connect(int iter)
 {
 	reset_test(iter);
 
-	while (completed[STEP_CONNECT] != iter)
+	while (atomic_load(&completed[STEP_CONNECT]) < iter)
 		sched_yield();
 
 	oob_recvsend(oob_sock, STEP_CONNECT);
 
-	while (completed[STEP_DISCONNECT] != iter)
+	while (atomic_load(&completed[STEP_DISCONNECT]) < iter)
 		sched_yield();
 
 	oob_recvsend(oob_sock, STEP_DISCONNECT);
@@ -621,7 +627,7 @@ static void client_connect(int iter)
 	for (i = 0; i < iter; i++)
 		wq_insert(&wq, &nodes[i].work, resolve_addr);
 
-	while (completed[STEP_RESOLVE_ADDR] != iter)
+	while (atomic_load(&completed[STEP_RESOLVE_ADDR]) < iter)
 		sched_yield();
 	end_time(STEP_RESOLVE_ADDR);
 
@@ -630,7 +636,7 @@ static void client_connect(int iter)
 	for (i = 0; i < iter; i++)
 		wq_insert(&wq, &nodes[i].work, resolve_route);
 
-	while (completed[STEP_RESOLVE_ROUTE] != iter)
+	while (atomic_load(&completed[STEP_RESOLVE_ROUTE]) < iter)
 		sched_yield();
 	end_time(STEP_RESOLVE_ROUTE);
 
@@ -639,7 +645,7 @@ static void client_connect(int iter)
 	for (i = 0; i < iter; i++)
 		wq_insert(&wq, &nodes[i].work, create_qp);
 
-	while (completed[STEP_CREATE_QP] != iter)
+	while (atomic_load(&completed[STEP_CREATE_QP]) < iter)
 		sched_yield();
 	end_time(STEP_CREATE_QP);
 
@@ -650,7 +656,7 @@ static void client_connect(int iter)
 		nodes[i].next_step = STEP_INIT_QP_ATTR;
 		wq_insert(&wq, &nodes[i].work, modify_qp_work);
 	}
-	while (completed[STEP_INIT_QP] != iter)
+	while (atomic_load(&completed[STEP_INIT_QP]) < iter)
 		sched_yield();
 	end_time(STEP_INIT_QP);
 
@@ -659,7 +665,7 @@ static void client_connect(int iter)
 	for (i = 0; i < iter; i++)
 		connect_qp(&nodes[i]);
 
-	while (completed[STEP_CONNECT] != iter)
+	while (atomic_load(&completed[STEP_CONNECT]) < iter)
 		sched_yield();
 	end_time(STEP_CONNECT);
 	end_time(STEP_FULL_CONNECT);
@@ -671,7 +677,7 @@ static void client_connect(int iter)
 	for (i = 0; i < iter; i++)
 		wq_insert(&wq, &nodes[i].work, client_disconnect);
 
-	while (completed[STEP_DISCONNECT] != iter)
+	while (atomic_load(&completed[STEP_DISCONNECT]) < iter)
 		sched_yield();
 	end_time(STEP_DISCONNECT);
 
