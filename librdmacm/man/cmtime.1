@@ -57,6 +57,11 @@ The server's port number.
 The first QP number to use when creating connections without allocating
 hardware QPs.  The test will use the values between base_qpn and base_qpn
 plus connections when connecting.  (default 1000)
+.TP
+\-n num_threads
+Sets the number of threads to spawn used to process connection events
+and hardware operations.  (default 1)
+.TP
 \-m mimic_qp_delay_us
 "Simulates" QP creation and modify calls by replacing them with a
 simple sleep function instead.  This allows testing the CM at larger

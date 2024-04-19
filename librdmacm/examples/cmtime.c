@@ -763,7 +763,7 @@ int main(int argc, char **argv)
 
 	hints.ai_port_space = RDMA_PS_TCP;
 	hints.ai_qp_type = IBV_QPT_RC;
-	while ((op = getopt(argc, argv, "s:b:c:m:p:q:r:t:")) != -1) {
+	while ((op = getopt(argc, argv, "s:b:c:m:n:p:q:r:t:")) != -1) {
 		switch (op) {
 		case 's':
 			dst_addr = optarg;
@@ -784,6 +784,9 @@ int main(int argc, char **argv)
 			mimic_qp_delay = (uint32_t) atoi(optarg);
 			mimic = true;
 			break;
+		case 'n':
+			num_threads = (uint32_t) atoi(optarg);
+			break;
 		case 'r':
 			retries = atoi(optarg);
 			break;
@@ -798,6 +801,7 @@ int main(int argc, char **argv)
 			printf("\t[-p port_number]\n");
 			printf("\t[-q base_qpn]\n");
 			printf("\t[-m mimic_qp_delay_us]\n");
+			printf("\t[-n num_threads]\n");
 			printf("\t[-r retries]\n");
 			printf("\t[-t timeout_ms]\n");
 			exit(EXIT_FAILURE);
