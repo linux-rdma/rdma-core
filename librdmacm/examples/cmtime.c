@@ -59,7 +59,7 @@ static char *src_addr;
 static int timeout = 2000;
 static int retries = 2;
 static uint32_t base_qpn = 1000;
-static uint32_t use_qpn;
+static _Atomic(uint32_t) cur_qpn;
 static uint32_t mimic_qp_delay;
 static bool mimic;
 
@@ -123,7 +123,7 @@ static int node_index;
 static uint64_t times[STEP_CNT][2];
 static int connections;
 static int num_threads = 1;
-static volatile int disc_events;
+static _Atomic(int) disc_events;
 
 static _Atomic(int) completed[STEP_CNT];
 
@@ -222,7 +222,7 @@ static void create_qp(struct work_item *item)
 	attr.cap.max_inline_data = 0;
 
 	start_perf(n, STEP_CREATE_QP);
-	if (!use_qpn) {
+	if (atomic_load(&cur_qpn) == 0) {
 		n->qp = ibv_create_qp(pd, &attr);
 		if (!n->qp) {
 			perror("ibv_create_qp");
@@ -282,7 +282,7 @@ static void init_conn_param(struct node *n, struct rdma_conn_param *param)
 	param->retry_count = 0;
 	param->rnr_retry_count = 0;
 	param->srq = 0;
-	param->qp_num = n->qp ? n->qp->qp_num : use_qpn++;
+	param->qp_num = n->qp ? n->qp->qp_num : atomic_fetch_add(&cur_qpn, 1);
 }
 
 static void connect_qp(struct node *n)
@@ -382,7 +382,7 @@ static void server_disconnect(struct work_item *item)
 	rdma_disconnect(n->id);
 	end_perf(n, STEP_DISCONNECT);
 
-	if (disc_events >= connections)
+	if (atomic_load(&disc_events) >= connections)
 		end_time(STEP_DISCONNECT);
 	atomic_fetch_add(&completed[STEP_DISCONNECT], 1);
 }
@@ -453,11 +453,10 @@ static void cma_handler(struct rdma_cm_id *id, struct rdma_cm_event *event)
 			atomic_fetch_add(&completed[STEP_DISCONNECT], 1);
 		} else {
 			 */
-			if (disc_events == 0) {
+			if (atomic_fetch_add(&disc_events, 1) == 0) {
 				printf("\tDisconnecting\n");
 				start_time(STEP_DISCONNECT);
 			}
-			disc_events++;
 			wq_insert(&wq, &n->work, server_disconnect);
 		}
 		break;
@@ -566,7 +565,7 @@ static void reset_test(int iter)
 	int i;
 
 	node_index = 0;
-	disc_events = 0;
+	atomic_store(&disc_events, 0);
 	connections = iter;
 
 	memset(times, 0, sizeof times);
@@ -706,13 +705,13 @@ static void run_client(int iter)
 	} else {
 		printf("Connect (%d) simulated QPs test (delay %d us)\n",
 			iter, mimic_qp_delay);
-		use_qpn = base_qpn;
+		atomic_store(&cur_qpn, base_qpn);
 	}
 	client_connect(iter);
 	show_perf(iter);
 
 	printf("Connect (%d) test - no QPs\n", iter);
-	use_qpn = base_qpn;
+	atomic_store(&cur_qpn, base_qpn);
 	mimic_qp_delay = 0;
 	client_connect(iter);
 	show_perf(iter);
@@ -741,13 +740,13 @@ static void run_server(int iter)
 	} else {
 		printf("Accept (%d) simulated QPs test (delay %d us)\n",
 			iter, mimic_qp_delay);
-		use_qpn = base_qpn;
+		atomic_store(&cur_qpn, base_qpn);
 	}
 	server_connect(iter);
 	show_perf(iter);
 
 	printf("Accept (%d) test - no QPs\n", iter);
-	use_qpn = base_qpn;
+	atomic_store(&cur_qpn, base_qpn);
 	mimic_qp_delay = 0;
 	server_connect(iter);
 	show_perf(iter);
