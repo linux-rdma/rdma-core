@@ -395,6 +395,8 @@ static void *wq_handler(void *arg)
 		}
 
 		item = wq_remove(wq);
+		if (wq->head)
+			pthread_cond_signal(&wq->cond);
 		pthread_mutex_unlock(&wq->lock);
 
 		item->work_handler(item);
