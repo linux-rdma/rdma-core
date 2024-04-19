@@ -369,6 +369,8 @@ static void client_disconnect(struct work_item *item)
 
 	start_perf(n, STEP_DISCONNECT);
 	rdma_disconnect(n->id);
+	end_perf(n, STEP_DISCONNECT);
+	completed[STEP_DISCONNECT]++;
 }
 
 static void server_disconnect(struct work_item *item)
@@ -439,10 +441,16 @@ static void cma_handler(struct rdma_cm_id *id, struct rdma_cm_event *event)
 		exit(EXIT_FAILURE);
 		break;
 	case RDMA_CM_EVENT_DISCONNECTED:
-		if (is_client()) {
+		if (!is_client()) {
+			/* To fix an issue where DREQs are not responded
+			 * to, the client completes its disconnect phase
+			 * as soon as it calls rdma_disconnect and does
+			 * not wait for a response from the server.  The
+			 * OOB sync handles that coordiation
 			end_perf(n, STEP_DISCONNECT);
 			completed[STEP_DISCONNECT]++;
 		} else {
+			 */
 			if (disc_events == 0) {
 				printf("\tDisconnecting\n");
 				start_time(STEP_DISCONNECT);
