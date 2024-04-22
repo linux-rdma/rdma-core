@@ -169,13 +169,19 @@ static void show_perf(int iter)
 	/* Reporting the 'sum' of the full connect is meaningless */
 	sum[STEP_FULL_CONNECT] = 0;
 
-	printf("step              us/conn    sum(us)    max(us)    min(us)  total(us)   avg/iter\n");
+	if (atomic_load(&cur_qpn) == 0)
+		printf("qp_conn        %10d\n", iter);
+	else
+		printf("cm_conn        %10d\n", iter);
+	printf("threads        %10d\n", num_threads);
+
+	printf("step             avg/iter  total(us)    us/conn    sum(us)    max(us)    min(us)\n");
 	for (i = 0; i < STEP_CNT; i++) {
 		diff = (uint32_t) (times[i][1] - times[i][0]);
 
-		printf("%-13s: %10u %10u %10u %10u %10d %10u\n",
-			step_str[i], sum[i] / iter, sum[i],
-			max[i], min[i], diff, diff / iter);
+		printf("%-13s  %10u %10u %10u %10u %10d %10u\n",
+			step_str[i], diff / iter, diff,
+			sum[i] / iter, sum[i], max[i], min[i]);
 	}
 }
 
