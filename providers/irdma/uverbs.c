@@ -222,11 +222,6 @@ struct ibv_mw *irdma_ualloc_mw(struct ibv_pd *pd, enum ibv_mw_type type)
 	struct ibv_alloc_mw cmd;
 	struct ib_uverbs_alloc_mw_resp resp;
 
-	if (type != IBV_MW_TYPE_1) {
-		errno = ENOTSUP;
-		return NULL;
-	}
-
 	mw = calloc(1, sizeof(*mw));
 	if (!mw)
 		return NULL;
@@ -1790,6 +1785,21 @@ err:
 }
 
 /**
+ * calc_type2_mw_stag - calculate type 2 MW stag
+ * @rkey: desired rkey of the MW
+ * @mw_rkey: type2 memory window rkey
+ *
+ * compute type2 memory window stag by taking lower 8 bits
+ * of the desired rkey and leaving 24 bits if mw->rkey unchanged
+ */
+static inline __u32 calc_type2_mw_stag(__u32 rkey, __u32 mw_rkey)
+{
+	const __u32 mask = 0xff;
+
+	return (rkey & mask) | (mw_rkey & ~mask);
+}
+
+/**
  * irdma_post_send -  post send wr for user application
  * @ib_qp: qp to post wr
  * @ib_wr: work request ptr
@@ -1945,8 +1955,20 @@ int irdma_upost_send(struct ibv_qp *ib_qp, struct ibv_send_wr *ib_wr,
 			}
 			info.op_type = IRDMA_OP_TYPE_BIND_MW;
 			info.op.bind_window.mr_stag = ib_wr->bind_mw.bind_info.mr->rkey;
-			info.op.bind_window.mem_window_type_1 = true;
-			info.op.bind_window.mw_stag = ib_wr->bind_mw.rkey;
+			if (ib_wr->bind_mw.mw->type == IBV_MW_TYPE_1) {
+				info.op.bind_window.mem_window_type_1 = true;
+				info.op.bind_window.mw_stag = ib_wr->bind_mw.rkey;
+			} else {
+				struct verbs_mr *vmr = verbs_get_mr(ib_wr->bind_mw.bind_info.mr);
+
+				if (vmr->access & IBV_ACCESS_ZERO_BASED) {
+					err = EINVAL;
+					break;
+				}
+				info.op.bind_window.mw_stag =
+					calc_type2_mw_stag(ib_wr->bind_mw.rkey, ib_wr->bind_mw.mw->rkey);
+				ib_wr->bind_mw.mw->rkey = info.op.bind_window.mw_stag;
+			}
 
 			if (ib_wr->bind_mw.bind_info.mw_access_flags & IBV_ACCESS_ZERO_BASED) {
 				info.op.bind_window.addressing_type = IRDMA_ADDR_TYPE_ZERO_BASED;
