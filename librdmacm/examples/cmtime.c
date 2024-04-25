@@ -51,6 +51,7 @@
 
 
 static struct rdma_addrinfo hints, *rai;
+static struct addrinfo *ai;
 static struct rdma_event_channel *channel;
 static int oob_sock = -1;
 static const char *port = "7471";
@@ -107,6 +108,7 @@ static const char *step_str[] = {
 struct node {
 	struct work_item work;
 	struct rdma_cm_id *id;
+	int sock;
 
 	struct ibv_qp *qp;
 	enum ibv_qp_state next_qps;
@@ -183,6 +185,154 @@ static void show_perf(int iter)
 			step_str[i], diff / iter, diff,
 			sum[i] / iter, sum[i], max[i], min[i]);
 	}
+}
+
+static void sock_listen(int *listen_sock, int backlog)
+{
+	struct addrinfo aih = {};
+	int optval = 1;
+	int ret;
+
+	aih.ai_family = AF_INET;
+	aih.ai_socktype = SOCK_STREAM;
+	aih.ai_flags = AI_PASSIVE;
+	ret = getaddrinfo(src_addr, port, &aih, &ai);
+	if (ret) {
+		perror("getaddrinfo");
+		exit(EXIT_FAILURE);
+	}
+
+	*listen_sock = socket(ai->ai_family, ai->ai_socktype, ai->ai_protocol);
+	if (*listen_sock < 0) {
+		perror("socket");
+		exit(EXIT_FAILURE);
+	}
+
+	ret = setsockopt(*listen_sock, SOL_SOCKET, SO_REUSEADDR,
+			 (char *) &optval, sizeof(optval));
+	if (ret) {
+		perror("setsockopt");
+		exit(EXIT_FAILURE);
+	}
+
+	ret = bind(*listen_sock, ai->ai_addr, ai->ai_addrlen);
+	if (ret) {
+		perror("bind");
+		exit(EXIT_FAILURE);
+	}
+
+	ret = listen(*listen_sock, backlog);
+	if (ret) {
+		perror("listen");
+		exit(EXIT_FAILURE);
+	}
+
+	freeaddrinfo(ai);
+}
+
+static void sock_server(int iter)
+{
+	int listen_sock, i;
+
+	printf("Server baseline socket setup\n");
+	sock_listen(&listen_sock, iter);
+
+	printf("Accept sockets\n");
+	for (i = 0; i < iter; i++) {
+		nodes[i].sock = accept(listen_sock, NULL, NULL);
+		if (nodes[i].sock < 0) {
+			perror("accept");
+			exit(EXIT_FAILURE);
+		}
+
+		if (i == 0)
+			start_time(STEP_FULL_CONNECT);
+	}
+	end_time(STEP_FULL_CONNECT);
+
+	printf("Closing sockets\n");
+	start_time(STEP_DESTROY_ID);
+	for (i = 0; i < iter; i++)
+		close(nodes[i].sock);
+	end_time(STEP_DESTROY_ID);
+	close(listen_sock);
+
+	printf("Server baseline socket results:\n");
+	show_perf(iter);
+}
+
+static void create_sock(struct work_item *item)
+{
+	struct node *n = container_of(item, struct node, work);
+
+	start_perf(n, STEP_CREATE_ID);
+	n->sock = socket(ai->ai_family, ai->ai_socktype, ai->ai_protocol);
+	if (n->sock < 0) {
+		perror("socket");
+		exit(EXIT_FAILURE);
+	}
+	end_perf(n, STEP_CREATE_ID);
+	atomic_fetch_add(&completed[STEP_CREATE_ID], 1);
+}
+
+static void connect_sock(struct work_item *item)
+{
+	struct node *n = container_of(item, struct node, work);
+	int ret;
+
+	start_perf(n, STEP_CONNECT);
+	ret = connect(n->sock, ai->ai_addr, ai->ai_addrlen);
+	if (ret) {
+		perror("connect");
+		exit(EXIT_FAILURE);
+	}
+	end_perf(n, STEP_CONNECT);
+	atomic_fetch_add(&completed[STEP_CONNECT], 1);
+}
+
+static void sock_client(int iter)
+{
+	int i, ret;
+
+	printf("Client baseline socket setup\n");
+	ret = getaddrinfo(dst_addr, port, NULL, &ai);
+	if (ret) {
+		perror("getaddrinfo");
+		exit(EXIT_FAILURE);
+	}
+
+	start_time(STEP_FULL_CONNECT);
+
+	printf("Creating sockets\n");
+	start_time(STEP_CREATE_ID);
+	for (i = 0; i < iter; i++)
+		wq_insert(&wq, &nodes[i].work, create_sock);
+
+	while (atomic_load(&completed[STEP_CREATE_ID]) < iter)
+		sched_yield();
+	end_time(STEP_CREATE_ID);
+
+	printf("Connecting sockets\n");
+	start_time(STEP_CONNECT);
+	for (i = 0; i < iter; i++)
+		wq_insert(&wq, &nodes[i].work, connect_sock);
+
+	while (atomic_load(&completed[STEP_CONNECT]) < iter)
+		sched_yield();
+	end_time(STEP_CONNECT);
+
+	end_time(STEP_FULL_CONNECT);
+
+	printf("Closing sockets\n");
+	start_time(STEP_DESTROY_ID);
+	for (i = 0; i < iter; i++)
+		close(nodes[i].sock);
+	end_time(STEP_DESTROY_ID);
+
+	freeaddrinfo(ai);
+
+	printf("Client baseline socket results:\n");
+	show_perf(iter);
 }
 
 static inline bool need_verbs(void)
@@ -764,12 +914,13 @@ static void run_server(int iter)
 int main(int argc, char **argv)
 {
 	pthread_t event_thread;
+	bool socktest = false;
 	int iter = 100;
 	int op, ret;
 
 	hints.ai_port_space = RDMA_PS_TCP;
 	hints.ai_qp_type = IBV_QPT_RC;
-	while ((op = getopt(argc, argv, "s:b:c:m:n:p:q:r:t:")) != -1) {
+	while ((op = getopt(argc, argv, "s:b:c:m:n:p:q:r:St:")) != -1) {
 		switch (op) {
 		case 's':
 			dst_addr = optarg;
@@ -796,11 +947,16 @@ int main(int argc, char **argv)
 		case 'r':
 			retries = atoi(optarg);
 			break;
+		case 'S':
+			socktest = true;
+			atomic_store(&cur_qpn, 1);
+			break;
 		case 't':
 			timeout = atoi(optarg);
 			break;
 		default:
 			printf("usage: %s\n", argv[0]);
+			printf("\t[-S] (run socket baseline test)\n");
 			printf("\t[-s server_address]\n");
 			printf("\t[-b bind_address]\n");
 			printf("\t[-c connections]\n");
@@ -844,10 +1000,17 @@ int main(int argc, char **argv)
 	if (ret)
 		goto free;
 
-	if (is_client())
-		run_client(iter);
-	else
-		run_server(iter);
+	if (is_client()) {
+		if (socktest)
+			sock_client(iter);
+		else
+			run_client(iter);
+	} else {
+		if (socktest)
+			sock_server(iter);
+		else
+			run_server(iter);
+	}
 
 	wq_cleanup(&wq);
 free:

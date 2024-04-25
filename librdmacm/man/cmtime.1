@@ -71,6 +71,11 @@ configuration settings, if HW resources needed to be allocated.
 \-r retries
 Number of retries when resolving address or route.  (default 2)
 .TP
+\-S
+Run connection rate test using sockets.  This provides a baseline
+comparison of RDMA connections versus TCP connections.  Sockets are
+set to blocking mode.
+.TP
 \-t timeout_ms
 Timeout in millseconds (ms) when resolving address or
 route.  (default 2000 - 2 seconds)
