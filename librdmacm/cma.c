@@ -309,7 +309,7 @@ static void remove_cma_dev(struct cma_device *cma_dev)
 
 static int dev_cmp(const void *a, const void *b)
 {
-	return (int)(*(char *const *)a - *(char *const *)b);
+	return (*(uintptr_t *)a > *(uintptr_t *)b) - (*(uintptr_t *)a < *(uintptr_t *)b);
 }
 
 static int sync_devices_list(void)
