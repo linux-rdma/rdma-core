@@ -420,14 +420,17 @@ static void bnxt_re_resize_cq_complete(struct bnxt_re_cq *cq)
 	cq->resize_mem = NULL;
 	cq->cqq->va = cq->mem->va_head;
 
+	/* mark the CQ resize flag and save the old head index */
+	cq->cqq->cq_resized = true;
+	cq->cqq->old_head = cq->cqq->head;
+
 	cq->cqq->depth = cq->mem->pad;
 	cq->cqq->stride = cntx->rdev->cqe_size;
 	cq->cqq->head = 0;
 	cq->cqq->tail = 0;
 	cq->phase = BNXT_RE_QUEUE_START_PHASE;
 	/* Reset epoch portion of the flags */
-	cq->cqq->flags &= ~(BNXT_RE_FLAG_EPOCH_TAIL_MASK |
-			    BNXT_RE_FLAG_EPOCH_HEAD_MASK);
+	cq->cqq->flags &= ~(BNXT_RE_FLAG_EPOCH_TAIL_MASK);
 	bnxt_re_ring_cq_arm_db(cq, BNXT_RE_QUE_TYPE_CQ_CUT_ACK);
 }
 
