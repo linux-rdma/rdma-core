@@ -87,6 +87,14 @@ struct bnxt_re_queue {
 	pthread_spinlock_t qlock;
 	uint32_t msn;
 	uint32_t msn_tbl_sz;
+	/*
+	 * This flag is set when CQ is resized. It will be cleared after the
+	 * first CQE is received on the newly resized CQ
+	 */
+	bool cq_resized;
+
+	/* this tracks the 'head' index on the old CQ before resizing */
+	uint32_t old_head;
 };
 
 
