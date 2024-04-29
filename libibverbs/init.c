@@ -391,7 +391,7 @@ static struct verbs_device *try_driver(const struct verbs_device_ops *ops,
 
 	vdev->ops = ops;
 
-	atomic_init(&vdev->refcount, 1);
+	atomic_init(&vdev->refcount, 0);
 	dev = &vdev->device;
 	assert(dev->_ops._dummy1 == NULL);
 	assert(dev->_ops._dummy2 == NULL);
