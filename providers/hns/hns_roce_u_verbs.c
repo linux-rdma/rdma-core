@@ -942,31 +942,72 @@ static void free_recv_rinl_buf(struct hns_roce_rinl_buf *rinl_buf)
 	}
 }
 
+static void get_best_multi_region_pg_shift(struct hns_roce_device *hr_dev,
+					   struct hns_roce_context *ctx,
+					   struct hns_roce_qp *qp)
+{
+	uint32_t ext_sge_size;
+	uint32_t sq_size;
+	uint32_t rq_size;
+	uint8_t pg_shift;
+
+	if (!(ctx->config & HNS_ROCE_RSP_UCTX_DYN_QP_PGSZ_FLAGS)) {
+		qp->pageshift = HNS_HW_PAGE_SHIFT;
+		return;
+	}
+
+	/*
+	* The larger the pagesize used, the better the performance, but it
+	* may waste more memory. Therefore, we use the least common multiple
+	* (aligned to power of 2) of sq wqe buffer size and rq wqe buffer
+	* size as the pagesize. And the wqe buffer page cannot be larger
+	* than the buffer size used by extend sge. Additionally, since the
+	* kernel cannot guarantee the allocation of contiguous memory larger
+	* than the system page, the pagesize must be smaller than the system
+	* page.
+	*/
+	sq_size = qp->sq.wqe_cnt << qp->sq.wqe_shift;
+	ext_sge_size = qp->ex_sge.sge_cnt << qp->ex_sge.sge_shift;
+	rq_size = qp->rq.wqe_cnt << qp->rq.wqe_shift;
+
+	pg_shift = max_t(uint8_t, sq_size ? hr_ilog32(sq_size) : 0,
+			 rq_size ? hr_ilog32(rq_size) : 0);
+	pg_shift = ext_sge_size ?
+		   min_t(uint8_t, pg_shift, hr_ilog32(ext_sge_size)) :
+		   pg_shift;
+	pg_shift = max_t(uint8_t, pg_shift,  HNS_HW_PAGE_SHIFT);
+	qp->pageshift = min_t(uint8_t, pg_shift, hr_ilog32(hr_dev->page_size));
+}
+
 static int calc_qp_buff_size(struct hns_roce_device *hr_dev,
+			     struct hns_roce_context *ctx,
 			     struct hns_roce_qp *qp)
 {
 	struct hns_roce_wq *sq = &qp->sq;
 	struct hns_roce_wq *rq = &qp->rq;
+	unsigned int page_size;
 	unsigned int size;
 
 	qp->buf_size = 0;
+	get_best_multi_region_pg_shift(hr_dev, ctx, qp);
+	page_size = 1 << qp->pageshift;
 
 	/* SQ WQE */
 	sq->offset = 0;
-	size = to_hr_hem_entries_size(sq->wqe_cnt, sq->wqe_shift);
+	size = align(sq->wqe_cnt << sq->wqe_shift, page_size);
 	qp->buf_size += size;
 
 	/* extend SGE WQE in SQ */
 	qp->ex_sge.offset = qp->buf_size;
 	if (qp->ex_sge.sge_cnt > 0) {
-		size = to_hr_hem_entries_size(qp->ex_sge.sge_cnt,
-					      qp->ex_sge.sge_shift);
+		size = align(qp->ex_sge.sge_cnt << qp->ex_sge.sge_shift,
+			     page_size);
 		qp->buf_size += size;
 	}
 
 	/* RQ WQE */
 	rq->offset = qp->buf_size;
-	size = to_hr_hem_entries_size(rq->wqe_cnt, rq->wqe_shift);
+	size = align(rq->wqe_cnt << rq->wqe_shift, page_size);
 	qp->buf_size += size;
 
 	if (qp->buf_size < 1)
@@ -991,7 +1032,7 @@ static int qp_alloc_wqe(struct ibv_qp_cap *cap, struct hns_roce_qp *qp,
 {
 	struct hns_roce_device *hr_dev = to_hr_dev(ctx->ibv_ctx.context.device);
 
-	if (calc_qp_buff_size(hr_dev, qp))
+	if (calc_qp_buff_size(hr_dev, ctx, qp))
 		return -EINVAL;
 
 	qp->sq.wrid = malloc(qp->sq.wqe_cnt * sizeof(uint64_t));
@@ -1009,7 +1050,7 @@ static int qp_alloc_wqe(struct ibv_qp_cap *cap, struct hns_roce_qp *qp,
 			goto err_alloc;
 	}
 
-	if (hns_roce_alloc_buf(&qp->buf, qp->buf_size, HNS_HW_PAGE_SIZE))
+	if (hns_roce_alloc_buf(&qp->buf, qp->buf_size, 1 << qp->pageshift))
 		goto err_alloc;
 
 	return 0;
@@ -1246,6 +1287,7 @@ static int qp_exec_create_cmd(struct ibv_qp_init_attr_ex *attr,
 	cmd_ex.buf_addr = (uintptr_t)qp->buf.buf;
 	cmd_ex.log_sq_stride = qp->sq.wqe_shift;
 	cmd_ex.log_sq_bb_count = hr_ilog32(qp->sq.wqe_cnt);
+	cmd_ex.pageshift = qp->pageshift;
 
 	if (hns_attr &&
 	    hns_attr->comp_mask & HNSDV_QP_INIT_ATTR_MASK_QP_CONGEST_TYPE) {

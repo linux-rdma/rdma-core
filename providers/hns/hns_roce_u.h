@@ -331,6 +331,7 @@ struct hns_roce_qp {
 	uint8_t				sl;
 	uint8_t				tc_mode;
 	uint8_t				priority;
+	uint8_t				pageshift;
 	unsigned int			qkey;
 	enum ibv_mtu			path_mtu;
 
