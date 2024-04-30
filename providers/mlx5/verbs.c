@@ -4934,6 +4934,30 @@ struct ibv_mr *mlx5dv_reg_dmabuf_mr(struct ibv_pd *pd, uint64_t offset,
 				    access, mlx5_access);
 }
 
+static int _mlx5dv_get_data_direct_sysfs_path(struct ibv_context *context, char *buf,
+					      size_t buf_len)
+{
+	DECLARE_COMMAND_BUFFER(cmd,
+			       UVERBS_OBJECT_DEVICE,
+			       MLX5_IB_METHOD_GET_DATA_DIRECT_SYSFS_PATH,
+			       1);
+
+	fill_attr_out(cmd, MLX5_IB_ATTR_GET_DATA_DIRECT_SYSFS_PATH, buf, buf_len);
+
+	return execute_ioctl(context, cmd);
+}
+
+int mlx5dv_get_data_direct_sysfs_path(struct ibv_context *context, char *buf,
+				      size_t buf_len)
+{
+	struct mlx5_dv_context_ops *dvops = mlx5_get_dv_ops(context);
+
+	if (!dvops || !dvops->get_data_direct_sysfs_path)
+		return EOPNOTSUPP;
+
+	return dvops->get_data_direct_sysfs_path(context, buf, buf_len);
+}
+
 void mlx5_unimport_dm(struct ibv_dm *ibdm)
 {
 	struct mlx5_dm *dm = to_mdm(ibdm);
@@ -7932,4 +7956,5 @@ void mlx5_set_dv_ctx_ops(struct mlx5_dv_context_ops *ops)
 	ops->destroy_steering_anchor = _mlx5dv_destroy_steering_anchor;
 
 	ops->reg_dmabuf_mr = _mlx5dv_reg_dmabuf_mr;
+	ops->get_data_direct_sysfs_path = _mlx5dv_get_data_direct_sysfs_path;
 }
