@@ -90,7 +90,8 @@ struct hns_roce_ib_create_qp {
 	__u8    log_sq_bb_count;
 	__u8    log_sq_stride;
 	__u8    sq_no_prefetch;
-	__u8    reserved[5];
+	__u8    pageshift;
+	__u8    reserved[4];
 	__aligned_u64 sdb_addr;
 	__aligned_u64 comp_mask; /* Use enum hns_roce_create_qp_comp_mask */
 	__aligned_u64 create_flags;
@@ -119,12 +120,14 @@ enum {
 	HNS_ROCE_EXSGE_FLAGS = 1 << 0,
 	HNS_ROCE_RQ_INLINE_FLAGS = 1 << 1,
 	HNS_ROCE_CQE_INLINE_FLAGS = 1 << 2,
+	HNS_ROCE_UCTX_DYN_QP_PGSZ_FLAGS = 1 << 3,
 };
 
 enum {
 	HNS_ROCE_RSP_EXSGE_FLAGS = 1 << 0,
 	HNS_ROCE_RSP_RQ_INLINE_FLAGS = 1 << 1,
 	HNS_ROCE_RSP_CQE_INLINE_FLAGS = 1 << 2,
+	HNS_ROCE_RSP_UCTX_DYN_QP_PGSZ_FLAGS = 1 << 3,
 };
 
 struct hns_roce_ib_alloc_ucontext_resp {
