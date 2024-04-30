@@ -88,7 +88,7 @@ struct mana_cq {
 	struct ibv_cq ibcq;
 	uint32_t cqe;
 	void *buf;
-
+	bool buf_external;
 	uint32_t cqid;
 };
 
