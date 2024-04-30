@@ -15,7 +15,7 @@ if (ENABLE_LTTNG AND LTTNGUST_FOUND)
 endif()
 
 rdma_shared_provider(mlx5 libmlx5.map
-  1 1.24.${PACKAGE_VERSION}
+  1 1.25.${PACKAGE_VERSION}
   ${TRACE_FILE}
   buf.c
   cq.c
