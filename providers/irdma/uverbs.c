@@ -163,7 +163,7 @@ struct ibv_mr *irdma_ureg_mr_dmabuf(struct ibv_pd *pd, uint64_t offset,
 		return NULL;
 
 	err = ibv_cmd_reg_dmabuf_mr(pd, offset, length, iova, fd, access,
-				    &umr->vmr);
+				    &umr->vmr, NULL);
 	if (err) {
 		free(umr);
 		errno = err;

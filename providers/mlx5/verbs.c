@@ -662,7 +662,7 @@ struct ibv_mr *mlx5_reg_dmabuf_mr(struct ibv_pd *pd, uint64_t offset, size_t len
 		return NULL;
 
 	ret = ibv_cmd_reg_dmabuf_mr(pd, offset, length, iova, fd, acc,
-				    &mr->vmr);
+				    &mr->vmr, NULL);
 	if (ret) {
 		free(mr);
 		return NULL;

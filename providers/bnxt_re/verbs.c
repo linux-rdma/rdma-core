@@ -277,7 +277,7 @@ struct ibv_mr *bnxt_re_reg_dmabuf_mr(struct ibv_pd *ibvpd, uint64_t start, size_
 		return NULL;
 
 	if (ibv_cmd_reg_dmabuf_mr(ibvpd, start, len, iova, fd,
-				  access, &mr->vmr)) {
+				  access, &mr->vmr, NULL)) {
 		free(mr);
 		return NULL;
 	}
