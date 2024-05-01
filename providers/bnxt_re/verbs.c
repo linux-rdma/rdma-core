@@ -1236,7 +1236,7 @@ static int bnxt_re_alloc_queues(struct bnxt_re_context *cntx,
 	/* psn_depth extra entries of size que->stride */
 	psn_size = bnxt_re_get_psne_size(qp->cntx);
 	psn_depth = (nswr * psn_size) / que->stride;
-	que->pad_stride_log2 = (uint32_t)ilog32(psn_size);
+	que->pad_stride_log2 = ilog32(psn_size - 1);
 	if ((nswr * psn_size) % que->stride)
 		psn_depth++;
 	que->depth += psn_depth;
