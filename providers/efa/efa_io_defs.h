@@ -34,8 +34,8 @@ enum efa_io_comp_status {
 	EFA_IO_COMP_STATUS_FLUSHED                  = 1,
 	/* Internal QP error */
 	EFA_IO_COMP_STATUS_LOCAL_ERROR_QP_INTERNAL_ERROR = 2,
-	/* Bad operation type */
-	EFA_IO_COMP_STATUS_LOCAL_ERROR_INVALID_OP_TYPE = 3,
+	/* Unsupported operation */
+	EFA_IO_COMP_STATUS_LOCAL_ERROR_UNSUPPORTED_OP = 3,
 	/* Bad AH */
 	EFA_IO_COMP_STATUS_LOCAL_ERROR_INVALID_AH   = 4,
 	/* LKEY not registered or does not match IOVA */
