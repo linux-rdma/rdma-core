@@ -470,6 +470,8 @@ static enum ibv_wc_status to_ibv_status(enum efa_io_comp_status status)
 		return IBV_WC_RESP_TIMEOUT_ERR;
 	case EFA_IO_COMP_STATUS_REMOTE_ERROR_BAD_ADDRESS:
 		return IBV_WC_REM_ACCESS_ERR;
+	case EFA_IO_COMP_STATUS_REMOTE_ERROR_UNKNOWN_PEER:
+		return IBV_WC_REM_OP_ERR;
 	default:
 		return IBV_WC_GENERAL_ERR;
 	}

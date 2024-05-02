@@ -56,6 +56,8 @@ enum efa_io_comp_status {
 	EFA_IO_COMP_STATUS_REMOTE_ERROR_BAD_STATUS  = 12,
 	/* Unresponsive remote - detected locally */
 	EFA_IO_COMP_STATUS_LOCAL_ERROR_UNRESP_REMOTE = 13,
+	/* No valid AH at remote side (required for RDMA operations) */
+	EFA_IO_COMP_STATUS_REMOTE_ERROR_UNKNOWN_PEER = 14,
 };
 
 struct efa_io_tx_meta_desc {
