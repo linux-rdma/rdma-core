@@ -1,6 +1,6 @@
 /* SPDX-License-Identifier: GPL-2.0 OR BSD-2-Clause */
 /*
- * Copyright 2018-2023 Amazon.com, Inc. or its affiliates. All rights reserved.
+ * Copyright 2018-2024 Amazon.com, Inc. or its affiliates. All rights reserved.
  */
 
 #ifndef _EFA_IO_H_
@@ -42,7 +42,7 @@ enum efa_io_comp_status {
 	EFA_IO_COMP_STATUS_LOCAL_ERROR_INVALID_LKEY = 5,
 	/* Message too long */
 	EFA_IO_COMP_STATUS_LOCAL_ERROR_BAD_LENGTH   = 6,
-	/* Destination ENI is down or does not run EFA */
+	/* RKEY not registered or does not match remote IOVA */
 	EFA_IO_COMP_STATUS_REMOTE_ERROR_BAD_ADDRESS = 7,
 	/* Connection was reset by remote side */
 	EFA_IO_COMP_STATUS_REMOTE_ERROR_ABORT       = 8,
