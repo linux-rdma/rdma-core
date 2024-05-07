@@ -18,6 +18,7 @@ is included:
  - efa.ko
  - erdma.ko
  - iw_cxgb4.ko
+ - hbl.ko
  - hfi1.ko
  - hns-roce.ko
  - irdma.ko

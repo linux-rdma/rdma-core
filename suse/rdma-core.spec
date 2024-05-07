@@ -35,6 +35,7 @@ License:        BSD-2-Clause OR GPL-2.0-only
 Group:          Productivity/Networking/Other
 
 %define efa_so_major    1
+%define hbl_so_major    1
 %define hns_so_major    1
 %define verbs_so_major  1
 %define rdmacm_so_major 1
@@ -46,6 +47,7 @@ Group:          Productivity/Networking/Other
 %define mad_major       5
 
 %define  efa_lname    libefa%{efa_so_major}
+%define  hbl_lname    libhbl%{hbl_so_major}
 %define  hns_lname    libhns%{hns_so_major}
 %define  verbs_lname  libibverbs%{verbs_so_major}
 %define  rdmacm_lname librdmacm%{rdmacm_so_major}
@@ -161,6 +163,7 @@ Requires:       %{umad_lname} = %{version}-%{release}
 Requires:       %{verbs_lname} = %{version}-%{release}
 %if 0%{?dma_coherent}
 Requires:       %{efa_lname} = %{version}-%{release}
+Requires:       %{hbl_lname} = %{version}-%{release}
 Requires:       %{hns_lname} = %{version}-%{release}
 Requires:       %{mana_lname} = %{version}-%{release}
 Requires:       %{mlx4_lname} = %{version}-%{release}
@@ -202,6 +205,7 @@ Group:          System/Libraries
 Requires:       %{name}%{?_isa} = %{version}-%{release}
 Obsoletes:      libcxgb4-rdmav2 < %{version}-%{release}
 Obsoletes:      libefa-rdmav2 < %{version}-%{release}
+Obsoletes:      libhbl-rdmav2 < %{version}-%{release}
 Obsoletes:      libhfi1verbs-rdmav2 < %{version}-%{release}
 Obsoletes:      libhns-rdmav2 < %{version}-%{release}
 Obsoletes:      libipathverbs-rdmav2 < %{version}-%{release}
@@ -213,6 +217,7 @@ Obsoletes:      libocrdma-rdmav2 < %{version}-%{release}
 Obsoletes:      librxe-rdmav2 < %{version}-%{release}
 %if 0%{?dma_coherent}
 Requires:       %{efa_lname} = %{version}-%{release}
+Requires:       %{hbl_lname} = %{version}-%{release}
 Requires:       %{hns_lname} = %{version}-%{release}
 Requires:       %{mana_lname} = %{version}-%{release}
 Requires:       %{mlx4_lname} = %{version}-%{release}
@@ -232,6 +237,7 @@ Device-specific plug-in ibverbs userspace drivers are included:
 
 - libcxgb4: Chelsio T4 iWARP HCA
 - libefa: Amazon Elastic Fabric Adapter
+- libhbl: HabanaLabs InfiniBand device
 - libhfi1: Intel Omni-Path HFI
 - libhns: HiSilicon Hip08+ SoC
 - libipathverbs: QLogic InfiniPath HCA
@@ -260,6 +266,13 @@ Group:          System/Libraries
 
 %description -n %efa_lname
 This package contains the efa runtime library.
+
+%package -n %hbl_lname
+Summary:        HBL runtime library
+Group:          System/Libraries
+
+%description -n %hbl_lname
+This package contains the hbl runtime library.
 
 %package -n %hns_lname
 Summary:        HNS runtime library
@@ -520,6 +533,9 @@ rm -rf %{buildroot}/%{_sbindir}/srp_daemon.sh
 %post -n %efa_lname -p /sbin/ldconfig
 %postun -n %efa_lname -p /sbin/ldconfig
 
+%post -n %hbl_lname -p /sbin/ldconfig
+%postun -n %hbl_lname -p /sbin/ldconfig
+
 %post -n %hns_lname -p /sbin/ldconfig
 %postun -n %hns_lname -p /sbin/ldconfig
 
@@ -683,11 +699,13 @@ done
 %{_mandir}/man7/rdma_cm.*
 %if 0%{?dma_coherent}
 %{_mandir}/man3/efadv*
+%{_mandir}/man3/hbldv*
 %{_mandir}/man3/hnsdv*
 %{_mandir}/man3/manadv*
 %{_mandir}/man3/mlx5dv*
 %{_mandir}/man3/mlx4dv*
 %{_mandir}/man7/efadv*
+%{_mandir}/man7/hbldv*
 %{_mandir}/man7/hnsdv*
 %{_mandir}/man7/manadv*
 %{_mandir}/man7/mlx5dv*
@@ -716,6 +734,9 @@ done
 %if 0%{?dma_coherent}
 %files -n %efa_lname
 %{_libdir}/libefa*.so.*
+
+%files -n %hbl_lname
+%{_libdir}/libhbl*.so.*
 
 %files -n %hns_lname
 %defattr(-,root,root)

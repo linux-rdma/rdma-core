@@ -156,6 +156,8 @@ Provides: libefa = %{version}-%{release}
 Obsoletes: libefa < %{version}-%{release}
 Provides: liberdma = %{version}-%{release}
 Obsoletes: liberdma < %{version}-%{release}
+Provides: libhbl = %{version}-%{release}
+Obsoletes: libhbl < %{version}-%{release}
 Provides: libhfi1 = %{version}-%{release}
 Obsoletes: libhfi1 < %{version}-%{release}
 Provides: libhns = %{version}-%{release}
@@ -189,6 +191,7 @@ Device-specific plug-in ibverbs userspace drivers are included:
 - libcxgb4: Chelsio T4 iWARP HCA
 - libefa: Amazon Elastic Fabric Adapter
 - liberdma: Alibaba Elastic RDMA (iWarp) Adapter
+- libhbl: HabanaLabs InfiniBand device
 - libhfi1: Intel Omni-Path HFI
 - libhns: HiSilicon Hip08+ SoC
 - libipathverbs: QLogic InfiniPath HCA
@@ -450,6 +453,7 @@ fi
 %{_libdir}/lib*.so
 %{_libdir}/pkgconfig/*.pc
 %{_mandir}/man3/efadv*
+%{_mandir}/man3/hbldv*
 %{_mandir}/man3/hnsdv*
 %{_mandir}/man3/ibv_*
 %{_mandir}/man3/rdma*
@@ -460,6 +464,7 @@ fi
 %{_mandir}/man3/mlx5dv*
 %{_mandir}/man3/mlx4dv*
 %{_mandir}/man7/efadv*
+%{_mandir}/man7/hbldv*
 %{_mandir}/man7/hnsdv*
 %{_mandir}/man7/manadv*
 %{_mandir}/man7/mlx5dv*
@@ -579,6 +584,7 @@ fi
 %dir %{_sysconfdir}/libibverbs.d
 %dir %{_libdir}/libibverbs
 %{_libdir}/libefa.so.*
+%{_libdir}/libhbl.so.*
 %{_libdir}/libhns.so.*
 %{_libdir}/libibverbs*.so.*
 %{_libdir}/libibverbs/*.so

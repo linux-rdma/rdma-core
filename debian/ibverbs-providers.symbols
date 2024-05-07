@@ -185,3 +185,19 @@ libmana.so.1 ibverbs-providers #MINVER#
  MANA_1.0@MANA_1.0 41
  manadv_init_obj@MANA_1.0 41
  manadv_set_context_attr@MANA_1.0 41
+libhbl.so.1 ibverbs-providers #MINVER#
+* Build-Depends-Package: libibverbs-dev
+ HBL_1.0@HBL_1.0 53
+ hbldv_create_cq@HBL_1.0 53
+ hbldv_create_encap@HBL_1.0 53
+ hbldv_create_usr_fifo@HBL_1.0 53
+ hbldv_destroy_encap@HBL_1.0 53
+ hbldv_destroy_usr_fifo@HBL_1.0 53
+ hbldv_is_supported@HBL_1.0 53
+ hbldv_modify_qp@HBL_1.0 53
+ hbldv_open_device@HBL_1.0 53
+ hbldv_query_cq@HBL_1.0 53
+ hbldv_query_device@HBL_1.0 53
+ hbldv_query_port@HBL_1.0 53
+ hbldv_query_qp@HBL_1.0 53
+ hbldv_set_port_ex@HBL_1.0 53
