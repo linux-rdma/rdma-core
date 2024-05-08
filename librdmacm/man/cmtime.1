@@ -58,8 +58,23 @@ The first QP number to use when creating connections without allocating
 hardware QPs.  The test will use the values between base_qpn and base_qpn
 plus connections when connecting.  (default 1000)
 .TP
+\-n num_threads
+Sets the number of threads to spawn used to process connection events
+and hardware operations.  (default 1)
+.TP
+\-m mimic_qp_delay_us
+"Simulates" QP creation and modify calls by replacing them with a
+simple sleep function instead.  This allows testing the CM at larger
+scale than would be practical, or even possible given system
+configuration settings, if HW resources needed to be allocated.
+.TP
 \-r retries
 Number of retries when resolving address or route.  (default 2)
+.TP
+\-S
+Run connection rate test using sockets.  This provides a baseline
+comparison of RDMA connections versus TCP connections.  Sockets are
+set to blocking mode.
 .TP
 \-t timeout_ms
 Timeout in millseconds (ms) when resolving address or
