@@ -44,7 +44,8 @@ Compatibility is handled using the comp_mask and inlen fields.
 struct efadv_qp_init_attr {
 	uint64_t comp_mask;
 	uint32_t driver_qp_type;
-	uint8_t reserved[4];
+	uint16_t flags;
+	uint8_t reserved[2];
 };
 ```
 
@@ -59,6 +60,12 @@ struct efadv_qp_init_attr {
 
 	EFADV_QP_DRIVER_TYPE_SRD:
 		Create an SRD QP.
+
+*flags*
+:       A bitwise OR of the values described below.
+
+	EFADV_QP_FLAGS_UNSOLICITED_WRITE_RECV:
+		Receive WRs will not be consumed for RDMA write with imm.
 
 # RETURN VALUE
 
