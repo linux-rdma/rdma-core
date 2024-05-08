@@ -10,12 +10,17 @@ cdef extern from 'infiniband/efadv.h':
         EFADV_DEVICE_ATTR_CAPS_RNR_RETRY
         EFADV_DEVICE_ATTR_CAPS_CQ_WITH_SGID
         EFADV_DEVICE_ATTR_CAPS_RDMA_WRITE
+        EFADV_DEVICE_ATTR_CAPS_UNSOLICITED_WRITE_RECV
 
     cpdef enum:
         EFADV_QP_DRIVER_TYPE_SRD
 
     cpdef enum:
+        EFADV_QP_FLAGS_UNSOLICITED_WRITE_RECV
+
+    cpdef enum:
         EFADV_WC_EX_WITH_SGID
+        EFADV_WC_EX_WITH_IS_UNSOLICITED
 
     cpdef enum:
         EFADV_MR_ATTR_VALIDITY_RECV_IC_ID

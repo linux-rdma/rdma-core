@@ -4,6 +4,7 @@
 #cython: language_level=3
 
 from libc.stdint cimport uint8_t, uint16_t, uint32_t, uint64_t
+from libcpp cimport bool
 cimport pyverbs.libibverbs as v
 
 
@@ -28,7 +29,8 @@ cdef extern from 'infiniband/efadv.h':
     cdef struct efadv_qp_init_attr:
         uint64_t comp_mask;
         uint32_t driver_qp_type;
-        uint8_t reserved[4];
+        uint16_t flags;
+        uint8_t reserved[2];
 
     cdef struct efadv_cq_init_attr:
         uint64_t comp_mask;
@@ -60,4 +62,5 @@ cdef extern from 'infiniband/efadv.h':
                                  uint32_t inlen)
     efadv_cq *efadv_cq_from_ibv_cq_ex(v.ibv_cq_ex *ibvcqx)
     int efadv_wc_read_sgid(efadv_cq *efadv_cq, v.ibv_gid *sgid)
+    bool efadv_wc_is_unsolicited(efadv_cq *efadv_cq)
     int efadv_query_mr(v.ibv_mr *ibvmr, efadv_mr_attr *attr, uint32_t inlen)
