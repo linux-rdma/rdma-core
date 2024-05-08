@@ -116,6 +116,8 @@ found:
 
 out:
 	pthread_mutex_unlock((pthread_mutex_t *)&ctx->db_list_mutex);
+	if (db)
+		*((unsigned int *)db) = 0;
 
 	return db;
 }

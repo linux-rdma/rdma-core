@@ -371,8 +371,6 @@ static struct ibv_cq_ex *create_cq(struct ibv_context *context,
 		goto err_db;
 	}
 
-	*cq->db = 0;
-
 	ret = exec_cq_create_cmd(context, cq, attr);
 	if (ret)
 		goto err_cmd;
@@ -385,8 +383,9 @@ err_cmd:
 	hns_roce_free_db(hr_ctx, cq->db, HNS_ROCE_CQ_TYPE_DB);
 err_db:
 	hns_roce_free_buf(&cq->buf);
-err_lock:
 err_buf:
+	pthread_spin_destroy(&cq->lock);
+err_lock:
 	free(cq);
 err:
 	if (ret < 0)
@@ -437,16 +436,20 @@ int hns_roce_u_modify_cq(struct ibv_cq *cq, struct ibv_modify_cq_attr *attr)
 
 int hns_roce_u_destroy_cq(struct ibv_cq *cq)
 {
+	struct hns_roce_cq *hr_cq = to_hr_cq(cq);
 	int ret;
 
 	ret = ibv_cmd_destroy_cq(cq);
 	if (ret)
 		return ret;
 
-	hns_roce_free_db(to_hr_ctx(cq->context), to_hr_cq(cq)->db,
-				   HNS_ROCE_CQ_TYPE_DB);
-	hns_roce_free_buf(&to_hr_cq(cq)->buf);
-	free(to_hr_cq(cq));
+	hns_roce_free_db(to_hr_ctx(cq->context), hr_cq->db,
+			 HNS_ROCE_CQ_TYPE_DB);
+	hns_roce_free_buf(&hr_cq->buf);
+
+	pthread_spin_destroy(&hr_cq->lock);
+
+	free(hr_cq);
 
 	return ret;
 }
@@ -674,13 +677,11 @@ static struct ibv_srq *create_srq(struct ibv_context *context,
 
 	set_srq_param(context, srq, init_attr);
 	if (alloc_srq_buf(srq))
-		goto err_free_srq;
+		goto err_destroy_lock;
 
 	srq->rdb = hns_roce_alloc_db(hr_ctx, HNS_ROCE_SRQ_TYPE_DB);
 	if (!srq->rdb)
 		goto err_srq_buf;
-
-	*srq->rdb = 0;
 
 	ret = exec_srq_create_cmd(context, srq, init_attr);
 	if (ret)
@@ -704,6 +705,9 @@ err_srq_db:
 
 err_srq_buf:
 	free_srq_buf(srq);
+
+err_destroy_lock:
+	pthread_spin_destroy(&srq->lock);
 
 err_free_srq:
 	free(srq);
@@ -780,6 +784,8 @@ int hns_roce_u_destroy_srq(struct ibv_srq *ibv_srq)
 
 	hns_roce_free_db(ctx, srq->rdb, HNS_ROCE_SRQ_TYPE_DB);
 	free_srq_buf(srq);
+
+	pthread_spin_destroy(&srq->lock);
 	free(srq);
 
 	return 0;
@@ -1165,8 +1171,6 @@ static int qp_alloc_db(struct ibv_qp_init_attr_ex *attr, struct hns_roce_qp *qp,
 		qp->sdb = hns_roce_alloc_db(ctx, HNS_ROCE_QP_TYPE_DB);
 		if (!qp->sdb)
 			return -ENOMEM;
-
-		*qp->sdb = 0;
 	}
 
 	if (attr->cap.max_recv_sge) {
@@ -1178,8 +1182,6 @@ static int qp_alloc_db(struct ibv_qp_init_attr_ex *attr, struct hns_roce_qp *qp,
 
 			return -ENOMEM;
 		}
-
-		*qp->rdb = 0;
 	}
 
 	return 0;
@@ -1295,6 +1297,8 @@ void hns_roce_free_qp_buf(struct hns_roce_qp *qp, struct hns_roce_context *ctx)
 {
 	qp_free_db(qp, ctx);
 	qp_free_wqe(qp);
+	pthread_spin_destroy(&qp->rq.lock);
+	pthread_spin_destroy(&qp->sq.lock);
 }
 
 static int hns_roce_alloc_qp_buf(struct ibv_qp_init_attr_ex *attr,
@@ -1303,17 +1307,30 @@ static int hns_roce_alloc_qp_buf(struct ibv_qp_init_attr_ex *attr,
 {
 	int ret;
 
-	if (pthread_spin_init(&qp->sq.lock, PTHREAD_PROCESS_PRIVATE) ||
-	    pthread_spin_init(&qp->rq.lock, PTHREAD_PROCESS_PRIVATE))
-		return -ENOMEM;
-
-	ret = qp_alloc_wqe(&attr->cap, qp, ctx);
+	ret = pthread_spin_init(&qp->sq.lock, PTHREAD_PROCESS_PRIVATE);
 	if (ret)
 		return ret;
 
+	ret = pthread_spin_init(&qp->rq.lock, PTHREAD_PROCESS_PRIVATE);
+	if (ret)
+		goto err_rq_lock;
+
+	ret = qp_alloc_wqe(&attr->cap, qp, ctx);
+	if (ret)
+		goto err_wqe;
+
 	ret = qp_alloc_db(attr, qp, ctx);
 	if (ret)
-		qp_free_wqe(qp);
+		goto err_db;
+
+	return 0;
+
+err_db:
+	qp_free_wqe(qp);
+err_wqe:
+	pthread_spin_destroy(&qp->rq.lock);
+err_rq_lock:
+	pthread_spin_destroy(&qp->sq.lock);
 
 	return ret;
 }
