@@ -1,6 +1,6 @@
 /* SPDX-License-Identifier: GPL-2.0 OR BSD-2-Clause */
 /*
- * Copyright 2018-2023 Amazon.com, Inc. or its affiliates. All rights reserved.
+ * Copyright 2018-2024 Amazon.com, Inc. or its affiliates. All rights reserved.
  */
 
 #ifndef _EFA_IO_H_
@@ -34,15 +34,15 @@ enum efa_io_comp_status {
 	EFA_IO_COMP_STATUS_FLUSHED                  = 1,
 	/* Internal QP error */
 	EFA_IO_COMP_STATUS_LOCAL_ERROR_QP_INTERNAL_ERROR = 2,
-	/* Bad operation type */
-	EFA_IO_COMP_STATUS_LOCAL_ERROR_INVALID_OP_TYPE = 3,
+	/* Unsupported operation */
+	EFA_IO_COMP_STATUS_LOCAL_ERROR_UNSUPPORTED_OP = 3,
 	/* Bad AH */
 	EFA_IO_COMP_STATUS_LOCAL_ERROR_INVALID_AH   = 4,
 	/* LKEY not registered or does not match IOVA */
 	EFA_IO_COMP_STATUS_LOCAL_ERROR_INVALID_LKEY = 5,
 	/* Message too long */
 	EFA_IO_COMP_STATUS_LOCAL_ERROR_BAD_LENGTH   = 6,
-	/* Destination ENI is down or does not run EFA */
+	/* RKEY not registered or does not match remote IOVA */
 	EFA_IO_COMP_STATUS_REMOTE_ERROR_BAD_ADDRESS = 7,
 	/* Connection was reset by remote side */
 	EFA_IO_COMP_STATUS_REMOTE_ERROR_ABORT       = 8,
@@ -56,6 +56,8 @@ enum efa_io_comp_status {
 	EFA_IO_COMP_STATUS_REMOTE_ERROR_BAD_STATUS  = 12,
 	/* Unresponsive remote - detected locally */
 	EFA_IO_COMP_STATUS_LOCAL_ERROR_UNRESP_REMOTE = 13,
+	/* No valid AH at remote side (required for RDMA operations) */
+	EFA_IO_COMP_STATUS_REMOTE_ERROR_UNKNOWN_PEER = 14,
 };
 
 struct efa_io_tx_meta_desc {
