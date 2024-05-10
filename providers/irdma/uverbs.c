@@ -294,11 +294,11 @@ int irdma_udealloc_mw(struct ibv_mw *mw)
 	return 0;
 }
 
-static void *irdma_alloc_hw_buf(size_t size)
+static void *irdma_calloc_hw_buf_sz(size_t size, size_t alignment)
 {
 	void *buf;
 
-	buf = memalign(IRDMA_HW_PAGE_SIZE, size);
+	buf = memalign(alignment, size);
 
 	if (!buf)
 		return NULL;
@@ -306,8 +306,14 @@ static void *irdma_alloc_hw_buf(size_t size)
 		free(buf);
 		return NULL;
 	}
+	memset(buf, 0, size);
 
 	return buf;
+}
+
+static void *irdma_calloc_hw_buf(size_t size)
+{
+	return irdma_calloc_hw_buf_sz(size, IRDMA_HW_PAGE_SIZE);
 }
 
 static void irdma_free_hw_buf(void *buf, size_t size)
@@ -400,11 +406,10 @@ static struct ibv_cq_ex *ucreate_cq(struct ibv_context *context,
 		total_size = (cq_pages << IRDMA_HW_PAGE_SHIFT) + IRDMA_DB_SHADOW_AREA_SIZE;
 
 	iwucq->buf_size = total_size;
-	info.cq_base = irdma_alloc_hw_buf(total_size);
+	info.cq_base = irdma_calloc_hw_buf(total_size);
 	if (!info.cq_base)
 		goto err_cq_base;
 
-	memset(info.cq_base, 0, total_size);
 	reg_mr_cmd.reg_type = IRDMA_MEMREG_TYPE_CQ;
 	reg_mr_cmd.cq_pages = cq_pages;
 
@@ -421,11 +426,10 @@ static struct ibv_cq_ex *ucreate_cq(struct ibv_context *context,
 	iwucq->vmr.ibv_mr.pd = &iwvctx->iwupd->ibv_pd;
 
 	if (uk_attrs->feature_flags & IRDMA_FEATURE_CQ_RESIZE) {
-		info.shadow_area = irdma_alloc_hw_buf(IRDMA_DB_SHADOW_AREA_SIZE);
+		info.shadow_area = irdma_calloc_hw_buf(IRDMA_DB_SHADOW_AREA_SIZE);
 		if (!info.shadow_area)
 			goto err_dereg_mr;
 
-		memset(info.shadow_area, 0, IRDMA_DB_SHADOW_AREA_SIZE);
 		reg_mr_shadow_cmd.reg_type = IRDMA_MEMREG_TYPE_CQ;
 		reg_mr_shadow_cmd.cq_pages = 1;
 
@@ -1262,18 +1266,28 @@ static int irdma_vmapped_qp(struct irdma_uqp *iwuqp, struct ibv_pd *pd,
 	struct irdma_ucreate_qp_resp resp = {};
 	struct irdma_ureg_mr reg_mr_cmd = {};
 	struct ib_uverbs_reg_mr_resp reg_mr_resp = {};
+	long os_pgsz = IRDMA_HW_PAGE_SIZE;
+	struct irdma_uvcontext *iwvctx;
 	int ret;
 
 	sqsize = roundup(info->sq_depth * IRDMA_QP_WQE_MIN_SIZE, IRDMA_HW_PAGE_SIZE);
 	rqsize = roundup(info->rq_depth * IRDMA_QP_WQE_MIN_SIZE, IRDMA_HW_PAGE_SIZE);
 	totalqpsize = rqsize + sqsize + IRDMA_DB_SHADOW_AREA_SIZE;
-	info->sq = irdma_alloc_hw_buf(totalqpsize);
-	iwuqp->buf_size = totalqpsize;
+	iwvctx = container_of(pd->context, struct irdma_uvcontext,
+			      ibv_ctx.context);
+	/* adjust alignment for iwarp */
+	if (iwvctx->ibv_ctx.context.device->transport_type ==
+			IBV_TRANSPORT_IWARP) {
+		long pgsz = sysconf(_SC_PAGESIZE);
 
+		if (pgsz > 0)
+			os_pgsz = pgsz;
+	}
+	info->sq = irdma_calloc_hw_buf_sz(totalqpsize, os_pgsz);
 	if (!info->sq)
 		return ENOMEM;
 
-	memset(info->sq, 0, totalqpsize);
+	iwuqp->buf_size = totalqpsize;
 	info->rq = &info->sq[sqsize / IRDMA_QP_WQE_MIN_SIZE];
 	info->shadow_area = info->rq[rqsize / IRDMA_QP_WQE_MIN_SIZE].elem;
 
@@ -1927,11 +1941,9 @@ int irdma_uresize_cq(struct ibv_cq *cq, int cqe)
 
 	cq_size = get_cq_total_bytes(cqe_needed);
 	cq_pages = cq_size >> IRDMA_HW_PAGE_SHIFT;
-	cq_base = irdma_alloc_hw_buf(cq_size);
+	cq_base = irdma_calloc_hw_buf(cq_size);
 	if (!cq_base)
 		return ENOMEM;
-
-	memset(cq_base, 0, cq_size);
 
 	cq_buf = malloc(sizeof(*cq_buf));
 	if (!cq_buf) {
