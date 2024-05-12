@@ -62,12 +62,19 @@ struct efadv_cq_init_attr {
 	EFADV_WC_EX_WITH_SGID:
 		if source AH is unknown, require sgid in WC.
 
+	EFADV_WC_EX_WITH_IS_UNSOLICITED:
+		request for an option to check whether a receive WC is unsolicited.
+
 
 # Completion iterator functions
 
 *efadv_wc_read_sgid*
 :	Get the source GID field from the current completion.
 	If the AH is known, a negative error value is returned.
+
+*efadv_wc_is_unsolicited*
+:	Check whether it's an unsolicited receive completion that has no matching work request.
+	This function is available if the CQ was created with EFADV_WC_EX_WITH_IS_UNSOLICITED.
 
 
 # RETURN VALUE

@@ -20,6 +20,7 @@ def dev_cap_to_str(flags):
             dve.EFADV_DEVICE_ATTR_CAPS_RNR_RETRY: 'RNR Retry',
             dve.EFADV_DEVICE_ATTR_CAPS_CQ_WITH_SGID: 'CQ entries with source GID',
             dve.EFADV_DEVICE_ATTR_CAPS_RDMA_WRITE: 'RDMA Write',
+            dve.EFADV_DEVICE_ATTR_CAPS_UNSOLICITED_WRITE_RECV: 'Unsolicited RDMA Write receive',
     }
     return bitmask_to_str(flags, l)
 
@@ -170,8 +171,16 @@ cdef class EfaQPInitAttr(PyverbsObject):
         return self.qp_init_attr.driver_qp_type
 
     @driver_qp_type.setter
-    def driver_qp_type(self,val):
+    def driver_qp_type(self, val):
         self.qp_init_attr.driver_qp_type = val
+
+    @property
+    def flags(self):
+        return self.qp_init_attr.flags
+
+    @flags.setter
+    def flags(self, val):
+        self.qp_init_attr.flags = val
 
 
 cdef class SRDQPEx(QPEx):
@@ -251,6 +260,12 @@ cdef class EfaCQ(CQEX):
         if err:
             return None
         return sgid
+
+    def is_unsolicited(self):
+        """
+        Check if current work completion is unsolicited.
+        """
+        return dv.efadv_wc_is_unsolicited(self.dv_cq)
 
 
 cdef class EfaDVMRAttr(PyverbsObject):

@@ -210,7 +210,7 @@ struct efa_io_rx_desc {
 struct efa_io_cdesc_common {
 	/*
 	 * verbs-generated request ID, as provided in the completed tx or rx
-	 *    descriptor.
+	 * descriptor.
 	 */
 	uint16_t req_id;
 
@@ -223,7 +223,8 @@ struct efa_io_cdesc_common {
 	 * 3 : has_imm - indicates that immediate data is
 	 *    present - for RX completions only
 	 * 6:4 : op_type - enum efa_io_send_op_type
-	 * 7 : reserved31 - MBZ
+	 * 7 : unsolicited - indicates that there is no
+	 *    matching request - for RDMA with imm. RX only
 	 */
 	uint8_t flags;
 
@@ -303,5 +304,6 @@ struct efa_io_rx_cdesc_ex {
 #define EFA_IO_CDESC_COMMON_Q_TYPE_MASK                     GENMASK(2, 1)
 #define EFA_IO_CDESC_COMMON_HAS_IMM_MASK                    BIT(3)
 #define EFA_IO_CDESC_COMMON_OP_TYPE_MASK                    GENMASK(6, 4)
+#define EFA_IO_CDESC_COMMON_UNSOLICITED_MASK                BIT(7)
 
 #endif /* _EFA_IO_H_ */
