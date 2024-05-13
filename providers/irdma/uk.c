@@ -1218,10 +1218,6 @@ irdma_uk_cq_poll_cmpl(struct irdma_cq_uk *cq, struct irdma_cq_poll_info *info)
 
 		info->bytes_xfered = (__u32)FIELD_GET(IRDMACQ_PAYLDLEN, qword0);
 
-		if (info->imm_valid)
-			info->op_type = IRDMA_OP_TYPE_REC_IMM;
-		else
-			info->op_type = IRDMA_OP_TYPE_REC;
 		if (qword3 & IRDMACQ_STAG) {
 			info->stag_invalid_set = true;
 			info->inv_stag = (__u32)FIELD_GET(IRDMACQ_INVSTAG, qword2);
