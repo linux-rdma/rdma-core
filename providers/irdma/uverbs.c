@@ -410,6 +410,7 @@ static struct ibv_cq_ex *ucreate_cq(struct ibv_context *context,
 	ret = ibv_cmd_create_cq_ex(context, attr_ex, &iwucq->verbs_cq,
 				   &cmd.ibv_cmd, sizeof(cmd), &resp.ibv_resp,
 				   sizeof(resp), 0);
+	attr_ex->cqe = ncqe;
 	if (ret) {
 		errno = ret;
 		goto err_dereg_shadow;
