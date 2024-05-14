@@ -35,6 +35,18 @@ struct mana_context *to_mctx(struct ibv_context *ibctx)
 	return container_of(ibctx, struct mana_context, ibv_ctx.context);
 }
 
+void *mana_alloc_mem(uint32_t size)
+{
+	void *buf;
+
+	buf = mmap(NULL, size, PROT_READ | PROT_WRITE,
+		   MAP_PRIVATE | MAP_ANONYMOUS, -1, 0);
+
+	if (buf == MAP_FAILED)
+		return NULL;
+	return buf;
+}
+
 int mana_query_device_ex(struct ibv_context *context,
 			 const struct ibv_query_device_ex_input *input,
 			 struct ibv_device_attr_ex *attr, size_t attr_size)

@@ -77,9 +77,19 @@ struct mana_wq {
 struct mana_cq {
 	struct ibv_cq ibcq;
 	uint32_t cqe;
+	uint32_t cqid;
 	void *buf;
 
-	uint32_t cqid;
+	pthread_spinlock_t lock;
+	uint32_t head;
+	uint32_t last_armed_head;
+	uint32_t ready_wcs;
+	void *db_page;
+	/* list of qp's that use this cq for send completions */
+	struct list_head send_qp_list;
+	/* list of qp's that use this cq for recv completions */
+	struct list_head recv_qp_list;
+	bool buf_external;
 };
 
 struct mana_device {
@@ -97,6 +107,8 @@ struct mana_parent_domain {
 };
 
 struct mana_context *to_mctx(struct ibv_context *ibctx);
+
+void *mana_alloc_mem(uint32_t size);
 
 int mana_query_device_ex(struct ibv_context *context,
 			 const struct ibv_query_device_ex_input *input,
