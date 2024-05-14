@@ -24,25 +24,15 @@
 #define DOORBELL_PAGE_SIZE 4096
 #define MANA_PAGE_SIZE 4096
 
-static inline int align_next_power2(int size)
+static inline uint32_t align_hw_size(uint32_t size)
 {
-	int val = 1;
-
-	while (val < size)
-		val <<= 1;
-
-	return val;
+	size = roundup_pow_of_two(size);
+	return align(size, MANA_PAGE_SIZE);
 }
 
-static inline int align_hw_size(int size)
+static inline uint32_t get_wqe_size(uint32_t sge)
 {
-	size = align(size, MANA_PAGE_SIZE);
-	return align_next_power2(size);
-}
-
-static inline int get_wqe_size(int sge)
-{
-	int wqe_size = sge * SGE_SIZE + DMA_OOB_SIZE + INLINE_OOB_SMALL_SIZE;
+	uint32_t wqe_size = sge * SGE_SIZE + DMA_OOB_SIZE + INLINE_OOB_SMALL_SIZE;
 
 	return align(wqe_size, GDMA_WQE_ALIGNMENT_UNIT_SIZE);
 }
