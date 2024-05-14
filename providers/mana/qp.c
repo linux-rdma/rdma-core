@@ -20,6 +20,7 @@
 
 #include "mana.h"
 #include "rollback.h"
+#include "doorbells.h"
 
 DECLARE_DRV_CMD(mana_create_qp, IB_USER_VERBS_CMD_CREATE_QP, mana_ib_create_qp,
 		mana_ib_create_qp_resp);
@@ -332,9 +333,58 @@ struct ibv_qp *mana_create_qp(struct ibv_pd *ibpd,
 	return NULL;
 }
 
-int mana_modify_qp(struct ibv_qp *qp, struct ibv_qp_attr *attr, int attr_mask)
+static void mana_ib_modify_rc_qp(struct mana_qp *qp, struct ibv_qp_attr *attr, int attr_mask)
 {
-	return EOPNOTSUPP;
+	int i;
+
+	if (attr_mask & IBV_QP_PATH_MTU)
+		qp->mtu = attr->path_mtu;
+
+	switch (attr->qp_state) {
+	case IBV_QPS_RESET:
+	case IBV_QPS_INIT:
+		for (i = 0; i < USER_RC_QUEUE_TYPE_MAX; ++i) {
+			qp->rc_qp.queues[i].prod_idx = 0;
+			qp->rc_qp.queues[i].cons_idx = 0;
+		}
+		mana_ib_reset_rb_shmem(qp);
+		reset_shadow_queue(&qp->shadow_rq);
+		break;
+	case IBV_QPS_RTR:
+		break;
+	case IBV_QPS_RTS:
+		reset_shadow_queue(&qp->shadow_sq);
+		qp->rc_qp.sq_ssn = 1;
+		qp->rc_qp.sq_psn = attr->sq_psn;
+		qp->rc_qp.sq_highest_completed_psn = PSN_DEC(attr->sq_psn);
+		gdma_arm_normal_cqe(&qp->rc_qp.queues[USER_RC_RECV_QUEUE_REQUESTER], attr->sq_psn);
+		break;
+	default:
+		break;
+	}
+}
+
+int mana_modify_qp(struct ibv_qp *ibqp, struct ibv_qp_attr *attr, int attr_mask)
+{
+	struct mana_qp *qp = container_of(ibqp, struct mana_qp, ibqp.qp);
+	struct ibv_modify_qp cmd = {};
+	int err;
+
+	if (ibqp->qp_type != IBV_QPT_RC)
+		return EOPNOTSUPP;
+
+	if (!(attr_mask & IBV_QP_STATE))
+		return 0;
+
+	err = ibv_cmd_modify_qp(ibqp, attr, attr_mask, &cmd, sizeof(cmd));
+	if (err) {
+		verbs_err(verbs_get_ctx(ibqp->context), "Failed to modify qp\n");
+		return err;
+	}
+
+	mana_ib_modify_rc_qp(qp, attr, attr_mask);
+
+	return 0;
 }
 
 static void mana_drain_cqes(struct mana_qp *qp)
