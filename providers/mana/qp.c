@@ -67,13 +67,13 @@ static struct ibv_qp *mana_create_qp_raw(struct ibv_pd *ibpd,
 	if (!qp)
 		return NULL;
 
-	qp->send_buf_size =
+	qp->raw_qp.send_buf_size =
 		attr->cap.max_send_wr * get_wqe_size(attr->cap.max_send_sge);
-	qp->send_buf_size = align_hw_size(qp->send_buf_size);
+	qp->raw_qp.send_buf_size = align_hw_size(qp->raw_qp.send_buf_size);
 
-	qp->send_buf = ctx->extern_alloc.alloc(qp->send_buf_size,
-					       ctx->extern_alloc.data);
-	if (!qp->send_buf) {
+	qp->raw_qp.send_buf = ctx->extern_alloc.alloc(qp->raw_qp.send_buf_size,
+						      ctx->extern_alloc.data);
+	if (!qp->raw_qp.send_buf) {
 		errno = ENOMEM;
 		goto free_qp;
 	}
@@ -81,8 +81,8 @@ static struct ibv_qp *mana_create_qp_raw(struct ibv_pd *ibpd,
 	qp_cmd_drv = &qp_cmd.drv_payload;
 	qp_resp_drv = &qp_resp.drv_payload;
 
-	qp_cmd_drv->sq_buf_addr = (uintptr_t)qp->send_buf;
-	qp_cmd_drv->sq_buf_size = qp->send_buf_size;
+	qp_cmd_drv->sq_buf_addr = (uintptr_t)qp->raw_qp.send_buf;
+	qp_cmd_drv->sq_buf_size = qp->raw_qp.send_buf_size;
 	qp_cmd_drv->port = port;
 
 	ret = ibv_cmd_create_qp(ibpd, &qp->ibqp.qp, attr, &qp_cmd.ibv_cmd,
@@ -90,14 +90,14 @@ static struct ibv_qp *mana_create_qp_raw(struct ibv_pd *ibpd,
 				sizeof(qp_resp));
 	if (ret) {
 		verbs_err(verbs_get_ctx(ibpd->context), "Create QP failed\n");
-		ctx->extern_alloc.free(qp->send_buf, ctx->extern_alloc.data);
+		ctx->extern_alloc.free(qp->raw_qp.send_buf, ctx->extern_alloc.data);
 		errno = ret;
 		goto free_qp;
 	}
 
-	qp->sqid = qp_resp_drv->sqid;
-	qp->tx_vp_offset = qp_resp_drv->tx_vp_offset;
-	qp->send_wqe_count = attr->cap.max_send_wr;
+	qp->raw_qp.sqid = qp_resp_drv->sqid;
+	qp->raw_qp.tx_vp_offset = qp_resp_drv->tx_vp_offset;
+	qp->raw_qp.send_wqe_count = attr->cap.max_send_wr;
 
 	cq->cqid = qp_resp_drv->cqid;
 
@@ -150,7 +150,7 @@ int mana_destroy_qp(struct ibv_qp *ibqp)
 		return ret;
 	}
 
-	ctx->extern_alloc.free(qp->send_buf, ctx->extern_alloc.data);
+	ctx->extern_alloc.free(qp->raw_qp.send_buf, ctx->extern_alloc.data);
 	free(qp);
 
 	return 0;

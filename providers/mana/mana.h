@@ -60,16 +60,18 @@ struct mana_gdma_queue {
 	void *buffer;
 };
 
+struct mana_ib_raw_qp {
+	void *send_buf;
+	uint32_t send_buf_size;
+	int send_wqe_count;
+	uint32_t sqid;
+	uint32_t tx_vp_offset;
+};
+
 struct mana_qp {
 	struct verbs_qp ibqp;
 
-	void *send_buf;
-	uint32_t send_buf_size;
-
-	int send_wqe_count;
-
-	uint32_t sqid;
-	uint32_t tx_vp_offset;
+	struct mana_ib_raw_qp raw_qp;
 };
 
 struct mana_wq {
