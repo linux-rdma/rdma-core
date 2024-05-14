@@ -25,6 +25,19 @@
 #define DOORBELL_PAGE_SIZE 4096
 #define MANA_PAGE_SIZE 4096
 
+/* PSN 24 bit arithmetic comparisons */
+#define PSN_MASK 0xFFFFFF
+#define PSN_SIGN_BIT 0x800000
+#define PSN_GE(PSN1, PSN2) ((((PSN1) - (PSN2)) & PSN_SIGN_BIT) == 0)
+#define PSN_GT(PSN1, PSN2) PSN_GE(PSN1, (PSN2) + 1)
+#define PSN_LE(PSN1, PSN2) PSN_GE(PSN2, PSN1)
+#define PSN_LT(PSN1, PSN2) PSN_GT(PSN2, PSN1)
+#define MTU_SIZE(MTU) (1U << ((MTU) + 7))
+#define PSN_DELTA(MSG_SIZE, MTU) max(1U, ((MSG_SIZE) + MTU_SIZE(MTU) - 1) >> (MTU + 7))
+#define PSN_DEC(PSN) (((PSN) - 1) & PSN_MASK)
+#define PSN_INC(PSN) (((PSN) + 1) & PSN_MASK)
+#define PSN_ADD(PSN, DELTA) (((PSN) + (DELTA)) & PSN_MASK)
+
 static inline uint32_t align_hw_size(uint32_t size)
 {
 	size = roundup_pow_of_two(size);
