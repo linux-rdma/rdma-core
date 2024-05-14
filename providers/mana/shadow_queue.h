@@ -13,10 +13,16 @@
 #include <sys/mman.h>
 #include <util/util.h>
 
+#define MANA_NO_SIGNAL_WC (0xff)
+
 struct shadow_wqe_header {
-	uint8_t opcode; // see enum ibv_wc_opcode
-	uint8_t flags; // see enum ibv_wc_flags
-	uint16_t posted_wqe_size_in_bu;
+	/* ibv_wc_opcode */
+	uint8_t opcode;
+	/* ibv_wc_flags or MANA_NO_SIGNAL_WC */
+	uint8_t flags;
+	/* ibv_wc_status */
+	uint8_t vendor_error_code;
+	uint8_t posted_wqe_size_in_bu;
 	uint32_t unmasked_queue_offset;
 	uint64_t wr_id;
 };
