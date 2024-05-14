@@ -25,9 +25,6 @@ DECLARE_DRV_CMD(mana_alloc_ucontext, IB_USER_VERBS_CMD_GET_CONTEXT, empty,
 
 DECLARE_DRV_CMD(mana_alloc_pd, IB_USER_VERBS_CMD_ALLOC_PD, empty, empty);
 
-DECLARE_DRV_CMD(mana_create_cq, IB_USER_VERBS_CMD_CREATE_CQ, mana_ib_create_cq,
-		empty);
-
 static const struct verbs_match_ent hca_table[] = {
 	VERBS_DRIVER_ID(RDMA_DRIVER_MANA),
 	{},
@@ -187,119 +184,6 @@ int mana_dereg_mr(struct verbs_mr *vmr)
 
 	free(vmr);
 	return 0;
-}
-
-struct ibv_cq *mana_create_cq(struct ibv_context *context, int cqe,
-			      struct ibv_comp_channel *channel, int comp_vector)
-{
-	struct mana_context *ctx = to_mctx(context);
-	struct mana_cq *cq;
-	struct mana_create_cq cmd = {};
-	struct mana_create_cq_resp resp = {};
-	struct mana_ib_create_cq *cmd_drv;
-	int cq_size;
-	int ret;
-
-	if (!ctx->extern_alloc.alloc || !ctx->extern_alloc.free) {
-		/*
-		 * This version of driver doesn't support allocating buffers
-		 * in rdma-core.
-		 */
-		verbs_err(verbs_get_ctx(context),
-			  "Allocating core buffers for CQ is not supported\n");
-		errno = EINVAL;
-		return NULL;
-	}
-
-	cq = calloc(1, sizeof(*cq));
-	if (!cq)
-		return NULL;
-
-	cq_size = cqe * COMP_ENTRY_SIZE;
-	cq_size = roundup_pow_of_two(cq_size);
-	cq_size = align(cq_size, MANA_PAGE_SIZE);
-
-	cq->buf = ctx->extern_alloc.alloc(cq_size, ctx->extern_alloc.data);
-	if (!cq->buf) {
-		errno = ENOMEM;
-		goto free_cq;
-	}
-	cq->cqe = cqe;
-
-	cmd_drv = &cmd.drv_payload;
-	cmd_drv->buf_addr = (uintptr_t)cq->buf;
-
-	ret = ibv_cmd_create_cq(context, cq->cqe, channel, comp_vector,
-				&cq->ibcq, &cmd.ibv_cmd, sizeof(cmd),
-				&resp.ibv_resp, sizeof(resp));
-
-	if (ret) {
-		verbs_err(verbs_get_ctx(context), "Failed to Create CQ\n");
-		ctx->extern_alloc.free(cq->buf, ctx->extern_alloc.data);
-		errno = ret;
-		goto free_cq;
-	}
-
-	return &cq->ibcq;
-
-free_cq:
-	free(cq);
-	return NULL;
-}
-
-int mana_destroy_cq(struct ibv_cq *ibcq)
-{
-	int ret;
-	struct mana_cq *cq = container_of(ibcq, struct mana_cq, ibcq);
-	struct mana_context *ctx = to_mctx(ibcq->context);
-
-	if (!ctx->extern_alloc.free) {
-		/*
-		 * This version of driver doesn't support allocating buffers
-		 * in rdma-core. It's not possible to reach the code here.
-		 */
-		verbs_err(verbs_get_ctx(ibcq->context),
-			  "Invalid external context in destroy CQ\n");
-		return -EINVAL;
-	}
-
-	ret = ibv_cmd_destroy_cq(ibcq);
-	if (ret) {
-		verbs_err(verbs_get_ctx(ibcq->context),
-			  "Failed to Destroy CQ\n");
-		return ret;
-	}
-
-	ctx->extern_alloc.free(cq->buf, ctx->extern_alloc.data);
-	free(cq);
-
-	return ret;
-}
-
-static int mana_poll_cq(struct ibv_cq *ibcq, int nwc, struct ibv_wc *wc)
-{
-	/* This version of driver supports RAW QP only.
-	 * Polling CQ is done directly in the application.
-	 */
-	return EOPNOTSUPP;
-}
-
-static int mana_post_recv(struct ibv_qp *ibqp, struct ibv_recv_wr *wr,
-			  struct ibv_recv_wr **bad)
-{
-	/* This version of driver supports RAW QP only.
-	 * Posting WR is done directly in the application.
-	 */
-	return EOPNOTSUPP;
-}
-
-static int mana_post_send(struct ibv_qp *ibqp, struct ibv_send_wr *wr,
-			  struct ibv_send_wr **bad)
-{
-	/* This version of driver supports RAW QP only.
-	 * Posting WR is done directly in the application.
-	 */
-	return EOPNOTSUPP;
 }
 
 static void mana_free_context(struct ibv_context *ibctx)

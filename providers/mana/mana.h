@@ -133,6 +133,8 @@ struct ibv_cq *mana_create_cq(struct ibv_context *context, int cqe,
 
 int mana_destroy_cq(struct ibv_cq *cq);
 
+int mana_poll_cq(struct ibv_cq *ibcq, int nwc, struct ibv_wc *wc);
+
 struct ibv_wq *mana_create_wq(struct ibv_context *context,
 			      struct ibv_wq_init_attr *attr);
 
@@ -153,5 +155,11 @@ struct ibv_qp *mana_create_qp_ex(struct ibv_context *context,
 int mana_modify_qp(struct ibv_qp *qp, struct ibv_qp_attr *attr, int attr_mask);
 
 int mana_destroy_qp(struct ibv_qp *ibqp);
+
+int mana_post_recv(struct ibv_qp *ibqp, struct ibv_recv_wr *wr,
+		   struct ibv_recv_wr **bad);
+
+int mana_post_send(struct ibv_qp *ibqp, struct ibv_send_wr *wr,
+		   struct ibv_send_wr **bad);
 
 #endif
