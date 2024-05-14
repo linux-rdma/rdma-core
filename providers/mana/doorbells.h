@@ -11,6 +11,7 @@
 #include "mana.h"
 
 #define GDMA_CQE_OWNER_BITS 3
+#define CQ_OWNER_MASK ((1 << (GDMA_CQE_OWNER_BITS)) - 1)
 
 #define DOORBELL_OFFSET_SQ		0x0
 #define DOORBELL_OFFSET_RQ		0x400

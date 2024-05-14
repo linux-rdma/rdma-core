@@ -237,5 +237,7 @@ int mana_post_recv(struct ibv_qp *ibqp, struct ibv_recv_wr *wr,
 int mana_post_send(struct ibv_qp *ibqp, struct ibv_send_wr *wr,
 		   struct ibv_send_wr **bad);
 
+int mana_arm_cq(struct ibv_cq *ibcq, int solicited);
+
 struct mana_qp *mana_get_qp_from_rq(struct mana_context *ctx, uint32_t qpn);
 #endif
