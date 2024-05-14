@@ -50,6 +50,16 @@ struct mana_rwq_ind_table {
 	struct ibv_wq **ind_tbl;
 };
 
+struct mana_gdma_queue {
+	uint32_t id;
+	uint32_t size;
+	uint32_t prod_idx;
+	uint32_t cons_idx;
+
+	void *db_page;
+	void *buffer;
+};
+
 struct mana_qp {
 	struct verbs_qp ibqp;
 
