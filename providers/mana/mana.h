@@ -7,6 +7,7 @@
 #define _MANA_H_
 
 #include "manadv.h"
+#include "shadow_queue.h"
 
 #define COMP_ENTRY_SIZE 64
 #define MANA_IB_TOEPLITZ_HASH_KEY_SIZE_IN_BYTES 40
