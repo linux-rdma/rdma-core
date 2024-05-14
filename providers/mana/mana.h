@@ -7,6 +7,7 @@
 #define _MANA_H_
 
 #include "manadv.h"
+#include <ccan/minmax.h>
 #include "shadow_queue.h"
 
 #define COMP_ENTRY_SIZE 64
@@ -42,6 +43,14 @@
 #define PSN_INC(PSN) (((PSN) + 1) & PSN_MASK)
 #define PSN_ADD(PSN, DELTA) (((PSN) + (DELTA)) & PSN_MASK)
 
+enum user_queue_types {
+	USER_RC_SEND_QUEUE_REQUESTER = 0,
+	USER_RC_SEND_QUEUE_RESPONDER = 1,
+	USER_RC_RECV_QUEUE_REQUESTER = 2,
+	USER_RC_RECV_QUEUE_RESPONDER = 3,
+	USER_RC_QUEUE_TYPE_MAX = 4,
+};
+
 static inline uint32_t align_hw_size(uint32_t size)
 {
 	size = roundup_pow_of_two(size);
@@ -51,6 +60,13 @@ static inline uint32_t align_hw_size(uint32_t size)
 static inline uint32_t get_wqe_size(uint32_t sge)
 {
 	uint32_t wqe_size = sge * SGE_SIZE + DMA_OOB_SIZE + INLINE_OOB_SMALL_SIZE;
+
+	return align(wqe_size, GDMA_WQE_ALIGNMENT_UNIT_SIZE);
+}
+
+static inline uint32_t get_large_wqe_size(uint32_t sge)
+{
+	uint32_t wqe_size = sge * SGE_SIZE + DMA_OOB_SIZE + INLINE_OOB_LARGE_SIZE;
 
 	return align(wqe_size, GDMA_WQE_ALIGNMENT_UNIT_SIZE);
 }
@@ -92,10 +108,31 @@ struct mana_ib_raw_qp {
 	uint32_t tx_vp_offset;
 };
 
+struct mana_ib_rc_qp {
+	struct mana_gdma_queue queues[USER_RC_QUEUE_TYPE_MAX];
+
+	uint32_t sq_ssn;
+	uint32_t sq_psn;
+	uint32_t sq_highest_completed_psn;
+};
+
 struct mana_qp {
 	struct verbs_qp ibqp;
+	pthread_spinlock_t sq_lock;
+	pthread_spinlock_t rq_lock;
 
-	struct mana_ib_raw_qp raw_qp;
+	union {
+		struct mana_ib_raw_qp raw_qp;
+		struct mana_ib_rc_qp rc_qp;
+	};
+
+	enum ibv_mtu mtu;
+
+	struct shadow_queue shadow_rq;
+	struct shadow_queue shadow_sq;
+
+	struct list_node send_cq_node;
+	struct list_node recv_cq_node;
 };
 
 struct mana_wq {

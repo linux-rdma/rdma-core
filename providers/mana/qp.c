@@ -19,12 +19,16 @@
 #include <kernel-abi/mana-abi.h>
 
 #include "mana.h"
+#include "rollback.h"
 
 DECLARE_DRV_CMD(mana_create_qp, IB_USER_VERBS_CMD_CREATE_QP, mana_ib_create_qp,
 		mana_ib_create_qp_resp);
 
 DECLARE_DRV_CMD(mana_create_qp_ex, IB_USER_VERBS_EX_CMD_CREATE_QP,
 		mana_ib_create_qp_rss, mana_ib_create_qp_rss_resp);
+
+DECLARE_DRV_CMD(mana_create_rc_qp, IB_USER_VERBS_CMD_CREATE_QP,
+		mana_ib_create_rc_qp, mana_ib_create_rc_qp_resp);
 
 static struct ibv_qp *mana_create_qp_raw(struct ibv_pd *ibpd,
 					 struct ibv_qp_init_attr *attr)
@@ -172,12 +176,153 @@ struct mana_qp *mana_get_qp_from_rq(struct mana_context *ctx, uint32_t qid)
 	return ctx->qp_table[tbl_idx].table[tbl_off];
 }
 
+static uint32_t get_queue_size(struct ibv_qp_init_attr *attr, enum user_queue_types type)
+{
+	uint32_t size = 0;
+
+	if (attr->qp_type == IBV_QPT_RC) {
+		switch (type) {
+		case USER_RC_SEND_QUEUE_REQUESTER:
+			/* For write with imm we need +1 */
+			size = attr->cap.max_send_wr * get_large_wqe_size(attr->cap.max_send_sge + 1);
+			break;
+		case USER_RC_SEND_QUEUE_RESPONDER:
+			size = MANA_PAGE_SIZE;
+			break;
+		case USER_RC_RECV_QUEUE_REQUESTER:
+			size = MANA_PAGE_SIZE;
+			break;
+		case USER_RC_RECV_QUEUE_RESPONDER:
+			size = attr->cap.max_recv_wr * get_wqe_size(attr->cap.max_recv_sge);
+			break;
+		default:
+			return 0;
+		}
+	}
+
+	size = align_hw_size(size);
+
+	if (attr->qp_type == IBV_QPT_RC && type == USER_RC_SEND_QUEUE_REQUESTER)
+		size += sizeof(struct mana_ib_rollback_shared_mem);
+
+	return size;
+}
+
+static struct ibv_qp *mana_create_qp_rc(struct ibv_pd *ibpd,
+					struct ibv_qp_init_attr *attr)
+{
+	struct mana_cq *send_cq = container_of(attr->send_cq, struct mana_cq, ibcq);
+	struct mana_cq *recv_cq = container_of(attr->recv_cq, struct mana_cq, ibcq);
+	struct mana_context *ctx = to_mctx(ibpd->context);
+	struct mana_ib_create_rc_qp_resp *qp_resp_drv;
+	struct mana_create_rc_qp_resp qp_resp = {};
+	struct mana_ib_create_rc_qp *qp_cmd_drv;
+	struct mana_create_rc_qp qp_cmd = {};
+	struct mana_qp *qp;
+	int ret, i;
+
+	qp = calloc(1, sizeof(*qp));
+	if (!qp)
+		return NULL;
+
+	qp_cmd_drv = &qp_cmd.drv_payload;
+	qp_resp_drv = &qp_resp.drv_payload;
+
+	pthread_spin_init(&qp->sq_lock, PTHREAD_PROCESS_PRIVATE);
+	pthread_spin_init(&qp->rq_lock, PTHREAD_PROCESS_PRIVATE);
+
+	if (create_shadow_queue(&qp->shadow_sq, attr->cap.max_send_wr,
+				sizeof(struct rc_sq_shadow_wqe))) {
+		verbs_err(verbs_get_ctx(ibpd->context), "Failed to alloc sq shadow queue\n");
+		errno = ENOMEM;
+		goto free_qp;
+	}
+
+	if (create_shadow_queue(&qp->shadow_rq, attr->cap.max_recv_wr,
+				sizeof(struct rc_rq_shadow_wqe))) {
+		verbs_err(verbs_get_ctx(ibpd->context), "Failed to alloc rc shadow queue\n");
+		errno = ENOMEM;
+		goto destroy_shadow_sq;
+	}
+
+	for (i = 0; i < USER_RC_QUEUE_TYPE_MAX; ++i) {
+		qp->rc_qp.queues[i].db_page = ctx->db_page;
+		qp->rc_qp.queues[i].size = get_queue_size(attr, i);
+		qp->rc_qp.queues[i].buffer = mana_alloc_mem(qp->rc_qp.queues[i].size);
+
+		if (!qp->rc_qp.queues[i].buffer) {
+			verbs_err(verbs_get_ctx(ibpd->context),
+				  "Failed to allocate memory for RC queue %d\n", i);
+			errno = ENOMEM;
+			goto destroy_queues;
+		}
+
+		qp_cmd_drv->queue_buf[i] = (uintptr_t)qp->rc_qp.queues[i].buffer;
+		qp_cmd_drv->queue_size[i] = qp->rc_qp.queues[i].size;
+	}
+
+	mana_ib_init_rb_shmem(qp);
+
+	ret = ibv_cmd_create_qp(ibpd, &qp->ibqp.qp, attr, &qp_cmd.ibv_cmd,
+				sizeof(qp_cmd), &qp_resp.ibv_resp,
+				sizeof(qp_resp));
+	if (ret) {
+		verbs_err(verbs_get_ctx(ibpd->context), "Create QP failed\n");
+		errno = ret;
+		goto free_rb;
+	}
+
+	for (i = 0; i < USER_RC_QUEUE_TYPE_MAX; ++i)
+		qp->rc_qp.queues[i].id = qp_resp_drv->queue_id[i];
+
+	qp->ibqp.qp.qp_num = qp->rc_qp.queues[USER_RC_RECV_QUEUE_RESPONDER].id;
+
+	ret = mana_store_qp(ctx, qp, qp->rc_qp.queues[USER_RC_RECV_QUEUE_REQUESTER].id);
+	if (ret) {
+		errno = ret;
+		goto destroy_qp;
+	}
+	ret = mana_store_qp(ctx, qp, qp->rc_qp.queues[USER_RC_RECV_QUEUE_RESPONDER].id);
+	if (ret) {
+		errno = ret;
+		goto remove_qp_req;
+	}
+
+	pthread_spin_lock(&send_cq->lock);
+	list_add(&send_cq->send_qp_list, &qp->send_cq_node);
+	pthread_spin_unlock(&send_cq->lock);
+
+	pthread_spin_lock(&recv_cq->lock);
+	list_add(&recv_cq->recv_qp_list, &qp->recv_cq_node);
+	pthread_spin_unlock(&recv_cq->lock);
+
+	return &qp->ibqp.qp;
+
+remove_qp_req:
+	mana_remove_qp(ctx, qp->rc_qp.queues[USER_RC_RECV_QUEUE_REQUESTER].id);
+destroy_qp:
+	ibv_cmd_destroy_qp(&qp->ibqp.qp);
+free_rb:
+	mana_ib_deinit_rb_shmem(qp);
+destroy_queues:
+	while (i-- > 0)
+		munmap(qp->rc_qp.queues[i].buffer, qp->rc_qp.queues[i].size);
+	destroy_shadow_queue(&qp->shadow_rq);
+destroy_shadow_sq:
+	destroy_shadow_queue(&qp->shadow_sq);
+free_qp:
+	free(qp);
+	return NULL;
+}
+
 struct ibv_qp *mana_create_qp(struct ibv_pd *ibpd,
 			      struct ibv_qp_init_attr *attr)
 {
 	switch (attr->qp_type) {
 	case IBV_QPT_RAW_PACKET:
 		return mana_create_qp_raw(ibpd, attr);
+	case IBV_QPT_RC:
+		return mana_create_qp_rc(ibpd, attr);
 	default:
 		verbs_err(verbs_get_ctx(ibpd->context),
 			  "QP type %u is not supported\n", attr->qp_type);
@@ -192,20 +337,38 @@ int mana_modify_qp(struct ibv_qp *qp, struct ibv_qp_attr *attr, int attr_mask)
 	return EOPNOTSUPP;
 }
 
+static void mana_drain_cqes(struct mana_qp *qp)
+{
+	struct mana_cq *send_cq = container_of(qp->ibqp.qp.send_cq, struct mana_cq, ibcq);
+	struct mana_cq *recv_cq = container_of(qp->ibqp.qp.recv_cq, struct mana_cq, ibcq);
+
+	pthread_spin_lock(&send_cq->lock);
+	while (shadow_queue_get_next_to_consume(&qp->shadow_sq)) {
+		shadow_queue_advance_consumer(&qp->shadow_sq);
+		send_cq->ready_wcs--;
+	}
+	list_del(&qp->send_cq_node);
+	pthread_spin_unlock(&send_cq->lock);
+
+	pthread_spin_lock(&recv_cq->lock);
+	while (shadow_queue_get_next_to_consume(&qp->shadow_rq)) {
+		shadow_queue_advance_consumer(&qp->shadow_rq);
+		recv_cq->ready_wcs--;
+	}
+	list_del(&qp->recv_cq_node);
+	pthread_spin_unlock(&recv_cq->lock);
+}
+
 int mana_destroy_qp(struct ibv_qp *ibqp)
 {
-	int ret;
 	struct mana_qp *qp = container_of(ibqp, struct mana_qp, ibqp.qp);
 	struct mana_context *ctx = to_mctx(ibqp->context);
+	int ret, i;
 
-	if (!ctx->extern_alloc.free) {
-		/*
-		 * This version of driver doesn't support allocating buffers
-		 * in rdma-core.
-		 */
-		verbs_err(verbs_get_ctx(ibqp->context),
-			  "Invalid context in Destroy QP\n");
-		return -EINVAL;
+	if (ibqp->qp_type == IBV_QPT_RC) {
+		mana_remove_qp(ctx, qp->rc_qp.queues[USER_RC_RECV_QUEUE_REQUESTER].id);
+		mana_remove_qp(ctx, qp->rc_qp.queues[USER_RC_RECV_QUEUE_RESPONDER].id);
+		mana_drain_cqes(qp);
 	}
 
 	ret = ibv_cmd_destroy_qp(ibqp);
@@ -214,7 +377,24 @@ int mana_destroy_qp(struct ibv_qp *ibqp)
 		return ret;
 	}
 
-	ctx->extern_alloc.free(qp->raw_qp.send_buf, ctx->extern_alloc.data);
+	switch (ibqp->qp_type) {
+	case IBV_QPT_RAW_PACKET:
+		ctx->extern_alloc.free(qp->raw_qp.send_buf, ctx->extern_alloc.data);
+		break;
+	case IBV_QPT_RC:
+		pthread_spin_destroy(&qp->sq_lock);
+		pthread_spin_destroy(&qp->rq_lock);
+		destroy_shadow_queue(&qp->shadow_sq);
+		destroy_shadow_queue(&qp->shadow_rq);
+		mana_ib_deinit_rb_shmem(qp);
+		for (i = 0; i < USER_RC_QUEUE_TYPE_MAX; ++i)
+			munmap(qp->rc_qp.queues[i].buffer, qp->rc_qp.queues[i].size);
+		break;
+	default:
+		verbs_err(verbs_get_ctx(ibqp->context),
+			  "QP type %u is not supported\n", ibqp->qp_type);
+		errno = EINVAL;
+	}
 	free(qp);
 
 	return 0;
