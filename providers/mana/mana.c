@@ -239,6 +239,7 @@ static const struct verbs_context_ops mana_ctx_ops = {
 	.query_device_ex = mana_query_device_ex,
 	.query_port = mana_query_port,
 	.reg_mr = mana_reg_mr,
+	.req_notify_cq = mana_arm_cq,
 };
 
 static struct verbs_device *mana_device_alloc(struct verbs_sysfs_dev *sysfs_dev)
