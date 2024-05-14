@@ -49,6 +49,7 @@ static inline void gdma_ring_recv_doorbell(struct mana_gdma_queue *wq, uint8_t w
 	e.as_uint64 = 0;
 	e.rx.id = wq->id;
 	e.rx.prod_idx = wq->prod_idx * GDMA_WQE_ALIGNMENT_UNIT_SIZE;
+	e.rx.wqe_cnt = wqe_cnt;
 
 	udma_to_device_barrier();
 	mmio_write64(wq->db_page + DOORBELL_OFFSET_RQ, e.as_uint64);
