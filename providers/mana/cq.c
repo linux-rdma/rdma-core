@@ -49,9 +49,7 @@ struct ibv_cq *mana_create_cq(struct ibv_context *context, int cqe,
 	if (!cq)
 		return NULL;
 
-	cq_size = cqe * COMP_ENTRY_SIZE;
-	cq_size = roundup_pow_of_two(cq_size);
-	cq_size = align(cq_size, MANA_PAGE_SIZE);
+	cq_size = align_hw_size(cqe * COMP_ENTRY_SIZE);
 
 	cq->buf = ctx->extern_alloc.alloc(cq_size, ctx->extern_alloc.data);
 	if (!cq->buf) {
