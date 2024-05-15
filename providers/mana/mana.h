@@ -25,6 +25,10 @@
 #define DOORBELL_PAGE_SIZE 4096
 #define MANA_PAGE_SIZE 4096
 
+#define MANA_QP_TABLE_SIZE 4096
+#define MANA_QP_TABLE_SHIFT 12
+#define MANA_QP_TABLE_MASK (MANA_QP_TABLE_SIZE - 1)
+
 /* PSN 24 bit arithmetic comparisons */
 #define PSN_MASK 0xFFFFFF
 #define PSN_SIGN_BIT 0x800000
@@ -53,6 +57,12 @@ static inline uint32_t get_wqe_size(uint32_t sge)
 
 struct mana_context {
 	struct verbs_context ibv_ctx;
+	struct {
+		struct mana_qp **table;
+		int refcnt;
+	} qp_table[MANA_QP_TABLE_SIZE];
+	pthread_mutex_t qp_table_mutex;
+
 	struct manadv_ctx_allocators extern_alloc;
 	void *db_page;
 };
@@ -190,4 +200,5 @@ int mana_post_recv(struct ibv_qp *ibqp, struct ibv_recv_wr *wr,
 int mana_post_send(struct ibv_qp *ibqp, struct ibv_send_wr *wr,
 		   struct ibv_send_wr **bad);
 
+struct mana_qp *mana_get_qp_from_rq(struct mana_context *ctx, uint32_t qpn);
 #endif

@@ -108,6 +108,70 @@ free_qp:
 	return NULL;
 }
 
+static int mana_store_qp(struct mana_context *ctx, struct mana_qp *qp, uint32_t qid)
+{
+	uint32_t tbl_idx, tbl_off;
+	int ret = 0;
+
+	pthread_mutex_lock(&ctx->qp_table_mutex);
+
+	tbl_idx = qid >> MANA_QP_TABLE_SHIFT;
+	tbl_off = qid & MANA_QP_TABLE_MASK;
+
+	if (ctx->qp_table[tbl_idx].refcnt == 0) {
+		ctx->qp_table[tbl_idx].table =
+			calloc(MANA_QP_TABLE_SIZE, sizeof(struct mana_qp *));
+		if (!ctx->qp_table[tbl_idx].table) {
+			ret = ENOMEM;
+			goto out;
+		}
+	}
+
+	if (ctx->qp_table[tbl_idx].table[tbl_off]) {
+		ret = EBUSY;
+		goto out;
+	}
+
+	ctx->qp_table[tbl_idx].table[tbl_off] = qp;
+	ctx->qp_table[tbl_idx].refcnt++;
+
+out:
+	pthread_mutex_unlock(&ctx->qp_table_mutex);
+	return ret;
+}
+
+static void mana_remove_qp(struct mana_context *ctx, uint32_t qid)
+{
+	uint32_t tbl_idx, tbl_off;
+
+	pthread_mutex_lock(&ctx->qp_table_mutex);
+	tbl_idx = qid >> MANA_QP_TABLE_SHIFT;
+	tbl_off = qid & MANA_QP_TABLE_MASK;
+
+	ctx->qp_table[tbl_idx].table[tbl_off] = NULL;
+	ctx->qp_table[tbl_idx].refcnt--;
+
+	if (ctx->qp_table[tbl_idx].refcnt == 0) {
+		free(ctx->qp_table[tbl_idx].table);
+		ctx->qp_table[tbl_idx].table = NULL;
+	}
+
+	pthread_mutex_unlock(&ctx->qp_table_mutex);
+}
+
+struct mana_qp *mana_get_qp_from_rq(struct mana_context *ctx, uint32_t qid)
+{
+	uint32_t tbl_idx, tbl_off;
+
+	tbl_idx = qid >> MANA_QP_TABLE_SHIFT;
+	tbl_off = qid & MANA_QP_TABLE_MASK;
+
+	if (!ctx->qp_table[tbl_idx].table)
+		return NULL;
+
+	return ctx->qp_table[tbl_idx].table[tbl_off];
+}
+
 struct ibv_qp *mana_create_qp(struct ibv_pd *ibpd,
 			      struct ibv_qp_init_attr *attr)
 {
