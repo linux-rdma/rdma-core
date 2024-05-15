@@ -201,6 +201,15 @@ int mana_dereg_mr(struct verbs_mr *vmr)
 static void mana_free_context(struct ibv_context *ibctx)
 {
 	struct mana_context *context = to_mctx(ibctx);
+	int i;
+
+	pthread_mutex_lock(&context->qp_table_mutex);
+	for (i = 0; i < MANA_QP_TABLE_SIZE; ++i) {
+		if (context->qp_table[i].refcnt)
+			free(context->qp_table[i].table);
+	}
+	pthread_mutex_unlock(&context->qp_table_mutex);
+	pthread_mutex_destroy(&context->qp_table_mutex);
 
 	munmap(context->db_page, DOORBELL_PAGE_SIZE);
 	verbs_uninit_context(&context->ibv_ctx);
@@ -254,7 +263,7 @@ static void mana_uninit_device(struct verbs_device *verbs_device)
 static struct verbs_context *mana_alloc_context(struct ibv_device *ibdev,
 						int cmd_fd, void *private_data)
 {
-	int ret;
+	int ret, i;
 	struct mana_context *context;
 	struct mana_alloc_ucontext_resp resp;
 	struct ibv_get_context cmd;
@@ -273,6 +282,10 @@ static struct verbs_context *mana_alloc_context(struct ibv_device *ibdev,
 	}
 
 	verbs_set_ops(&context->ibv_ctx, &mana_ctx_ops);
+
+	pthread_mutex_init(&context->qp_table_mutex, NULL);
+	for (i = 0; i < MANA_QP_TABLE_SIZE; ++i)
+		context->qp_table[i].refcnt = 0;
 
 	context->db_page = mmap(NULL, DOORBELL_PAGE_SIZE, PROT_WRITE,
 				MAP_SHARED, context->ibv_ctx.context.cmd_fd, 0);
