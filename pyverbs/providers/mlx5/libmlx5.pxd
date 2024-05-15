@@ -479,6 +479,9 @@ cdef extern from 'infiniband/mlx5dv.h':
                                                                  void *data,
                                                                  unsigned char reformat_type,
                                                                  unsigned char ft_type)
+    v.ibv_mr *mlx5dv_reg_dmabuf_mr(v.ibv_pd *pd, uint64_t offset, size_t length, uint64_t iova,
+                                   int fd, int access, int mlx5_access)
+    int mlx5dv_get_data_direct_sysfs_path(v.ibv_context *context, char *buf, size_t buf_len)
 
     # Direct rules verbs
     mlx5dv_dr_domain *mlx5dv_dr_domain_create(v.ibv_context *ctx, mlx5dv_dr_domain_type type)

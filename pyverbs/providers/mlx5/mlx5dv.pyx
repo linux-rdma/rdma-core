@@ -446,6 +446,18 @@ cdef class Mlx5Context(Context):
             raise PyverbsRDMAError('Failed to query EQN', rc)
         return eqn
 
+    def get_data_direct_sysfs_path(self, length=512):
+        cdef char *buffer = <char *> calloc(1, length)
+        if buffer == NULL:
+            raise MemoryError('Failed to allocate memory')
+        rc = dv.mlx5dv_get_data_direct_sysfs_path(self.context, buffer, length)
+        if rc:
+            free(buffer)
+            raise PyverbsRDMAError('Get data direct sysfs path failed.', rc)
+        buffer_str = str(buffer.decode())
+        free(buffer)
+        return buffer_str
+
     cdef add_ref(self, obj):
         try:
             Context.add_ref(self, obj)
