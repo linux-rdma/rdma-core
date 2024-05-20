@@ -1437,9 +1437,9 @@ struct ibv_qp *hnsdv_create_qp(struct ibv_context *context,
 int hnsdv_query_device(struct ibv_context *context,
 		       struct hnsdv_context *attrs_out)
 {
-	struct hns_roce_device *hr_dev = to_hr_dev(context->device);
+	struct hns_roce_device *hr_dev;
 
-	if (!hr_dev || !attrs_out)
+	if (!context || !context->device || !attrs_out)
 		return EINVAL;
 
 	if (!is_hns_dev(context->device)) {
@@ -1448,6 +1448,7 @@ int hnsdv_query_device(struct ibv_context *context,
 	}
 	memset(attrs_out, 0, sizeof(*attrs_out));
 
+	hr_dev = to_hr_dev(context->device);
 	attrs_out->comp_mask |= HNSDV_CONTEXT_MASK_CONGEST_TYPE;
 	attrs_out->congest_type = hr_dev->congest_cap;
 
