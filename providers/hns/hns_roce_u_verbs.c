@@ -525,8 +525,6 @@ static int verify_srq_create_attr(struct hns_roce_context *context,
 static void set_srq_param(struct ibv_context *context, struct hns_roce_srq *srq,
 			  struct ibv_srq_init_attr_ex *attr)
 {
-	struct hns_roce_context *ctx = to_hr_ctx(context);
-
 	if (to_hr_dev(context->device)->hw_version == HNS_ROCE_HW_VER2)
 		srq->rsv_sge = 1;
 
@@ -536,10 +534,6 @@ static void set_srq_param(struct ibv_context *context, struct hns_roce_srq *srq,
 						      srq->max_gs));
 	attr->attr.max_sge = srq->max_gs;
 	attr->attr.srq_limit = 0;
-
-	srq->srq_rinl_buf.wqe_cnt = 0;
-	if (ctx->config & HNS_ROCE_RSP_CQE_INLINE_FLAGS)
-		srq->srq_rinl_buf.wqe_cnt = srq->wqe_cnt;
 }
 
 static int alloc_srq_idx_que(struct hns_roce_srq *srq)
@@ -596,22 +590,14 @@ static int alloc_srq_buf(struct hns_roce_srq *srq)
 	if (ret)
 		goto err_idx_que;
 
-	if (srq->srq_rinl_buf.wqe_cnt) {
-		ret = alloc_recv_rinl_buf(srq->max_gs, &srq->srq_rinl_buf);
-		if (ret)
-			goto err_wqe_buf;
-	}
-
 	srq->wrid = calloc(srq->wqe_cnt, sizeof(*srq->wrid));
 	if (!srq->wrid) {
 		ret = -ENOMEM;
-		goto err_inl_buf;
+		goto err_wqe_buf;
 	}
 
 	return 0;
 
-err_inl_buf:
-	free_recv_rinl_buf(&srq->srq_rinl_buf);
 err_wqe_buf:
 	hns_roce_free_buf(&srq->wqe_buf);
 err_idx_que:
@@ -625,7 +611,6 @@ static void free_srq_buf(struct hns_roce_srq *srq)
 {
 	free(srq->wrid);
 	hns_roce_free_buf(&srq->wqe_buf);
-	free_recv_rinl_buf(&srq->srq_rinl_buf);
 	hns_roce_free_buf(&srq->idx_que.buf);
 	free(srq->idx_que.bitmap);
 }

@@ -273,7 +273,6 @@ struct hns_roce_srq {
 	struct verbs_srq		verbs_srq;
 	struct hns_roce_idx_que		idx_que;
 	struct hns_roce_buf		wqe_buf;
-	struct hns_roce_rinl_buf	srq_rinl_buf;
 	pthread_spinlock_t		lock;
 	unsigned long			*wrid;
 	unsigned int			srqn;
