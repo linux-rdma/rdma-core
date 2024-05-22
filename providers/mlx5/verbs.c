@@ -1066,6 +1066,12 @@ static struct ibv_cq_ex *create_cq(struct ibv_context *context,
 	}
 
 	if (mctx->cq_uar) {
+		if (mctx->cq_uar->page_id >= (1ul << 16)) {
+			mlx5_dbg(fp, MLX5_DBG_CQ,
+				 "UAR page index larger than 16 bits is not supported\n");
+			errno = EINVAL;
+			goto err_db;
+		}
 		cmd_drv->flags |= MLX5_IB_CREATE_CQ_FLAGS_UAR_PAGE_INDEX;
 		cmd_drv->uar_page_index = mctx->cq_uar->page_id;
 	}
