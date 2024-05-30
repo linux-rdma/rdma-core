@@ -656,6 +656,7 @@ cdef extern from 'infiniband/verbs.h':
                       int index, ibv_gid *gid)
     int ibv_query_pkey(ibv_context *context, unsigned int port_num,
                        int index, uint16_t *pkey)
+    int ibv_get_pkey_index(ibv_context *context, unsigned int port_num, uint16_t pkey)
     ibv_pd *ibv_alloc_pd(ibv_context *context)
     int ibv_dealloc_pd(ibv_pd *pd)
     ibv_mr *ibv_reg_mr(ibv_pd *pd, void *addr, size_t length, int access)

@@ -109,12 +109,12 @@ class Mlx5DmOpAddresses(Mlx5PyverbsAPITestCase):
                 raise ex
             inc_addr.write(b'\x01')
             inc_addr.write(b'\x01')
-            # Now we should read 0x02 and the memory set to ffs
+            # Now we should read 0x02 and the memory set to 0x1
             val = int.from_bytes(test_and_set_addr.read(1), 'big')
             self.assertEqual(val, 2)
-            # Verify that TEST_AND_SET set the memory to ffs
+            # Verify that TEST_AND_SET set the memory to 0x1
             val = int.from_bytes(test_and_set_addr.read(1), 'big')
-            self.assertEqual(val, 255)
+            self.assertEqual(val, 1)
             inc_addr.unmap(self.dm_size)
             test_and_set_addr.unmap(self.dm_size)
 
@@ -146,5 +146,5 @@ class Mlx5DmOpAddresses(Mlx5PyverbsAPITestCase):
                 raise self.skip_queue.get()
 
             val = int.from_bytes(self._read_from_op_addr(), 'big')
-            self.assertEqual(val, num_threads - 1,
-                             f'Read value is ({val}) is different than expected ({num_threads-1})' )
+            self.assertEqual(val, num_threads + 1,
+                             f'Read value is ({val}) is different than expected ({num_threads+1})' )

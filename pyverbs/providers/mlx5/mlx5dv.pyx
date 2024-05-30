@@ -1,7 +1,7 @@
 # SPDX-License-Identifier: (GPL-2.0 OR Linux-OpenIB)
 # Copyright (c) 2019 Mellanox Technologies, Inc. All rights reserved. See COPYING file
 
-from libc.stdint cimport uintptr_t, uint8_t, uint16_t, uint32_t
+from libc.stdint cimport uintptr_t, uint8_t, uint16_t, uint32_t, uint64_t
 from libc.string cimport memcpy, memset
 from libc.stdlib cimport calloc, free
 from posix.mman cimport munmap
@@ -1427,24 +1427,46 @@ cdef class Mlx5DmOpAddr(PyverbsCM):
     def unmap(self, length):
         munmap(self.addr, length)
 
+    @staticmethod
+    cdef void _cpy(void *dst, void *src, int length):
+        """
+        Copy data (bytes) from src to dst. To ensure atomicity, copy in a single
+        write operation.
+        :param dst: The address to copy from.
+        :param src: The address to copy to.
+        :param length: Length in bytes. (supports: power of two. up to 8 bytes)
+        """
+        if length == 1:
+            (<uint8_t *> dst)[0] = (<uint8_t *> src)[0]
+        elif length == 2:
+            (<uint16_t *> dst)[0] = (<uint16_t *> src)[0]
+        elif length == 4:
+            (<uint32_t *> dst)[0] = (<uint32_t *> src)[0]
+        elif length == 8:
+            (<uint64_t *> dst)[0] = (<uint64_t *> src)[0]
+        elif length == 16:
+            raise PyverbsUserError('Currently PyVerbs does not support 16 bytes Memic Atomic operations')
+        else:
+            raise PyverbsUserError(f'Memic Atomic operations do not support with length: {length}')
+
     def write(self, data):
         """
-        Writes data (bytes) to the DM operation address using memcpy.
+        Writes data (bytes) to the DM operation address.
         :param data: Bytes of data
         """
-        memcpy(<char *>self.addr, <char *>data, len(data))
+        length = len(data)
+        Mlx5DmOpAddr._cpy(<void *> self.addr, <void *><char *> data, length)
+
 
     def read(self, length):
         """
-        Reads 'length' bytes from the DM operation address using memcpy.
+        Reads 'length' bytes from the DM operation address.
         :param length: Data length to read (in bytes)
         :return: Read data in bytes
         """
-        cdef char *data = <char*> calloc(length, sizeof(char))
-        if data == NULL:
-            raise PyverbsError('Failed to allocate memory')
-        memcpy(<char *>data, <char *>self.addr, length)
-        res = data[:length]
+        cdef void *data = calloc(length, sizeof(char))
+        Mlx5DmOpAddr._cpy(data, <void *>self.addr, length)
+        res = (<char *> data)[:length]
         free(data)
         return res
 

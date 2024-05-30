@@ -1,8 +1,8 @@
 from pyverbs.mem_alloc import mmap, munmap, madvise, MAP_ANONYMOUS_, MAP_PRIVATE_, \
     MAP_HUGETLB_
 from tests.base import RCResources, UDResources, XRCResources
+from pyverbs.qp import QPCap, QPAttr, QPInitAttr
 from pyverbs.wr import SGE, SendWR, RecvWR
-from pyverbs.qp import QPAttr, QPInitAttr
 from tests.base import RDMATestCase
 from pyverbs.mr import MR
 import pyverbs.enums as e
@@ -32,7 +32,8 @@ class OdpRC(RCResources):
     def __init__(self, dev_name, ib_port, gid_index, is_huge=False,
                  request_user_addr=False, use_mr_prefetch=None, is_implicit=False,
                  prefetch_advice=e._IBV_ADVISE_MR_ADVICE_PREFETCH_WRITE,
-                 msg_size=1024, odp_caps=e.IBV_ODP_SUPPORT_SEND | e.IBV_ODP_SUPPORT_RECV):
+                 msg_size=1024, odp_caps=e.IBV_ODP_SUPPORT_SEND | e.IBV_ODP_SUPPORT_RECV,
+                 use_mixed_mr=False):
         """
         Initialize an OdpRC object.
         :param dev_name: Device name to be used
@@ -47,6 +48,7 @@ class OdpRC(RCResources):
         :param is_implicit: If True, register implicit MR.
         :param prefetch_advice: The advice of the prefetch request (ignored
                                 if use_mr_prefetch is None).
+        :param use_mixed_mr: If True, create a non-ODP MR in addition to the ODP MR.
         """
         self.is_huge = is_huge
         self.request_user_addr = request_user_addr
@@ -56,6 +58,8 @@ class OdpRC(RCResources):
             e.IBV_ACCESS_REMOTE_ATOMIC | e.IBV_ACCESS_REMOTE_READ | \
             e.IBV_ACCESS_REMOTE_WRITE
         self.user_addr = None
+        self.use_mixed_mr = use_mixed_mr
+        self.non_odp_mr = None
         super(OdpRC, self).__init__(dev_name=dev_name, ib_port=ib_port,
                                     gid_index=gid_index)
         self.use_mr_prefetch = use_mr_prefetch
@@ -77,6 +81,8 @@ class OdpRC(RCResources):
             access |= e.IBV_ACCESS_HUGETLB
         self.mr = MR(self.pd, self.msg_size, access, address=self.user_addr,
                      implicit=self.is_implicit)
+        if self.use_mixed_mr:
+            self.non_odp_mr = MR(self.pd, self.msg_size, e.IBV_ACCESS_LOCAL_WRITE)
 
     def create_qp_init_attr(self):
         return QPInitAttr(qp_type=e.IBV_QPT_RC, scq=self.cq, sq_sig_all=0,
@@ -86,6 +92,11 @@ class OdpRC(RCResources):
         qp_attr = QPAttr(port_num=self.ib_port)
         qp_attr.qp_access_flags = self.access
         return qp_attr
+
+    def create_qp_cap(self):
+        if self.use_mixed_mr:
+            return QPCap(max_recv_wr=self.num_msgs, max_send_sge=2, max_recv_sge=2)
+        return super().create_qp_cap()
 
 
 class OdpXRC(XRCResources):
@@ -132,6 +143,11 @@ class OdpTestCase(RDMATestCase):
 
     def test_odp_rc_traffic(self):
         self.create_players(OdpRC, request_user_addr=self.force_page_faults)
+        u.traffic(**self.traffic_args)
+
+    def test_odp_rc_mixed_mr(self):
+        self.create_players(OdpRC, request_user_addr=self.force_page_faults,
+                            use_mixed_mr=True)
         u.traffic(**self.traffic_args)
 
     def test_odp_rc_atomic_cmp_and_swp(self):

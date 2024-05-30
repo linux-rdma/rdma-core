@@ -12,19 +12,19 @@ from pyverbs.base cimport close_weakrefs
 cimport pyverbs.libibverbs_enums as e
 from pyverbs.device cimport Context
 from pyverbs.wr cimport RecvWR
-from pyverbs.cq cimport CQ
+from pyverbs.cq cimport CQ, CQEX
 from pyverbs.pd cimport PD
 from pyverbs.qp cimport QP
 
 
 cdef class WQInitAttr(PyverbsObject):
-    def __init__(self, wq_context=None, PD wq_pd=None, CQ wq_cq=None, wq_type=e.IBV_WQT_RQ,
+    def __init__(self, wq_context=None, PD wq_pd=None, wq_cq=None, wq_type=e.IBV_WQT_RQ,
                  max_wr=100, max_sge=1, comp_mask=0, create_flags=0):
         """
         Initializes a WqInitAttr object representing ibv_wq_init_attr struct.
         :param wq_context: Associated WQ context
         :param wq_pd: PD to be associated with the WQ
-        :param wq_cq: CQ to be associated with the WQ
+        :param wq_cq: CQ or CQEX to be associated with the WQ
         :param wp_type: The desired WQ type
         :param max_wr: Requested max number of outstanding WRs in the WQ
         :param max_sge: Requested max number of scatter/gather (s/g) elements per WR in the WQ
@@ -40,7 +40,13 @@ cdef class WQInitAttr(PyverbsObject):
         self.pd = wq_pd
         self.attr.pd = wq_pd.pd if wq_pd else NULL
         self.cq = wq_cq
-        self.attr.cq = wq_cq.cq if wq_cq else NULL
+        if wq_cq:
+            if isinstance(wq_cq, CQ):
+                self.attr.cq = (<CQ>wq_cq).cq
+            else:
+                self.attr.cq = (<CQEX>wq_cq).ibv_cq
+        else:
+            self.attr.cq = NULL
         self.attr.comp_mask = comp_mask
         self.attr.create_flags = create_flags
 
@@ -63,9 +69,12 @@ cdef class WQInitAttr(PyverbsObject):
     def cq(self):
         return self.cq
     @cq.setter
-    def cq(self, CQ val):
+    def cq(self, val):
         self.cq = val
-        self.attr.cq = <v.ibv_cq*>val.cq
+        if isinstance(val, CQ):
+            self.attr.cq = (<CQ>val).cq
+        else:
+            self.attr.cq = (<CQEX>val).ibv_cq
 
 
 cdef class WQAttr(PyverbsObject):
@@ -140,9 +149,11 @@ cdef class WQ(PyverbsCM):
         pd = <PD>attr.pd
         pd.add_ref(self)
         self.pd = pd
-        cq = <CQ>attr.cq
-        cq.add_ref(self)
-        self.cq = cq
+        if isinstance(attr.cq, CQ):
+            (<CQ>attr.cq).add_ref(self)
+        elif isinstance(attr.cq, CQEX):
+            (<CQEX>attr.cq).add_ref(self)
+        self.cq = attr.cq
         self.rwq_ind_tables = weakref.WeakSet()
 
     cpdef add_ref(self, obj):
