@@ -3586,9 +3586,9 @@ struct ibv_srq *mlx5_create_srq_ex(struct ibv_context *context,
 	 */
 	max_sge = ctx->max_recv_wr / sizeof(struct mlx5_wqe_data_seg);
 	if (attr->attr.max_sge > max_sge) {
-		mlx5_err(ctx->dbg_fp, "%s-%d:max_wr %d, max_srq_recv_wr %d\n",
-			 __func__, __LINE__, attr->attr.max_wr,
-			 ctx->max_srq_recv_wr);
+		mlx5_err(ctx->dbg_fp, "%s-%d:attr.max_sge %d, max_sge %d\n",
+			 __func__, __LINE__, attr->attr.max_sge,
+			 max_sge);
 		errno = EINVAL;
 		goto err;
 	}
