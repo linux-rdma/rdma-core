@@ -1163,8 +1163,11 @@ static inline int mlx5_start_poll(struct ibv_cq_ex *ibcq, struct ibv_poll_cq_att
 		goto out;
 	}
 
-	if (clock_update && !err)
+	if (clock_update && !err) {
 		err = mlx5dv_get_clock_info(ibcq->context, &cq->last_clock_info);
+		if (lock && err)
+			mlx5_spin_unlock(&cq->lock);
+	}
 
 out:
 	return err;
