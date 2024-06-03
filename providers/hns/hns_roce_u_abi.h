@@ -36,6 +36,7 @@
 #include <infiniband/kern-abi.h>
 #include <rdma/hns-abi.h>
 #include <kernel-abi/hns-abi.h>
+#include "hnsdv.h"
 
 DECLARE_DRV_CMD(hns_roce_alloc_pd, IB_USER_VERBS_CMD_ALLOC_PD,
 		empty, hns_roce_ib_alloc_pd_resp);
@@ -63,5 +64,8 @@ DECLARE_DRV_CMD(hns_roce_create_srq_ex, IB_USER_VERBS_CMD_CREATE_XSRQ,
 
 DECLARE_DRV_CMD(hns_roce_create_ah, IB_USER_VERBS_CMD_CREATE_AH, empty,
 		hns_roce_ib_create_ah_resp);
+
+DECLARE_DRV_CMD(hns_roce_modify_qp_ex, IB_USER_VERBS_EX_CMD_MODIFY_QP,
+		empty, hns_roce_ib_modify_qp_resp);
 
 #endif /* _HNS_ROCE_U_ABI_H */

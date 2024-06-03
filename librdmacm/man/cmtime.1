@@ -7,15 +7,35 @@ cmtime \- RDMA CM connection steps timing test.
 .nf
 \fIcmtime\fR [-s server_address] [-b bind_address]
 			[-c connections] [-p port_number]
+			[-q base_qpn]
 			[-r retries] [-t timeout_ms]
 .fi
 .SH "DESCRIPTION"
-Determines min and max times for various "steps" in RDMA CM
+Determines min, max, and average times for various "steps" in RDMA CM
 connection setup and teardown between a client and server
 application.
 
-"Steps" that are timed are: create id, bind address, resolve address,
-resolve route, create qp, connect, disconnect, and destroy.
+"Steps" that are timed are: create ID, bind address, resolve address,
+resolve route, create QP, modify QP to INIT, modify QP to RTR,
+modify QP to RTS, CM connect, client establish, disconnect, destroy QP,
+and destroy ID.
+
+Many operations are asynchronous, allowing progress on multiple connections
+simultanesously.  The 'sum' output adds the time that all connections took
+for a given step.  The average 'us/conn' is the sum divided by the number
+of connections.  This is useful to identify steps which take a significant
+amount of time.  The min and max values are the smallest and largest times
+that any single connection took to complete a given step.
+
+The 'total' and 'avg/iter' times measure the time to complete a given step
+for all connections.  These two values take into account asynchronous
+operations.  For steps which are serial, the total and sum values will be
+roughly the same.  For asynchronous steps, the total may be significantly
+lower than the sum, as multiple connections will be in progress simultanesously.
+The avg/iter is the total time divided by the number of connections.
+
+In many cases, times may not be available or only available on the client.
+Is such situations, the output will show 0.
 .SH "OPTIONS"
 .TP
 \-s server_address
@@ -33,8 +53,28 @@ server.  (default 100)
 \-p port_number
 The server's port number.
 .TP
+\-q base_qpn
+The first QP number to use when creating connections without allocating
+hardware QPs.  The test will use the values between base_qpn and base_qpn
+plus connections when connecting.  (default 1000)
+.TP
+\-n num_threads
+Sets the number of threads to spawn used to process connection events
+and hardware operations.  (default 1)
+.TP
+\-m mimic_qp_delay_us
+"Simulates" QP creation and modify calls by replacing them with a
+simple sleep function instead.  This allows testing the CM at larger
+scale than would be practical, or even possible given system
+configuration settings, if HW resources needed to be allocated.
+.TP
 \-r retries
 Number of retries when resolving address or route.  (default 2)
+.TP
+\-S
+Run connection rate test using sockets.  This provides a baseline
+comparison of RDMA connections versus TCP connections.  Sockets are
+set to blocking mode.
 .TP
 \-t timeout_ms
 Timeout in millseconds (ms) when resolving address or

@@ -407,6 +407,8 @@ def get_send_elements(agr_obj, is_server, opcode=e.IBV_WR_SEND):
     :param is_server: Indicates whether this is server or client side
     :return: send wr and its SGE
     """
+    if hasattr(agr_obj, 'use_mixed_mr') and agr_obj.use_mixed_mr:
+        return get_send_elements_mixed_mr(agr_obj, is_server, opcode)
     if opcode == e.IBV_WR_ATOMIC_WRITE:
         atomic_wr = agr_obj.msg_size * (b's' if is_server else b'c')
         return None, atomic_wr
@@ -422,9 +424,30 @@ def get_send_elements(agr_obj, is_server, opcode=e.IBV_WR_SEND):
         send_wr.set_wr_rdma(int(agr_obj.rkey), int(agr_obj.raddr))
     return send_wr, sge
 
+
+def get_send_elements_mixed_mr(agr_obj, is_server, opcode=e.IBV_WR_SEND):
+    """
+    Creates 2 SGEs and a single Send WR for agr_obj's QP type. There are 2 messages,
+    one for each MR. The content of the message is either 's' for server side or 'c'
+    for client side.
+    :param agr_obj: Aggregation object which contains all resources necessary
+    :param is_server: Indicates whether this is server or client side
+    :param opcode: send WR opcode
+    :return: send wr and its SG list
+    """
+    msg = (agr_obj.msg_size) * ('s' if is_server else 'c')
+    agr_obj.mr.write(msg, agr_obj.msg_size)
+    agr_obj.non_odp_mr.write(msg, agr_obj.msg_size)
+    sge1 = SGE(agr_obj.mr.buf, agr_obj.msg_size, agr_obj.mr.lkey)
+    sge2 = SGE(agr_obj.non_odp_mr.buf, agr_obj.msg_size, agr_obj.non_odp_mr.lkey)
+    send_wr = SendWR(opcode=opcode, num_sge=2, sg=[sge1, sge2])
+    return send_wr, [sge1, sge2]
+
+
 def get_recv_wr(agr_obj):
     """
-    Creates a single SGE Recv WR for agr_obj's QP type.
+    Creates a single SGE Recv WR for agr_obj's QP type. In case of mixed MRs,
+    creates 2 SGEs accordingly.
     :param agr_obj: Aggregation object which contains all resources necessary
     :return: recv wr
     """
@@ -433,8 +456,11 @@ def get_recv_wr(agr_obj):
     mr = agr_obj.mr
     length = agr_obj.msg_size + GRH_SIZE if qp_type == e.IBV_QPT_UD \
              else agr_obj.msg_size
-    recv_sge = SGE(mr.buf, length, mr.lkey)
-    return RecvWR(sg=[recv_sge], num_sge=1)
+    recv_sgl = [SGE(mr.buf, length, mr.lkey)]
+    if hasattr(agr_obj, 'use_mixed_mr') and agr_obj.use_mixed_mr:
+        sec_mr = agr_obj.non_odp_mr
+        recv_sgl.append(SGE(sec_mr.buf,length,sec_mr.lkey))
+    return RecvWR(sg=recv_sgl, num_sge=len(recv_sgl))
 
 
 def get_global_ah(agr_obj, gid_index, port):
@@ -764,8 +790,9 @@ def traffic(client, server, iters, gid_idx, port, is_cq_ex=False, send_op=e.IBV_
             poll(client.cq)
             poll(server.cq, data=imm_data)
             post_recv(server, s_recv_wr, qp_idx=qp_idx)
-            msg_received = server.mr.read(server.msg_size, read_offset)
-            validate(msg_received, True, server.msg_size)
+            msg_received_list = get_msg_received(server, read_offset)
+            for msg in msg_received_list:
+                validate(msg, True, server.msg_size)
             s_send_wr, s_sg = get_send_elements(server, True, send_op)
             if server.use_mr_prefetch:
                 flags = e._IBV_ADVISE_MR_FLAG_FLUSH
@@ -779,8 +806,16 @@ def traffic(client, server, iters, gid_idx, port, is_cq_ex=False, send_op=e.IBV_
             poll(server.cq)
             poll(client.cq, data=imm_data)
             post_recv(client, c_recv_wr, qp_idx=qp_idx)
-            msg_received = client.mr.read(client.msg_size, read_offset)
-            validate(msg_received, False, client.msg_size)
+            msg_received_list = get_msg_received(client,read_offset)
+            for msg in msg_received_list:
+                validate(msg, False, server.msg_size)
+
+
+def get_msg_received(agr_obj, read_offset):
+    msg_received_list = [agr_obj.mr.read(agr_obj.msg_size, read_offset)]
+    if hasattr(agr_obj, 'use_mixed_mr') and agr_obj.use_mixed_mr:
+        msg_received_list.append(agr_obj.non_odp_mr.read(agr_obj.msg_size, read_offset))
+    return msg_received_list
 
 
 def gen_ethernet_header(dst_mac=PacketConsts.DST_MAC, src_mac=PacketConsts.SRC_MAC,
@@ -1667,3 +1702,11 @@ def high_rate_send(agr_obj, packet, rate_limit, timeout=2):
     # Calculate the rate
     rate = agr_obj.msg_size * iterations / timeout / 1000000
     assert rate > rate_limit, 'Traffic rate is smaller than minimal rate for the test'
+
+
+def get_pkey_from_kernel(device, port=1, index=0):
+    path = f'/sys/class/infiniband/{device}/ports/{port}/pkeys/{index}'
+    output = subprocess.check_output(['cat', path], universal_newlines=True)
+    pkey_hex = output.strip()
+    pkey_decimal = int(pkey_hex, 16)
+    return pkey_decimal

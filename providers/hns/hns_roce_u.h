@@ -158,6 +158,7 @@ struct hns_roce_device {
 	int				page_size;
 	const struct hns_roce_u_hw	*u_hw;
 	int				hw_version;
+	uint8_t                         congest_cap;
 };
 
 struct hns_roce_buf {
@@ -180,6 +181,11 @@ enum hns_roce_pktype {
 	HNS_ROCE_PKTYPE_ROCE_V1,
 	HNS_ROCE_PKTYPE_ROCE_V2_IPV6,
 	HNS_ROCE_PKTYPE_ROCE_V2_IPV4,
+};
+
+enum hns_roce_tc_map_mode {
+	HNS_ROCE_TC_MAP_MODE_PRIO,
+	HNS_ROCE_TC_MAP_MODE_DSCP,
 };
 
 struct hns_roce_db_page {
@@ -267,7 +273,6 @@ struct hns_roce_srq {
 	struct verbs_srq		verbs_srq;
 	struct hns_roce_idx_que		idx_que;
 	struct hns_roce_buf		wqe_buf;
-	struct hns_roce_rinl_buf	srq_rinl_buf;
 	pthread_spinlock_t		lock;
 	unsigned long			*wrid;
 	unsigned int			srqn;
@@ -323,6 +328,8 @@ struct hns_roce_qp {
 	unsigned int			next_sge;
 	int				port_num;
 	uint8_t				sl;
+	uint8_t				tc_mode;
+	uint8_t				priority;
 	unsigned int			qkey;
 	enum ibv_mtu			path_mtu;
 
@@ -493,6 +500,8 @@ void hns_roce_free_buf(struct hns_roce_buf *buf);
 void hns_roce_free_qp_buf(struct hns_roce_qp *qp, struct hns_roce_context *ctx);
 
 void hns_roce_init_qp_indices(struct hns_roce_qp *qp);
+
+bool is_hns_dev(struct ibv_device *device);
 
 extern const struct hns_roce_u_hw hns_roce_u_hw_v2;
 

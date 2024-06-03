@@ -629,7 +629,7 @@ class DmaBufTestCase(RDMATestCase):
 
 
 class DeviceMemoryRes(RCResources):
-    def __init__(self, dev_name, ib_port, gid_index, remote_access=False):
+    def __init__(self, dev_name, ib_port, gid_index, remote_access=False, msg_size=1024):
         """
         Initialize DM resources based on RC resources that include RC
         QP.
@@ -637,17 +637,19 @@ class DeviceMemoryRes(RCResources):
         :param ib_port: IB port of the device to use.
         :param gid_index: Which GID index to use.
         :param remote_access: If True, enable remote access.
+        :param msg_size: Message size (default: 1024).
         """
         self.remote_access = remote_access
         super().__init__(dev_name=dev_name, ib_port=ib_port,
-                         gid_index=gid_index)
+                         gid_index=gid_index, msg_size=msg_size)
 
     def create_mr(self):
         try:
             self.dm = d.DM(self.ctx, d.AllocDmAttr(length=self.msg_size))
             access = e.IBV_ACCESS_ZERO_BASED | e.IBV_ACCESS_LOCAL_WRITE
             if self.remote_access:
-                access |= e.IBV_ACCESS_REMOTE_WRITE
+                access |= e.IBV_ACCESS_REMOTE_WRITE | e.IBV_ACCESS_REMOTE_READ | \
+                          e.IBV_ACCESS_REMOTE_ATOMIC
             self.mr = DMMR(self.pd, self.msg_size, access, self.dm, 0)
         except PyverbsRDMAError as ex:
             if ex.error_code == errno.EOPNOTSUPP:
@@ -658,7 +660,8 @@ class DeviceMemoryRes(RCResources):
         qp_attr = QPAttr(port_num=self.ib_port)
         qp_attr.qp_access_flags = e.IBV_ACCESS_LOCAL_WRITE
         if self.remote_access:
-            qp_attr.qp_access_flags |= e.IBV_ACCESS_REMOTE_WRITE
+            qp_attr.qp_access_flags |= e.IBV_ACCESS_REMOTE_WRITE | e.IBV_ACCESS_REMOTE_READ | \
+                                       e.IBV_ACCESS_REMOTE_ATOMIC
         return qp_attr
 
 
@@ -687,3 +690,19 @@ class DeviceMemoryTest(RDMATestCase):
     def test_dm_remote_traffic(self):
         self.create_players(DeviceMemoryRes, remote_access=True)
         u.rdma_traffic(**self.traffic_args, send_op=e.IBV_WR_RDMA_WRITE)
+
+    def test_dm_remote_write_traffic_imm(self):
+        self.create_players(DeviceMemoryRes, remote_access=True)
+        u.traffic(**self.traffic_args, send_op=e.IBV_WR_RDMA_WRITE_WITH_IMM)
+
+    def test_dm_remote_read_traffic(self):
+        self.create_players(DeviceMemoryRes, remote_access=True)
+        u.rdma_traffic(**self.traffic_args, send_op=e.IBV_WR_RDMA_READ)
+
+    def test_dm_atomic_fetch_add(self):
+        self.create_players(DeviceMemoryRes, remote_access=True, msg_size=8)
+        u.atomic_traffic(**self.traffic_args, send_op=e.IBV_WR_ATOMIC_FETCH_AND_ADD)
+
+    def test_dm_atomic_cmp_swp(self):
+        self.create_players(DeviceMemoryRes, remote_access=True, msg_size=8)
+        u.atomic_traffic(**self.traffic_args, send_op=e.IBV_WR_ATOMIC_CMP_AND_SWP)

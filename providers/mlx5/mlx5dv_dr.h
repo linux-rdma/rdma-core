@@ -1566,7 +1566,7 @@ int dr_devx_modify_qp_rst2init(struct ibv_context *ctx,
 struct dr_gid_attr {
 	union ibv_gid		gid;
 	enum roce_version	roce_ver;
-	uint8_t			mac[6];
+	uint8_t			mac[ETHERNET_LL_SIZE];
 };
 
 struct dr_devx_qp_rtr_attr {

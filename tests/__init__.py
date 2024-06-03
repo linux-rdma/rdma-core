@@ -29,7 +29,7 @@ def _show_tests_and_exit(loader, standard_tests, pattern):
     loadTestsFromModule protocol, without modifying standard_tests.
     """
     for mod in __test_modules__:
-        for test in loader.loadTestsFromModule(mod, pattern):
+        for test in loader.loadTestsFromModule(mod, pattern=pattern):
             for test_case in test:
                 print(test_case.id())
     return standard_tests
@@ -40,5 +40,5 @@ def load_tests(loader, standard_tests, pattern):
     if parser.args['list_tests']:
         return _show_tests_and_exit(loader, standard_tests, pattern)
     for mod in __test_modules__:
-        standard_tests.addTests(loader.loadTestsFromModule(mod, pattern))
+        standard_tests.addTests(loader.loadTestsFromModule(mod, pattern=pattern))
     return standard_tests

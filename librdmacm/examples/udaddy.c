@@ -522,10 +522,8 @@ static int run_server(void)
 	}
 
 	ret = get_rdma_addr(src_addr, dst_addr, port, &hints, &test.rai);
-	if (ret) {
-		printf("udaddy: getrdmaaddr error: %s\n", gai_strerror(ret));
+	if (ret)
 		goto out;
-	}
 
 	ret = rdma_bind_addr(listen_id, test.rai->ai_src_addr);
 	if (ret) {
@@ -571,10 +569,8 @@ static int run_client(void)
 	printf("udaddy: starting client\n");
 
 	ret = get_rdma_addr(src_addr, dst_addr, port, &hints, &test.rai);
-	if (ret) {
-		printf("udaddy: getaddrinfo error: %s\n", gai_strerror(ret));
+	if (ret)
 		return ret;
-	}
 
 	printf("udaddy: connecting\n");
 	for (i = 0; i < connections; i++) {
@@ -675,7 +671,7 @@ int main(int argc, char **argv)
 
 	test.connects_left = connections;
 
-	test.channel = create_first_event_channel();
+	test.channel = create_event_channel();
 	if (!test.channel) {
 		exit(1);
 	}
@@ -693,8 +689,7 @@ int main(int argc, char **argv)
 	printf("test complete\n");
 	destroy_nodes();
 	rdma_destroy_event_channel(test.channel);
-	if (test.rai)
-		rdma_freeaddrinfo(test.rai);
+	rdma_freeaddrinfo(test.rai);
 
 	printf("return status %d\n", ret);
 	return ret;

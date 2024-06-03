@@ -315,6 +315,7 @@ cdef class CQEX(PyverbsCM):
         super().__init__()
         self.qps = weakref.WeakSet()
         self.srqs = weakref.WeakSet()
+        self.wqs = weakref.WeakSet()
         if self.cq != NULL:
             # Leave CQ initialization to the provider
             return
@@ -336,6 +337,8 @@ cdef class CQEX(PyverbsCM):
             self.qps.add(obj)
         elif isinstance(obj, SRQ):
             self.srqs.add(obj)
+        elif isinstance(obj, WQ):
+            self.wqs.add(obj)
         else:
             raise PyverbsError('Unrecognized object type')
 
@@ -346,7 +349,7 @@ cdef class CQEX(PyverbsCM):
         if self.cq != NULL:
             if self.logger:
                 self.logger.debug('Closing CQEx')
-            close_weakrefs([self.srqs, self.qps])
+            close_weakrefs([self.srqs, self.qps, self.wqs])
             rc = v.ibv_destroy_cq(<v.ibv_cq*>self.cq)
             if rc != 0:
                 raise PyverbsRDMAError('Failed to destroy CQEX', rc)

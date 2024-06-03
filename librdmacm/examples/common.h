@@ -36,6 +36,9 @@
 #include <sys/types.h>
 #include <endian.h>
 #include <poll.h>
+#include <time.h>
+#include <stdbool.h>
+#include <pthread.h>
 
 #include <rdma/rdma_cma.h>
 #include <rdma/rsocket.h>
@@ -97,10 +100,65 @@ enum rs_optimization {
 int get_rdma_addr(const char *src, const char *dst, const char *port,
 		  struct rdma_addrinfo *hints, struct rdma_addrinfo **rai);
 
+int oob_server_setup(const char *src_addr, const char *port, int *sock);
+int oob_client_setup(const char *dst_addr, const char *port, int *sock);
+int oob_sendrecv(int sock, char val);
+int oob_recvsend(int sock, char val);
+
 void size_str(char *str, size_t ssize, long long size);
 void cnt_str(char *str, size_t ssize, long long cnt);
 int size_to_count(int size);
 void format_buf(void *buf, int size);
 int verify_buf(void *buf, int size);
 int do_poll(struct pollfd *fds, int timeout);
-struct rdma_event_channel *create_first_event_channel(void);
+
+struct rdma_event_channel *create_event_channel(void);
+
+static inline uint64_t gettime_ns(void)
+{
+	struct timespec now;
+
+	clock_gettime(CLOCK_MONOTONIC, &now);
+	return now.tv_sec * 1000000000 + now.tv_nsec;
+}
+
+static inline uint64_t gettime_us(void)
+{
+	return gettime_ns() / 1000;
+}
+
+static inline int sleep_us(unsigned int time_us)
+{
+	struct timespec spec;
+
+	if (!time_us)
+		return 0;
+
+	spec.tv_sec = 0;
+	spec.tv_nsec = time_us * 1000;
+	return nanosleep(&spec, NULL);
+}
+
+
+struct work_item {
+	struct work_item *next;
+	void (*work_handler)(struct work_item *item);
+};
+
+struct work_queue {
+	pthread_mutex_t lock;
+	pthread_cond_t cond;
+
+	pthread_t *thread;
+	int thread_cnt;
+	bool running;
+
+	struct work_item *head;
+	struct work_item *tail;
+};
+
+int wq_init(struct work_queue *wq, int thread_cnt);
+void wq_cleanup(struct work_queue *wq);
+void wq_insert(struct work_queue *wq, struct work_item *item,
+	       void (*work_handler)(struct work_item *item));
+struct work_item *wq_remove(struct work_queue *wq);

@@ -33,7 +33,7 @@ to call to libibverbs API by itself.
 Usual flow for the passive side will be:
 
  * ibv_create_qp() <- create data QP.
- * ece = ibv_get_ece() <- get ECE from libibvers provider.
+ * ece = ibv_query_ece() <- get ECE from libibvers provider.
  * rdma_set_local_ece(ece) <- set desired ECE options.
  * rdma_connect() <- send connection request
  * ece = rdma_get_remote_ece() <- get ECE options from remote peer

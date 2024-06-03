@@ -160,9 +160,7 @@ class Mlx5MkeyTest(RDMATestCase):
             player.qp.wr_set_mkey_access_flags(e.IBV_ACCESS_LOCAL_WRITE)
             player.qp.wr_set_mkey_layout_list([sge])
 
-            t10dif_flags = (dve.MLX5DV_SIG_T10DIF_FLAG_REF_REMAP |
-                            dve.MLX5DV_SIG_T10DIF_FLAG_APP_ESCAPE |
-                            dve.MLX5DV_SIG_T10DIF_FLAG_APP_REF_ESCAPE)
+            t10dif_flags = dve.MLX5DV_SIG_T10DIF_FLAG_REF_REMAP
             sig_t10dif = Mlx5SigT10Dif(bg_type=dve.MLX5DV_SIG_T10DIF_CRC,
                                        bg=0xFFFF, app_tag=0xABCD,
                                        ref_tag=0x01234567, flags=t10dif_flags)

@@ -50,64 +50,6 @@
 #include "qelr_hsi.h"
 #include "qelr_chain.h"
 
-#define qelr_err(format, arg...) printf(format, ##arg)
-
-extern uint32_t qelr_dp_level;
-extern uint32_t qelr_dp_module;
-
-enum DP_MODULE {
-	QELR_MSG_CQ		= 0x10000,
-	QELR_MSG_RQ		= 0x20000,
-	QELR_MSG_SQ		= 0x40000,
-	QELR_MSG_QP		= (QELR_MSG_SQ | QELR_MSG_RQ),
-	QELR_MSG_MR		= 0x80000,
-	QELR_MSG_INIT		= 0x100000,
-	QELR_MSG_SRQ		= 0x200000,
-	/* to be added...up to 0x8000000 */
-};
-
-enum DP_LEVEL {
-	QELR_LEVEL_VERBOSE	= 0x0,
-	QELR_LEVEL_INFO		= 0x1,
-	QELR_LEVEL_NOTICE	= 0x2,
-	QELR_LEVEL_ERR		= 0x3,
-};
-
-#define DP_ERR(fd, fmt, ...)					\
-do {								\
-	fprintf(fd, "[%s:%d]" fmt,				\
-		__func__, __LINE__,				\
-		##__VA_ARGS__);					\
-	fflush(fd); \
-} while (0)
-
-#define DP_NOTICE(fd, fmt, ...)					\
-do {								\
-	if (qelr_dp_level <= QELR_LEVEL_NOTICE)	{\
-		fprintf(fd, "[%s:%d]" fmt,			\
-		      __func__, __LINE__,			\
-		      ##__VA_ARGS__);				\
-		      fflush(fd); }				\
-} while (0)
-
-#define DP_INFO(fd, fmt, ...)					\
-do {								\
-	if (qelr_dp_level <= QELR_LEVEL_INFO)	{		\
-		fprintf(fd, "[%s:%d]" fmt,			\
-		      __func__, __LINE__,			\
-		      ##__VA_ARGS__); fflush(fd);		\
-	}							\
-} while (0)
-
-#define DP_VERBOSE(fd, module, fmt, ...)			\
-do {								\
-	if ((qelr_dp_level <= QELR_LEVEL_VERBOSE) &&		\
-		     (qelr_dp_module & (module))) {		\
-		fprintf(fd, "[%s:%d]" fmt,			\
-		      __func__, __LINE__,			\
-		      ##__VA_ARGS__);	fflush(fd); }		\
-} while (0)
-
 struct qelr_buf {
 	void		*addr;
 	size_t		len;		/* a 64 uint is used as s preparation

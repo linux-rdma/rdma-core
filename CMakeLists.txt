@@ -79,7 +79,7 @@ endif()
 set(PACKAGE_NAME "RDMA")
 
 # See Documentation/versioning.md
-set(PACKAGE_VERSION "50.0")
+set(PACKAGE_VERSION "52.0")
 # When this is changed the values in these files need changing too:
 #   debian/control
 #   debian/libibverbs1.symbols
@@ -215,26 +215,38 @@ if (NOT HAVE_WORKING_WERROR)
 endif()
 
 # Use Python modules based on CMake version for backward compatibility
-set(CYTHON_EXECUTABLE "")
 if (${CMAKE_VERSION} VERSION_LESS "3.12")
-  # Look for Python. We prefer some variant of python 3 if the system has it
-  FIND_PACKAGE(PythonInterp 3 QUIET)
-  if (PythonInterp_FOUND)
-    # pyverbs can only use python3:
-    if (NOT NO_PYVERBS)
-      FIND_PACKAGE(cython)
-    endif()
-  else()
-    # But we still must have python (be it 2) for the build process
-    FIND_PACKAGE(PythonInterp REQUIRED)
-  endif()
-else()
-  # FindPython looks preferably for Python3. If not found, version 2 is searched
-  FIND_PACKAGE(Python COMPONENTS Interpreter REQUIRED)
-  set(PYTHON_EXECUTABLE ${Python_EXECUTABLE})
-  if (NOT NO_PYVERBS AND Python_VERSION_MAJOR EQUAL 3)
+        FIND_PACKAGE(PythonInterp REQUIRED)
+        FIND_PACKAGE(PythonLibs ${PYTHON_VERSION_MAJOR}.${PYTHON_VERSION_MINOR} EXACT)
+elseif (${CMAKE_VERSION} VERSION_GREATER_EQUAL "3.12")
+        set(Python_EXECUTABLE ${PYTHON_EXECUTABLE})
+        FIND_PACKAGE(Python 3 REQUIRED COMPONENTS Interpreter OPTIONAL_COMPONENTS Development)
+        set(PYTHON_EXECUTABLE ${Python_EXECUTABLE})
+        if(Python_Development_FOUND)
+            set(PYTHONLIBS_FOUND ${Python_Development_FOUND})
+            set(PYTHON_LIBRARIES ${Python_LIBRARIES})
+            set(PYTHON_INCLUDE_DIRS ${Python_INCLUDE_DIRS})
+        endif()
+endif()
+
+set(CYTHON_EXECUTABLE "")
+if(NOT NO_PYVERBS AND PYTHONLIBS_FOUND)
+    execute_process(COMMAND "${PYTHON_EXECUTABLE}" -c
+        "import sysconfig; print(sysconfig.get_path(\"platlib\"))"
+        OUTPUT_VARIABLE py_path)
+    string(STRIP ${py_path} py_path)
+    set(CMAKE_INSTALL_PYTHON_ARCH_LIB "${py_path}"
+        CACHE PATH "Location for architecture specific python libraries")
+
+    # See PEP3149
+    execute_process(COMMAND "${PYTHON_EXECUTABLE}" -c
+        "import sysconfig; x = sysconfig.get_config_var(\"EXT_SUFFIX\"); print(x if x else '.so')"
+        OUTPUT_VARIABLE py_path)
+    string(STRIP ${py_path} CMAKE_PYTHON_SO_SUFFIX)
+
     FIND_PACKAGE(cython)
-  endif()
+elseif(NOT NO_PYVERBS AND NOT PYTHONLIBS_FOUND)
+    message(WARNING "pyverbs build requested but python development files not found")
 endif()
 
 find_program(SYSTEMCTL_BIN systemctl HINTS "/usr/bin" "/bin")
@@ -449,38 +461,6 @@ if (NO_COMPAT_SYMS)
   set(HAVE_LIMITED_SYMBOL_VERSIONS 1)
 else()
   set(HAVE_FULL_SYMBOL_VERSIONS 1)
-endif()
-
-# A cython & python-devel installation that matches our selected interpreter.
-
-if (CYTHON_EXECUTABLE)
- # cmake has really bad logic here, if PythonIterp has been run it tries to
- # find a matching -devel installation but will happily return a non-matching
- # one too. We need them both to match exactly to guarantee cython does the
- # right thing.
-  if (${CMAKE_VERSION} VERSION_LESS "3.12")
-    FIND_PACKAGE(PythonLibs ${PYTHON_VERSION_MAJOR}.${PYTHON_VERSION_MINOR}
-      EXACT REQUIRED)
-  else()
-    FIND_PACKAGE(Python ${Python_VERSION_MAJOR}.${Python_VERSION_MINOR}
-      EXACT COMPONENTS Development REQUIRED)
-    set(PYTHON_LIBRARIES ${Python_LIBRARIES})
-    set(PYTHON_INCLUDE_DIRS ${Python_INCLUDE_DIRS})
-  endif()
-
- # Get a default installation path
-  execute_process(COMMAND "${PYTHON_EXECUTABLE}" -c
-    "import sysconfig; print(sysconfig.get_path(\"platlib\"))"
-  OUTPUT_VARIABLE py_path)
-  string(STRIP ${py_path} py_path)
-  set(CMAKE_INSTALL_PYTHON_ARCH_LIB "${py_path}"
-  CACHE PATH "Location for architecture specific python libraries")
-
- # See PEP3149
-  execute_process(COMMAND "${PYTHON_EXECUTABLE}" -c
-    "import sysconfig; x = sysconfig.get_config_var(\"EXT_SUFFIX\"); print(x if x else '.so')"
-    OUTPUT_VARIABLE py_path)
-  string(STRIP ${py_path} CMAKE_PYTHON_SO_SUFFIX)
 endif()
 
 set(NO_MAN_PAGES "OFF" CACHE BOOL "Disable build/install of man pages")
@@ -737,6 +717,7 @@ add_subdirectory(providers/efa)
 add_subdirectory(providers/efa/man)
 add_subdirectory(providers/erdma)
 add_subdirectory(providers/hns)
+add_subdirectory(providers/hns/man)
 add_subdirectory(providers/irdma)
 add_subdirectory(providers/mana)
 add_subdirectory(providers/mana/man)

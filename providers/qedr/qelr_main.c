@@ -64,9 +64,6 @@ static void qelr_free_context(struct ibv_context *ibctx);
 #define PCI_DEVICE_ID_QLOGIC_AHP        (0x8170)
 #define PCI_DEVICE_ID_QLOGIC_AHP_IOV    (0x8190)
 
-uint32_t qelr_dp_level;
-uint32_t qelr_dp_module;
-
 #define QHCA(d)                                                                \
 	VERBS_PCI_MATCH(PCI_VENDOR_ID_QLOGIC, PCI_DEVICE_ID_QLOGIC_##d, NULL)
 static const struct verbs_match_ent hca_table[] = {
@@ -128,53 +125,6 @@ static void qelr_uninit_device(struct verbs_device *verbs_device)
 	free(dev);
 }
 
-static void qelr_open_debug_file(struct qelr_devctx *ctx)
-{
-	char *env;
-
-	env = getenv("QELR_DEBUG_FILE");
-	if (!env) {
-		ctx->dbg_fp = stderr;
-		DP_VERBOSE(ctx->dbg_fp, QELR_MSG_INIT,
-			   "Debug file opened: stderr\n");
-		return;
-	}
-
-	ctx->dbg_fp = fopen(env, "aw+");
-	if (!ctx->dbg_fp) {
-		fprintf(stderr, "Failed opening debug file %s, using stderr\n",
-			env);
-		ctx->dbg_fp = stderr;
-		DP_VERBOSE(ctx->dbg_fp, QELR_MSG_INIT,
-			   "Debug file opened: stderr\n");
-		return;
-	}
-
-	DP_VERBOSE(ctx->dbg_fp, QELR_MSG_INIT, "Debug file opened: %s\n", env);
-}
-
-static void qelr_close_debug_file(struct qelr_devctx *ctx)
-{
-	if (ctx->dbg_fp && ctx->dbg_fp != stderr)
-		fclose(ctx->dbg_fp);
-}
-
-static void qelr_set_debug_mask(void)
-{
-	char *env;
-
-	qelr_dp_level = QELR_LEVEL_NOTICE;
-	qelr_dp_module = 0;
-
-	env = getenv("QELR_DP_LEVEL");
-	if (env)
-		qelr_dp_level = atoi(env);
-
-	env = getenv("QELR_DP_MODULE");
-	if (env)
-		qelr_dp_module = atoi(env);
-}
-
 static struct verbs_context *qelr_alloc_context(struct ibv_device *ibdev,
 						int cmd_fd,
 						void *private_data)
@@ -190,9 +140,6 @@ static struct verbs_context *qelr_alloc_context(struct ibv_device *ibdev,
 
 	memset(&resp, 0, sizeof(resp));
 
-	qelr_open_debug_file(ctx);
-	qelr_set_debug_mask();
-
 	cmd.context_flags = QEDR_ALLOC_UCTX_DB_REC | QEDR_SUPPORT_DPM_SIZES;
 	cmd.context_flags |= QEDR_ALLOC_UCTX_EDPM_MODE;
 	if (ibv_cmd_get_context(&ctx->ibv_ctx, &cmd.ibv_cmd, sizeof(cmd),
@@ -205,8 +152,8 @@ static struct verbs_context *qelr_alloc_context(struct ibv_device *ibdev,
 
 	ctx->srq_table = calloc(QELR_MAX_SRQ_ID, sizeof(*ctx->srq_table));
 	if (!ctx->srq_table) {
-		DP_ERR(ctx->dbg_fp, "failed to allocate srq_table\n");
-		return NULL;
+		verbs_err(&ctx->ibv_ctx, "failed to allocate srq_table\n");
+		goto cmd_err;
 	}
 
 	ctx->kernel_page_size = sysconf(_SC_PAGESIZE);
@@ -254,17 +201,19 @@ static struct verbs_context *qelr_alloc_context(struct ibv_device *ibdev,
 	if (ctx->db_addr == MAP_FAILED) {
 		int errsv = errno;
 
-		DP_ERR(ctx->dbg_fp,
+		verbs_err(&ctx->ibv_ctx,
 		       "alloc context: doorbell mapping failed resp.db_pa = %llx resp.db_size=%d context->cmd_fd=%d errno=%d\n",
 		       resp.db_pa, resp.db_size, cmd_fd, errsv);
-		goto cmd_err;
+		goto free_srq_tbl;
 	}
 
 	return &ctx->ibv_ctx;
 
+free_srq_tbl:
+	free(ctx->srq_table);
+
 cmd_err:
-	qelr_err("%s: Failed to allocate context for device.\n", __func__);
-	qelr_close_debug_file(ctx);
+	verbs_err(&ctx->ibv_ctx, "Failed to allocate context for device.\n");
 	verbs_uninit_context(&ctx->ibv_ctx);
 	free(ctx);
 	return NULL;
@@ -278,7 +227,6 @@ static void qelr_free_context(struct ibv_context *ibctx)
 		munmap(ctx->db_addr, ctx->db_size);
 
 	free(ctx->srq_table);
-	qelr_close_debug_file(ctx);
 	verbs_uninit_context(&ctx->ibv_ctx);
 	free(ctx);
 }
