@@ -34,7 +34,6 @@
 #include <endian.h>
 #include <getopt.h>
 #include <stdlib.h>
-#include <string.h>
 #include <stdio.h>
 #include <errno.h>
 #include <sys/types.h>
@@ -1253,9 +1252,9 @@ static int get_addr(char *dst, struct sockaddr *addr)
 static void usage(const char *name)
 {
 	printf("%s -s [-vVd] [-S size] [-C count] [-a addr] [-p port]\n", 
-	       basename(name));
+	       name);
 	printf("%s -c [-vVd] [-S size] [-C count] [-I addr] -a addr [-p port]\n", 
-	       basename(name));
+	       name);
 	printf("\t-c\t\tclient side\n");
 	printf("\t-I\t\tSource address to bind to for client.\n");
 	printf("\t-s\t\tserver side.  To bind to any address with IPv6 use -a ::0\n");
