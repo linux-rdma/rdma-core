@@ -1152,6 +1152,9 @@ int irdma_uk_cq_poll_cmpl(struct irdma_cq_uk *cq,
 		info->ud_vlan_valid = false;
 	}
 
+	get_64bit_val(cqe, 8, &comp_ctx);
+	qp = (struct irdma_qp_uk *)(uintptr_t)comp_ctx;
+
 	info->q_type = (__u8)FIELD_GET(IRDMA_CQ_SQ, qword3);
 	info->error = (bool)FIELD_GET(IRDMA_CQ_ERROR, qword3);
 	info->push_dropped = (bool)FIELD_GET(IRDMACQ_PSHDROP, qword3);
@@ -1159,16 +1162,32 @@ int irdma_uk_cq_poll_cmpl(struct irdma_cq_uk *cq,
 	if (info->error) {
 		info->major_err = FIELD_GET(IRDMA_CQ_MAJERR, qword3);
 		info->minor_err = FIELD_GET(IRDMA_CQ_MINERR, qword3);
-		if (info->major_err == IRDMA_FLUSH_MAJOR_ERR) {
-			info->comp_status = IRDMA_COMPL_STATUS_FLUSHED;
+		switch (info->major_err) {
+		case IRDMA_FLUSH_MAJOR_ERR:
 			/* Set the min error to standard flush error code for remaining cqes */
 			if (info->minor_err != FLUSH_GENERAL_ERR) {
 				qword3 &= ~IRDMA_CQ_MINERR;
 				qword3 |= FIELD_PREP(IRDMA_CQ_MINERR, FLUSH_GENERAL_ERR);
 				set_64bit_val(cqe, 24, qword3);
 			}
-		} else {
-			info->comp_status = IRDMA_COMPL_STATUS_UNKNOWN;
+			info->comp_status = IRDMA_COMPL_STATUS_FLUSHED;
+			break;
+		default:
+#define IRDMA_CIE_SIGNATURE 0xE
+#define IRDMA_CQMAJERR_HIGH_NIBBLE GENMASK(15, 12)
+			/* For UD SQ, certain non-fatal async errors are indicated through CQEs and need to be ignored */
+			if (info->q_type == IRDMA_CQE_QTYPE_SQ &&
+			    qp->qp_type == IRDMA_QP_TYPE_ROCE_UD &&
+			    FIELD_GET(IRDMA_CQMAJERR_HIGH_NIBBLE, info->major_err)
+			    == IRDMA_CIE_SIGNATURE) {
+				info->error = 0;
+				info->major_err = 0;
+				info->minor_err = 0;
+				info->comp_status = IRDMA_COMPL_STATUS_SUCCESS;
+			} else {
+				info->comp_status = IRDMA_COMPL_STATUS_UNKNOWN;
+			}
+			break;
 		}
 	} else {
 		info->comp_status = IRDMA_COMPL_STATUS_SUCCESS;
@@ -1180,11 +1199,8 @@ int irdma_uk_cq_poll_cmpl(struct irdma_cq_uk *cq,
 	info->tcp_seq_num_rtt = (__u32)FIELD_GET(IRDMACQ_TCPSEQNUMRTT, qword0);
 	info->qp_id = (__u32)FIELD_GET(IRDMACQ_QPID, qword2);
 	info->ud_src_qpn = (__u32)FIELD_GET(IRDMACQ_UDSRCQPN, qword2);
-
-	get_64bit_val(cqe, 8, &comp_ctx);
-
 	info->solicited_event = (bool)FIELD_GET(IRDMACQ_SOEVENT, qword3);
-	qp = (struct irdma_qp_uk *)(uintptr_t)comp_ctx;
+
 	if (!qp || qp->destroy_pending) {
 		ret_code = EFAULT;
 		goto exit;
@@ -1289,9 +1305,15 @@ int irdma_uk_cq_poll_cmpl(struct irdma_cq_uk *cq,
 	ret_code = 0;
 
 exit:
-	if (!ret_code && info->comp_status == IRDMA_COMPL_STATUS_FLUSHED)
+	if (!ret_code && info->comp_status == IRDMA_COMPL_STATUS_FLUSHED) {
 		if (pring && IRDMA_RING_MORE_WORK(*pring))
-			move_cq_head = false;
+		    /* Park CQ head during a flush to generate additional CQEs
+		     * from SW for all unprocessed WQEs. For GEN3 and beyond
+		     * FW will generate/flush these CQEs so move to the next CQE
+		     */
+			move_cq_head = qp->uk_attrs->hw_rev <= IRDMA_GEN_2 ?
+					   false : true;
+	}
 
 	if (move_cq_head) {
 		IRDMA_RING_MOVE_HEAD_NOCHECK(cq->cq_ring);
