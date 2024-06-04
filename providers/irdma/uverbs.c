@@ -326,14 +326,17 @@ static void irdma_free_hw_buf(void *buf, size_t size)
  * get_cq_size - returns actual cqe needed by HW
  * @ncqe: minimum cqes requested by application
  * @hw_rev: HW generation
+ * @cqe_64byte_ena: enable 64byte cqe
  */
-static inline int get_cq_size(int ncqe, __u8 hw_rev)
+static inline int get_cq_size(int ncqe, __u8 hw_rev, bool cqe_64byte_ena)
 {
 	ncqe++;
 
-	/* Completions with immediate require 1 extra entry */
-	if (hw_rev > IRDMA_GEN_1)
+	if (!cqe_64byte_ena && hw_rev > IRDMA_GEN_1)
 		ncqe *= 2;
+
+	if (ncqe & 1)
+		ncqe += 1;
 
 	if (ncqe < IRDMA_U_MINCQ_SIZE)
 		ncqe = IRDMA_U_MINCQ_SIZE;
@@ -341,9 +344,12 @@ static inline int get_cq_size(int ncqe, __u8 hw_rev)
 	return ncqe;
 }
 
-static inline size_t get_cq_total_bytes(__u32 cq_size)
+static inline size_t get_cq_total_bytes(__u32 cq_size, bool cqe_64byte_ena)
 {
-	return roundup(cq_size * sizeof(struct irdma_cqe), IRDMA_HW_PAGE_SIZE);
+	if (cqe_64byte_ena)
+		return roundup(cq_size * sizeof(struct irdma_extended_cqe), IRDMA_HW_PAGE_SIZE);
+	else
+		return roundup(cq_size * sizeof(struct irdma_cqe), IRDMA_HW_PAGE_SIZE);
 }
 
 /**
@@ -370,6 +376,7 @@ static struct ibv_cq_ex *ucreate_cq(struct ibv_context *context,
 	__u32 cq_pages;
 	int ret, ncqe;
 	__u8 hw_rev;
+	bool cqe_64byte_ena;
 
 	iwvctx = container_of(context, struct irdma_uvcontext, ibv_ctx.context);
 	uk_attrs = &iwvctx->uk_attrs;
@@ -396,10 +403,10 @@ static struct ibv_cq_ex *ucreate_cq(struct ibv_context *context,
 		return NULL;
 	}
 
-	info.cq_size = get_cq_size(attr_ex->cqe, hw_rev);
-	iwucq->comp_vector = attr_ex->comp_vector;
+	cqe_64byte_ena = uk_attrs->feature_flags & IRDMA_FEATURE_64_BYTE_CQE ? true : false;
+	info.cq_size = get_cq_size(attr_ex->cqe, hw_rev, cqe_64byte_ena);
 	list_head_init(&iwucq->resize_list);
-	total_size = get_cq_total_bytes(info.cq_size);
+	total_size = get_cq_total_bytes(info.cq_size, cqe_64byte_ena);
 	cq_pages = total_size >> IRDMA_HW_PAGE_SHIFT;
 
 	if (!(uk_attrs->feature_flags & IRDMA_FEATURE_CQ_RESIZE))
@@ -468,6 +475,8 @@ static struct ibv_cq_ex *ucreate_cq(struct ibv_context *context,
 	info.cq_id = resp.cq_id;
 	/* Do not report the cqe's burned by HW */
 	iwucq->verbs_cq.cq.cqe = ncqe;
+	if (cqe_64byte_ena)
+		info.avoid_mem_cflct = true;
 
 	info.cqe_alloc_db = (__u32 *)((__u8 *)iwvctx->db + IRDMA_DB_CQ_OFFSET);
 	irdma_uk_cq_init(&iwucq->cq, &info);
@@ -524,7 +533,7 @@ struct ibv_cq_ex *irdma_ucreate_cq_ex(struct ibv_context *context,
 static void irdma_free_cq_buf(struct irdma_cq_buf *cq_buf)
 {
 	ibv_cmd_dereg_mr(&cq_buf->vmr);
-	irdma_free_hw_buf(cq_buf->cq.cq_base, get_cq_total_bytes(cq_buf->cq.cq_size));
+	irdma_free_hw_buf(cq_buf->cq.cq_base, cq_buf->buf_size);
 	free(cq_buf);
 }
 
@@ -1918,6 +1927,7 @@ int irdma_uresize_cq(struct ibv_cq *cq, int cqe)
 	__u32 cq_pages;
 	int cqe_needed;
 	int ret = 0;
+	bool cqe_64byte_ena;
 
 	iwucq = container_of(cq, struct irdma_ucq, verbs_cq.cq);
 	iwvctx = container_of(cq->context, struct irdma_uvcontext,
@@ -1930,17 +1940,13 @@ int irdma_uresize_cq(struct ibv_cq *cq, int cqe)
 	if (cqe > IRDMA_MAX_CQ_SIZE)
 		return EINVAL;
 
-	cqe_needed = cqe + 1;
-	if (uk_attrs->hw_rev > IRDMA_GEN_1)
-		cqe_needed *= 2;
-
-	if (cqe_needed < IRDMA_U_MINCQ_SIZE)
-		cqe_needed = IRDMA_U_MINCQ_SIZE;
-
+	cqe_64byte_ena = uk_attrs->feature_flags & IRDMA_FEATURE_64_BYTE_CQE ?
+				true : false;
+	cqe_needed = get_cq_size(cqe, uk_attrs->hw_rev, cqe_64byte_ena);
 	if (cqe_needed == iwucq->cq.cq_size)
 		return 0;
 
-	cq_size = get_cq_total_bytes(cqe_needed);
+	cq_size = get_cq_total_bytes(cqe_needed, cqe_64byte_ena);
 	cq_pages = cq_size >> IRDMA_HW_PAGE_SHIFT;
 	cq_base = irdma_calloc_hw_buf(cq_size);
 	if (!cq_base)
@@ -1974,6 +1980,7 @@ int irdma_uresize_cq(struct ibv_cq *cq, int cqe)
 		goto err_resize;
 
 	memcpy(&cq_buf->cq, &iwucq->cq, sizeof(cq_buf->cq));
+	cq_buf->buf_size = iwucq->buf_size;
 	cq_buf->vmr = iwucq->vmr;
 	iwucq->vmr = new_mr;
 	irdma_uk_cq_resize(&iwucq->cq, cq_base, cqe_needed);

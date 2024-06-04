@@ -65,6 +65,7 @@ struct irdma_cq_buf {
 	struct list_node list;
 	struct irdma_cq_uk cq;
 	struct verbs_mr vmr;
+	size_t buf_size;
 };
 
 struct irdma_ucq {
