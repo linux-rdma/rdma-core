@@ -6,9 +6,10 @@
 #define IRDMA_WQEALLOC_WQE_DESC_INDEX GENMASK(31, 20)
 
 enum irdma_vers {
-	IRDMA_GEN_RSVD,
-	IRDMA_GEN_1,
-	IRDMA_GEN_2,
+	IRDMA_GEN_RSVD = 0,
+	IRDMA_GEN_1 = 1,
+	IRDMA_GEN_2 = 2,
+	IRDMA_GEN_3 = 3,
 };
 
 struct irdma_uk_attrs {
