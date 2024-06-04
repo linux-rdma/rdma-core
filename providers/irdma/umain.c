@@ -154,6 +154,7 @@ static struct verbs_context *irdma_ualloc_context(struct ibv_device *ibdev,
 		return NULL;
 
 	cmd.comp_mask |= IRDMA_ALLOC_UCTX_USE_RAW_ATTR;
+	cmd.comp_mask |= IRDMA_SUPPORT_WQE_FORMAT_V2;
 	cmd.userspace_ver = user_ver;
 	if (ibv_cmd_get_context(&iwvctx->ibv_ctx,
 				(struct ibv_get_context *)&cmd, sizeof(cmd),
