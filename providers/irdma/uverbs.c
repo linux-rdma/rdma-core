@@ -614,12 +614,14 @@ static enum ibv_wc_status irdma_flush_err_to_ib_wc_status(enum irdma_flush_opcod
 		return IBV_WC_LOC_LEN_ERR;
 	case FLUSH_GENERAL_ERR:
 		return IBV_WC_WR_FLUSH_ERR;
-	case FLUSH_RETRY_EXC_ERR:
-		return IBV_WC_RETRY_EXC_ERR;
 	case FLUSH_MW_BIND_ERR:
 		return IBV_WC_MW_BIND_ERR;
 	case FLUSH_REM_INV_REQ_ERR:
 		return IBV_WC_REM_INV_REQ_ERR;
+	case FLUSH_RETRY_EXC_ERR:
+		return IBV_WC_RETRY_EXC_ERR;
+	case FLUSH_RNR_RETRY_EXC_ERR:
+		return IBV_WC_RNR_RETRY_EXC_ERR;
 	case FLUSH_FATAL_ERR:
 	default:
 		return IBV_WC_FATAL_ERR;
