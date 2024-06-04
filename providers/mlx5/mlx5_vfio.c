@@ -14,7 +14,7 @@
 #include <sys/stat.h>
 #include <fcntl.h>
 #include <sys/mman.h>
-#include <string.h>
+#include <libgen.h>
 #include <sys/param.h>
 #include <linux/vfio.h>
 #include <sys/eventfd.h>
