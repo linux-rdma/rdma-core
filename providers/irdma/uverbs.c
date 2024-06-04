@@ -655,6 +655,18 @@ static inline void set_ib_wc_op_sq(struct irdma_cq_poll_info *cur_cqe, struct ib
 	}
 }
 
+static inline void set_ib_wc_op_rq_gen_3(struct irdma_cq_poll_info *cur_cqe, struct ibv_wc *entry)
+{
+	switch (cur_cqe->op_type) {
+	case IRDMA_OP_TYPE_RDMA_WRITE:
+	case IRDMA_OP_TYPE_RDMA_WRITE_SOL:
+		entry->opcode = IBV_WC_RECV_RDMA_WITH_IMM;
+		break;
+	default:
+		entry->opcode = IBV_WC_RECV;
+	}
+}
+
 static inline void set_ib_wc_op_rq(struct irdma_cq_poll_info *cur_cqe,
 				   struct ibv_wc *entry, bool send_imm_support)
 {
@@ -727,9 +739,12 @@ static void irdma_process_cqe(struct ibv_wc *entry, struct irdma_cq_poll_info *c
 	if (cur_cqe->q_type == IRDMA_CQE_QTYPE_SQ) {
 		set_ib_wc_op_sq(cur_cqe, entry);
 	} else {
-		set_ib_wc_op_rq(cur_cqe, entry,
-				qp->qp_caps & IRDMA_SEND_WITH_IMM ?
-				true : false);
+		if (qp->uk_attrs->hw_rev <= IRDMA_GEN_2)
+			set_ib_wc_op_rq(cur_cqe, entry,
+					qp->qp_caps & IRDMA_SEND_WITH_IMM ?
+					true : false);
+		else
+			set_ib_wc_op_rq_gen_3(cur_cqe, entry);
 		if (ib_qp->qp_type != IBV_QPT_UD &&
 		    cur_cqe->stag_invalid_set) {
 			entry->invalidated_rkey = cur_cqe->inv_stag;
