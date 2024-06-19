@@ -1228,7 +1228,7 @@ static int bnxt_re_get_sqmem_size(struct bnxt_re_context *cntx,
 	if (nslots < 0)
 		return nslots;
 	npsn = bnxt_re_get_npsn(mode, nswr, nslots);
-	if (BNXT_RE_HW_RETX(cntx))
+	if (BNXT_RE_MSN_TBL_EN(cntx))
 		npsn = roundup_pow_of_two(npsn);
 
 	qattr->nwr = nswr;
@@ -1403,7 +1403,7 @@ static int bnxt_re_alloc_queues(struct bnxt_re_qp *qp,
 		       &que->tail : &qp->jsqq->start_idx;
 
 	/* Init and adjust MSN table size according to qp mode */
-	if (!BNXT_RE_HW_RETX(qp->cntx))
+	if (!BNXT_RE_MSN_TBL_EN(qp->cntx))
 		goto skip_msn;
 	que->msn = 0;
 	que->msn_tbl_sz = 0;
@@ -2030,7 +2030,7 @@ int bnxt_re_post_send(struct ibv_qp *ibvqp, struct ibv_send_wr *wr,
 		bnxt_re_fill_wrid(wrid, wr->wr_id, bytes,
 				  sig, sq->tail, slots);
 		wrid->wc_opcd = bnxt_re_ibv_wr_to_wc_opcd(wr->opcode);
-		if (BNXT_RE_HW_RETX(qp->cntx))
+		if (BNXT_RE_MSN_TBL_EN(qp->cntx))
 			bnxt_re_fill_psns_for_msntbl(qp, bytes, *sq->dbtail);
 		else
 			bnxt_re_fill_psns(qp, wrid, bytes);
