@@ -792,8 +792,11 @@ ssize_t recv(int socket, void *buf, size_t len, int flags)
 	return (fd_fork_get(socket, &fd) == fd_rsocket) ?
 		rrecv(fd, buf, len, flags) : real.recv(fd, buf, len, flags);
 }
-
-ssize_t recvfrom(int socket, void *buf, size_t len, int flags,
+ssize_t
+#if defined(__clang__) && defined(__GLIBC__)
+__attribute__((overloadable))
+#endif
+recvfrom(int socket, void *buf, size_t len, int flags,
 		 struct sockaddr *src_addr, socklen_t *addrlen)
 {
 	int fd;
