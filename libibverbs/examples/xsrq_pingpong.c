@@ -862,7 +862,7 @@ static void usage(const char *argv0)
 	printf("  -d, --ib-dev=<dev>     use IB device <dev> (default first device found)\n");
 	printf("  -i, --ib-port=<port>   use port <port> of IB device (default 1)\n");
 	printf("  -s, --size=<size>      size of message to exchange (default 4096)\n");
-	printf("  -m, --mtu=<size>       path MTU (default 2048)\n");
+	printf("  -m, --mtu=<size>       path MTU (default 1024)\n");
 	printf("  -c, --clients=<n>      number of clients (on server only, default 1)\n");
 	printf("  -n, --num_tests=<n>    number of tests per client (default 5)\n");
 	printf("  -l, --sl=<sl>          service level value\n");
