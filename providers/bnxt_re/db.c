@@ -54,7 +54,7 @@ static int calculate_fifo_occupancy(struct bnxt_re_context *cntx)
 	struct bnxt_re_dev *rdev = cntx->rdev;
 	uint32_t read_val, fifo_occup;
 	uint64_t fifo_reg_off;
-	uint64_t *dbr_map;
+	uint32_t *dbr_map;
 
 	fifo_reg_off =  pacing_data->grc_reg_offset & ~(BNXT_RE_PAGE_MASK(rdev->pg_size));
 	dbr_map = cntx->bar_map + fifo_reg_off;
