@@ -519,7 +519,7 @@ RDMA_DoFixup("${SYSTEMD_FOUND}" "systemd/sd-daemon.h")
 # drm headers
 
 # Check if the headers have been installed by kernel-headers
-find_path(DRM_INCLUDE_DIRS "drm.h" PATH_SUFFIXES "drm")
+find_path(DRM_INCLUDE_DIRS "drm.h" PATH_SUFFIXES "drm" "libdrm")
 
 # Alternatively the headers could have been installed by libdrm
 if (NOT DRM_INCLUDE_DIRS)
