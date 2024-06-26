@@ -1,0 +1,14 @@
+rdma_man_pages(
+  hbldv.7.md
+  hbldv_create_cq.3.md
+  hbldv_create_encap.3.md
+  hbldv_create_usr_fifo.3.md
+  hbldv_is_supported.3.md
+  hbldv_modify_qp.3.md
+  hbldv_open_device.3.md
+  hbldv_query_cq.3.md
+  hbldv_query_device.3.md
+  hbldv_query_port.3.md
+  hbldv_query_qp.3.md
+  hbldv_set_port_ex.3.md
+)

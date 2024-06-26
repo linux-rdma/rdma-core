@@ -1,5 +1,6 @@
 etc/libibverbs.d/
 usr/lib/*/libefa.so.*
+usr/lib/*/libhbl.so.*
 usr/lib/*/libibverbs/lib*-rdmav*.so
 usr/lib/*/libhns.so.*
 usr/lib/*/libmana.so.*

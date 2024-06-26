@@ -1,0 +1,19 @@
+/* Export symbols should be added below according to
+   Documentation/versioning.md document. */
+HBL_1.0 {
+	global:
+		hbldv_create_cq;
+		hbldv_create_encap;
+		hbldv_create_usr_fifo;
+		hbldv_destroy_encap;
+		hbldv_destroy_usr_fifo;
+		hbldv_is_supported;
+		hbldv_modify_qp;
+		hbldv_open_device;
+		hbldv_query_cq;
+		hbldv_query_device;
+		hbldv_query_port;
+		hbldv_query_qp;
+		hbldv_set_port_ex;
+	local: *;
+};

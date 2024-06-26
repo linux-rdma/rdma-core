@@ -52,8 +52,9 @@ rdma_python_module(pyverbs
   utils.py
   )
 
-# mlx5 and efa providers are not built without coherent DMA, e.g. ARM32 build.
+# mlx5, efa and hbl providers are not built without coherent DMA, e.g. ARM32 build.
 if (HAVE_COHERENT_DMA)
 add_subdirectory(providers/mlx5)
 add_subdirectory(providers/efa)
+add_subdirectory(providers/hbl)
 endif()

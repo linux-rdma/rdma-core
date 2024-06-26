@@ -161,6 +161,11 @@ Files: providers/erdma/*
 Copyright: 2020-2021, Alibaba Group
 License: BSD-MIT or GPL-2
 
+Files: providers/hbl/*
+Copyright: 2022-2024 HabanaLabs, Ltd.
+           2023-2024 Intel Corporation.
+License: BSD-MIT or GPL-2
+
 Files: providers/hfi1verbs/*
 Copyright: 2005 PathScale, Inc.
            2006-2009 QLogic Corporation
