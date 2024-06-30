@@ -961,6 +961,9 @@ static struct ibv_cq_ex *create_cq(struct ibv_context *context,
 				   int cq_alloc_flags,
 				   struct mlx5dv_cq_init_attr *mlx5cq_attr)
 {
+	DECLARE_COMMAND_BUFFER_LINK(driver_attrs, UVERBS_OBJECT_CQ,
+				    UVERBS_METHOD_CQ_CREATE, 1,
+				    NULL);
 	struct mlx5_create_cq_ex	cmd_ex = {};
 	struct mlx5_create_cq_ex_resp	resp_ex = {};
 	struct mlx5_ib_create_cq       *cmd_drv;
@@ -1123,18 +1126,24 @@ static struct ibv_cq_ex *create_cq(struct ibv_context *context,
 		cmd_drv->flags |= MLX5_IB_CREATE_CQ_FLAGS_REAL_TIME_TS;
 
 	if (mctx->nc_uar) {
-		cmd_drv->flags |= MLX5_IB_CREATE_CQ_FLAGS_UAR_PAGE_INDEX;
-		cmd_drv->uar_page_index = mctx->nc_uar->page_id;
+		if (mctx->nc_uar->page_id >= (1ul << 16)) {
+			fill_attr_in_uint32(driver_attrs, MLX5_IB_ATTR_CREATE_CQ_UAR_INDEX,
+					    mctx->nc_uar->page_id);
+		} else {
+			cmd_drv->flags |= MLX5_IB_CREATE_CQ_FLAGS_UAR_PAGE_INDEX;
+			cmd_drv->uar_page_index = mctx->nc_uar->page_id;
+		}
 	}
 
 	{
 		struct ibv_cq_init_attr_ex cq_attr_ex = *cq_attr;
 
 		cq_attr_ex.cqe = ncqe - 1;
-		ret = ibv_cmd_create_cq_ex(context, &cq_attr_ex, &cq->verbs_cq,
-					   &cmd_ex.ibv_cmd, sizeof(cmd_ex),
-					   &resp_ex.ibv_resp, sizeof(resp_ex),
-					   CREATE_CQ_CMD_FLAGS_TS_IGNORED_EX);
+		ret = ibv_cmd_create_cq_ex2(context, &cq_attr_ex, &cq->verbs_cq,
+					    &cmd_ex.ibv_cmd, sizeof(cmd_ex),
+					    &resp_ex.ibv_resp, sizeof(resp_ex),
+					    CREATE_CQ_CMD_FLAGS_TS_IGNORED_EX,
+					    driver_attrs);
 	}
 
 	if (ret) {

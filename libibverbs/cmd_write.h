@@ -96,6 +96,13 @@ void _write_set_uhw(struct ibv_command_buffer *cmdb, const void *req,
 	_write_set_uhw(_name, cmd, sizeof(*cmd), cmd_size, resp,               \
 		       sizeof(*resp), resp_size)
 
+#define DECLARE_CMD_BUFFER_LINK_COMPAT(_name, _object_id, _method_id,	       \
+				       _link, cmd, cmd_size,		       \
+				       resp, resp_size)			       \
+	DECLARE_COMMAND_BUFFER_LINK(_name, _object_id, _method_id, 2, _link);  \
+	_write_set_uhw(_name, cmd, sizeof(*cmd), cmd_size, resp,               \
+		       sizeof(*resp), resp_size)
+
 /*
  * The fallback scheme keeps track of which ioctls succeed in a per-context
  * bitmap. If ENOTTY or EPROTONOSUPPORT is seen then the ioctl is never

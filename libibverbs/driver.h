@@ -575,6 +575,15 @@ int ibv_cmd_create_cq_ex(struct ibv_context *context,
 			 struct ib_uverbs_ex_create_cq_resp *resp,
 			 size_t resp_size,
 			 uint32_t cmd_flags);
+int ibv_cmd_create_cq_ex2(struct ibv_context *context,
+			  const struct ibv_cq_init_attr_ex *cq_attr,
+			  struct verbs_cq *cq,
+			  struct ibv_create_cq_ex *cmd,
+			  size_t cmd_size,
+			  struct ib_uverbs_ex_create_cq_resp *resp,
+			  size_t resp_size,
+			  uint32_t cmd_flags,
+			  struct ibv_command_buffer *driver);
 int ibv_cmd_poll_cq(struct ibv_cq *cq, int ne, struct ibv_wc *wc);
 int ibv_cmd_req_notify_cq(struct ibv_cq *cq, int solicited_only);
 int ibv_cmd_resize_cq(struct ibv_cq *cq, int cqe,
