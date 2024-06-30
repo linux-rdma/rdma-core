@@ -188,6 +188,7 @@ int umad_release_port(umad_port_t * port);
 int umad_get_issm_path(const char *ca_name, int portnum, char path[], int max);
 
 int umad_open_port(const char *ca_name, int portnum);
+int umad_open_smi_port(const char *ca_name, int portnum);
 int umad_close_port(int portid);
 
 void *umad_get_mad(void *umad);

@@ -50,3 +50,8 @@ IBUMAD_1.2 {
 	global:
 		umad_sort_ca_device_list;
 } IBUMAD_1.1;
+
+IBUMAD_1.3 {
+	global:
+		umad_open_smi_port;
+} IBUMAD_1.2;
