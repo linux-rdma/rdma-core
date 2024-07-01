@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: GPL-2.0 OR BSD-2-Clause
 /*
- * Copyright 2019-2023 Amazon.com, Inc. or its affiliates. All rights reserved.
+ * Copyright 2019-2024 Amazon.com, Inc. or its affiliates. All rights reserved.
  */
 
 #include <stdio.h>
@@ -22,6 +22,7 @@ static const struct verbs_match_ent efa_table[] = {
 	VERBS_PCI_MATCH(PCI_VENDOR_ID_AMAZON, 0xefa0, NULL),
 	VERBS_PCI_MATCH(PCI_VENDOR_ID_AMAZON, 0xefa1, NULL),
 	VERBS_PCI_MATCH(PCI_VENDOR_ID_AMAZON, 0xefa2, NULL),
+	VERBS_PCI_MATCH(PCI_VENDOR_ID_AMAZON, 0xefa3, NULL),
 	{}
 };
 
