@@ -5,6 +5,9 @@ Documentation=file:@CMAKE_INSTALL_FULL_DOCDIR@/udev.md
 # systemd-modules-load.service
 DefaultDependencies=no
 Before=sysinit.target
+# Kernel modules must load in initrd before initrd.target to avoid being killed
+# when initrd-cleanup.service isolates to initrd-switch-root.target.
+Before=initrd.target
 # Do not execute concurrently with an ongoing shutdown
 Conflicts=shutdown.target
 Before=shutdown.target
