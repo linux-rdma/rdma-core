@@ -23,6 +23,13 @@ install() {
 	inst_multiple -o \
                   $systemdsystemunitdir/rdma-hw.target \
                   $systemdsystemunitdir/rdma-load-modules@.service
+
+	for i in \
+		rdma-load-modules@rdma.service \
+		rdma-load-modules@roce.service \
+		rdma-load-modules@infiniband.service; do
+		$SYSTEMCTL -q --root "$initdir" add-wants initrd.target "$i"
+	done
 }
 
 installkernel() {
