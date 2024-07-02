@@ -21,6 +21,13 @@ install() {
 	inst_multiple lspci setpci awk sleep
 	inst_multiple -o /etc/modprobe.d/mlx4.conf
 	inst_rules 98-rdma.rules 70-persistent-ipoib.rules
+
+	for i in \
+		rdma-load-modules@rdma.service \
+		rdma-load-modules@roce.service \
+		rdma-load-modules@infiniband.service; do
+		$SYSTEMCTL -q --root "$initdir" add-wants initrd.target "$i"
+	done
 }
 
 installkernel() {
