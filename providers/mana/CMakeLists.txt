@@ -4,6 +4,8 @@ rdma_shared_provider(mana libmana.map
   manadv.c
   qp.c
   wq.c
+  cq.c
+  wr.c
 )
 
 publish_headers(infiniband
