@@ -1115,7 +1115,12 @@ struct mlx5_ifc_cmd_hca_cap_bits {
 	u8         log_max_transport_domain[0x5];
 	u8         reserved_at_328[0x3];
 	u8         log_max_pd[0x5];
-	u8         reserved_at_330[0xb];
+	u8         dp_ordering_ooo_all_ud[0x1];
+	u8         dp_ordering_ooo_all_uc[0x1];
+	u8         dp_ordering_ooo_all_xrc[0x1];
+	u8         dp_ordering_ooo_all_dc[0x1];
+	u8         dp_ordering_ooo_all_rc[0x1];
+	u8         reserved_at_335[0x6];
 	u8         log_max_xrcd[0x5];
 
 	u8         nic_receive_steering_discard[0x1];

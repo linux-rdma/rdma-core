@@ -89,6 +89,68 @@ struct mlx5dv_qp_init_attr {
 		about the signature pipelining in
 		**mlx5dv_qp_cancel_posted_send_wrs**(3).
 
+	MLX5DV_QP_CREATE_OOO_DP:
+		If the flag is set, Receive WRs on the receiver side of the QP are
+		allowed to be consumed out-of-order and sender side of the QP is allowed
+		to transmit messages without guaranteeing any arrival ordering on the
+		receiver side.
+
+		The flag, when set, must be set both on the sender and receiver side of
+		a QP (e.g., DCT and DCI).
+
+		Setting the flag is optional and the availability of this feature should
+		be queried by the application (See details in
+		**mlx5dv_query_device**(3)) and there is no automatic fallback: If the
+		flag is set while kernel or device does not support the feature, then
+		creating the QP fails. Thus, before creating a QP with this flag set,
+		application must query the maximal outstanding Receive WRs possible on a
+		QP with this flag set, according to the QP type (see details in
+		**mlx5dv_query_device**(3)) and make sure the capability is supported.
+
+		> **Note**
+		>
+		> All the following describe the behavior and semantics of a QP
+		> with this flag set.
+
+		Completions' delivery ordering:
+
+		A Receive WR posted on this QP may be consumed by any arriving message
+		to this QP that requires Receive WR consumption. Nonetheless, the
+		ordering in which work completions are delivered for the posted WRs,
+		both on sender side and receiver side, remains unchanged when this flag
+		is set (and is independent of the ordering in which the Receive WRs are
+		consumed). The ID delivered in every work completion (wr_id) will
+		specify which WR was completed by the delivered work completion.
+
+		Data placing and operations' execution ordering:
+
+		RDMA Read and RDMA Atomic operations are executed on the responder side
+		in order, i.e., these operations are executed after all previous
+		messages are done executing.
+		However, the ordering of RDMA Read response packets being scattered
+		to memory on the requestor side is not guaranteed. This means that,
+		although the data is read after executing all previous messages,
+		it may be scattered out-of-order on the requestor side.
+
+		Ordering of write requests towards the memory on the responder side,
+		initiated by RDMA Send, RDMA Send with Immediate, RDMA Write or RDMA
+		Write with Immediate is not guaranteed.
+
+		Good and bad practice:
+
+		Since it cannot be guaranteed which RDMA Send (and/or RDMA Send with
+		Immediate) will consume a Receive WR (and will scatter its data to the
+		memory buffers specified in the WR) it's not recommended to post
+		different sizes of Receive WRs.
+
+		Polling on any memory that is used by the device to scatter data, is not
+		recommended since ordering of data placement of RDMA Send, RDMA Write
+		and RDMA Write with Immediate is not guaranteed.
+
+		Receiver, upon getting a completion for an RDMA Write with Immediate,
+		should not rely on wr_id alone to determine to which memory data was
+		scattered by the operation.
+
 *dc_init_attr*
 :	DC init attributes.
 
@@ -163,7 +225,7 @@ returns a pointer to the created QP, on error NULL will be returned and errno wi
 
 # SEE ALSO
 
-**ibv_query_device_ex**(3), **ibv_create_qp_ex**(3),
+**ibv_query_device_ex**(3), **ibv_create_qp_ex**(3), **mlx5dv_query_device**(3)
 
 # AUTHOR
 
