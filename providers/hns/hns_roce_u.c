@@ -67,7 +67,7 @@ static const struct verbs_context_ops hns_common_ops = {
 	.create_qp = hns_roce_u_create_qp,
 	.create_qp_ex = hns_roce_u_create_qp_ex,
 	.dealloc_mw = hns_roce_u_dealloc_mw,
-	.dealloc_pd = hns_roce_u_free_pd,
+	.dealloc_pd = hns_roce_u_dealloc_pd,
 	.dereg_mr = hns_roce_u_dereg_mr,
 	.destroy_cq = hns_roce_u_destroy_cq,
 	.modify_cq = hns_roce_u_modify_cq,
@@ -88,6 +88,9 @@ static const struct verbs_context_ops hns_common_ops = {
 	.close_xrcd = hns_roce_u_close_xrcd,
 	.open_qp = hns_roce_u_open_qp,
 	.get_srq_num = hns_roce_u_get_srq_num,
+	.alloc_td = hns_roce_u_alloc_td,
+	.dealloc_td = hns_roce_u_dealloc_td,
+	.alloc_parent_domain = hns_roce_u_alloc_pad,
 };
 
 static uint32_t calc_table_shift(uint32_t entry_count, uint32_t size_shift)

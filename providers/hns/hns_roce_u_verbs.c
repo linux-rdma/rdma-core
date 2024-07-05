@@ -33,6 +33,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <math.h>
 #include <errno.h>
 #include <pthread.h>
 #include <sys/mman.h>
@@ -41,6 +42,33 @@
 #include "hns_roce_u.h"
 #include "hns_roce_u_db.h"
 #include "hns_roce_u_hw_v2.h"
+
+static bool hns_roce_whether_need_lock(struct ibv_pd *pd)
+{
+	struct hns_roce_pad *pad = to_hr_pad(pd);
+
+	return !(pad && pad->td);
+}
+
+static int hns_roce_spinlock_init(struct hns_roce_spinlock *hr_lock,
+				  bool need_lock)
+{
+	hr_lock->need_lock = need_lock;
+
+	if (need_lock)
+		return pthread_spin_init(&hr_lock->lock,
+					 PTHREAD_PROCESS_PRIVATE);
+
+	return 0;
+}
+
+static int hns_roce_spinlock_destroy(struct hns_roce_spinlock *hr_lock)
+{
+	if (hr_lock->need_lock)
+		return pthread_spin_destroy(&hr_lock->lock);
+
+	return 0;
+}
 
 void hns_roce_init_qp_indices(struct hns_roce_qp *qp)
 {
@@ -85,38 +113,137 @@ int hns_roce_u_query_port(struct ibv_context *context, uint8_t port,
 	return ibv_cmd_query_port(context, port, attr, &cmd, sizeof(cmd));
 }
 
-struct ibv_pd *hns_roce_u_alloc_pd(struct ibv_context *context)
+struct ibv_td *hns_roce_u_alloc_td(struct ibv_context *context,
+				   struct ibv_td_init_attr *attr)
 {
-	struct ibv_alloc_pd cmd;
-	struct hns_roce_pd *pd;
-	struct hns_roce_alloc_pd_resp resp = {};
+	struct hns_roce_td *td;
 
-	pd = malloc(sizeof(*pd));
-	if (!pd)
-		return NULL;
-
-	if (ibv_cmd_alloc_pd(context, &pd->ibv_pd, &cmd, sizeof(cmd),
-			     &resp.ibv_resp, sizeof(resp))) {
-		free(pd);
+	if (attr->comp_mask) {
+		errno = EOPNOTSUPP;
 		return NULL;
 	}
 
+	td = calloc(1, sizeof(*td));
+	if (!td) {
+		errno = ENOMEM;
+		return NULL;
+	}
+
+	td->ibv_td.context = context;
+	atomic_init(&td->refcount, 1);
+
+	return &td->ibv_td;
+}
+
+int hns_roce_u_dealloc_td(struct ibv_td *ibv_td)
+{
+	struct hns_roce_td *td;
+
+	td = to_hr_td(ibv_td);
+	if (atomic_load(&td->refcount) > 1)
+		return EBUSY;
+
+	free(td);
+
+	return 0;
+}
+
+struct ibv_pd *hns_roce_u_alloc_pd(struct ibv_context *context)
+{
+	struct hns_roce_alloc_pd_resp resp = {};
+	struct ibv_alloc_pd cmd;
+	struct hns_roce_pd *pd;
+
+	pd = calloc(1, sizeof(*pd));
+	if (!pd) {
+		errno = ENOMEM;
+		return NULL;
+	}
+	errno = ibv_cmd_alloc_pd(context, &pd->ibv_pd, &cmd, sizeof(cmd),
+				 &resp.ibv_resp, sizeof(resp));
+	if (errno)
+		goto err;
+
+	atomic_init(&pd->refcount, 1);
 	pd->pdn = resp.pdn;
 
 	return &pd->ibv_pd;
+
+err:
+	free(pd);
+	return NULL;
 }
 
-int hns_roce_u_free_pd(struct ibv_pd *pd)
+struct ibv_pd *hns_roce_u_alloc_pad(struct ibv_context *context,
+				    struct ibv_parent_domain_init_attr *attr)
+{
+	struct hns_roce_pad *pad;
+
+	if (ibv_check_alloc_parent_domain(attr))
+		return NULL;
+
+	if (attr->comp_mask) {
+		errno = EOPNOTSUPP;
+		return NULL;
+	}
+
+	pad = calloc(1, sizeof(*pad));
+	if (!pad) {
+		errno = ENOMEM;
+		return NULL;
+	}
+
+	if (attr->td) {
+		pad->td = to_hr_td(attr->td);
+		atomic_fetch_add(&pad->td->refcount, 1);
+	}
+
+	pad->pd.protection_domain = to_hr_pd(attr->pd);
+	atomic_fetch_add(&pad->pd.protection_domain->refcount, 1);
+
+	atomic_init(&pad->pd.refcount, 1);
+	ibv_initialize_parent_domain(&pad->pd.ibv_pd,
+				     &pad->pd.protection_domain->ibv_pd);
+
+	return &pad->pd.ibv_pd;
+}
+
+static void hns_roce_free_pad(struct hns_roce_pad *pad)
+{
+	atomic_fetch_sub(&pad->pd.protection_domain->refcount, 1);
+
+	if (pad->td)
+		atomic_fetch_sub(&pad->td->refcount, 1);
+
+	free(pad);
+}
+
+static int hns_roce_free_pd(struct hns_roce_pd *pd)
 {
 	int ret;
 
-	ret = ibv_cmd_dealloc_pd(pd);
+	if (atomic_load(&pd->refcount) > 1)
+		return EBUSY;
+
+	ret = ibv_cmd_dealloc_pd(&pd->ibv_pd);
 	if (ret)
 		return ret;
 
-	free(to_hr_pd(pd));
+	free(pd);
+	return 0;
+}
 
-	return ret;
+int hns_roce_u_dealloc_pd(struct ibv_pd *ibv_pd)
+{
+	struct hns_roce_pad *pad = to_hr_pad(ibv_pd);
+	struct hns_roce_pd *pd = to_hr_pd(ibv_pd);
+
+	if (pad) {
+		hns_roce_free_pad(pad);
+		return 0;
+	}
+
+	return hns_roce_free_pd(pd);
 }
 
 struct ibv_xrcd *hns_roce_u_open_xrcd(struct ibv_context *context,
