@@ -1052,6 +1052,29 @@ static int verify_qp_create_attr(struct hns_roce_context *ctx,
 	return verify_qp_create_cap(ctx, attr);
 }
 
+static int hns_roce_qp_spinlock_init(struct ibv_qp_init_attr_ex *attr,
+				     struct hns_roce_qp *qp)
+{
+	bool need_lock = hns_roce_whether_need_lock(attr->pd);
+	int ret;
+
+	ret = hns_roce_spinlock_init(&qp->sq.hr_lock, need_lock);
+	if (ret)
+		return ret;
+
+	ret = hns_roce_spinlock_init(&qp->rq.hr_lock, need_lock);
+	if (ret)
+		hns_roce_spinlock_destroy(&qp->sq.hr_lock);
+
+	return ret;
+}
+
+void hns_roce_qp_spinlock_destroy(struct hns_roce_qp *qp)
+{
+	hns_roce_spinlock_destroy(&qp->rq.hr_lock);
+	hns_roce_spinlock_destroy(&qp->sq.hr_lock);
+}
+
 static int alloc_recv_rinl_buf(uint32_t max_sge,
 			       struct hns_roce_rinl_buf *rinl_buf)
 {
@@ -1442,8 +1465,6 @@ void hns_roce_free_qp_buf(struct hns_roce_qp *qp, struct hns_roce_context *ctx)
 {
 	qp_free_db(qp, ctx);
 	qp_free_wqe(qp);
-	pthread_spin_destroy(&qp->rq.lock);
-	pthread_spin_destroy(&qp->sq.lock);
 }
 
 static int hns_roce_alloc_qp_buf(struct ibv_qp_init_attr_ex *attr,
@@ -1451,14 +1472,6 @@ static int hns_roce_alloc_qp_buf(struct ibv_qp_init_attr_ex *attr,
 				 struct hns_roce_context *ctx)
 {
 	int ret;
-
-	ret = pthread_spin_init(&qp->sq.lock, PTHREAD_PROCESS_PRIVATE);
-	if (ret)
-		return ret;
-
-	ret = pthread_spin_init(&qp->rq.lock, PTHREAD_PROCESS_PRIVATE);
-	if (ret)
-		goto err_rq_lock;
 
 	ret = qp_alloc_wqe(&attr->cap, qp, ctx);
 	if (ret)
@@ -1473,10 +1486,6 @@ static int hns_roce_alloc_qp_buf(struct ibv_qp_init_attr_ex *attr,
 err_db:
 	qp_free_wqe(qp);
 err_wqe:
-	pthread_spin_destroy(&qp->rq.lock);
-err_rq_lock:
-	pthread_spin_destroy(&qp->sq.lock);
-
 	return ret;
 }
 
@@ -1496,6 +1505,7 @@ static struct ibv_qp *create_qp(struct ibv_context *ibv_ctx,
 				struct hnsdv_qp_init_attr *hns_attr)
 {
 	struct hns_roce_context *context = to_hr_ctx(ibv_ctx);
+	struct hns_roce_pad *pad = to_hr_pad(attr->pd);
 	struct hns_roce_qp *qp;
 	uint64_t dwqe_mmap_key;
 	int ret;
@@ -1511,6 +1521,13 @@ static struct ibv_qp *create_qp(struct ibv_context *ibv_ctx,
 	}
 
 	hns_roce_set_qp_params(attr, qp, context);
+
+	if (pad)
+		atomic_fetch_add(&pad->pd.refcount, 1);
+
+	ret = hns_roce_qp_spinlock_init(attr, qp);
+	if (ret)
+		goto err_spinlock;
 
 	ret = hns_roce_alloc_qp_buf(attr, qp, context);
 	if (ret)
@@ -1545,6 +1562,8 @@ err_ops:
 err_cmd:
 	hns_roce_free_qp_buf(qp, context);
 err_buf:
+	hns_roce_qp_spinlock_destroy(qp);
+err_spinlock:
 	free(qp);
 err:
 	if (ret < 0)

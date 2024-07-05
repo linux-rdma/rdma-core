@@ -305,7 +305,7 @@ struct hns_roce_srq {
 
 struct hns_roce_wq {
 	unsigned long			*wrid;
-	pthread_spinlock_t		lock;
+	struct hns_roce_spinlock	hr_lock;
 	unsigned int			wqe_cnt;
 	int				max_post;
 	unsigned int			head;
