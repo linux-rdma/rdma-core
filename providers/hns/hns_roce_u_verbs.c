@@ -451,6 +451,14 @@ static int hns_roce_cq_spinlock_init(struct hns_roce_cq *cq,
 	return hns_roce_spinlock_init(&cq->hr_lock, need_lock);
 }
 
+static int hns_roce_srq_spinlock_init(struct hns_roce_srq *srq,
+				      struct ibv_srq_init_attr_ex *attr)
+{
+	bool need_lock = hns_roce_whether_need_lock(attr->pd);
+
+	return hns_roce_spinlock_init(&srq->hr_lock, need_lock);
+}
+
 static int hns_roce_alloc_cq_buf(struct hns_roce_cq *cq)
 {
 	int buf_size = hr_hw_page_align(cq->cq_depth * cq->cqe_size);
@@ -804,6 +812,7 @@ static struct ibv_srq *create_srq(struct ibv_context *context,
 				  struct ibv_srq_init_attr_ex *init_attr)
 {
 	struct hns_roce_context *hr_ctx = to_hr_ctx(context);
+	struct hns_roce_pad *pad = to_hr_pad(init_attr->pd);
 	struct hns_roce_srq *srq;
 	int ret;
 
@@ -817,7 +826,10 @@ static struct ibv_srq *create_srq(struct ibv_context *context,
 		goto err;
 	}
 
-	if (pthread_spin_init(&srq->lock, PTHREAD_PROCESS_PRIVATE))
+	if (pad)
+		atomic_fetch_add(&pad->pd.refcount, 1);
+
+	if (hns_roce_srq_spinlock_init(srq, init_attr))
 		goto err_free_srq;
 
 	set_srq_param(context, srq, init_attr);
@@ -852,7 +864,7 @@ err_srq_buf:
 	free_srq_buf(srq);
 
 err_destroy_lock:
-	pthread_spin_destroy(&srq->lock);
+	hns_roce_spinlock_destroy(&srq->hr_lock);
 
 err_free_srq:
 	free(srq);
@@ -918,6 +930,7 @@ int hns_roce_u_query_srq(struct ibv_srq *srq, struct ibv_srq_attr *srq_attr)
 int hns_roce_u_destroy_srq(struct ibv_srq *ibv_srq)
 {
 	struct hns_roce_context *ctx = to_hr_ctx(ibv_srq->context);
+	struct hns_roce_pad *pad = to_hr_pad(ibv_srq->pd);
 	struct hns_roce_srq *srq = to_hr_srq(ibv_srq);
 	int ret;
 
@@ -930,7 +943,11 @@ int hns_roce_u_destroy_srq(struct ibv_srq *ibv_srq)
 	hns_roce_free_db(ctx, srq->rdb, HNS_ROCE_SRQ_TYPE_DB);
 	free_srq_buf(srq);
 
-	pthread_spin_destroy(&srq->lock);
+	hns_roce_spinlock_destroy(&srq->hr_lock);
+
+	if (pad)
+		atomic_fetch_sub(&pad->pd.refcount, 1);
+
 	free(srq);
 
 	return 0;

@@ -229,14 +229,14 @@ static void hns_roce_free_srq_wqe(struct hns_roce_srq *srq, uint16_t ind)
 	uint32_t bitmap_num;
 	int bit_num;
 
-	pthread_spin_lock(&srq->lock);
+	hns_roce_spin_lock(&srq->hr_lock);
 
 	bitmap_num = ind / BIT_CNT_PER_LONG;
 	bit_num = ind % BIT_CNT_PER_LONG;
 	srq->idx_que.bitmap[bitmap_num] |= (1ULL << bit_num);
 	srq->idx_que.tail++;
 
-	pthread_spin_unlock(&srq->lock);
+	hns_roce_spin_unlock(&srq->hr_lock);
 }
 
 static int get_srq_from_cqe(struct hns_roce_v2_cqe *cqe,
@@ -1768,7 +1768,7 @@ static int hns_roce_u_v2_post_srq_recv(struct ibv_srq *ib_srq,
 	int ret = 0;
 	void *wqe;
 
-	pthread_spin_lock(&srq->lock);
+	hns_roce_spin_lock(&srq->hr_lock);
 
 	max_sge = srq->max_gs - srq->rsv_sge;
 	for (nreq = 0; wr; ++nreq, wr = wr->next) {
@@ -1805,7 +1805,7 @@ static int hns_roce_u_v2_post_srq_recv(struct ibv_srq *ib_srq,
 			update_srq_db(ctx, &srq_db, srq);
 	}
 
-	pthread_spin_unlock(&srq->lock);
+	hns_roce_spin_unlock(&srq->hr_lock);
 
 	return ret;
 }
