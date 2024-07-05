@@ -403,6 +403,11 @@ int hns_roce_u_dealloc_mw(struct ibv_mw *mw)
 }
 
 enum {
+	CREATE_CQ_SUPPORTED_COMP_MASK = IBV_CQ_INIT_ATTR_MASK_FLAGS |
+					IBV_CQ_INIT_ATTR_MASK_PD,
+};
+
+enum {
 	CREATE_CQ_SUPPORTED_WC_FLAGS = IBV_WC_STANDARD_FLAGS |
 				       IBV_WC_EX_WITH_CVLAN,
 };
@@ -410,19 +415,40 @@ enum {
 static int verify_cq_create_attr(struct ibv_cq_init_attr_ex *attr,
 				 struct hns_roce_context *context)
 {
+	struct hns_roce_pad *pad = to_hr_pad(attr->parent_domain);
+
 	if (!attr->cqe || attr->cqe > context->max_cqe)
 		return EINVAL;
 
-	if (attr->comp_mask)
+	if (!check_comp_mask(attr->comp_mask, CREATE_CQ_SUPPORTED_COMP_MASK)) {
+		verbs_err(&context->ibv_ctx, "unsupported cq comps 0x%x\n",
+			  attr->comp_mask);
 		return EOPNOTSUPP;
+	}
 
 	if (!check_comp_mask(attr->wc_flags, CREATE_CQ_SUPPORTED_WC_FLAGS))
 		return EOPNOTSUPP;
+
+	if (attr->comp_mask & IBV_CQ_INIT_ATTR_MASK_PD) {
+		if (!pad) {
+			verbs_err(&context->ibv_ctx, "failed to check the pad of cq.\n");
+			return EINVAL;
+		}
+		atomic_fetch_add(&pad->pd.refcount, 1);
+	}
 
 	attr->cqe = max_t(uint32_t, HNS_ROCE_MIN_CQE_NUM,
 			  roundup_pow_of_two(attr->cqe));
 
 	return 0;
+}
+
+static int hns_roce_cq_spinlock_init(struct hns_roce_cq *cq,
+				     struct ibv_cq_init_attr_ex *attr)
+{
+	bool need_lock = hns_roce_whether_need_lock(attr->parent_domain);
+
+	return hns_roce_spinlock_init(&cq->hr_lock, need_lock);
 }
 
 static int hns_roce_alloc_cq_buf(struct hns_roce_cq *cq)
@@ -481,7 +507,10 @@ static struct ibv_cq_ex *create_cq(struct ibv_context *context,
 		goto err;
 	}
 
-	ret = pthread_spin_init(&cq->lock, PTHREAD_PROCESS_PRIVATE);
+	if (attr->comp_mask & IBV_CQ_INIT_ATTR_MASK_PD)
+		cq->parent_domain = attr->parent_domain;
+
+	ret = hns_roce_cq_spinlock_init(cq, attr);
 	if (ret)
 		goto err_lock;
 
@@ -511,7 +540,7 @@ err_cmd:
 err_db:
 	hns_roce_free_buf(&cq->buf);
 err_buf:
-	pthread_spin_destroy(&cq->lock);
+	hns_roce_spinlock_destroy(&cq->hr_lock);
 err_lock:
 	free(cq);
 err:
@@ -564,6 +593,7 @@ int hns_roce_u_modify_cq(struct ibv_cq *cq, struct ibv_modify_cq_attr *attr)
 int hns_roce_u_destroy_cq(struct ibv_cq *cq)
 {
 	struct hns_roce_cq *hr_cq = to_hr_cq(cq);
+	struct hns_roce_pad *pad = to_hr_pad(hr_cq->parent_domain);
 	int ret;
 
 	ret = ibv_cmd_destroy_cq(cq);
@@ -574,7 +604,10 @@ int hns_roce_u_destroy_cq(struct ibv_cq *cq)
 			 HNS_ROCE_CQ_TYPE_DB);
 	hns_roce_free_buf(&hr_cq->buf);
 
-	pthread_spin_destroy(&hr_cq->lock);
+	hns_roce_spinlock_destroy(&hr_cq->hr_lock);
+
+	if (pad)
+		atomic_fetch_sub(&pad->pd.refcount, 1);
 
 	free(hr_cq);
 

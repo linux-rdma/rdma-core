@@ -268,9 +268,9 @@ static int hns_roce_v2_wq_overflow(struct hns_roce_wq *wq, unsigned int nreq,
 	if (cur + nreq < wq->max_post)
 		return 0;
 
-	pthread_spin_lock(&cq->lock);
+	hns_roce_spin_lock(&cq->hr_lock);
 	cur = wq->head - wq->tail;
-	pthread_spin_unlock(&cq->lock);
+	hns_roce_spin_unlock(&cq->hr_lock);
 
 	return cur + nreq >= wq->max_post;
 }
@@ -737,7 +737,7 @@ static int hns_roce_u_v2_poll_cq(struct ibv_cq *ibvcq, int ne,
 	int err = V2_CQ_OK;
 	int npolled;
 
-	pthread_spin_lock(&cq->lock);
+	hns_roce_spin_lock(&cq->hr_lock);
 
 	for (npolled = 0; npolled < ne; ++npolled) {
 		err = hns_roce_poll_one(ctx, &qp, cq, wc + npolled);
@@ -752,7 +752,7 @@ static int hns_roce_u_v2_poll_cq(struct ibv_cq *ibvcq, int ne,
 			update_cq_db(ctx, cq);
 	}
 
-	pthread_spin_unlock(&cq->lock);
+	hns_roce_spin_unlock(&cq->hr_lock);
 
 	return err == V2_CQ_POLL_ERR ? err : npolled;
 }
@@ -1523,9 +1523,9 @@ static void __hns_roce_v2_cq_clean(struct hns_roce_cq *cq, uint32_t qpn,
 static void hns_roce_v2_cq_clean(struct hns_roce_cq *cq, unsigned int qpn,
 				 struct hns_roce_srq *srq)
 {
-	pthread_spin_lock(&cq->lock);
+	hns_roce_spin_lock(&cq->hr_lock);
 	__hns_roce_v2_cq_clean(cq, qpn, srq);
-	pthread_spin_unlock(&cq->lock);
+	hns_roce_spin_unlock(&cq->hr_lock);
 }
 
 static void record_qp_attr(struct ibv_qp *qp, struct ibv_qp_attr *attr,
@@ -1611,18 +1611,18 @@ static void hns_roce_lock_cqs(struct ibv_qp *qp)
 
 	if (send_cq && recv_cq) {
 		if (send_cq == recv_cq) {
-			pthread_spin_lock(&send_cq->lock);
+			hns_roce_spin_lock(&send_cq->hr_lock);
 		} else if (send_cq->cqn < recv_cq->cqn) {
-			pthread_spin_lock(&send_cq->lock);
-			pthread_spin_lock(&recv_cq->lock);
+			hns_roce_spin_lock(&send_cq->hr_lock);
+			hns_roce_spin_lock(&recv_cq->hr_lock);
 		} else {
-			pthread_spin_lock(&recv_cq->lock);
-			pthread_spin_lock(&send_cq->lock);
+			hns_roce_spin_lock(&recv_cq->hr_lock);
+			hns_roce_spin_lock(&send_cq->hr_lock);
 		}
 	} else if (send_cq) {
-		pthread_spin_lock(&send_cq->lock);
+		hns_roce_spin_lock(&send_cq->hr_lock);
 	} else if (recv_cq) {
-		pthread_spin_lock(&recv_cq->lock);
+		hns_roce_spin_lock(&recv_cq->hr_lock);
 	}
 }
 
@@ -1633,18 +1633,18 @@ static void hns_roce_unlock_cqs(struct ibv_qp *qp)
 
 	if (send_cq && recv_cq) {
 		if (send_cq == recv_cq) {
-			pthread_spin_unlock(&send_cq->lock);
+			hns_roce_spin_unlock(&send_cq->hr_lock);
 		} else if (send_cq->cqn < recv_cq->cqn) {
-			pthread_spin_unlock(&recv_cq->lock);
-			pthread_spin_unlock(&send_cq->lock);
+			hns_roce_spin_unlock(&recv_cq->hr_lock);
+			hns_roce_spin_unlock(&send_cq->hr_lock);
 		} else {
-			pthread_spin_unlock(&send_cq->lock);
-			pthread_spin_unlock(&recv_cq->lock);
+			hns_roce_spin_unlock(&send_cq->hr_lock);
+			hns_roce_spin_unlock(&recv_cq->hr_lock);
 		}
 	} else if (send_cq) {
-		pthread_spin_unlock(&send_cq->lock);
+		hns_roce_spin_unlock(&send_cq->hr_lock);
 	} else if (recv_cq) {
-		pthread_spin_unlock(&recv_cq->lock);
+		hns_roce_spin_unlock(&recv_cq->hr_lock);
 	}
 }
 
@@ -1816,11 +1816,11 @@ static int wc_start_poll_cq(struct ibv_cq_ex *current,
 	if (attr->comp_mask)
 		return EINVAL;
 
-	pthread_spin_lock(&cq->lock);
+	hns_roce_spin_lock(&cq->hr_lock);
 
 	err = hns_roce_poll_one(ctx, &qp, cq, NULL);
 	if (err != V2_CQ_OK)
-		pthread_spin_unlock(&cq->lock);
+		hns_roce_spin_unlock(&cq->hr_lock);
 
 	return err;
 }
@@ -1854,7 +1854,7 @@ static void wc_end_poll_cq(struct ibv_cq_ex *current)
 	else
 		update_cq_db(ctx, cq);
 
-	pthread_spin_unlock(&cq->lock);
+	hns_roce_spin_unlock(&cq->hr_lock);
 }
 
 static enum ibv_wc_opcode wc_read_opcode(struct ibv_cq_ex *current)

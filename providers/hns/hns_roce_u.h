@@ -255,7 +255,7 @@ struct hns_roce_pad {
 struct hns_roce_cq {
 	struct verbs_cq			verbs_cq;
 	struct hns_roce_buf		buf;
-	pthread_spinlock_t		lock;
+	struct hns_roce_spinlock	hr_lock;
 	unsigned int			cqn;
 	unsigned int			cq_depth;
 	unsigned int			cons_index;
@@ -265,6 +265,7 @@ struct hns_roce_cq {
 	unsigned long			flags;
 	unsigned int			cqe_size;
 	struct hns_roce_v2_cqe		*cqe;
+	struct ibv_pd			*parent_domain;
 };
 
 struct hns_roce_idx_que {
