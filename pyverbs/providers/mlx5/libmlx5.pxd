@@ -44,6 +44,13 @@ cdef extern from 'infiniband/mlx5dv.h':
         uint8_t log_max_num_deks
         uint32_t flags
 
+    cdef struct mlx5dv_ooo_recv_wrs_caps:
+        uint32_t max_rc
+        uint32_t max_xrc
+        uint32_t max_dct
+        uint32_t max_ud
+        uint32_t max_uc
+
     cdef struct mlx5dv_context:
         unsigned char           version
         unsigned long           flags
@@ -62,6 +69,7 @@ cdef extern from 'infiniband/mlx5dv.h':
         size_t                  max_wr_memcpy_length
         uint64_t                max_dc_rd_atom
         uint64_t                max_dc_init_rd_atom
+        mlx5dv_ooo_recv_wrs_caps ooo_recv_wrs_caps
 
 
     cdef struct mlx5dv_dci_streams:

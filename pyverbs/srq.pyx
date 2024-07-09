@@ -250,7 +250,7 @@ cdef class SRQ(PyverbsCM):
         self.qps = weakref.WeakSet()
         if isinstance(creator, PD):
             self._create_srq(creator, attr)
-        elif type(creator) == Context:
+        elif isinstance(creator, Context):
             self._create_srq_ex(creator, attr)
         else:
             raise PyverbsRDMAError('Srq needs either Context or PD for creation')
