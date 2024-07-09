@@ -86,20 +86,25 @@ static const struct verbs_context_ops irdma_uctx_ops = {
 	.create_cq = irdma_ucreate_cq,
 	.create_cq_ex = irdma_ucreate_cq_ex,
 	.create_qp = irdma_ucreate_qp,
+	.create_srq = irdma_ucreate_srq,
 	.dealloc_mw = irdma_udealloc_mw,
 	.dealloc_pd = irdma_ufree_pd,
 	.dereg_mr = irdma_udereg_mr,
 	.destroy_ah = irdma_udestroy_ah,
 	.destroy_cq = irdma_udestroy_cq,
 	.destroy_qp = irdma_udestroy_qp,
+	.destroy_srq = irdma_udestroy_srq,
 	.detach_mcast = irdma_udetach_mcast,
 	.modify_qp = irdma_umodify_qp,
+	.modify_srq = irdma_umodify_srq,
 	.poll_cq = irdma_upoll_cq,
 	.post_recv = irdma_upost_recv,
 	.post_send = irdma_upost_send,
+	.post_srq_recv = irdma_upost_srq,
 	.query_device_ex = irdma_uquery_device_ex,
 	.query_port = irdma_uquery_port,
 	.query_qp = irdma_uquery_qp,
+	.query_srq = irdma_uquery_srq,
 	.reg_dmabuf_mr = irdma_ureg_mr_dmabuf,
 	.reg_mr = irdma_ureg_mr,
 	.rereg_mr = irdma_urereg_mr,
@@ -197,6 +202,8 @@ static struct verbs_context *irdma_ualloc_context(struct ibv_device *ibdev,
 			iwvctx->uk_attrs.max_hw_push_len = resp.max_hw_push_len;
 		else
 			iwvctx->uk_attrs.max_hw_push_len = IRDMA_DEFAULT_MAX_PUSH_LEN;
+
+		iwvctx->uk_attrs.max_hw_srq_quanta = resp.max_hw_srq_quanta;
 		mmap_key = resp.db_mmap_key;
 	}
 
