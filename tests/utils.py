@@ -657,11 +657,14 @@ def poll_cq_ex(cqex, count=1, data=None, sgid=None):
     :param cq: CQEX to poll from
     :param count: How many completions to poll
     :param data: In case of a work request with immediate, the immediate data
-                 to be compared after poll
+                 to be compared after poll, either a list of immediate data or
+                 one value
     :param sgid: In case of EFA receive completion, the sgid to be compared
                  after poll
-    :return: None
+    :return: WR id order received
     """
+    wr_id_order = []
+    iters = count
     try:
         start_poll_t = time.perf_counter()
         poll_attr = PollCqAttr()
@@ -670,12 +673,14 @@ def poll_cq_ex(cqex, count=1, data=None, sgid=None):
             ret = cqex.start_poll(poll_attr)
         if ret != 0:
             raise PyverbsRDMAErrno('Failed to poll CQ')
+        wr_id_order.append(cqex.wr_id)
         count -= 1
         if cqex.status != e.IBV_WC_SUCCESS:
             raise PyverbsRDMAErrno('Completion status is {s}'.
                                    format(s=cqex.status))
         if data:
-            assert data == socket.ntohl(cqex.read_imm_data())
+            imm_data = data if not isinstance(data, list) else data[iters - count - 1]
+            assert imm_data == socket.ntohl(cqex.read_imm_data())
 
         if isinstance(cqex, EfaCQ):
             if sgid is not None and cqex.read_opcode() == e.IBV_WC_RECV:
@@ -687,12 +692,14 @@ def poll_cq_ex(cqex, count=1, data=None, sgid=None):
                 ret = cqex.poll_next()
             if ret != 0:
                 raise PyverbsRDMAErrno('Failed to poll CQ')
-            count -= 1
             if cqex.status != e.IBV_WC_SUCCESS:
                 raise PyverbsRDMAErrno('Completion status is {s}'.
                                        format(s=cqex.status))
+            count -= 1
+            wr_id_order.append(cqex.wr_id)
             if data:
-                assert data == socket.ntohl(cqex.read_imm_data())
+                imm_data = data if not isinstance(data, list) else data[iters - count - 1]
+                assert imm_data == socket.ntohl(cqex.read_imm_data())
 
             if isinstance(cqex, EfaCQ):
                 if sgid is not None and cqex.read_opcode() == e.IBV_WC_RECV:
@@ -701,6 +708,7 @@ def poll_cq_ex(cqex, count=1, data=None, sgid=None):
             raise PyverbsError(f'Got timeout on polling ({count} CQEs remaining)')
     finally:
         cqex.end_poll()
+    return wr_id_order
 
 
 def validate(received_str, is_server, msg_size):
@@ -734,6 +742,51 @@ def send(agr_obj, send_object, send_op=None, new_send=False, qp_idx=0, ah=None, 
     if new_send:
         return post_send_ex(agr_obj, send_object, send_op, qp_idx, ah, **kwargs)
     return post_send(agr_obj, send_object, qp_idx, ah, is_imm)
+
+
+def traffic_poll_at_once(test, msg_size, iterations=10, opcode=e.IBV_WR_SEND):
+    """
+    Execute traffic between two peers iterations times:
+    - Create receive resources and then post recv
+    - Create send resources and then post send
+    - Poll client and server all cqes at once
+    - Compare received buffer with the expected one and validate
+    :param test: Test object with client and server.
+    :param msg_size: Size of a packet.
+    :param iterations: Number of packets to send/recv.
+    :param opcode: Send opcode. Currently it supports SEND and
+                   RDMA_WRITE_WITH_IMM opcodes only.
+    """
+    imm_data_exp = []
+
+    for i in range(iterations):
+        recv_sge = SGE(test.server.mr.buf + (msg_size * i), msg_size, test.server.mr.lkey)
+        recv_wr = RecvWR(sg=[recv_sge], num_sge=1, wr_id=i)
+        test.server.mr.write(str(iterations - i - 1) * msg_size, msg_size, i * msg_size)
+        test.server.qp.post_recv(recv_wr)
+
+    for i in range(iterations):
+        send_sge = SGE(test.client.mr.buf + (msg_size * i), msg_size, test.client.mr.lkey)
+        send_wr = SendWR(opcode=opcode, num_sge=1, sg=[send_sge], wr_id=i)
+        if opcode == e.IBV_WR_RDMA_WRITE_WITH_IMM:
+            send_wr.imm_data = socket.htonl(i + iterations)
+            imm_data_exp.append(i + iterations)
+            send_wr.set_wr_rdma(int(test.client.rkey), int(test.client.raddr + i * msg_size))
+        test.client.mr.write(str(i % 10) * msg_size, msg_size, i * msg_size)
+        test.client.qp.post_send(send_wr)
+
+    send_id_order = poll_cq_ex(test.client.cq, iterations)
+    recv_id_order = poll_cq_ex(test.server.cq, iterations, data=imm_data_exp)
+    # With opcodes that don't consume Recv WQEs (e.g. WRITE and WRITE_WITH_IMM) the buffer
+    # scattering offsets are defined by the sender.
+    recv_id_order = send_id_order if opcode == e.IBV_WR_RDMA_WRITE_WITH_IMM else recv_id_order
+
+    for i, j in zip(recv_id_order, send_id_order):
+        exp_buff = bytearray((str(j % 10) * msg_size), 'utf-8')
+        recv_buff = test.server.mr.read(msg_size, i * msg_size)
+        if recv_buff != exp_buff:
+            raise PyverbsRDMAError(f'Data validation failed: expected {exp_buff},'
+                                   f' received {recv_buff}')
 
 
 def traffic(client, server, iters, gid_idx, port, is_cq_ex=False, send_op=e.IBV_WR_SEND,
