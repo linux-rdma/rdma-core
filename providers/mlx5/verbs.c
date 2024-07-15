@@ -2638,7 +2638,6 @@ static struct ibv_qp *create_qp(struct ibv_context *context,
 	qp->get_ece = resp_drv->ece_options;
 	map_uuar(context, qp, resp_drv->bfreg_index, bf);
 
-	qp->rq.max_post = qp->rq.wqe_cnt;
 	if (attr->sq_sig_all)
 		qp->sq_signal_bits = MLX5_WQE_CTRL_CQ_UPDATE;
 	else
