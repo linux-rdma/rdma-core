@@ -4674,8 +4674,11 @@ static void *cm_svc_run(void *arg)
 			fds[i].revents = 0;
 
 		poll(fds, svc->cnt + 1, -1);
-		if (fds[0].revents)
+		if (fds[0].revents) {
 			cm_svc_process_sock(svc);
+			/* svc->contexts may have been reallocated, so need to assign again */
+			fds = svc->contexts;
+		}
 
 		for (i = 1; i <= svc->cnt; i++) {
 			if (!fds[i].revents)
