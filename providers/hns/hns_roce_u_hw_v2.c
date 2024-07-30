@@ -2490,6 +2490,7 @@ static void wr_start(struct ibv_qp_ex *ibv_qp)
 	if (state == IBV_QPS_RESET ||
 	    state == IBV_QPS_INIT ||
 	    state == IBV_QPS_RTR) {
+		pthread_spin_lock(&qp->sq.lock);
 		qp->err = EINVAL;
 		return;
 	}
