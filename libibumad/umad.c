@@ -51,6 +51,7 @@
 #include <infiniband/umad.h>
 
 #define IB_OPENIB_OUI                 (0x001405)
+#define CAPMASK_IS_SM_DISABLED        (0x400)
 
 #include <valgrind/memcheck.h>
 #include "sysfs.h"
@@ -126,6 +127,11 @@ static int find_cached_ca(const char *ca_name, umad_ca_t * ca)
 static int put_ca(umad_ca_t * ca)
 {
 	return 0;		/* caching not implemented yet */
+}
+
+static unsigned is_smi_disabled(umad_port_t *port)
+{
+	return (be32toh(port->capmask) & CAPMASK_IS_SM_DISABLED);
 }
 
 static int release_port(umad_port_t * port)
@@ -248,8 +254,9 @@ static int release_ca(umad_ca_t * ca)
  * the first port that is active, and if such is not found, to
  * the first port that is link up and if none are linkup, then
  * the first port that is not disabled.  Otherwise return -1.
+ * if enforce_smi > 0, only search smi ports. if none are found, return -1.
  */
-static int resolve_ca_port(const char *ca_name, int *port)
+static int resolve_ca_port(const char *ca_name, int *port, unsigned enforce_smi)
 {
 	umad_ca_t ca;
 	int active = -1, up = -1;
@@ -280,6 +287,10 @@ static int resolve_ca_port(const char *ca_name, int *port)
 			ret = -1;
 			goto Exit;
 		}
+		if (enforce_smi && is_smi_disabled(ca.ports[*port])) {
+			ret = -1;
+			goto Exit;
+		}
 		if (ca.ports[*port]->state == 4) {
 			ret = 1;
 			goto Exit;
@@ -297,6 +308,8 @@ static int resolve_ca_port(const char *ca_name, int *port)
 		if (strcmp(ca.ports[i]->link_layer, "InfiniBand") &&
 		    strcmp(ca.ports[i]->link_layer, "IB"))
 			continue;
+		if (enforce_smi && is_smi_disabled(ca.ports[i]))
+			continue;
 		if (up < 0 && ca.ports[i]->phys_state == 5)
 			up = *port = i;
 		if (ca.ports[i]->state == 4) {
@@ -310,6 +323,8 @@ static int resolve_ca_port(const char *ca_name, int *port)
 		for (i = 0; i <= ca.numports; i++) {
 			DEBUG("checking port %d", i);
 			if (!ca.ports[i])
+				continue;
+			if (enforce_smi && is_smi_disabled(ca.ports[i]))
 				continue;
 			if (ca.ports[i]->phys_state != 3) {
 				up = *port = i;
@@ -333,7 +348,7 @@ Exit:
 }
 
 static int resolve_ca_name(const char *ca_in, int *best_port,
-			   char **ca_name)
+			   char **ca_name, unsigned enforce_smi)
 {
 	struct umad_device_node *device_list;
 	struct umad_device_node *node;
@@ -350,7 +365,7 @@ static int resolve_ca_name(const char *ca_in, int *best_port,
 	}
 
 	if (ca_in) {
-		if (resolve_ca_port(ca_in, best_port) < 0)
+		if (resolve_ca_port(ca_in, best_port, enforce_smi) < 0)
 			return -1;
 		*ca_name = strdup(ca_in);
 		if (!(*ca_name))
@@ -370,7 +385,7 @@ static int resolve_ca_name(const char *ca_in, int *best_port,
 		TRACE("checking ca '%s'", name_found);
 
 		port = best_port ? *best_port : 0;
-		port_type = resolve_ca_port(name_found, &port);
+		port_type = resolve_ca_port(name_found, &port, enforce_smi);
 		if (port_type < 0)
 			continue;
 
@@ -626,7 +641,7 @@ int umad_get_ca_portguids(const char *ca_name, __be64 *portguids, int max)
 	char *found_ca_name;
 
 	TRACE("ca name %s max port guids %d", ca_name, max);
-	if (resolve_ca_name(ca_name, NULL, &found_ca_name) < 0) {
+	if (resolve_ca_name(ca_name, NULL, &found_ca_name, 0) < 0) {
 		result = -ENODEV;
 		goto exit;
 	}
@@ -665,7 +680,7 @@ int umad_get_issm_path(const char *ca_name, int portnum, char path[], int max)
 
 	TRACE("ca %s port %d", ca_name, portnum);
 
-	if (resolve_ca_name(ca_name, &portnum, &found_ca_name) < 0) {
+	if (resolve_ca_name(ca_name, &portnum, &found_ca_name, 0) < 0) {
 		result = -ENODEV;
 		goto exit;
 	}
@@ -685,7 +700,7 @@ exit:
 	return result;
 }
 
-int umad_open_port(const char *ca_name, int portnum)
+static int do_umad_open_port(const char *ca_name, int portnum, unsigned enforce_smi)
 {
 	char dev_file[UMAD_DEV_FILE_SZ];
 	int umad_id, fd, result;
@@ -699,7 +714,7 @@ int umad_open_port(const char *ca_name, int portnum)
 		goto exit;
 	}
 
-	if (resolve_ca_name(ca_name, &portnum, &found_ca_name) < 0) {
+	if (resolve_ca_name(ca_name, &portnum, &found_ca_name, enforce_smi) < 0) {
 		result = -ENODEV;
 		goto exit;
 	}
@@ -735,13 +750,23 @@ exit:
 	return result;
 }
 
+int umad_open_port(const char *ca_name, int portnum)
+{
+	return do_umad_open_port(ca_name, portnum, 0);
+}
+
+int umad_open_smi_port(const char *ca_name, int portnum)
+{
+	return do_umad_open_port(ca_name, portnum, 1);
+}
+
 int umad_get_ca(const char *ca_name, umad_ca_t *ca)
 {
 	int r = 0;
 	char *found_ca_name;
 
 	TRACE("ca_name %s", ca_name);
-	if (resolve_ca_name(ca_name, NULL, &found_ca_name) < 0) {
+	if (resolve_ca_name(ca_name, NULL, &found_ca_name, 0) < 0) {
 		r = -ENODEV;
 		goto exit;
 	}
@@ -783,7 +808,7 @@ int umad_get_port(const char *ca_name, int portnum, umad_port_t *port)
 
 	TRACE("ca_name %s portnum %d", ca_name, portnum);
 
-	if (resolve_ca_name(ca_name, &portnum, &found_ca_name) < 0) {
+	if (resolve_ca_name(ca_name, &portnum, &found_ca_name, 0) < 0) {
 		result = -ENODEV;
 		goto exit;
 	}
