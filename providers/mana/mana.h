@@ -127,6 +127,7 @@ struct mana_qp {
 	};
 
 	enum ibv_mtu mtu;
+	int sq_sig_all;
 
 	struct shadow_queue shadow_rq;
 	struct shadow_queue shadow_sq;

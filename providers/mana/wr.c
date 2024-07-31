@@ -273,6 +273,7 @@ static inline int
 mana_ib_rc_post_send_request(struct mana_qp *qp, struct ibv_send_wr *wr,
 			     struct rc_sq_shadow_wqe *shadow_wqe)
 {
+	bool signaled = ((wr->send_flags & IBV_SEND_SIGNALED) != 0) || qp->sq_sig_all;
 	enum  gdma_work_req_flags flags = GDMA_WORK_REQ_NONE;
 	struct extra_large_wqe extra_wqe = {0};
 	struct rdma_send_oob send_oob = {0};
@@ -304,7 +305,7 @@ mana_ib_rc_post_send_request(struct mana_qp *qp, struct ibv_send_wr *wr,
 
 	send_oob.wqe_type = convert_wr_to_hw_opcode(wr->opcode);
 	send_oob.fence = (wr->send_flags & IBV_SEND_FENCE) != 0;
-	send_oob.signaled = (wr->send_flags & IBV_SEND_SIGNALED) != 0;
+	send_oob.signaled = signaled;
 	send_oob.solicited = (wr->send_flags & IBV_SEND_SOLICITED) != 0;
 	send_oob.psn = qp->rc_qp.sq_psn;
 	send_oob.ssn = qp->rc_qp.sq_ssn;
@@ -350,7 +351,7 @@ mana_ib_rc_post_send_request(struct mana_qp *qp, struct ibv_send_wr *wr,
 
 	shadow_wqe->header.wr_id = wr->wr_id;
 	shadow_wqe->header.opcode = convert_wr_to_wc(wr->opcode);
-	shadow_wqe->header.flags = (wr->send_flags & IBV_SEND_SIGNALED) ? 0 : MANA_NO_SIGNAL_WC;
+	shadow_wqe->header.flags = signaled ? 0 : MANA_NO_SIGNAL_WC;
 	shadow_wqe->header.posted_wqe_size_in_bu = gdma_wqe.size_in_bu;
 	shadow_wqe->header.unmasked_queue_offset = gdma_wqe.unmasked_wqe_index;
 	shadow_wqe->end_psn = PSN_DEC(qp->rc_qp.sq_psn);

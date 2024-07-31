@@ -236,6 +236,7 @@ static struct ibv_qp *mana_create_qp_rc(struct ibv_pd *ibpd,
 
 	pthread_spin_init(&qp->sq_lock, PTHREAD_PROCESS_PRIVATE);
 	pthread_spin_init(&qp->rq_lock, PTHREAD_PROCESS_PRIVATE);
+	qp->sq_sig_all = attr->sq_sig_all;
 
 	if (create_shadow_queue(&qp->shadow_sq, attr->cap.max_send_wr,
 				sizeof(struct rc_sq_shadow_wqe))) {
