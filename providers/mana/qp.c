@@ -347,22 +347,24 @@ static void mana_ib_modify_rc_qp(struct mana_qp *qp, struct ibv_qp_attr *attr, i
 
 	switch (attr->qp_state) {
 	case IBV_QPS_RESET:
-	case IBV_QPS_INIT:
 		for (i = 0; i < USER_RC_QUEUE_TYPE_MAX; ++i) {
 			qp->rc_qp.queues[i].prod_idx = 0;
 			qp->rc_qp.queues[i].cons_idx = 0;
 		}
 		mana_ib_reset_rb_shmem(qp);
 		reset_shadow_queue(&qp->shadow_rq);
+		reset_shadow_queue(&qp->shadow_sq);
+	case IBV_QPS_INIT:
 		break;
 	case IBV_QPS_RTR:
 		break;
 	case IBV_QPS_RTS:
-		reset_shadow_queue(&qp->shadow_sq);
-		qp->rc_qp.sq_ssn = 1;
-		qp->rc_qp.sq_psn = attr->sq_psn;
-		qp->rc_qp.sq_highest_completed_psn = PSN_DEC(attr->sq_psn);
-		gdma_arm_normal_cqe(&qp->rc_qp.queues[USER_RC_RECV_QUEUE_REQUESTER], attr->sq_psn);
+		if (attr_mask & IBV_QP_SQ_PSN) {
+			qp->rc_qp.sq_ssn = 1;
+			qp->rc_qp.sq_psn = attr->sq_psn;
+			qp->rc_qp.sq_highest_completed_psn = PSN_DEC(attr->sq_psn);
+			gdma_arm_normal_cqe(&qp->rc_qp.queues[USER_RC_RECV_QUEUE_REQUESTER], attr->sq_psn);
+		}
 		break;
 	default:
 		break;
