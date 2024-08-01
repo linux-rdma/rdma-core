@@ -2558,6 +2558,7 @@ static void wr_start(struct ibv_qp_ex *ibv_qp)
 	if (state == IBV_QPS_RESET ||
 	    state == IBV_QPS_INIT ||
 	    state == IBV_QPS_RTR) {
+		hns_roce_spin_lock(&qp->sq.hr_lock);
 		qp->err = EINVAL;
 		return;
 	}
