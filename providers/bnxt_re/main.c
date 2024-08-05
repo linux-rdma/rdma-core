@@ -194,6 +194,7 @@ static struct verbs_context *bnxt_re_alloc_context(struct ibv_device *vdev,
 		return NULL;
 
 	req.comp_mask |= BNXT_RE_COMP_MASK_REQ_UCNTX_POW2_SUPPORT;
+	req.comp_mask |= BNXT_RE_COMP_MASK_REQ_UCNTX_VAR_WQE_SUPPORT;
 	if (ibv_cmd_get_context(&cntx->ibvctx, &req.ibv_cmd, sizeof(req),
 				&resp.ibv_resp, sizeof(resp)))
 		goto failed;
