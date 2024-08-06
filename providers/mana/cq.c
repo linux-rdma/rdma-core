@@ -68,7 +68,6 @@ struct ibv_cq *mana_create_cq(struct ibv_context *context, int cqe,
 		cq->cqe = cqe; // to preserve old behaviour for DPDK
 	cq->head = INITIALIZED_OWNER_BIT(ilog32(cq->cqe) - 1);
 	cq->last_armed_head = cq->head - 1;
-	cq->ready_wcs = 0;
 
 	cmd_drv = &cmd.drv_payload;
 	cmd_drv->buf_addr = (uintptr_t)cq->buf;
@@ -146,25 +145,26 @@ int mana_arm_cq(struct ibv_cq *ibcq, int solicited)
 	return 0;
 }
 
-static inline uint32_t handle_rc_requester_cqe(struct mana_qp *qp, struct gdma_cqe *cqe)
+static inline bool get_next_signal_psn(struct mana_qp *qp, uint32_t *psn)
+{
+	struct rc_sq_shadow_wqe *shadow_wqe =
+		(struct rc_sq_shadow_wqe *)shadow_queue_get_next_to_signal(&qp->shadow_sq);
+
+	if (!shadow_wqe)
+		return false;
+
+	*psn = shadow_wqe->end_psn;
+	return true;
+}
+
+static inline void advance_send_completions(struct mana_qp *qp, uint32_t psn)
 {
 	struct mana_gdma_queue *recv_queue = &qp->rc_qp.queues[USER_RC_RECV_QUEUE_REQUESTER];
 	struct mana_gdma_queue *send_queue = &qp->rc_qp.queues[USER_RC_SEND_QUEUE_REQUESTER];
-	uint32_t syndrome = cqe->rdma_cqe.rc_armed_completion.syndrome;
-	uint32_t psn = cqe->rdma_cqe.rc_armed_completion.psn;
 	struct rc_sq_shadow_wqe *shadow_wqe;
-	uint32_t wcs = 0;
-
-	if (!IB_IS_ACK(syndrome))
-		return 0;
-
-	if (!PSN_GT(psn, qp->rc_qp.sq_highest_completed_psn))
-		return 0;
-
-	qp->rc_qp.sq_highest_completed_psn = psn;
 
 	if (!PSN_LT(psn, qp->rc_qp.sq_psn))
-		return 0;
+		return;
 
 	while ((shadow_wqe = (struct rc_sq_shadow_wqe *)
 		shadow_queue_get_next_to_complete(&qp->shadow_sq)) != NULL) {
@@ -182,34 +182,41 @@ static inline uint32_t handle_rc_requester_cqe(struct mana_qp *qp, struct gdma_c
 		mana_ib_update_shared_mem_left_offset(qp, offset & GDMA_QUEUE_OFFSET_MASK);
 
 		shadow_queue_advance_next_to_complete(&qp->shadow_sq);
-		if (shadow_wqe->header.flags != MANA_NO_SIGNAL_WC)
-			wcs++;
 	}
-
-	uint32_t prev_psn = PSN_DEC(qp->rc_qp.sq_psn);
-
-	if (qp->rc_qp.sq_highest_completed_psn == prev_psn)
-		gdma_arm_normal_cqe(recv_queue, qp->rc_qp.sq_psn);
-	else
-		gdma_arm_normal_cqe(recv_queue, prev_psn);
-
-	return wcs;
 }
 
-static inline uint32_t handle_rc_responder_cqe(struct mana_qp *qp, struct gdma_cqe *cqe)
+static inline void handle_rc_requester_cqe(struct mana_qp *qp, struct gdma_cqe *cqe)
+{
+	struct mana_gdma_queue *recv_queue = &qp->rc_qp.queues[USER_RC_RECV_QUEUE_REQUESTER];
+	uint32_t syndrome = cqe->rdma_cqe.rc_armed_completion.syndrome;
+	uint32_t psn = cqe->rdma_cqe.rc_armed_completion.psn;
+	uint32_t arm_psn;
+
+	if (!IB_IS_ACK(syndrome))
+		return;
+
+	advance_send_completions(qp, psn);
+
+	if (!get_next_signal_psn(qp, &arm_psn))
+		arm_psn = PSN_INC(psn);
+
+	gdma_arm_normal_cqe(recv_queue, arm_psn);
+}
+
+static inline void handle_rc_responder_cqe(struct mana_qp *qp, struct gdma_cqe *cqe)
 {
 	struct mana_gdma_queue *recv_queue = &qp->rc_qp.queues[USER_RC_RECV_QUEUE_RESPONDER];
 	struct rc_rq_shadow_wqe *shadow_wqe;
 
 	shadow_wqe = (struct rc_rq_shadow_wqe *)shadow_queue_get_next_to_complete(&qp->shadow_rq);
 	if (!shadow_wqe)
-		return 0;
+		return;
 
 	uint32_t offset_cqe = cqe->rdma_cqe.rc_recv.rx_wqe_offset / GDMA_WQE_ALIGNMENT_UNIT_SIZE;
 	uint32_t offset_wqe = shadow_wqe->header.unmasked_queue_offset & GDMA_QUEUE_OFFSET_MASK;
 
 	if (offset_cqe != offset_wqe)
-		return 0;
+		return;
 
 	shadow_wqe->byte_len = cqe->rdma_cqe.rc_recv.msg_len;
 	shadow_wqe->imm_or_rkey = cqe->rdma_cqe.rc_recv.imm_data;
@@ -232,24 +239,59 @@ static inline uint32_t handle_rc_responder_cqe(struct mana_qp *qp, struct gdma_c
 	recv_queue->cons_idx &= GDMA_QUEUE_OFFSET_MASK;
 
 	shadow_queue_advance_next_to_complete(&qp->shadow_rq);
-	return 1;
 }
 
-static inline uint32_t mana_handle_cqe(struct mana_context *ctx, struct gdma_cqe *cqe)
+static inline bool error_cqe_is_send(struct mana_qp *qp, struct gdma_cqe *cqe)
 {
-	struct mana_qp *qp;
+	if (cqe->is_sq &&
+	    qp->rc_qp.queues[USER_RC_SEND_QUEUE_REQUESTER].id == cqe->wqid)
+		return true;
+	if (!cqe->is_sq &&
+	    qp->rc_qp.queues[USER_RC_RECV_QUEUE_REQUESTER].id == cqe->wqid)
+		return true;
 
-	if (cqe->is_sq) // impossible for rc
-		return 0;
+	return false;
+}
 
-	qp = mana_get_qp_from_rq(ctx, cqe->wqid);
+static inline uint32_t error_cqe_get_psn(struct gdma_cqe *cqe)
+{
+	return cqe->rdma_cqe.error.psn;
+}
+
+static inline void handle_rc_error_cqe(struct mana_qp *qp, struct gdma_cqe *cqe)
+{
+	uint32_t vendor_error = cqe->rdma_cqe.error.vendor_error;
+	bool is_send_error = error_cqe_is_send(qp, cqe);
+	uint32_t psn = error_cqe_get_psn(cqe);
+	struct shadow_queue *queue_with_error;
+	struct shadow_wqe_header *shadow_wqe;
+
+	mana_qp_move_flush_err(&qp->ibqp.qp);
+	advance_send_completions(qp, psn);
+
+	queue_with_error = is_send_error ? &qp->shadow_sq : &qp->shadow_rq;
+	shadow_wqe = shadow_queue_get_next_to_complete(queue_with_error);
+
+	if (shadow_wqe) {
+		shadow_wqe->flags = 0;
+		shadow_wqe->vendor_error = vendor_error;
+		shadow_queue_advance_next_to_complete(queue_with_error);
+	}
+}
+
+static inline void mana_handle_cqe(struct mana_context *ctx, struct gdma_cqe *cqe)
+{
+	struct mana_qp *qp = mana_get_qp(ctx, cqe->wqid, cqe->is_sq);
+
 	if (!qp)
-		return 0;
+		return;
 
-	if (cqe->rdma_cqe.cqe_type == CQE_TYPE_ARMED_CMPL)
-		return handle_rc_requester_cqe(qp, cqe);
+	if (cqe->rdma_cqe.cqe_type == CQE_TYPE_ERROR)
+		handle_rc_error_cqe(qp, cqe);
+	else if (cqe->rdma_cqe.cqe_type == CQE_TYPE_ARMED_CMPL)
+		handle_rc_requester_cqe(qp, cqe);
 	else
-		return handle_rc_responder_cqe(qp, cqe);
+		handle_rc_responder_cqe(qp, cqe);
 }
 
 static inline int gdma_read_cqe(struct mana_cq *cq, struct gdma_cqe *cqe)
@@ -275,15 +317,86 @@ static inline int gdma_read_cqe(struct mana_cq *cq, struct gdma_cqe *cqe)
 	return 1;
 }
 
+static enum ibv_wc_status vendor_error_to_wc_error(uint32_t vendor_error)
+{
+	switch (vendor_error) {
+	case VENDOR_ERR_OK:
+		return IBV_WC_SUCCESS;
+	case VENDOR_ERR_RX_PKT_LEN:
+	case VENDOR_ERR_RX_MSG_LEN_OVFL:
+	case VENDOR_ERR_RX_READRESP_LEN_MISMATCH:
+		return IBV_WC_LOC_LEN_ERR;
+	case VENDOR_ERR_TX_GDMA_CORRUPTED_WQE:
+	case VENDOR_ERR_TX_PCIE_WQE:
+	case VENDOR_ERR_TX_PCIE_MSG:
+	case VENDOR_ERR_RX_MALFORMED_WQE:
+	case VENDOR_ERR_TX_GDMA_INVALID_STATE:
+	case VENDOR_ERR_TX_MISBEHAVING_CLIENT:
+	case VENDOR_ERR_TX_RDMA_MALFORMED_WQE_SIZE:
+	case VENDOR_ERR_TX_RDMA_MALFORMED_WQE_FIELD:
+	case VENDOR_ERR_TX_RDMA_WQE_UNSUPPORTED:
+	case VENDOR_ERR_TX_RDMA_WQE_LEN_ERR:
+	case VENDOR_ERR_TX_RDMA_MTU_ERR:
+		return IBV_WC_LOC_QP_OP_ERR;
+	case VENDOR_ERR_TX_ATB_MSG_ACCESS_VIOLATION:
+	case VENDOR_ERR_TX_ATB_MSG_ADDR_RANGE:
+	case VENDOR_ERR_TX_ATB_MSG_CONFIG_ERR:
+	case VENDOR_ERR_TX_ATB_WQE_ACCESS_VIOLATION:
+	case VENDOR_ERR_TX_ATB_WQE_ADDR_RANGE:
+	case VENDOR_ERR_TX_ATB_WQE_CONFIG_ERR:
+	case VENDOR_ERR_TX_RDMA_ATB_CMD_MISS:
+	case VENDOR_ERR_TX_RDMA_ATB_CMD_IDX_ERROR:
+	case VENDOR_ERR_TX_RDMA_ATB_CMD_TAG_MISMATCH_ERROR:
+	case VENDOR_ERR_TX_RDMA_ATB_CMD_PDID_MISMATCH_ERROR:
+	case VENDOR_ERR_TX_RDMA_ATB_CMD_AR_ERROR:
+	case VENDOR_ERR_TX_RDMA_ATB_CMD_PT_OVF:
+	case VENDOR_ERR_TX_RDMA_ATB_CMD_PT_LENGHT_MISMATCH:
+	case VENDOR_ERR_TX_RDMA_ATB_CMD_ILLEGAL_CMD:
+		return IBV_WC_LOC_PROT_ERR;
+	case VENDOR_ERR_RX_ATB_SGE_MISSCONFIG:
+	case VENDOR_ERR_RX_ATB_SGE_ADDR_RIGHT:
+	case VENDOR_ERR_RX_ATB_SGE_ADDR_RANGE:
+	case VENDOR_ERR_RX_GFID:
+		return IBV_WC_LOC_ACCESS_ERR;
+	case VENDOR_ERR_RX_OP_REQ:
+		return IBV_WC_REM_INV_REQ_ERR;
+	case VENDOR_ERR_RX_ATB_RKEY_MISCONFIG_ERR:
+	case VENDOR_ERR_RX_ATB_RKEY_ADDR_RIGHT:
+	case VENDOR_ERR_RX_ATB_RKEY_ADDR_RANGE:
+	case VENDOR_ERR_RX_REMOTE_ACCESS_NAK:
+		return IBV_WC_REM_ACCESS_ERR;
+	case VENDOR_ERR_RX_INVALID_REQ_NAK:
+	case VENDOR_ERR_RX_REMOTE_OP_ERR_NAK:
+		return IBV_WC_REM_OP_ERR;
+	case VENDOR_ERR_RX_MISBEHAVING_CLIENT:
+	case VENDOR_ERR_RX_CLIENT_ID:
+	case VENDOR_ERR_RX_PCIE:
+	case VENDOR_ERR_RX_NO_AVAIL_WQE:
+	case VENDOR_ERR_RX_ATB_WQE_MISCONFIG:
+	case VENDOR_ERR_RX_ATB_WQE_ADDR_RIGHT:
+	case VENDOR_ERR_RX_ATB_WQE_ADDR_RANGE:
+	case VENDOR_ERR_TX_RDMA_INVALID_STATE:
+	case VENDOR_ERR_TX_RDMA_INVALID_NPT:
+	case VENDOR_ERR_TX_RDMA_INVALID_SGID:
+	case VENDOR_ERR_TX_RDMA_VFID_MISMATCH:
+		return IBV_WC_FATAL_ERR;
+	case VENDOR_ERR_RX_NOT_EMPTY_ON_DISABLE:
+	case VENDOR_ERR_SW_FLUSHED:
+		return IBV_WC_WR_FLUSH_ERR;
+	default:
+		return IBV_WC_GENERAL_ERR;
+	}
+}
+
 static void fill_verbs_from_shadow_wqe(struct mana_qp *qp, struct ibv_wc *wc,
 				       const struct shadow_wqe_header *shadow_wqe)
 {
 	const struct rc_rq_shadow_wqe *rc_wqe = (const struct rc_rq_shadow_wqe *)shadow_wqe;
 
 	wc->wr_id = shadow_wqe->wr_id;
-	wc->status = IBV_WC_SUCCESS;
+	wc->status = vendor_error_to_wc_error(shadow_wqe->vendor_error);
 	wc->opcode = shadow_wqe->opcode;
-	wc->vendor_err = 0;
+	wc->vendor_err = shadow_wqe->vendor_error;
 	wc->wc_flags = shadow_wqe->flags;
 	wc->qp_num = qp->ibqp.qp.qp_num;
 	wc->pkey_index = 0;
@@ -332,17 +445,44 @@ out:
 	return wc_index;
 }
 
+static void mana_flush_completions(struct mana_cq *cq)
+{
+	struct shadow_wqe_header *shadow_wqe;
+	struct mana_qp *qp;
+
+	list_for_each(&cq->send_qp_list, qp, send_cq_node) {
+		if (qp->ibqp.qp.state != IBV_QPS_ERR)
+			continue;
+		while ((shadow_wqe = shadow_queue_get_next_to_complete(&qp->shadow_sq))
+				!= NULL) {
+			shadow_wqe->vendor_error = VENDOR_ERR_SW_FLUSHED;
+			shadow_wqe->flags = 0;
+			shadow_queue_advance_next_to_complete(&qp->shadow_sq);
+		}
+	}
+
+	list_for_each(&cq->recv_qp_list, qp, recv_cq_node) {
+		if (qp->ibqp.qp.state != IBV_QPS_ERR)
+			continue;
+		while ((shadow_wqe = shadow_queue_get_next_to_complete(&qp->shadow_rq))
+				!= NULL) {
+			shadow_wqe->vendor_error = VENDOR_ERR_SW_FLUSHED;
+			shadow_queue_advance_next_to_complete(&qp->shadow_rq);
+		}
+	}
+}
+
 int mana_poll_cq(struct ibv_cq *ibcq, int nwc, struct ibv_wc *wc)
 {
 	struct mana_cq *cq = container_of(ibcq, struct mana_cq, ibcq);
 	struct mana_context *ctx = to_mctx(ibcq->context);
 	struct gdma_cqe gdma_cqe;
 	int num_polled = 0;
-	int ret;
+	int ret, i;
 
 	pthread_spin_lock(&cq->lock);
 
-	while (cq->ready_wcs < nwc) {
+	for (i = 0; i < nwc; i++) {
 		ret = gdma_read_cqe(cq, &gdma_cqe);
 		if (ret < 0) {
 			num_polled = -1;
@@ -350,11 +490,12 @@ int mana_poll_cq(struct ibv_cq *ibcq, int nwc, struct ibv_wc *wc)
 		}
 		if (ret == 0)
 			break;
-		cq->ready_wcs += mana_handle_cqe(ctx, &gdma_cqe);
+		mana_handle_cqe(ctx, &gdma_cqe);
 	}
 
+	mana_flush_completions(cq);
 	num_polled = mana_process_completions(cq, nwc, wc);
-	cq->ready_wcs -= num_polled;
+
 out:
 	pthread_spin_unlock(&cq->lock);
 

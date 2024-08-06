@@ -146,6 +146,13 @@ static int mana_ib_rc_post_recv(struct ibv_qp *ibqp, struct ibv_recv_wr *wr,
 	int ret = 0;
 
 	pthread_spin_lock(&qp->rq_lock);
+
+	if (unlikely(ibqp->state == IBV_QPS_RESET || ibqp->state == IBV_QPS_ERR)) {
+		verbs_err(verbs_get_ctx(ibqp->context), "Invalid QP state\n");
+		ret = EINVAL;
+		goto cleanup;
+	}
+
 	for (; wr; wr = wr->next) {
 		if (shadow_queue_full(&qp->shadow_rq)) {
 			verbs_err(&mc->ibv_ctx, "recv shadow queue full\n");
@@ -371,8 +378,14 @@ static int mana_ib_rc_post_send(struct ibv_qp *ibqp, struct ibv_send_wr *wr,
 
 	pthread_spin_lock(&qp->sq_lock);
 
+	if (unlikely(ibqp->state != IBV_QPS_RTS)) {
+		verbs_err(verbs_get_ctx(ibqp->context), "Invalid QP state\n");
+		ret = EINVAL;
+		goto cleanup;
+	}
+
 	for (; wr; wr = wr->next) {
-		if ((wr->send_flags & IBV_SEND_SIGNALED) && shadow_queue_full(&qp->shadow_sq)) {
+		if (shadow_queue_full(&qp->shadow_sq)) {
 			verbs_err(verbs_get_ctx(ibqp->context), "shadow queue full\n");
 			ret = ENOMEM;
 			goto cleanup;
@@ -397,7 +410,8 @@ static int mana_ib_rc_post_send(struct ibv_qp *ibqp, struct ibv_send_wr *wr,
 		ring = true;
 
 		shadow_queue_advance_producer(&qp->shadow_sq);
-		mana_ib_update_shared_mem_right_offset(qp, shadow_wqe->header.unmasked_queue_offset);
+		mana_ib_update_shared_mem_right_offset(qp,
+						       shadow_wqe->header.unmasked_queue_offset);
 	}
 
 cleanup:
