@@ -247,7 +247,7 @@ struct ibv_mr *efa_reg_dmabuf_mr(struct ibv_pd *ibvpd, uint64_t offset,
 		return NULL;
 
 	err = ibv_cmd_reg_dmabuf_mr(ibvpd, offset, length, iova, fd, acc,
-				    &mr->vmr);
+				    &mr->vmr, NULL);
 	if (err) {
 		free(mr);
 		errno = err;

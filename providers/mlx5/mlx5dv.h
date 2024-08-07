@@ -919,6 +919,12 @@ struct ibv_dm *mlx5dv_alloc_dm(struct ibv_context *context,
 
 void *mlx5dv_dm_map_op_addr(struct ibv_dm *dm, uint8_t op);
 
+struct ibv_mr *mlx5dv_reg_dmabuf_mr(struct ibv_pd *pd, uint64_t offset,
+				    size_t length, uint64_t iova, int fd,
+				    int access, int mlx5_access);
+int mlx5dv_get_data_direct_sysfs_path(struct ibv_context *context, char *buf,
+				      size_t buf_len);
+
 struct mlx5_wqe_av;
 
 struct mlx5dv_ah {

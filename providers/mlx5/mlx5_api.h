@@ -70,5 +70,6 @@
 #define MLX5DV_QUERY_PORT_ESW_OWNER_VHCA_ID MLX5_IB_UAPI_QUERY_PORT_ESW_OWNER_VHCA_ID
 #define mlx5dv_port mlx5_ib_uapi_query_port
 #define mlx5dv_reg mlx5_ib_uapi_reg
+#define MLX5DV_REG_DMABUF_ACCESS_DATA_DIRECT MLX5_IB_UAPI_REG_DMABUF_ACCESS_DATA_DIRECT
 
 #endif

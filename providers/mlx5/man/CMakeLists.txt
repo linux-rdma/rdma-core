@@ -29,6 +29,7 @@ rdma_man_pages(
   mlx5dv_dump.3.md
   mlx5dv_flow_action_esp.3.md
   mlx5dv_get_clock_info.3
+  mlx5dv_get_data_direct_sysfs_path.3.md
   mlx5dv_get_vfio_device_list.3.md
   mlx5dv_init_obj.3
   mlx5dv_is_supported.3.md
@@ -43,6 +44,7 @@ rdma_man_pages(
   mlx5dv_query_device.3
   mlx5dv_query_port.3.md
   mlx5dv_query_qp_lag_port.3.md
+  mlx5dv_reg_dmabuf_mr.3.md
   mlx5dv_reserved_qpn_alloc.3.md
   mlx5dv_sched_node_create.3.md
   mlx5dv_ts_to_ns.3

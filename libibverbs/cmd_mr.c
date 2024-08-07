@@ -119,11 +119,13 @@ int ibv_cmd_query_mr(struct ibv_pd *pd, struct verbs_mr *vmr,
 
 int ibv_cmd_reg_dmabuf_mr(struct ibv_pd *pd, uint64_t offset, size_t length,
 			  uint64_t iova, int fd, int access,
-			  struct verbs_mr *vmr)
+			  struct verbs_mr *vmr,
+			  struct ibv_command_buffer *driver)
 {
-	DECLARE_COMMAND_BUFFER(cmdb, UVERBS_OBJECT_MR,
-			       UVERBS_METHOD_REG_DMABUF_MR,
-			       9);
+	DECLARE_COMMAND_BUFFER_LINK(cmdb, UVERBS_OBJECT_MR,
+				    UVERBS_METHOD_REG_DMABUF_MR,
+				    9,
+				    driver);
 	struct ib_uverbs_attr *handle;
 	uint32_t lkey, rkey;
 	int ret;
