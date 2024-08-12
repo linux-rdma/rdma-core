@@ -476,7 +476,7 @@ void verbs_register_driver(const struct verbs_device_ops *ops);
 #define PROVIDER_DRIVER(provider_name, drv_struct)                             \
 	extern const struct verbs_device_ops verbs_provider_##provider_name    \
 		__attribute__((alias(stringify(drv_struct))));                 \
-	static __attribute__((constructor)) void drv##__register_driver(void)  \
+	static __attribute__((constructor)) void provider_name##_register_driver(void) \
 	{                                                                      \
 		verbs_register_driver(&drv_struct);                            \
 	}
