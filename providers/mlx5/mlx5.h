@@ -1622,6 +1622,10 @@ struct mlx5_dv_context_ops {
 						 const void *in, size_t inlen,
 						 void *out, size_t outlen);
 	int (*devx_destroy_eq)(struct mlx5dv_devx_eq *eq);
+	struct ibv_mr *(*reg_dmabuf_mr)(struct ibv_pd *pd, uint64_t offset,
+					size_t length, uint64_t iova, int fd,
+					int access, int mlx5_access);
+	int (*get_data_direct_sysfs_path)(struct ibv_context *context, char *buf, size_t buf_len);
 };
 
 struct mlx5_dv_context_ops *mlx5_get_dv_ops(struct ibv_context *context);
