@@ -327,7 +327,7 @@ struct ibv_qp *mana_create_qp(struct ibv_pd *ibpd,
 	default:
 		verbs_err(verbs_get_ctx(ibpd->context),
 			  "QP type %u is not supported\n", attr->qp_type);
-		errno = EINVAL;
+		errno = EOPNOTSUPP;
 	}
 
 	return NULL;
@@ -533,7 +533,7 @@ struct ibv_qp *mana_create_qp_ex(struct ibv_context *context,
 	default:
 		verbs_err(verbs_get_ctx(context),
 			  "QP type %u is not supported\n", attr->qp_type);
-		errno = EINVAL;
+		errno = EOPNOTSUPP;
 	}
 
 	return NULL;
