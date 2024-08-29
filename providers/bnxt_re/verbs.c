@@ -1166,6 +1166,8 @@ static int bnxt_re_get_rq_slots(struct bnxt_re_dev *rdev, uint8_t qpmode,
 	return slots;
 }
 
+#define BNXT_VAR_MAX_SLOT_ALIGN 256
+
 static int bnxt_re_get_sq_slots(struct bnxt_re_dev *rdev,
 				uint8_t qpmode, uint32_t nswr,
 				uint32_t nsge, uint32_t ils, uint32_t *esize)
@@ -1202,6 +1204,8 @@ static int bnxt_re_get_sq_slots(struct bnxt_re_dev *rdev,
 	if (esize)
 		*esize = wqe_size;
 	slots = (nswr * wqe_size) / stride;
+	if (qpmode == BNXT_RE_WQE_MODE_VARIABLE)
+		slots = align(slots, BNXT_VAR_MAX_SLOT_ALIGN);
 	return slots;
 }
 
@@ -1509,6 +1513,8 @@ struct ibv_qp *bnxt_re_create_qp(struct ibv_pd *ibvpd,
 	req.qpsva = (uintptr_t)qp->jsqq->hwque->va;
 	req.qprva = qp->jrqq ? (uintptr_t)qp->jrqq->hwque->va : 0;
 	req.qp_handle = (uintptr_t)qp;
+	if (qp->qpmode == BNXT_RE_WQE_MODE_VARIABLE)
+		req.sq_slots = qattr[BNXT_RE_QATTR_SQ_INDX].slots;
 
 	if (ibv_cmd_create_qp(ibvpd, &qp->ibvqp, attr, &req.ibv_cmd, sizeof(req),
 			      &resp.ibv_resp, sizeof(resp)))
