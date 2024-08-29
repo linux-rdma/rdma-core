@@ -315,6 +315,8 @@ int bnxt_re_resize_cq(struct ibv_cq *ibvcq, int ncqe)
 	struct bnxt_re_cq *cq = to_bnxt_re_cq(ibvcq);
 	struct ib_uverbs_resize_cq_resp resp = {};
 	struct ubnxt_re_resize_cq cmd = {};
+	uint16_t msec_wait = 100;
+	uint16_t exit_cnt = 20;
 	int rc = 0;
 
 	if (ncqe > dev->max_cq_depth)
@@ -355,6 +357,13 @@ int bnxt_re_resize_cq(struct ibv_cq *ibvcq, int ncqe)
 			list_add_tail(&cq->prev_cq_head, &compl->list);
 			compl = NULL;
 			memset(&tmp_wc, 0, sizeof(tmp_wc));
+		} else {
+			exit_cnt--;
+			if (unlikely(!exit_cnt)) {
+				rc = -EIO;
+				break;
+			}
+			bnxt_re_sub_sec_busy_wait(msec_wait * 1000000);
 		}
 	}
 done:
