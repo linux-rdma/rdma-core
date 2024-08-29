@@ -60,6 +60,7 @@
 #define CHIP_NUM_57508		0x1750
 #define CHIP_NUM_57504		0x1751
 #define CHIP_NUM_57502		0x1752
+#define BNXT_NSEC_PER_SEC  1000000000UL
 
 struct bnxt_re_chip_ctx {
 	__u16 chip_num;
@@ -457,4 +458,39 @@ static inline void bnxt_re_jqq_mod_last(struct bnxt_re_joint_queue *jqq,
 {
 	jqq->last_idx = jqq->swque[idx].next_idx;
 }
+
+static void timespec_sub(const struct timespec *a, const struct timespec *b,
+            struct timespec *res)
+{
+   res->tv_sec = a->tv_sec - b->tv_sec;
+   res->tv_nsec = a->tv_nsec - b->tv_nsec;
+   if (res->tv_nsec < 0) {
+       res->tv_sec--;
+       res->tv_nsec += BNXT_NSEC_PER_SEC;
+   }
+}
+
+/*
+ * Function waits in a busy loop for a given nano seconds
+ * The maximum wait period allowed is less than one second
+ */
+static inline void bnxt_re_sub_sec_busy_wait(uint32_t nsec)
+{
+   struct timespec start, cur, res;
+
+   if (nsec >= BNXT_NSEC_PER_SEC)
+       return;
+
+   if (clock_gettime(CLOCK_REALTIME, &start))
+       return;
+
+   while (1) {
+       if (clock_gettime(CLOCK_REALTIME, &cur))
+           return;
+       timespec_sub(&cur, &start, &res);
+       if (res.tv_nsec >= nsec)
+           break;
+   }
+}
+
 #endif
