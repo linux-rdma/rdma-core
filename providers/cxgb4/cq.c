@@ -297,6 +297,7 @@ void c4iw_flush_hw_cq(struct c4iw_cq *chp, struct c4iw_qp *flush_qhp)
 next_cqe:
 		t4_hwcq_consume(&chp->cq);
 		ret = t4_next_hw_cqe(&chp->cq, &hw_cqe);
+		com = &hw_cqe->com;
 		if (qhp && flush_qhp != qhp)
 			pthread_spin_unlock(&qhp->lock);
 	}
