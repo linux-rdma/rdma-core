@@ -608,7 +608,6 @@ def poll_cq_ex(cqex, count=1, data=None):
                                        format(s=cqex.status))
             if data:
                 assert data == socket.ntohl(cqex.read_imm_data())
-            count -= 1
         if count > 0:
             raise PyverbsError(f'Got timeout on polling ({count} CQEs remaining)')
     finally:
