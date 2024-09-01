@@ -648,7 +648,6 @@ def poll_cq_ex(cqex, count=1, data=None, sgid=None):
             if isinstance(cqex, EfaCQ):
                 if sgid is not None and cqex.read_opcode() == e.IBV_WC_RECV:
                     assert sgid.gid == cqex.read_sgid().gid
-            count -= 1
         if count > 0:
             raise PyverbsError(f'Got timeout on polling ({count} CQEs remaining)')
     finally:
