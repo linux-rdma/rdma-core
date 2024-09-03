@@ -47,7 +47,8 @@ class MRRes(RCResources):
 
     def create_qp_attr(self):
         qp_attr = QPAttr(port_num=self.ib_port)
-        qp_access = e.IBV_ACCESS_LOCAL_WRITE | e.IBV_ACCESS_REMOTE_WRITE
+        qp_access = e.IBV_ACCESS_LOCAL_WRITE | e.IBV_ACCESS_REMOTE_WRITE | \
+                    e.IBV_ACCESS_REMOTE_ATOMIC
         qp_attr.qp_access_flags = qp_access
         return qp_attr
 
@@ -81,6 +82,27 @@ class MRTest(RDMATestCase):
         self.server.qp.to_rts(self.server_qp_attr)
         self.client.qp.modify(QPAttr(qp_state=e.IBV_QPS_RESET), e.IBV_QP_STATE)
         self.client.qp.to_rts(self.client_qp_attr)
+
+    def test_mr_rereg_atomic(self):
+        """
+        Test the rereg of MR's atomic access with the following flow:
+        Create MRs with atomic access, then rereg the MRs without atomic
+        access and verify that traffic fails with the relevant error.
+        Rereg the MRs back to atomic access and verify that traffic now succeeds.
+        """
+        atomic_mr_access = e.IBV_ACCESS_LOCAL_WRITE | e.IBV_ACCESS_REMOTE_ATOMIC
+        self.create_players(MRRes, mr_access=atomic_mr_access)
+        self.server_qp_attr, _ = self.server.qp.query(0x1ffffff)
+        self.client_qp_attr, _ = self.client.qp.query(0x1ffffff)
+        access = e.IBV_ACCESS_LOCAL_WRITE
+        self.server.rereg_mr(flags=e.IBV_REREG_MR_CHANGE_ACCESS, access=access)
+        self.client.rereg_mr(flags=e.IBV_REREG_MR_CHANGE_ACCESS, access=access)
+        with self.assertRaisesRegex(PyverbsRDMAError, 'Completion status is Remote access error'):
+            u.atomic_traffic(**self.traffic_args, send_op=e.IBV_WR_ATOMIC_FETCH_AND_ADD)
+        self.restate_qps()
+        self.server.rereg_mr(flags=e.IBV_REREG_MR_CHANGE_ACCESS, access=atomic_mr_access)
+        self.client.rereg_mr(flags=e.IBV_REREG_MR_CHANGE_ACCESS, access=atomic_mr_access)
+        u.atomic_traffic(**self.traffic_args, send_op=e.IBV_WR_ATOMIC_FETCH_AND_ADD)
 
     def test_mr_rereg_access(self):
         self.create_players(MRRes)
