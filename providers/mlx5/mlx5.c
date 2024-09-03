@@ -83,6 +83,7 @@ const struct verbs_match_ent mlx5_hca_table[] = {
 	HCA(MELLANOX, 0x101f),	/* ConnectX-6 LX */
 	HCA(MELLANOX, 0x1021),  /* ConnectX-7 */
 	HCA(MELLANOX, 0x1023),  /* ConnectX-8 */
+	HCA(MELLANOX, 0x1025),  /* ConnectX-9 */
 	HCA(MELLANOX, 0xa2d2),	/* BlueField integrated ConnectX-5 network controller */
 	HCA(MELLANOX, 0xa2d3),	/* BlueField integrated ConnectX-5 network controller VF */
 	HCA(MELLANOX, 0xa2d6),  /* BlueField-2 integrated ConnectX-6 Dx network controller */
@@ -1141,6 +1142,14 @@ static int mlx5dv_get_pd(struct ibv_pd *pd_in,
 	return 0;
 }
 
+static int mlx5dv_get_devx(struct mlx5dv_devx_obj *devx_in,
+			   struct mlx5dv_devx *devx_out)
+{
+	devx_out->handle = devx_in->handle;
+
+	return 0;
+}
+
 static int query_lag(struct ibv_context *ctx, uint8_t *lag_state,
 		     uint8_t *tx_remap_affinity_1,
 		     uint8_t *tx_remap_affinity_2)
@@ -2075,6 +2084,8 @@ static int _mlx5dv_init_obj(struct mlx5dv_obj *obj, uint64_t obj_type)
 		ret = mlx5dv_get_av(obj->ah.in, obj->ah.out);
 	if (!ret && (obj_type & MLX5DV_OBJ_PD))
 		ret = mlx5dv_get_pd(obj->pd.in, obj->pd.out);
+	if (!ret && (obj_type & MLX5DV_OBJ_DEVX))
+		ret = mlx5dv_get_devx(obj->devx.in, obj->devx.out);
 
 	return ret;
 }
@@ -2096,6 +2107,8 @@ get_context_from_obj(struct mlx5dv_obj *obj, uint64_t obj_type)
 		return obj->ah.in->context;
 	if (obj_type & MLX5DV_OBJ_PD)
 		return obj->pd.in->context;
+	if (obj_type & MLX5DV_OBJ_DEVX)
+		return obj->devx.in->context;
 
 	return NULL;
 }
