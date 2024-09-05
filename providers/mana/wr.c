@@ -106,12 +106,18 @@ static inline void gdma_write_sge(struct gdma_wqe *wqe, void *oob_sge,
 }
 
 static inline int
-gdma_post_rq_wqe(struct mana_gdma_queue *wq, struct ibv_sge *sgl,  void *oob,
+gdma_post_rq_wqe(struct mana_gdma_queue *wq, struct ibv_sge *sgl,  struct rdma_recv_oob *recv_oob,
 		 uint32_t num_sge, enum gdma_work_req_flags flags, struct gdma_wqe *wqe)
 {
-	uint32_t wqe_size = get_wqe_size(num_sge);
+	struct ibv_sge dummy = {1, 0, 0};
+	uint32_t wqe_size;
 	int ret;
 
+	if (num_sge == 0) {
+		num_sge = 1;
+		sgl = &dummy;
+	}
+	wqe_size = get_wqe_size(num_sge);
 	ret = gdma_get_current_wqe(wq, INLINE_OOB_SMALL_SIZE, wqe_size, wqe);
 	if (ret)
 		return ret;
@@ -119,8 +125,8 @@ gdma_post_rq_wqe(struct mana_gdma_queue *wq, struct ibv_sge *sgl,  void *oob,
 	wqe->gdma_oob->rx.num_sgl_entries = num_sge;
 	wqe->gdma_oob->rx.inline_client_oob_size = INLINE_OOB_SMALL_SIZE / sizeof(uint32_t);
 	wqe->gdma_oob->rx.check_sn = (flags & GDMA_WORK_REQ_CHECK_SN) != 0;
-	if (oob)
-		memcpy(wqe->client_oob, oob, INLINE_OOB_SMALL_SIZE);
+	if (recv_oob)
+		memcpy(wqe->client_oob, recv_oob, INLINE_OOB_SMALL_SIZE);
 
 	gdma_write_sge(wqe, NULL, sgl, num_sge);
 	gdma_advance_producer(wq, wqe->size_in_bu);
