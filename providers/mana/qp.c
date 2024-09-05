@@ -180,12 +180,15 @@ struct mana_qp *mana_get_qp_from_rq(struct mana_context *ctx, uint32_t qid)
 static uint32_t get_queue_size(struct ibv_qp_init_attr *attr, enum user_queue_types type)
 {
 	uint32_t size = 0;
+	uint32_t sges = 0;
 
 	if (attr->qp_type == IBV_QPT_RC) {
 		switch (type) {
 		case USER_RC_SEND_QUEUE_REQUESTER:
-			/* For write with imm we need +1 */
-			size = attr->cap.max_send_wr * get_large_wqe_size(attr->cap.max_send_sge + 1);
+			/* WQE must have at least one SGE */
+			/* For write with imm we need one extra SGE */
+			sges = max(1U, attr->cap.max_send_sge) + 1;
+			size = attr->cap.max_send_wr * get_large_wqe_size(sges);
 			break;
 		case USER_RC_SEND_QUEUE_RESPONDER:
 			size = MANA_PAGE_SIZE;
@@ -194,7 +197,9 @@ static uint32_t get_queue_size(struct ibv_qp_init_attr *attr, enum user_queue_ty
 			size = MANA_PAGE_SIZE;
 			break;
 		case USER_RC_RECV_QUEUE_RESPONDER:
-			size = attr->cap.max_recv_wr * get_wqe_size(attr->cap.max_recv_sge);
+			/* WQE must have at least one SGE */
+			sges = max(1U, attr->cap.max_recv_sge);
+			size = attr->cap.max_recv_wr * get_wqe_size(sges);
 			break;
 		default:
 			return 0;
