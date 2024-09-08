@@ -1,5 +1,6 @@
 /*
  * Copyright (c) 2004-2009 Voltaire Inc.  All rights reserved.
+ * Copyright (c) 2024 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
  *
  * This software is available to you under a choice of one of two
  * licenses.  You may choose to be licensed under the terms of the GNU
@@ -35,10 +36,12 @@
 #include <stdlib.h>
 #include <string.h>
 #include <errno.h>
+#include <poll.h>
 
 #include <infiniband/umad.h>
 #include <infiniband/mad.h>
 
+#include "smi_gsi.h"
 #include "mad_internal.h"
 
 #undef DEBUG
@@ -55,6 +58,7 @@ int mad_send_via(ib_rpc_t * rpc, ib_portid_t * dport, ib_rmpp_hdr_t * rmpp,
 {
 	uint8_t pktbuf[1024];
 	void *umad = pktbuf;
+	int port_id;
 
 	memset(pktbuf, 0, umad_size() + IB_MAD_SIZE);
 
@@ -69,7 +73,11 @@ int mad_send_via(ib_rpc_t * rpc, ib_portid_t * dport, ib_rmpp_hdr_t * rmpp,
 		      (char *)umad_get_mad(umad) + rpc->dataoffs, rpc->datasz);
 	}
 
-	if (umad_send(srcport->port_id, srcport->class_agents[rpc->mgtclass & 0xff],
+	port_id = smi_gsi_port_by_class(srcport->port_id,
+				mad_get_field(umad_get_mad(umad), 0, IB_MAD_MGMTCLASS_F));
+
+
+    if (umad_send(port_id, srcport->class_agents[rpc->mgtclass & 0xff],
 		      umad, IB_MAD_SIZE, mad_get_timeout(srcport, rpc->timeout),
 		      0) < 0) {
 		IBWARN("send failed; %s", strerror(errno));
@@ -170,14 +178,51 @@ void *mad_receive(void *umad, int timeout)
 
 void *mad_receive_via(void *umad, int timeout, struct ibmad_port *srcport)
 {
-	void *mad = umad ? umad : umad_alloc(1, umad_size() + IB_MAD_SIZE);
-	int agent;
+	void *mad;
+	int rc;
 	int length = IB_MAD_SIZE;
 
-	if ((agent = umad_recv(srcport->port_id, mad, &length,
-			       mad_get_timeout(srcport, timeout))) < 0) {
+	struct pollfd fds[2];
+	ports_record_t * x = smi_gsi_record_find(srcport->port_id);
+
+	if (!x) {
+		IBWARN("Couldn't resolve SMI/GSI_device for %d.", srcport->port_id);
+	}
+
+	fds[0].fd = umad_get_fd(x->smi_port_id);
+	fds[0].events = POLLIN;
+	fds[0].revents = 0;
+
+	fds[1].fd = umad_get_fd(x->gsi_port_id);
+	fds[1].events = POLLIN;
+	fds[1].revents = 0;
+
+	rc = poll(fds, 2, timeout);
+
+	if (rc < 0) {
+		IBWARN("Call poll failed for %d with error: %s",
+				srcport->port_id, strerror(errno));
+		return NULL;
+	}
+
+	mad = umad ? umad : umad_alloc(1, umad_size() + IB_MAD_SIZE);
+
+	if (fds[0].revents & POLLIN) {
+		rc = umad_recv(x->smi_port_id, mad, &length, 0);
+	} else if (fds[1].revents & POLLIN) {
+		rc = umad_recv(x->gsi_port_id, mad, &length, 0);
+	} else {
+		IBWARN("Call poll failed for %d with error: %s",
+				srcport->port_id, strerror(errno));
+
+		rc = -1;
+    }
+
+	if (rc < 0) {
+
 		if (!umad)
 			umad_free(mad);
+
 		DEBUG("recv failed: %s", strerror(errno));
 		return NULL;
 	}

@@ -1,5 +1,6 @@
 /*
  * Copyright (c) 2004-2009 Voltaire Inc.  All rights reserved.
+ * Copyright (c) 2024 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
  *
  * This software is available to you under a choice of one of two
  * licenses.  You may choose to be licensed under the terms of the GNU
@@ -40,6 +41,7 @@
 #include <infiniband/mad.h>
 
 #include "mad_internal.h"
+#include "smi_gsi.h"
 
 #undef DEBUG
 #define DEBUG	if (ibdebug)	IBWARN
@@ -87,6 +89,11 @@ int mad_register_port_client(int port_id, int mgmt, uint8_t rmpp_version)
 		return -1;
 	}
 
+	port_id = smi_gsi_port_by_class(port_id, mgmt);
+
+	if (port_id < 0)
+		IBWARN("Couldn't resolve SMI/GSI device for port_id %d.", port_id);
+
 	agent = umad_register(port_id, mgmt, vers, rmpp_version, NULL);
 	if (agent < 0)
 		DEBUG("Can't register agent for class %d", mgmt);
@@ -129,7 +136,7 @@ int mad_register_server_via(int mgmt, uint8_t rmpp_version,
 {
 	long class_method_mask[16 / sizeof(long)];
 	uint8_t oui[3];
-	int agent, vers;
+	int agent, vers, port_id;
 
 	if (method_mask)
 		memcpy(class_method_mask, method_mask,
@@ -149,20 +156,26 @@ int mad_register_server_via(int mgmt, uint8_t rmpp_version,
 		DEBUG("Unknown class 0x%x mgmt_class", mgmt);
 		return -1;
 	}
+
+	port_id = smi_gsi_port_by_class(srcport->port_id, mgmt);
+
+	if (port_id < 0)
+		IBWARN("Couldn't resolve SMI/GSI device for port_id %d.", srcport->port_id);
+
 	if (mgmt >= IB_VENDOR_RANGE2_START_CLASS &&
 	    mgmt <= IB_VENDOR_RANGE2_END_CLASS) {
 		oui[0] = (class_oui >> 16) & 0xff;
 		oui[1] = (class_oui >> 8) & 0xff;
 		oui[2] = class_oui & 0xff;
 		if ((agent =
-		     umad_register_oui(srcport->port_id, mgmt, rmpp_version,
-				       oui, class_method_mask)) < 0) {
+			umad_register_oui(port_id, mgmt, rmpp_version,
+							  oui, class_method_mask)) < 0) {
 			DEBUG("Can't register agent for class %d", mgmt);
 			return -1;
 		}
 	} else
 	    if ((agent =
-		 umad_register(srcport->port_id, mgmt, vers, rmpp_version,
+		 umad_register(port_id, mgmt, vers, rmpp_version,
 			       class_method_mask)) < 0) {
 		DEBUG("Can't register agent for class %d", mgmt);
 		return -1;

@@ -2,6 +2,7 @@
  * Copyright (c) 2004-2009 Voltaire Inc.  All rights reserved.
  * Copyright (c) 2009 HNR Consulting.  All rights reserved.
  * Copyright (c) 2011 Mellanox Technologies LTD.  All rights reserved.
+ * Copyright (c) 2024 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
  *
  * This software is available to you under a choice of one of two
  * licenses.  You may choose to be licensed under the terms of the GNU
@@ -42,6 +43,8 @@
 #include <infiniband/mad.h>
 
 #include "mad_internal.h"
+#include "ext_umad.h"
+#include "smi_gsi.h"
 
 int ibdebug;
 
@@ -144,6 +147,12 @@ _do_madrpc(int port_id, void *sndbuf, void *rcvbuf, int agentid, int len,
 
 	trid =
 	    (uint32_t) mad_get_field64(umad_get_mad(sndbuf), 0, IB_MAD_TRID_F);
+
+	port_id = smi_gsi_port_by_class(port_id,
+				mad_get_field(umad_get_mad(sndbuf), 0, IB_MAD_MGMTCLASS_F));
+
+    if (port_id < 0)
+        IBWARN("Couldn't resolve SMI/GSI device for port_id %d.", port_id);
 
 	for (retries = 0; retries < max_retries; retries++) {
 		if (retries)
@@ -344,19 +353,21 @@ void *madrpc_rmpp(ib_rpc_t * rpc, ib_portid_t * dport, ib_rmpp_hdr_t * rmpp,
 void
 madrpc_init(char *dev_name, int dev_port, int *mgmt_classes, int num_classes)
 {
-	int fd;
+	int port_id;
 
 	if (umad_init() < 0)
 		IBPANIC("can't init UMAD library");
 
-	if ((fd = umad_open_port(dev_name, dev_port)) < 0)
-		IBPANIC("can't open UMAD port (%s:%d)",
-		dev_name ? dev_name : "(nil)", dev_port);
+	port_id = smi_gsi_port_open(dev_name, dev_port);
+
+	if (port_id < 0) {
+		return;
+	}
 
 	if (num_classes >= MAX_CLASS)
 		IBPANIC("too many classes %d requested", num_classes);
 
-	ibmp->port_id = fd;
+	ibmp->port_id = port_id;
 	memset(ibmp->class_agents, 0xff, sizeof ibmp->class_agents);
 	while (num_classes--) {
 		uint8_t rmpp_version = 0;
@@ -401,10 +412,9 @@ struct ibmad_port *mad_rpc_open_port(char *dev_name, int dev_port,
 	}
 	memset(p, 0, sizeof(*p));
 
-	if ((port_id = umad_open_port(dev_name, dev_port)) < 0) {
-		IBWARN("can't open UMAD port (%s:%d)", dev_name, dev_port);
-		if (!errno)
-			errno = EIO;
+	port_id = smi_gsi_port_open(dev_name, dev_port);
+
+	if (port_id < 0) {
 		free(p);
 		return NULL;
 	}
@@ -422,7 +432,7 @@ struct ibmad_port *mad_rpc_open_port(char *dev_name, int dev_port,
 			IBWARN("client_register for mgmt %d failed", mgmt);
 			if (!errno)
 				errno = EINVAL;
-			umad_close_port(port_id);
+			smi_gsi_port_close(port_id);
 			free(p);
 			return NULL;
 		}
@@ -433,6 +443,6 @@ struct ibmad_port *mad_rpc_open_port(char *dev_name, int dev_port,
 
 void mad_rpc_close_port(struct ibmad_port *port)
 {
-	umad_close_port(port->port_id);
+	smi_gsi_port_close(port->port_id);
 	free(port);
 }
