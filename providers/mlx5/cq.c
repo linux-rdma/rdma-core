@@ -691,8 +691,8 @@ static inline void get_sig_err_info(struct mlx5_sigerr_cqe *cqe,
 	err->actual = (uint64_t)be32toh(cqe->actual_trans_sig) << 32 |
 		      be32toh(cqe->actual_ref_tag);
 	err->offset = be64toh(cqe->sig_err_offset);
-	err->sig_type = cqe->sig_type;
-	err->domain = cqe->domain;
+	err->sig_type = cqe->sig_type & 0x7;
+	err->domain = cqe->domain & 0x7;
 }
 
 static inline int is_odp_pfault_err(struct mlx5_err_cqe *ecqe)
