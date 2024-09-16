@@ -78,7 +78,7 @@ int mad_class_agent(int mgmt)
 	return ibmp->class_agents[mgmt];
 }
 
-int mad_register_port_client(int port_id, int mgmt, uint8_t rmpp_version)
+static int mad_register_port_client(int port_id, int mgmt, uint8_t rmpp_version)
 {
 	int vers, agent;
 
