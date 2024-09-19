@@ -506,6 +506,7 @@ struct ibv_comp_channel *ibv_create_comp_channel(struct ibv_context *context)
 		return NULL;
 
 	req.core_payload = (struct ib_uverbs_create_comp_channel){};
+	resp.fd = -1;
 	if (execute_cmd_write(context, IB_USER_VERBS_CMD_CREATE_COMP_CHANNEL,
 			      &req, sizeof(req), &resp, sizeof(resp))) {
 		free(channel);
