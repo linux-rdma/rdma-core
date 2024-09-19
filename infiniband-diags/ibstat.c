@@ -338,7 +338,7 @@ int main(int argc, char *argv[])
 		if (list_only)
 			printf("%s\n", ca_name);
 		else if (ca_stat(ca_name, dev_port, short_format) < 0)
-			IBPANIC("stat of IB device '%s' failed", ca_name);
+			IBWARN("stat of IB device '%s' failed", ca_name);
 	}
 	umad_free_ca_device_list(device_list);
 	return 0;
