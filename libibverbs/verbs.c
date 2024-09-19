@@ -498,7 +498,7 @@ LATEST_SYMVER_FUNC(ibv_dereg_mr, 1_1, "IBVERBS_1.1",
 struct ibv_comp_channel *ibv_create_comp_channel(struct ibv_context *context)
 {
 	struct ibv_create_comp_channel req;
-	struct ib_uverbs_create_comp_channel_resp resp;
+	struct ib_uverbs_create_comp_channel_resp resp = {};
 	struct ibv_comp_channel            *channel;
 
 	channel = malloc(sizeof *channel);
