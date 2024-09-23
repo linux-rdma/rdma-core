@@ -173,6 +173,9 @@ struct bnxt_re_srq {
 	int start_idx;
 	int last_idx;
 	bool arm_req;
+	uint32_t mem_handle;
+	uint32_t toggle_size;
+	void *toggle_map;
 };
 
 struct bnxt_re_joint_queue {

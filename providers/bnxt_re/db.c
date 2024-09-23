@@ -157,10 +157,14 @@ void bnxt_re_ring_srq_db(struct bnxt_re_srq *srq)
 
 void bnxt_re_ring_srq_arm(struct bnxt_re_srq *srq)
 {
+	uint32_t *pgptr, toggle = 0;
 	struct bnxt_re_db_hdr hdr;
 
+	pgptr = (uint32_t *)srq->toggle_map;
+	if (pgptr)
+		toggle = *pgptr;
 	bnxt_re_do_pacing(srq->cntx, &srq->rand);
-	bnxt_re_init_db_hdr(&hdr, srq->cap.srq_limit, srq->srqid, 0,
+	bnxt_re_init_db_hdr(&hdr, srq->cap.srq_limit, srq->srqid, toggle,
 			    BNXT_RE_QUE_TYPE_SRQ_ARM);
 	bnxt_re_ring_db(srq->udpi, &hdr);
 }

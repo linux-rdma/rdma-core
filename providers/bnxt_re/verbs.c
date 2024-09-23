@@ -2221,8 +2221,9 @@ struct ibv_srq *bnxt_re_create_srq(struct ibv_pd *ibvpd,
 				   struct ibv_srq_init_attr *attr)
 {
 	struct bnxt_re_context *cntx = to_bnxt_re_context(ibvpd->context);
+	struct bnxt_re_mmap_info minfo = {};
+	struct ubnxt_re_srq_resp resp = {};
 	struct bnxt_re_qattr qattr = {};
-	struct ubnxt_re_srq_resp resp;
 	struct ubnxt_re_srq req;
 	struct bnxt_re_srq *srq;
 	void *mem;
@@ -2257,7 +2258,19 @@ struct ibv_srq *bnxt_re_create_srq(struct ibv_pd *ibvpd,
 	srq->cap.max_sge = attr->attr.max_sge;
 	srq->cap.srq_limit = attr->attr.srq_limit;
 	srq->arm_req = false;
-
+	if (resp.comp_mask & BNXT_RE_SRQ_TOGGLE_PAGE_SUPPORT) {
+		minfo.type = BNXT_RE_SRQ_TOGGLE_MEM;
+		minfo.res_id = resp.srqid;
+		ret = bnxt_re_get_toggle_mem(ibvpd->context, &minfo, &srq->mem_handle);
+		if (ret)
+			goto fail;
+		srq->toggle_map = mmap(NULL, minfo.alloc_size, PROT_READ,
+				       MAP_SHARED, ibvpd->context->cmd_fd,
+				       minfo.alloc_offset);
+		if (srq->toggle_map == MAP_FAILED)
+			goto fail;
+		srq->toggle_size = minfo.alloc_size;
+	}
 	return &srq->ibvsrq;
 fail:
 	bnxt_re_free_mem(mem);
@@ -2291,6 +2304,8 @@ int bnxt_re_destroy_srq(struct ibv_srq *ibvsrq)
 	if (ret)
 		return ret;
 
+	if (srq->toggle_map)
+		munmap(srq->toggle_map, srq->toggle_size);
 	mem = srq->mem;
 	bnxt_re_free_mem(mem);
 	return 0;
