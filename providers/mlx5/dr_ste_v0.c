@@ -453,7 +453,8 @@ static inline void dr_ste_v0_arr_init_next(uint8_t **last_ste,
 	dr_ste_v0_init_full(*last_ste, DR_STE_LU_TYPE_DONT_CARE, entry_type, gvmi);
 }
 
-static void dr_ste_v0_set_actions_tx(uint8_t *action_type_set,
+static void dr_ste_v0_set_actions_tx(struct dr_ste_ctx *ste_ctx,
+				     uint8_t *action_type_set,
 				     uint32_t actions_caps,
 				     uint8_t *last_ste,
 				     struct dr_ste_actions_attr *attr,
@@ -522,7 +523,8 @@ static void dr_ste_v0_set_actions_tx(uint8_t *action_type_set,
 	dr_ste_v0_set_hit_addr(last_ste, attr->final_icm_addr, 1);
 }
 
-static void dr_ste_v0_set_actions_rx(uint8_t *action_type_set,
+static void dr_ste_v0_set_actions_rx(struct dr_ste_ctx *ste_ctx,
+				     uint8_t *action_type_set,
 				     uint32_t actions_caps,
 				     uint8_t *last_ste,
 				     struct dr_ste_actions_attr *attr,
