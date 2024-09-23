@@ -420,14 +420,17 @@ static void bnxt_re_resize_cq_complete(struct bnxt_re_cq *cq)
 	cq->resize_mem = NULL;
 	cq->cqq->va = cq->mem->va_head;
 
+	/* mark the CQ resize flag and save the old head index */
+	cq->cqq->cq_resized = true;
+	cq->cqq->old_head = cq->cqq->head;
+
 	cq->cqq->depth = cq->mem->pad;
 	cq->cqq->stride = cntx->rdev->cqe_size;
 	cq->cqq->head = 0;
 	cq->cqq->tail = 0;
 	cq->phase = BNXT_RE_QUEUE_START_PHASE;
 	/* Reset epoch portion of the flags */
-	cq->cqq->flags &= ~(BNXT_RE_FLAG_EPOCH_TAIL_MASK |
-			    BNXT_RE_FLAG_EPOCH_HEAD_MASK);
+	cq->cqq->flags &= ~(BNXT_RE_FLAG_EPOCH_TAIL_MASK);
 	bnxt_re_ring_cq_arm_db(cq, BNXT_RE_QUE_TYPE_CQ_CUT_ACK);
 }
 
@@ -438,6 +441,8 @@ int bnxt_re_resize_cq(struct ibv_cq *ibvcq, int ncqe)
 	struct bnxt_re_cq *cq = to_bnxt_re_cq(ibvcq);
 	struct ib_uverbs_resize_cq_resp resp = {};
 	struct ubnxt_re_resize_cq cmd = {};
+	uint16_t msec_wait = 100;
+	uint16_t exit_cnt = 20;
 	int rc = 0;
 
 	if (ncqe > dev->max_cq_depth)
@@ -488,6 +493,13 @@ int bnxt_re_resize_cq(struct ibv_cq *ibvcq, int ncqe)
 			list_add_tail(&cq->prev_cq_head, &compl->list);
 			compl = NULL;
 			memset(&tmp_wc, 0, sizeof(tmp_wc));
+		} else {
+			exit_cnt--;
+			if (unlikely(!exit_cnt)) {
+				rc = -EIO;
+				break;
+			}
+			bnxt_re_sub_sec_busy_wait(msec_wait * 1000000);
 		}
 	}
 done:
@@ -544,6 +556,7 @@ static uint8_t bnxt_re_poll_err_scqe(struct bnxt_re_qp *qp,
 	status = (le32toh(hdr->flg_st_typ_ph) >> BNXT_RE_BCQE_STATUS_SHIFT) &
 		  BNXT_RE_BCQE_STATUS_MASK;
 	ibvwc->status = bnxt_re_to_ibv_wc_status(status, true);
+	ibvwc->vendor_err = status;
 	ibvwc->wc_flags = 0;
 	ibvwc->wr_id = swrid->wrid;
 	ibvwc->qp_num = qp->qpid;
@@ -663,6 +676,7 @@ static int bnxt_re_poll_err_rcqe(struct bnxt_re_qp *qp, struct ibv_wc *ibvwc,
 		return 0;
 
 	ibvwc->status = bnxt_re_to_ibv_wc_status(status, false);
+	ibvwc->vendor_err = status;
 	ibvwc->qp_num = qp->qpid;
 	ibvwc->opcode = IBV_WC_RECV;
 	ibvwc->byte_len = 0;
