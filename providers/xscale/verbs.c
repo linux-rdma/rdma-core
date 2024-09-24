@@ -36,6 +36,91 @@ int xsc_query_port(struct ibv_context *context, u8 port,
 	return ibv_cmd_query_port(context, port, attr, &cmd, sizeof(cmd));
 }
 
+struct ibv_pd *xsc_alloc_pd(struct ibv_context *context)
+{
+	struct ibv_alloc_pd cmd;
+	struct xsc_alloc_pd_resp resp;
+	struct xsc_pd *pd;
+
+	pd = calloc(1, sizeof(*pd));
+	if (!pd)
+		return NULL;
+
+	if (ibv_cmd_alloc_pd(context, &pd->ibv_pd, &cmd, sizeof(cmd),
+			     &resp.ibv_resp, sizeof(resp))) {
+		free(pd);
+		return NULL;
+	}
+
+	atomic_init(&pd->refcount, 1);
+	pd->pdn = resp.pdn;
+	xsc_dbg(to_xctx(context)->dbg_fp, XSC_DBG_PD, "pd number:%u\n",
+		pd->pdn);
+
+	return &pd->ibv_pd;
+}
+
+int xsc_free_pd(struct ibv_pd *pd)
+{
+	int ret;
+	struct xsc_pd *xpd = to_xpd(pd);
+
+	if (atomic_load(&xpd->refcount) > 1)
+		return EBUSY;
+
+	ret = ibv_cmd_dealloc_pd(pd);
+	if (ret)
+		return ret;
+
+	xsc_dbg(to_xctx(pd->context)->dbg_fp, XSC_DBG_PD, "dealloc pd\n");
+	free(xpd);
+
+	return 0;
+}
+
+struct ibv_mr *xsc_reg_mr(struct ibv_pd *pd, void *addr, size_t length,
+			  u64 hca_va, int acc)
+{
+	struct xsc_mr *mr;
+	struct ibv_reg_mr cmd;
+	int ret;
+	enum ibv_access_flags access = (enum ibv_access_flags)acc;
+	struct ib_uverbs_reg_mr_resp resp;
+
+	mr = calloc(1, sizeof(*mr));
+	if (!mr)
+		return NULL;
+
+	ret = ibv_cmd_reg_mr(pd, addr, length, hca_va, access, &mr->vmr, &cmd,
+			     sizeof(cmd), &resp, sizeof(resp));
+	if (ret) {
+		free(mr);
+		return NULL;
+	}
+	mr->alloc_flags = acc;
+
+	xsc_dbg(to_xctx(pd->context)->dbg_fp, XSC_DBG_MR, "lkey:%u, rkey:%u\n",
+		mr->vmr.ibv_mr.lkey, mr->vmr.ibv_mr.rkey);
+
+	return &mr->vmr.ibv_mr;
+}
+
+int xsc_dereg_mr(struct verbs_mr *vmr)
+{
+	int ret;
+
+	if (vmr->mr_type == IBV_MR_TYPE_NULL_MR)
+		goto free;
+
+	ret = ibv_cmd_dereg_mr(vmr);
+	if (ret)
+		return ret;
+
+free:
+	free(vmr);
+	return 0;
+}
+
 static void xsc_set_fw_version(struct ibv_device_attr *attr,
 			       union xsc_ib_fw_ver *fw_ver)
 {
