@@ -17,5 +17,7 @@
 
 DECLARE_DRV_CMD(xsc_alloc_ucontext, IB_USER_VERBS_CMD_GET_CONTEXT,
 		empty, xsc_ib_alloc_ucontext_resp);
+DECLARE_DRV_CMD(xsc_alloc_pd, IB_USER_VERBS_CMD_ALLOC_PD,
+		empty, xsc_ib_alloc_pd_resp);
 
 #endif /* XSC_ABI_H */

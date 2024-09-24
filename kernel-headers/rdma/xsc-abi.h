@@ -36,4 +36,8 @@ struct xsc_ib_alloc_ucontext_resp {
 	__u32	resv;
 };
 
+struct xsc_ib_alloc_pd_resp {
+	__u32	pdn;
+};
+
 #endif /* XSC_ABI_USER_H */

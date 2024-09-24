@@ -138,6 +138,17 @@ struct xsc_context {
 	uint32_t			mdb_mmap_size;
 };
 
+struct xsc_pd {
+	struct ibv_pd ibv_pd;
+	uint32_t pdn;
+	atomic_int refcount;
+};
+
+struct xsc_mr {
+	struct verbs_mr vmr;
+	uint32_t alloc_flags;
+};
+
 union xsc_ib_fw_ver {
 	uint64_t data;
 	struct {
@@ -172,11 +183,29 @@ static inline struct xsc_context *to_xctx(struct ibv_context *ibctx)
 	return container_of(ibctx, struct xsc_context, ibv_ctx.context);
 }
 
+/* to_xpd always returns the real xsc_pd object ie the protection domain. */
+static inline struct xsc_pd *to_xpd(struct ibv_pd *ibpd)
+{
+	return container_of(ibpd, struct xsc_pd, ibv_pd);
+}
+
+static inline struct xsc_mr *to_xmr(struct ibv_mr *ibmr)
+{
+	return container_of(ibmr, struct xsc_mr, vmr.ibv_mr);
+}
+
 int xsc_query_device(struct ibv_context *context, struct ibv_device_attr *attr);
 int xsc_query_device_ex(struct ibv_context *context,
 			const struct ibv_query_device_ex_input *input,
 			struct ibv_device_attr_ex *attr, size_t attr_size);
 int xsc_query_port(struct ibv_context *context, uint8_t port,
 		   struct ibv_port_attr *attr);
+
+struct ibv_pd *xsc_alloc_pd(struct ibv_context *context);
+int xsc_free_pd(struct ibv_pd *pd);
+
+struct ibv_mr *xsc_reg_mr(struct ibv_pd *pd, void *addr, size_t length,
+			  uint64_t hca_va, int access);
+int xsc_dereg_mr(struct verbs_mr *mr);
 
 #endif /* XSC_H */
