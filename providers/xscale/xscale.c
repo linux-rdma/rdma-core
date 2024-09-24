@@ -34,12 +34,17 @@ static void xsc_free_context(struct ibv_context *ibctx);
 
 static const struct verbs_context_ops xsc_ctx_common_ops = {
 	.query_port = xsc_query_port,
+	.query_device_ex = xsc_query_device_ex,
+	.free_context = xsc_free_context,
+
 	.alloc_pd = xsc_alloc_pd,
 	.dealloc_pd = xsc_free_pd,
 	.reg_mr = xsc_reg_mr,
 	.dereg_mr = xsc_dereg_mr,
-	.query_device_ex = xsc_query_device_ex,
-	.free_context = xsc_free_context,
+
+	.create_cq = xsc_create_cq,
+	.resize_cq = xsc_resize_cq,
+	.destroy_cq = xsc_destroy_cq,
 };
 
 static void open_debug_file(struct xsc_context *ctx)

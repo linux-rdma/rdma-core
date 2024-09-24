@@ -21,6 +21,19 @@
 #include <valgrind/memcheck.h>
 
 #include "xsc-abi.h"
+#include "xscdv.h"
+
+enum {
+	XSC_IB_MMAP_CMD_SHIFT	= 8,
+	XSC_IB_MMAP_CMD_MASK	= 0xff,
+};
+
+#define XSC_CQ_PREFIX "XSC_CQ"
+#define XSC_QP_PREFIX "XSC_QP"
+#define XSC_MR_PREFIX "XSC_MR"
+#define XSC_RWQ_PREFIX "XSC_RWQ"
+#define XSC_MAX_LOG2_CONTIG_BLOCK_SIZE 23
+#define XSC_MIN_LOG2_CONTIG_BLOCK_SIZE 12
 
 enum {
 	XSC_DBG_QP = 1 << 0,
@@ -74,9 +87,30 @@ enum {
 	XSC_QP_TABLE_SIZE = 1 << (24 - XSC_QP_TABLE_SHIFT),
 };
 
+enum xsc_alloc_type {
+	XSC_ALLOC_TYPE_ANON,
+	XSC_ALLOC_TYPE_HUGE,
+	XSC_ALLOC_TYPE_CONTIG,
+	XSC_ALLOC_TYPE_PREFER_HUGE,
+	XSC_ALLOC_TYPE_PREFER_CONTIG,
+	XSC_ALLOC_TYPE_EXTERNAL,
+	XSC_ALLOC_TYPE_GPU,
+	XSC_ALLOC_TYPE_ALL
+};
+
+struct xsc_resource {
+	uint32_t rsn;
+};
+
 struct xsc_device {
 	struct verbs_device verbs_dev;
 	int page_size;
+};
+
+struct xsc_spinlock {
+	pthread_spinlock_t lock;
+	int				in_use;
+	int				need_lock;
 };
 
 #define XSC_PCI_VENDOR_ID		0x1f67
@@ -113,7 +147,13 @@ struct xsc_context {
 	int				max_send_wr;
 	int				max_recv_wr;
 	int				num_ports;
+	int				stall_enable;
+	int				stall_adaptive_enable;
+	int				stall_cycles;
 	char				hostname[NAME_BUFFER_SIZE];
+	struct xsc_spinlock		hugetlb_lock;
+	struct list_head		hugetlb_list;
+	struct xscdv_ctx_allocators	extern_alloc;
 	uint32_t			max_cqe;
 	void				*sqm_reg_va;
 	void				*rqm_reg_va;
@@ -135,7 +175,32 @@ struct xsc_context {
 	uint32_t			tx_multidb_base;
 	void				*mdb_base;
 	uint32_t			tx_mdb_idx;
+	uint32_t			hw_feature_flag;
 	uint32_t			mdb_mmap_size;
+};
+
+struct xsc_bitmap {
+	uint32_t		last;
+	uint32_t		top;
+	uint32_t		max;
+	uint32_t		avail;
+	uint32_t		mask;
+	unsigned long	       *table;
+};
+
+struct xsc_hugetlb_mem {
+	int			shmid;
+	void		       *shmaddr;
+	struct xsc_bitmap	bitmap;
+	struct list_node	entry;
+};
+
+struct xsc_buf {
+	void			       *buf;
+	size_t				length;
+	int                             base;
+	struct xsc_hugetlb_mem	       *hmem;
+	enum xsc_alloc_type		type;
 };
 
 struct xsc_pd {
@@ -143,6 +208,58 @@ struct xsc_pd {
 	uint32_t pdn;
 	atomic_int refcount;
 };
+
+enum {
+	XSC_CQ_FLAGS_RX_CSUM_VALID = 1 << 0,
+	XSC_CQ_FLAGS_EMPTY_DURING_POLL = 1 << 1,
+	XSC_CQ_FLAGS_FOUND_CQES = 1 << 2,
+	XSC_CQ_FLAGS_EXTENDED = 1 << 3,
+	XSC_CQ_FLAGS_SINGLE_THREADED = 1 << 4,
+	XSC_CQ_FLAGS_DV_OWNED = 1 << 5,
+	XSC_CQ_FLAGS_TM_SYNC_REQ = 1 << 6,
+	XSC_CQ_FLAGS_OWNED_BY_GPU = 1 << 7,
+};
+
+struct xsc_err_state_qp_node {
+	struct list_node entry;
+	uint32_t qp_id;
+	int is_sq;
+};
+
+struct xsc_cq {
+	/* ibv_cq should always be subset of ibv_cq_ex */
+	struct verbs_cq			verbs_cq;
+	struct xsc_buf			buf_a;
+	struct xsc_buf			buf_b;
+	struct xsc_buf		       *active_buf;
+	struct xsc_buf		       *resize_buf;
+	int				resize_cqes;
+	int				active_cqes;
+	struct xsc_spinlock		lock;
+	uint32_t			cqn;
+	uint32_t			cons_index;
+	__le32			       *dbrec;
+	__le32				*db;
+	__le32				*armdb;
+	uint32_t			cqe_cnt;
+	int				log2_cq_ring_sz;
+	int				arm_sn;
+	int				cqe_sz;
+	int				resize_cqe_sz;
+	int				stall_next_poll;
+	int				stall_enable;
+	uint64_t			stall_last_count;
+	int				stall_adaptive_enable;
+	int				stall_cycles;
+	struct xsc_resource		*cur_rsc;
+	struct xsc_cqe			*cqe;
+	uint32_t			flags;
+	int				umr_opcode;
+	bool				disable_flush_error_cqe;
+	struct list_head		err_state_qp_list;
+};
+
+struct xsc_qp;
 
 struct xsc_mr {
 	struct verbs_mr vmr;
@@ -189,11 +306,37 @@ static inline struct xsc_pd *to_xpd(struct ibv_pd *ibpd)
 	return container_of(ibpd, struct xsc_pd, ibv_pd);
 }
 
+static inline struct xsc_cq *to_xcq(struct ibv_cq *ibcq)
+{
+	return container_of((struct ibv_cq_ex *)ibcq, struct xsc_cq,
+			    verbs_cq.cq_ex);
+}
+
 static inline struct xsc_mr *to_xmr(struct ibv_mr *ibmr)
 {
 	return container_of(ibmr, struct xsc_mr, vmr.ibv_mr);
 }
 
+static inline struct xsc_qp *rsc_to_xqp(struct xsc_resource *rsc)
+{
+	return (struct xsc_qp *)rsc;
+}
+
+int xsc_alloc_buf(struct xsc_buf *buf, size_t size, int page_size);
+void xsc_free_buf(struct xsc_buf *buf);
+int xsc_alloc_buf_contig(struct xsc_context *xctx, struct xsc_buf *buf,
+			  size_t size, int page_size, const char *component);
+void xsc_free_buf_contig(struct xsc_context *xctx, struct xsc_buf *buf);
+int xsc_alloc_prefered_buf(struct xsc_context *xctx,
+			    struct xsc_buf *buf,
+			    size_t size, int page_size,
+			    enum xsc_alloc_type alloc_type,
+			    const char *component);
+int xsc_free_actual_buf(struct xsc_context *ctx, struct xsc_buf *buf);
+void xsc_get_alloc_type(struct xsc_context *context,
+			 const char *component,
+			 enum xsc_alloc_type *alloc_type,
+			 enum xsc_alloc_type default_alloc_type);
 int xsc_query_device(struct ibv_context *context, struct ibv_device_attr *attr);
 int xsc_query_device_ex(struct ibv_context *context,
 			const struct ibv_query_device_ex_input *input,
@@ -207,5 +350,54 @@ int xsc_free_pd(struct ibv_pd *pd);
 struct ibv_mr *xsc_reg_mr(struct ibv_pd *pd, void *addr, size_t length,
 			  uint64_t hca_va, int access);
 int xsc_dereg_mr(struct verbs_mr *mr);
+struct ibv_cq *xsc_create_cq(struct ibv_context *context, int cqe,
+			     struct ibv_comp_channel *channel, int comp_vector);
+struct ibv_cq_ex *xsc_create_cq_ex(struct ibv_context *context,
+				   struct ibv_cq_init_attr_ex *cq_attr);
+void xsc_cq_fill_pfns(struct xsc_cq *cq,
+		      const struct ibv_cq_init_attr_ex *cq_attr);
+int xsc_alloc_cq_buf(struct xsc_context *xctx, struct xsc_cq *cq,
+		     struct xsc_buf *buf, int nent, int cqe_sz,
+		     struct xscdv_devx_umem_in *umem_in);
+int xsc_free_cq_buf(struct xsc_context *ctx, struct xsc_buf *buf);
+int xsc_resize_cq(struct ibv_cq *cq, int cqe);
+int xsc_destroy_cq(struct ibv_cq *cq);
+
+static inline int xsc_spin_lock(struct xsc_spinlock *lock)
+{
+	return pthread_spin_lock(&lock->lock);
+}
+
+static inline int xsc_spin_unlock(struct xsc_spinlock *lock)
+{
+	return pthread_spin_unlock(&lock->lock);
+}
+
+static inline int xsc_spinlock_init(struct xsc_spinlock *lock, int need_lock)
+{
+	lock->in_use = 0;
+	lock->need_lock = need_lock;
+	return pthread_spin_init(&lock->lock, PTHREAD_PROCESS_PRIVATE);
+}
+
+static inline int xsc_spinlock_destroy(struct xsc_spinlock *lock)
+{
+	return pthread_spin_destroy(&lock->lock);
+}
+
+static inline void set_command(int command, off_t *offset)
+{
+	*offset |= (command << XSC_IB_MMAP_CMD_SHIFT);
+}
+
+static inline void set_arg(int arg, off_t *offset)
+{
+	*offset |= arg;
+}
+
+static inline void set_order(int order, off_t *offset)
+{
+	set_arg(order, offset);
+}
 
 #endif /* XSC_H */

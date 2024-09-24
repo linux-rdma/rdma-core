@@ -11,12 +11,9 @@
 #include <linux/if_ether.h>	/* For ETH_ALEN. */
 #include <rdma/ib_user_ioctl_verbs.h>
 
-/* Make sure that all structs defined in this file remain laid out so
- * that they pack the same way on 32-bit and 64-bit architectures (to
- * avoid incompatibility between 32-bit userspace and 64-bit kernels).
- * In particular do not use pointer types -- pass pointers in __u64
- * instead.
- */
+enum {
+	XSC_HW_FEATURE_FLAG_SUPPORT_CQE64 = 1 << 0,
+};
 
 struct xsc_ib_alloc_ucontext_resp {
 	__u32	qp_tab_size;
@@ -38,6 +35,38 @@ struct xsc_ib_alloc_ucontext_resp {
 
 struct xsc_ib_alloc_pd_resp {
 	__u32	pdn;
+};
+
+struct xsc_ib_create_cq {
+	__aligned_u64 buf_addr;
+	__aligned_u64 db_addr;
+	__u32	cqe_size;
+
+	int	dmabuf_fd;
+	size_t	dmabuf_sz;
+};
+
+struct xsc_ib_create_cq_resp {
+	__u32	cqn;
+	__u32	reserved;
+};
+
+struct xsc_ib_resize_cq {
+	__aligned_u64 buf_addr;
+	__u16	cqe_size;
+	__u16	reserved0;
+	__u32	reserved1;
+};
+
+enum xsc_ib_mmap_cmd {
+	XSC_IB_MMAP_REGULAR_PAGE               = 0,
+	XSC_IB_MMAP_GET_CONTIGUOUS_PAGES       = 1,
+	XSC_IB_MMAP_WC_PAGE                    = 2,
+	XSC_IB_MMAP_NC_PAGE                    = 3,
+	XSC_IB_MMAP_CORE_CLOCK                 = 5,
+	XSC_IB_MMAP_ALLOC_WC                   = 6,
+	XSC_IB_MMAP_CLOCK_INFO                 = 7,
+	XSC_IB_MMAP_DEVICE_MEM                 = 8,
 };
 
 #endif /* XSC_ABI_USER_H */

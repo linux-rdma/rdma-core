@@ -11,6 +11,7 @@
 #include <infiniband/verbs.h>
 #include <rdma/xsc-abi.h>
 #include <kernel-abi/xsc-abi.h>
+#include "xscdv.h"
 
 #define XSC_UVERBS_MIN_ABI_VERSION 1
 #define XSC_UVERBS_MAX_ABI_VERSION 1
@@ -19,5 +20,11 @@ DECLARE_DRV_CMD(xsc_alloc_ucontext, IB_USER_VERBS_CMD_GET_CONTEXT,
 		empty, xsc_ib_alloc_ucontext_resp);
 DECLARE_DRV_CMD(xsc_alloc_pd, IB_USER_VERBS_CMD_ALLOC_PD,
 		empty, xsc_ib_alloc_pd_resp);
+DECLARE_DRV_CMD(xsc_create_cq, IB_USER_VERBS_CMD_CREATE_CQ,
+		xsc_ib_create_cq, xsc_ib_create_cq_resp);
+DECLARE_DRV_CMD(xsc_create_cq_ex, IB_USER_VERBS_EX_CMD_CREATE_CQ,
+		xsc_ib_create_cq, xsc_ib_create_cq_resp);
+DECLARE_DRV_CMD(xsc_resize_cq, IB_USER_VERBS_CMD_RESIZE_CQ,
+		xsc_ib_resize_cq, empty);
 
 #endif /* XSC_ABI_H */
