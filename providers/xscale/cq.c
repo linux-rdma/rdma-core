@@ -115,11 +115,6 @@ static void *get_sw_cqe(struct xsc_cq *cq, int n)
 		return NULL;
 }
 
-void *xsc_get_send_wqe(struct xsc_qp *qp, int n)
-{
-	return qp->sq_start + (n << qp->sq.wqe_shift);
-}
-
 static void update_cons_index(struct xsc_cq *cq)
 {
 	struct xsc_context *ctx =

@@ -52,6 +52,9 @@ static const struct verbs_context_ops xsc_ctx_common_ops = {
 	.query_qp = xsc_query_qp,
 	.modify_qp = xsc_modify_qp,
 	.destroy_qp = xsc_destroy_qp,
+
+	.post_send = xsc_post_send,
+	.post_recv = xsc_post_recv,
 };
 
 static void open_debug_file(struct xsc_context *ctx)

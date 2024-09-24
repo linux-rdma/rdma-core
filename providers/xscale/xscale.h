@@ -325,6 +325,10 @@ int xsc_query_qp(struct ibv_qp *qp, struct ibv_qp_attr *attr, int attr_mask,
 int xsc_modify_qp(struct ibv_qp *qp, struct ibv_qp_attr *attr, int attr_mask);
 int xsc_destroy_qp(struct ibv_qp *qp);
 void xsc_init_qp_indices(struct xsc_qp *qp);
+int xsc_post_send(struct ibv_qp *ibqp, struct ibv_send_wr *wr,
+		  struct ibv_send_wr **bad_wr);
+int xsc_post_recv(struct ibv_qp *ibqp, struct ibv_recv_wr *wr,
+		  struct ibv_recv_wr **bad_wr);
 struct xsc_qp *xsc_find_qp(struct xsc_context *ctx, u32 qpn);
 int xsc_store_qp(struct xsc_context *ctx, u32 qpn, struct xsc_qp *qp);
 void xsc_clear_qp(struct xsc_context *ctx, u32 qpn);
