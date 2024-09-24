@@ -28,6 +28,16 @@ typedef uint32_t  u32;
 typedef uint64_t  u64;
 
 enum {
+	XSC_QP_FLAG_RAWPACKET_TSO = 1 << 9,
+	XSC_QP_FLAG_RAWPACKET_TX = 1 << 10,
+};
+
+enum xsc_qp_create_flags {
+	XSC_QP_CREATE_RAWPACKET_TSO = 1 << 0,
+	XSC_QP_CREATE_RAWPACKET_TX = 1 << 1,
+};
+
+enum {
 	XSC_DBG_QP = 1 << 0,
 	XSC_DBG_CQ = 1 << 1,
 	XSC_DBG_QP_SEND = 1 << 2,
@@ -168,9 +178,50 @@ struct xsc_cq {
 	struct list_head err_state_qp_list;
 };
 
+struct xsc_wq {
+	u64 *wrid;
+	unsigned int *wqe_head;
+	struct xsc_spinlock lock;
+	unsigned int wqe_cnt;
+	unsigned int max_post;
+	unsigned int head;
+	unsigned int tail;
+	unsigned int cur_post;
+	int max_gs;
+	int wqe_shift;
+	int offset;
+	void *qend;
+	__le32 *db;
+	unsigned int ds_cnt;
+	unsigned int seg_cnt;
+	unsigned int *wr_opcode;
+	unsigned int *need_flush;
+	unsigned int flush_wqe_cnt;
+};
+
 struct xsc_mr {
 	struct verbs_mr vmr;
 	u32 alloc_flags;
+};
+
+struct xsc_qp {
+	struct xsc_resource rsc; /* This struct must be first */
+	struct verbs_qp verbs_qp;
+	struct ibv_qp *ibv_qp;
+	struct xsc_buf buf;
+	void *sq_start;
+	void *rq_start;
+	int max_inline_data;
+	int buf_size;
+	/* For Raw Packet QP, use different buffers for the SQ and RQ */
+	struct xsc_buf sq_buf;
+	int sq_buf_size;
+	u8 sq_signal_bits;
+	struct xsc_wq sq;
+	struct xsc_wq rq;
+	u32 flags; /* Use enum xsc_qp_flags */
+	u32 rqn;
+	u32 sqn;
 };
 
 union xsc_ib_fw_ver {
@@ -219,6 +270,13 @@ static inline struct xsc_cq *to_xcq(struct ibv_cq *ibcq)
 			    verbs_cq.cq_ex);
 }
 
+static inline struct xsc_qp *to_xqp(struct ibv_qp *ibqp)
+{
+	struct verbs_qp *vqp = (struct verbs_qp *)ibqp;
+
+	return container_of(vqp, struct xsc_qp, verbs_qp);
+}
+
 static inline struct xsc_mr *to_xmr(struct ibv_mr *ibmr)
 {
 	return container_of(ibmr, struct xsc_mr, vmr.ibv_mr);
@@ -258,6 +316,20 @@ int xsc_poll_cq(struct ibv_cq *cq, int ne, struct ibv_wc *wc);
 int xsc_arm_cq(struct ibv_cq *cq, int solicited);
 void __xsc_cq_clean(struct xsc_cq *cq, u32 qpn);
 void xsc_cq_clean(struct xsc_cq *cq, u32 qpn);
+
+struct ibv_qp *xsc_create_qp_ex(struct ibv_context *context,
+				struct ibv_qp_init_attr_ex *attr);
+struct ibv_qp *xsc_create_qp(struct ibv_pd *pd, struct ibv_qp_init_attr *attr);
+int xsc_query_qp(struct ibv_qp *qp, struct ibv_qp_attr *attr, int attr_mask,
+		 struct ibv_qp_init_attr *init_attr);
+int xsc_modify_qp(struct ibv_qp *qp, struct ibv_qp_attr *attr, int attr_mask);
+int xsc_destroy_qp(struct ibv_qp *qp);
+void xsc_init_qp_indices(struct xsc_qp *qp);
+struct xsc_qp *xsc_find_qp(struct xsc_context *ctx, u32 qpn);
+int xsc_store_qp(struct xsc_context *ctx, u32 qpn, struct xsc_qp *qp);
+void xsc_clear_qp(struct xsc_context *ctx, u32 qpn);
+int xsc_err_state_qp(struct ibv_qp *qp, enum ibv_qp_state cur_state,
+		     enum ibv_qp_state state);
 int xsc_round_up_power_of_two(long long sz);
 void *xsc_get_send_wqe(struct xsc_qp *qp, int n);
 

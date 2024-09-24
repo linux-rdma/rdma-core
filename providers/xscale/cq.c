@@ -79,16 +79,6 @@ static inline u8 xsc_get_cqe_opcode(struct xsc_context *ctx,
 	return xsc_msg_opcode[msg_opcode][type][with_immdt];
 }
 
-struct xsc_qp *xsc_find_qp(struct xsc_context *ctx, u32 qpn)
-{
-	int tind = qpn >> XSC_QP_TABLE_SHIFT;
-
-	if (ctx->qp_table[tind].refcnt)
-		return ctx->qp_table[tind].table[qpn & XSC_QP_TABLE_MASK];
-	else
-		return NULL;
-}
-
 static inline int get_qp_ctx(struct xsc_context *xctx,
 			     struct xsc_resource **cur_rsc,
 			     u32 qpn) ALWAYS_INLINE;
@@ -520,3 +510,64 @@ void xsc_free_cq_buf(struct xsc_context *ctx, struct xsc_buf *buf)
 {
 	return xsc_free_buf(buf);
 }
+
+void __xsc_cq_clean(struct xsc_cq *cq, u32 qpn)
+{
+	u32 prod_index;
+	int nfreed = 0;
+	void *cqe, *dest;
+
+	if (!cq)
+		return;
+	xsc_dbg(to_xctx(cq->verbs_cq.cq_ex.context)->dbg_fp, XSC_DBG_CQ, "\n");
+
+	/*
+	 * First we need to find the current producer index, so we
+	 * know where to start cleaning from.  It doesn't matter if HW
+	 * adds new entries after this loop -- the QP we're worried
+	 * about is already in RESET, so the new entries won't come
+	 * from our QP and therefore don't need to be checked.
+	 */
+	for (prod_index = cq->cons_index; get_sw_cqe(cq, prod_index);
+	     ++prod_index)
+		if (prod_index == cq->cons_index + cq->verbs_cq.cq_ex.cqe)
+			break;
+
+	/*
+	 * Now sweep backwards through the CQ, removing CQ entries
+	 * that match our QP by copying older entries on top of them.
+	 */
+	while ((int)(--prod_index) - (int)cq->cons_index >= 0) {
+		u32 qp_id;
+
+		cqe = get_cqe(cq, prod_index & (cq->verbs_cq.cq_ex.cqe - 1));
+		qp_id = FIELD_GET(CQE_DATA0_QP_ID_MASK,
+				  le32toh(((struct xsc_cqe *)cqe)->data0));
+		if (qpn == qp_id) {
+			++nfreed;
+		} else if (nfreed) {
+			dest = get_cqe(cq,
+				       (prod_index + nfreed) &
+					       (cq->verbs_cq.cq_ex.cqe - 1));
+			memcpy(dest, cqe, cq->cqe_sz);
+		}
+	}
+
+	if (nfreed) {
+		cq->cons_index += nfreed;
+		/*
+		 * Make sure update of buffer contents is done before
+		 * updating consumer index.
+		 */
+		udma_to_device_barrier();
+		update_cons_index(cq);
+	}
+}
+
+void xsc_cq_clean(struct xsc_cq *cq, uint32_t qpn)
+{
+	xsc_spin_lock(&cq->lock);
+	__xsc_cq_clean(cq, qpn);
+	xsc_spin_unlock(&cq->lock);
+}
+
