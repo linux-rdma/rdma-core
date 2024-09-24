@@ -22,6 +22,7 @@
 
 #include "xscale.h"
 #include "xsc-abi.h"
+#include "xsc_hsi.h"
 
 static const struct verbs_match_ent hca_table[] = {
 	VERBS_MODALIAS_MATCH("*xscale*", NULL),
@@ -33,12 +34,19 @@ static void xsc_free_context(struct ibv_context *ibctx);
 
 static const struct verbs_context_ops xsc_ctx_common_ops = {
 	.query_port = xsc_query_port,
+	.query_device_ex = xsc_query_device_ex,
+	.free_context = xsc_free_context,
+
 	.alloc_pd = xsc_alloc_pd,
 	.dealloc_pd = xsc_free_pd,
 	.reg_mr = xsc_reg_mr,
 	.dereg_mr = xsc_dereg_mr,
-	.query_device_ex = xsc_query_device_ex,
-	.free_context = xsc_free_context,
+
+	.create_cq = xsc_create_cq,
+	.poll_cq = xsc_poll_cq,
+	.req_notify_cq = xsc_arm_cq,
+	.resize_cq = xsc_resize_cq,
+	.destroy_cq = xsc_destroy_cq,
 };
 
 static void open_debug_file(struct xsc_context *ctx)
@@ -202,6 +210,7 @@ static struct verbs_context *xsc_alloc_context(struct ibv_device *ibdev,
 	context->send_ds_shift = xsc_ilog2(resp.send_ds_num);
 	context->recv_ds_num = resp.recv_ds_num;
 	context->recv_ds_shift = xsc_ilog2(resp.recv_ds_num);
+	xsc_init_hw_ops(context);
 
 	xsc_dbg(context->dbg_fp, XSC_DBG_CTX,
 		"max_num_qps:%u, max_sq_desc_sz:%u max_rq_desc_sz:%u\n",

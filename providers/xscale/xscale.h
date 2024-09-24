@@ -79,9 +79,17 @@ enum {
 	XSC_QP_TABLE_SIZE = 1 << (24 - XSC_QP_TABLE_SHIFT),
 };
 
+struct xsc_resource {
+	u32 rsn;
+};
+
 struct xsc_device {
 	struct verbs_device verbs_dev;
 	int page_size;
+};
+
+struct xsc_spinlock {
+	pthread_spinlock_t lock;
 };
 
 #define NAME_BUFFER_SIZE 64
@@ -120,10 +128,44 @@ struct xsc_context {
 	struct xsc_hw_ops *hw_ops;
 };
 
+struct xsc_buf {
+	void *buf;
+	size_t length;
+};
+
 struct xsc_pd {
 	struct ibv_pd ibv_pd;
 	u32 pdn;
 	atomic_int refcount;
+};
+
+struct xsc_err_state_qp_node {
+	struct list_node entry;
+	u32 qp_id;
+	int is_sq;
+};
+
+struct xsc_cq {
+	/* ibv_cq should always be subset of ibv_cq_ex */
+	struct verbs_cq verbs_cq;
+	struct xsc_buf buf;
+	struct xsc_buf *active_buf;
+	struct xsc_buf *resize_buf;
+	int resize_cqes;
+	int active_cqes;
+	struct xsc_spinlock lock;
+	u32 cqn;
+	u32 cons_index;
+	__le32 *db;
+	__le32 *armdb;
+	u32 cqe_cnt;
+	int log2_cq_ring_sz;
+	int cqe_sz;
+	int resize_cqe_sz;
+	struct xsc_resource *cur_rsc;
+	u32 flags;
+	int disable_flush_error_cqe;
+	struct list_head err_state_qp_list;
 };
 
 struct xsc_mr {
@@ -171,10 +213,24 @@ static inline struct xsc_pd *to_xpd(struct ibv_pd *ibpd)
 	return container_of(ibpd, struct xsc_pd, ibv_pd);
 }
 
+static inline struct xsc_cq *to_xcq(struct ibv_cq *ibcq)
+{
+	return container_of((struct ibv_cq_ex *)ibcq, struct xsc_cq,
+			    verbs_cq.cq_ex);
+}
+
 static inline struct xsc_mr *to_xmr(struct ibv_mr *ibmr)
 {
 	return container_of(ibmr, struct xsc_mr, vmr.ibv_mr);
 }
+
+static inline struct xsc_qp *rsc_to_xqp(struct xsc_resource *rsc)
+{
+	return (struct xsc_qp *)rsc;
+}
+
+int xsc_alloc_buf(struct xsc_buf *buf, size_t size, int page_size);
+void xsc_free_buf(struct xsc_buf *buf);
 
 int xsc_query_device(struct ibv_context *context, struct ibv_device_attr *attr);
 int xsc_query_device_ex(struct ibv_context *context,
@@ -189,5 +245,40 @@ int xsc_free_pd(struct ibv_pd *pd);
 struct ibv_mr *xsc_reg_mr(struct ibv_pd *pd, void *addr, size_t length,
 			  u64 hca_va, int access);
 int xsc_dereg_mr(struct verbs_mr *mr);
+struct ibv_cq *xsc_create_cq(struct ibv_context *context, int cqe,
+			     struct ibv_comp_channel *channel, int comp_vector);
+struct ibv_cq_ex *xsc_create_cq_ex(struct ibv_context *context,
+				   struct ibv_cq_init_attr_ex *cq_attr);
+int xsc_alloc_cq_buf(struct xsc_context *xctx, struct xsc_cq *cq,
+		     struct xsc_buf *buf, int nent, int cqe_sz);
+void xsc_free_cq_buf(struct xsc_context *ctx, struct xsc_buf *buf);
+int xsc_resize_cq(struct ibv_cq *cq, int cqe);
+int xsc_destroy_cq(struct ibv_cq *cq);
+int xsc_poll_cq(struct ibv_cq *cq, int ne, struct ibv_wc *wc);
+int xsc_arm_cq(struct ibv_cq *cq, int solicited);
+void __xsc_cq_clean(struct xsc_cq *cq, u32 qpn);
+void xsc_cq_clean(struct xsc_cq *cq, u32 qpn);
+int xsc_round_up_power_of_two(long long sz);
+void *xsc_get_send_wqe(struct xsc_qp *qp, int n);
+
+static inline int xsc_spin_lock(struct xsc_spinlock *lock)
+{
+	return pthread_spin_lock(&lock->lock);
+}
+
+static inline int xsc_spin_unlock(struct xsc_spinlock *lock)
+{
+	return pthread_spin_unlock(&lock->lock);
+}
+
+static inline int xsc_spinlock_init(struct xsc_spinlock *lock)
+{
+	return pthread_spin_init(&lock->lock, PTHREAD_PROCESS_PRIVATE);
+}
+
+static inline int xsc_spinlock_destroy(struct xsc_spinlock *lock)
+{
+	return pthread_spin_destroy(&lock->lock);
+}
 
 #endif /* XSC_H */
