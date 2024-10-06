@@ -24,6 +24,8 @@ rdma_library(ibmad libibmad.map
   serv.c
   smp.c
   vendor.c
+  ext_umad.c
+  smi_gsi.c
   )
 target_link_libraries(ibmad LINK_PRIVATE
   ibumad
