@@ -317,7 +317,7 @@ struct ds_qp {
 };
 
 struct rsocket {
-	int		  type;
+	int		  type;  /* SOCK_STREAM or SOCK_DGRAM only; flags in fd_flags/fs_flags */
 	int		  index;
 	fastlock_t	  slock;
 	fastlock_t	  rlock;
@@ -654,6 +654,7 @@ static struct rsocket *rs_alloc(struct rsocket *inherited_rs, int type)
 		return NULL;
 
 	rs->type = type;
+
 	rs->index = -1;
 	if (type == SOCK_DGRAM) {
 		rs->udp_sock = -1;
@@ -1199,19 +1200,23 @@ int rsocket(int domain, int type, int protocol)
 {
 	struct rsocket *rs;
 	int index, ret;
+	int socket_type = type & ~(SOCK_CLOEXEC | SOCK_NONBLOCK);
 
 	if ((domain != AF_INET && domain != AF_INET6 && domain != AF_IB) ||
-	    ((type != SOCK_STREAM) && (type != SOCK_DGRAM)) ||
-	    (type == SOCK_STREAM && protocol && protocol != IPPROTO_TCP) ||
-	    (type == SOCK_DGRAM && protocol && protocol != IPPROTO_UDP))
+	    (socket_type != SOCK_STREAM && socket_type != SOCK_DGRAM) ||
+	    ((socket_type == SOCK_STREAM) && protocol && protocol != IPPROTO_TCP) ||
+	    ((socket_type == SOCK_DGRAM) && protocol && protocol != IPPROTO_UDP))
 		return ERR(ENOTSUP);
 
 	rs_configure();
-	rs = rs_alloc(NULL, type);
+	rs = rs_alloc(NULL, socket_type);
 	if (!rs)
 		return ERR(ENOMEM);
 
-	if (type == SOCK_STREAM) {
+	rs->fd_flags = (type & SOCK_CLOEXEC) ? FD_CLOEXEC : 0;
+	rs->fs_flags = (type & SOCK_NONBLOCK) ? O_NONBLOCK : 0;
+
+	if (socket_type == SOCK_STREAM) {
 		ret = rdma_create_id(NULL, &rs->cm_id, rs, RDMA_PS_TCP);
 		if (ret)
 			goto err;
@@ -1222,7 +1227,6 @@ int rsocket(int domain, int type, int protocol)
 		ret = ds_init(rs, domain);
 		if (ret)
 			goto err;
-
 		index = rs->udp_sock;
 	}
 
@@ -1315,6 +1319,8 @@ static void rs_accept(struct rsocket *rs)
 	if (!new_rs)
 		goto err;
 	new_rs->cm_id = cm_id;
+	new_rs->fd_flags = rs->fd_flags;
+	new_rs->fs_flags = rs->fs_flags;
 
 	ret = rs_insert(new_rs, new_rs->cm_id->channel->fd);
 	if (ret < 0)
@@ -3664,7 +3670,7 @@ int rsetsockopt(int socket, int level, int optname,
 	rs = idm_lookup(&idm, socket);
 	if (!rs)
 		return ERR(EBADF);
-	if (rs->type == SOCK_DGRAM && level != SOL_RDMA) {
+	if ((rs->type == SOCK_DGRAM) && level != SOL_RDMA) {
 		ret = setsockopt(rs->udp_sock, level, optname, optval, optlen);
 		if (ret)
 			return ret;
@@ -3687,8 +3693,8 @@ int rsetsockopt(int socket, int level, int optname,
 			opt_on = *(int *) optval;
 			break;
 		case SO_RCVBUF:
-			if ((rs->type == SOCK_STREAM && !rs->rbuf) ||
-			    (rs->type == SOCK_DGRAM && !rs->qp_list))
+			if (((rs->type == SOCK_STREAM) && !rs->rbuf) ||
+			    ((rs->type == SOCK_DGRAM) && !rs->qp_list))
 				rs->rbuf_size = (*(uint32_t *) optval) << 1;
 			ret = 0;
 			break;
