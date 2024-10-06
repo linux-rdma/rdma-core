@@ -319,6 +319,7 @@ struct ds_qp {
 
 struct rsocket {
 	int		  type;
+	int		  category;
 	int		  index;
 	fastlock_t	  slock;
 	fastlock_t	  rlock;
@@ -693,7 +694,7 @@ static void rs_remove(struct rsocket *rs)
 }
 
 /* We only inherit from listening sockets */
-static struct rsocket *rs_alloc(struct rsocket *inherited_rs, int type)
+static struct rsocket *rs_alloc(struct rsocket *inherited_rs, int type, int category)
 {
 	struct rsocket *rs;
 
@@ -702,8 +703,10 @@ static struct rsocket *rs_alloc(struct rsocket *inherited_rs, int type)
 		return NULL;
 
 	rs->type = type;
+	rs->category = category;
+
 	rs->index = -1;
-	if (type == SOCK_DGRAM) {
+	if (category == SOCK_DGRAM) {
 		rs->udp_sock = -1;
 		rs->epfd = -1;
 	}
@@ -714,7 +717,7 @@ static struct rsocket *rs_alloc(struct rsocket *inherited_rs, int type)
 		rs->sq_inline = inherited_rs->sq_inline;
 		rs->sq_size = inherited_rs->sq_size;
 		rs->rq_size = inherited_rs->rq_size;
-		if (type == SOCK_STREAM) {
+		if (category == SOCK_STREAM) {
 			rs->ctrl_max_seqno = inherited_rs->ctrl_max_seqno;
 			rs->target_iomap_size = inherited_rs->target_iomap_size;
 		}
@@ -724,7 +727,7 @@ static struct rsocket *rs_alloc(struct rsocket *inherited_rs, int type)
 		rs->sq_inline = def_inline;
 		rs->sq_size = def_sqsize;
 		rs->rq_size = def_rqsize;
-		if (type == SOCK_STREAM) {
+		if (category == SOCK_STREAM) {
 			rs->ctrl_max_seqno = RS_QP_CTRL_SIZE;
 			rs->target_iomap_size = def_iomap_size;
 		}
@@ -744,7 +747,7 @@ static int rs_set_nonblocking(struct rsocket *rs, int arg)
 	struct ds_qp *qp;
 	int ret = 0;
 
-	if (rs->type == SOCK_STREAM) {
+	if (rs->category == SOCK_STREAM) {
 		if (rs->cm_id->recv_cq_channel)
 			ret = fcntl(rs->cm_id->recv_cq_channel->fd, F_SETFL, arg);
 
@@ -1097,7 +1100,7 @@ static void ds_free(struct rsocket *rs)
 
 static void rs_free(struct rsocket *rs)
 {
-	if (rs->type == SOCK_DGRAM) {
+	if (rs->category == SOCK_DGRAM) {
 		ds_free(rs);
 		return;
 	}
@@ -1248,18 +1251,19 @@ int rsocket(int domain, int type, int protocol)
 	struct rsocket *rs;
 	int index, ret;
 
+	int category = type & ~(SOCK_CLOEXEC | SOCK_NONBLOCK);
 	if ((domain != AF_INET && domain != AF_INET6 && domain != AF_IB) ||
-	    ((type != SOCK_STREAM) && (type != SOCK_DGRAM)) ||
-	    (type == SOCK_STREAM && protocol && protocol != IPPROTO_TCP) ||
-	    (type == SOCK_DGRAM && protocol && protocol != IPPROTO_UDP))
+		((!(category == SOCK_STREAM)) && (!(category == SOCK_DGRAM))) ||
+	    ((category == SOCK_STREAM) && protocol && protocol != IPPROTO_TCP) ||
+	    ((category == SOCK_DGRAM) && protocol && protocol != IPPROTO_UDP))
 		return ERR(ENOTSUP);
 
 	rs_configure();
-	rs = rs_alloc(NULL, type);
+	rs = rs_alloc(NULL, type, category);
 	if (!rs)
 		return ERR(ENOMEM);
 
-	if (type == SOCK_STREAM) {
+	if (category == SOCK_STREAM) {
 		ret = rdma_create_id(NULL, &rs->cm_id, rs, RDMA_PS_TCP);
 		if (ret)
 			goto err;
@@ -1293,7 +1297,7 @@ int rbind(int socket, const struct sockaddr *addr, socklen_t addrlen)
 	rs = idm_lookup(&idm, socket);
 	if (!rs)
 		return ERR(EBADF);
-	if (rs->type == SOCK_STREAM) {
+	if (rs->category == SOCK_STREAM) {
 		ret = rdma_bind_addr(rs->cm_id, (struct sockaddr *) addr);
 		if (!ret)
 			rs->state = rs_bound;
@@ -1359,7 +1363,7 @@ static void rs_accept(struct rsocket *rs)
 	if (ret)
 		return;
 
-	new_rs = rs_alloc(rs, rs->type);
+	new_rs = rs_alloc(rs, rs->type, rs->category);
 	if (!new_rs)
 		goto err;
 	new_rs->cm_id = cm_id;
@@ -1772,7 +1776,7 @@ int rconnect(int socket, const struct sockaddr *addr, socklen_t addrlen)
 	rs = idm_lookup(&idm, socket);
 	if (!rs)
 		return ERR(EBADF);
-	if (rs->type == SOCK_STREAM) {
+	if (rs->category == SOCK_STREAM) {
 		memcpy(&rs->cm_id->route.addr.dst_addr, addr, addrlen);
 		ret = rs_do_connect(rs);
 		save_errno = errno;
@@ -2575,7 +2579,7 @@ ssize_t rrecv(int socket, void *buf, size_t len, int flags)
 	rs = idm_at(&idm, socket);
 	if (!rs)
 		return ERR(EBADF);
-	if (rs->type == SOCK_DGRAM) {
+	if (rs->category == SOCK_DGRAM) {
 		fastlock_acquire(&rs->rlock);
 		ret = ds_recvfrom(rs, buf, len, flags, NULL, NULL);
 		fastlock_release(&rs->rlock);
@@ -2645,7 +2649,7 @@ ssize_t rrecvfrom(int socket, void *buf, size_t len, int flags,
 	rs = idm_at(&idm, socket);
 	if (!rs)
 		return ERR(EBADF);
-	if (rs->type == SOCK_DGRAM) {
+	if (rs->category == SOCK_DGRAM) {
 		fastlock_acquire(&rs->rlock);
 		ret = ds_recvfrom(rs, buf, len, flags, src_addr, addrlen);
 		fastlock_release(&rs->rlock);
@@ -2850,7 +2854,7 @@ ssize_t rsend(int socket, const void *buf, size_t len, int flags)
 	rs = idm_at(&idm, socket);
 	if (!rs)
 		return ERR(EBADF);
-	if (rs->type == SOCK_DGRAM) {
+	if (rs->category == SOCK_DGRAM) {
 		fastlock_acquire(&rs->slock);
 		ret = dsend(rs, buf, len, flags);
 		fastlock_release(&rs->slock);
@@ -2937,7 +2941,7 @@ ssize_t rsendto(int socket, const void *buf, size_t len, int flags,
 	rs = idm_at(&idm, socket);
 	if (!rs)
 		return ERR(EBADF);
-	if (rs->type == SOCK_STREAM) {
+	if (rs->category == SOCK_STREAM) {
 		if (dest_addr || addrlen)
 			return ERR(EISCONN);
 
@@ -3246,7 +3250,7 @@ static int rs_poll_rs(struct rsocket *rs, int events,
 	int ret;
 
 check_cq:
-	if ((rs->type == SOCK_STREAM) && ((rs->state & rs_connected) ||
+	if ((rs->category == SOCK_STREAM) && ((rs->state & rs_connected) ||
 	     (rs->state == rs_disconnected) || (rs->state & rs_error))) {
 		rs_process_cq(rs, nonblock, test);
 
@@ -3263,7 +3267,7 @@ check_cq:
 		}
 
 		return revents;
-	} else if (rs->type == SOCK_DGRAM) {
+	} else if (rs->category == SOCK_DGRAM) {
 		ds_process_cqs(rs, nonblock, test);
 
 		revents = 0;
@@ -3335,7 +3339,7 @@ static int rs_poll_arm(struct pollfd *rfds, struct pollfd *fds, nfds_t nfds)
 			if (fds[i].revents)
 				return 1;
 
-			if (rs->type == SOCK_STREAM) {
+			if (rs->category == SOCK_STREAM) {
 				if (rs->state >= rs_connected)
 					rfds[i].fd = rs->cm_id->recv_cq_channel->fd;
 				else
@@ -3363,7 +3367,7 @@ static int rs_poll_events(struct pollfd *rfds, struct pollfd *fds, nfds_t nfds)
 		if (rs) {
 			if (rfds[i].revents) {
 				fastlock_acquire(&rs->cq_wait_lock);
-				if (rs->type == SOCK_STREAM)
+				if (rs->category == SOCK_STREAM)
 					rs_get_cq_event(rs);
 				else
 					ds_get_cq_event(rs);
@@ -3611,7 +3615,7 @@ int rclose(int socket)
 	rs = idm_lookup(&idm, socket);
 	if (!rs)
 		return EBADF;
-	if (rs->type == SOCK_STREAM) {
+	if (rs->category == SOCK_STREAM) {
 		if (rs->state & rs_connected)
 			rshutdown(socket, SHUT_RDWR);
 		if (rs->opts & RS_OPT_KEEPALIVE)
@@ -3649,7 +3653,7 @@ int rgetpeername(int socket, struct sockaddr *addr, socklen_t *addrlen)
 	rs = idm_lookup(&idm, socket);
 	if (!rs)
 		return ERR(EBADF);
-	if (rs->type == SOCK_STREAM) {
+	if (rs->category == SOCK_STREAM) {
 		rs_copy_addr(addr, rdma_get_peer_addr(rs->cm_id), addrlen);
 		return 0;
 	} else {
@@ -3664,7 +3668,7 @@ int rgetsockname(int socket, struct sockaddr *addr, socklen_t *addrlen)
 	rs = idm_lookup(&idm, socket);
 	if (!rs)
 		return ERR(EBADF);
-	if (rs->type == SOCK_STREAM) {
+	if (rs->category == SOCK_STREAM) {
 		rs_copy_addr(addr, rdma_get_local_addr(rs->cm_id), addrlen);
 		return 0;
 	} else {
@@ -3710,7 +3714,7 @@ int rsetsockopt(int socket, int level, int optname,
 	rs = idm_lookup(&idm, socket);
 	if (!rs)
 		return ERR(EBADF);
-	if (rs->type == SOCK_DGRAM && level != SOL_RDMA) {
+	if ((rs->category == SOCK_DGRAM) && level != SOL_RDMA) {
 		ret = setsockopt(rs->udp_sock, level, optname, optval, optlen);
 		if (ret)
 			return ret;
@@ -3721,7 +3725,7 @@ int rsetsockopt(int socket, int level, int optname,
 		opts = &rs->so_opts;
 		switch (optname) {
 		case SO_REUSEADDR:
-			if (rs->type == SOCK_STREAM) {
+			if (rs->category == SOCK_STREAM) {
 				ret = rdma_set_option(rs->cm_id, RDMA_OPTION_ID,
 						      RDMA_OPTION_ID_REUSEADDR,
 						      (void *) optval, optlen);
@@ -3733,8 +3737,8 @@ int rsetsockopt(int socket, int level, int optname,
 			opt_on = *(int *) optval;
 			break;
 		case SO_RCVBUF:
-			if ((rs->type == SOCK_STREAM && !rs->rbuf) ||
-			    (rs->type == SOCK_DGRAM && !rs->qp_list))
+			if (((rs->category == SOCK_STREAM) && !rs->rbuf) ||
+			    ((rs->category == SOCK_DGRAM) && !rs->qp_list))
 				rs->rbuf_size = (*(uint32_t *) optval) << 1;
 			ret = 0;
 			break;
@@ -3806,7 +3810,7 @@ int rsetsockopt(int socket, int level, int optname,
 		opts = &rs->ipv6_opts;
 		switch (optname) {
 		case IPV6_V6ONLY:
-			if (rs->type == SOCK_STREAM) {
+			if (rs->category == SOCK_STREAM) {
 				ret = rdma_set_option(rs->cm_id, RDMA_OPTION_ID,
 						      RDMA_OPTION_ID_AFONLY,
 						      (void *) optval, optlen);
@@ -4808,7 +4812,7 @@ uint32_t epoll_rs(int fd, uint32_t events)
 	struct rsocket *rs = idm_lookup(&idm, fd);
 
 check_cq:
-	if ((rs->type & SOCK_STREAM) && ((rs->state & rs_connected) ||
+	if ((rs->category == SOCK_STREAM) && ((rs->state & rs_connected) ||
 	     (rs->state == rs_disconnected) || (rs->state & rs_error))) {
 		rs_process_cq(rs, 1, rs_poll_all);
 
@@ -4824,7 +4828,7 @@ check_cq:
 		}
 
 		return revents;
-	} else if (rs->type & SOCK_DGRAM) {
+	} else if (rs->category == SOCK_DGRAM) {
 		ds_process_cqs(rs, 1, rs_poll_all);
 
 		if ((events & EPOLLIN) && rs_have_rdata(rs))
