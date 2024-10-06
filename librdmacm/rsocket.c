@@ -378,6 +378,7 @@ struct rsocket {
 
 	int		  opts;
 	int		  fd_flags;
+	int		  ipv4_opts;
 	uint64_t	  so_opts;
 	uint64_t	  ipv6_opts;
 	void		  *optval;
@@ -3759,6 +3760,18 @@ int rsetsockopt(int socket, int level, int optname,
 			break;
 		}
 		break;
+	case IPPROTO_IP:
+		switch (optname) {
+		case IP_TOS:
+			rs->ipv4_opts = *(int *)optval;
+			ret = rdma_set_option(rs->cm_id, RDMA_OPTION_ID,
+						      RDMA_OPTION_ID_TOS,
+						      (void *) optval, optlen);
+			break;
+		default:
+			break;
+		}
+		break;
 	case IPPROTO_TCP:
 		opts = &rs->tcp_opts;
 		switch (optname) {
@@ -3780,6 +3793,7 @@ int rsetsockopt(int socket, int level, int optname,
 			ret = 0;
 			break;
 		case TCP_MAXSEG:
+		case TCP_CONGESTION:
 			ret = 0;
 			break;
 		default:
@@ -3883,6 +3897,7 @@ int rgetsockopt(int socket, int level, int optname,
 	struct rsocket *rs;
 	void *opt;
 	struct ibv_sa_path_rec *path_rec;
+	struct tcp_info *info;
 	struct ibv_path_data path_data;
 	socklen_t len;
 	int ret = 0;
@@ -3920,6 +3935,21 @@ int rgetsockopt(int socket, int level, int optname,
 			*optlen = sizeof(int);
 			rs->err = 0;
 			break;
+		case SO_BROADCAST:
+			ret = 0;
+			break;
+		default:
+			ret = ENOTSUP;
+			break;
+		}
+		break;
+	case IPPROTO_IP:
+		switch (optname) {
+		case IP_TOS:
+			*((int *) optval) = rs->ipv4_opts;
+			*optlen = sizeof(int);
+			break;
+
 		default:
 			ret = ENOTSUP;
 			break;
@@ -3927,6 +3957,7 @@ int rgetsockopt(int socket, int level, int optname,
 		break;
 	case IPPROTO_TCP:
 		switch (optname) {
+		case TCP_CONGESTION:
 		case TCP_KEEPCNT:
 		case TCP_KEEPINTVL:
 			*((int *) optval) = 1;   /* N/A */
@@ -3945,6 +3976,16 @@ int rgetsockopt(int socket, int level, int optname,
 					    2048;
 			*optlen = sizeof(int);
 			break;
+		case TCP_INFO:
+			//TODO: support other tcp_info fields.
+			info = (struct tcp_info *) optval;
+			memset(info, 0, sizeof(struct tcp_info));
+			info->tcpi_state = (rs->state == rs_connected) ? TCP_ESTABLISHED : TCP_CLOSE;
+			info->tcpi_snd_cwnd = rs->sq_size;
+
+			*optlen = sizeof(struct tcp_info);
+			break;
+
 		default:
 			ret = ENOTSUP;
 			break;
