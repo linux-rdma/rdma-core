@@ -59,6 +59,12 @@
 #include "cma.h"
 #include "indexer.h"
 
+#if RDMA_PRELOAD_WRAP_LFS64
+#if !RDMA_PRELOAD_FCNTL64_IN_HEADER
+int fcntl64(int socket, int cmd, ... /* arg */);
+#endif
+#endif
+
 struct socket_calls {
 	int (*socket)(int domain, int type, int protocol);
 	int (*bind)(int socket, const struct sockaddr *addr, socklen_t addrlen);
@@ -88,6 +94,9 @@ struct socket_calls {
 	int (*getsockopt)(int socket, int level, int optname,
 			  void *optval, socklen_t *optlen);
 	int (*fcntl)(int socket, int cmd, ... /* arg */);
+#if RDMA_PRELOAD_WRAP_LFS64
+	int (*fcntl64)(int socket, int cmd, ... /* arg */);
+#endif
 	int (*dup2)(int oldfd, int newfd);
 	ssize_t (*sendfile)(int out_fd, int in_fd, off_t *offset, size_t count);
 	int (*fxstat)(int ver, int fd, struct stat *buf);
@@ -410,6 +419,9 @@ static void init_preload(void)
 	real.setsockopt = dlsym(RTLD_NEXT, "setsockopt");
 	real.getsockopt = dlsym(RTLD_NEXT, "getsockopt");
 	real.fcntl = dlsym(RTLD_NEXT, "fcntl");
+#if RDMA_PRELOAD_WRAP_LFS64
+	real.fcntl64 = dlsym(RTLD_NEXT, "fcntl64");
+#endif
 	real.dup2 = dlsym(RTLD_NEXT, "dup2");
 	real.sendfile = dlsym(RTLD_NEXT, "sendfile");
 	real.fxstat = dlsym(RTLD_NEXT, "__fxstat");
@@ -647,7 +659,6 @@ int accept4(int socket, struct sockaddr *addr, socklen_t *addrlen, int flags)
 		if (cur_flags == -1)
 			goto close;
 	}
-
 	return fd;
 close:
 	close(fd);
@@ -1162,6 +1173,48 @@ int fcntl(int socket, int cmd, ... /* arg */)
 	va_end(args);
 	return ret;
 }
+
+#if RDMA_PRELOAD_WRAP_LFS64
+int fcntl64(int socket, int cmd, ... /* arg */)
+{
+	va_list args;
+	long lparam;
+	void *pparam;
+	int fd, ret;
+
+	init_preload();
+	va_start(args, cmd);
+	switch (cmd) {
+	case F_GETFD:
+	case F_GETFL:
+	case F_GETOWN:
+	case F_GETSIG:
+	case F_GETLEASE:
+		ret = (fd_get(socket, &fd) == fd_rsocket) ?
+			rfcntl(fd, cmd) : real.fcntl64(fd, cmd);
+		break;
+	case F_DUPFD:
+	/*case F_DUPFD_CLOEXEC:*/
+	case F_SETFD:
+	case F_SETFL:
+	case F_SETOWN:
+	case F_SETSIG:
+	case F_SETLEASE:
+	case F_NOTIFY:
+		lparam = va_arg(args, long);
+		ret = (fd_get(socket, &fd) == fd_rsocket) ?
+			rfcntl(fd, cmd, lparam) : real.fcntl64(fd, cmd, lparam);
+		break;
+	default:
+		pparam = va_arg(args, void *);
+		ret = (fd_get(socket, &fd) == fd_rsocket) ?
+			rfcntl(fd, cmd, pparam) : real.fcntl64(fd, cmd, pparam);
+		break;
+	}
+	va_end(args);
+	return ret;
+}
+#endif
 
 /*
  * dup2 is not thread safe
