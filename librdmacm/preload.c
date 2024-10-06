@@ -889,6 +889,22 @@ static struct pollfd *fds_alloc(nfds_t nfds)
 	return rfds;
 }
 
+static int *fds_r_alloc(nfds_t nfds)
+{
+	static __thread int *rfds_r;
+	static __thread nfds_t rnfds;
+
+	if (nfds > rnfds) {
+		if (rfds_r)
+			free(rfds_r);
+
+		rfds_r = malloc(sizeof(*rfds_r) * nfds);
+		rnfds = rfds_r ? nfds : 0;
+	}
+
+	return rfds_r;
+}
+
 int poll(struct pollfd *fds, nfds_t nfds, int timeout)
 {
 	struct pollfd *rfds;
@@ -922,7 +938,7 @@ use_rpoll:
 }
 
 static void select_to_rpoll(struct pollfd *fds, int *nfds,
-			    fd_set *readfds, fd_set *writefds, fd_set *exceptfds)
+			    fd_set *readfds, fd_set *writefds, fd_set *exceptfds, int *user_fds)
 {
 	int fd, events, i = 0;
 
@@ -933,7 +949,8 @@ static void select_to_rpoll(struct pollfd *fds, int *nfds,
 
 		if (events || (exceptfds && FD_ISSET(fd, exceptfds))) {
 			fds[i].fd = fd_getd(fd);
-			fds[i++].events = events;
+			fds[i].events = events;
+			user_fds[i++] = fd;
 		}
 	}
 
@@ -941,30 +958,27 @@ static void select_to_rpoll(struct pollfd *fds, int *nfds,
 }
 
 static int rpoll_to_select(struct pollfd *fds, int nfds,
-			   fd_set *readfds, fd_set *writefds, fd_set *exceptfds)
+			   fd_set *readfds, fd_set *writefds, fd_set *exceptfds, int *user_fds)
 {
-	int fd, rfd, i, cnt = 0;
+	int i, cnt = 0;
 
-	for (i = 0, fd = 0; i < nfds; fd++) {
-		rfd = fd_getd(fd);
-		if (rfd != fds[i].fd)
-			continue;
+	for (i = 0; i < nfds; i++) {
+		assert(fds[i].fd == fd_getd(user_fds[i]));
 
 		if (readfds && (fds[i].revents & POLLIN)) {
-			FD_SET(fd, readfds);
+			FD_SET(user_fds[i], readfds);
 			cnt++;
 		}
 
 		if (writefds && (fds[i].revents & POLLOUT)) {
-			FD_SET(fd, writefds);
+			FD_SET(user_fds[i], writefds);
 			cnt++;
 		}
 
 		if (exceptfds && (fds[i].revents & ~(POLLIN | POLLOUT))) {
-			FD_SET(fd, exceptfds);
+			FD_SET(user_fds[i], exceptfds);
 			cnt++;
 		}
-		i++;
 	}
 
 	return cnt;
@@ -980,12 +994,17 @@ int select(int nfds, fd_set *readfds, fd_set *writefds,
 {
 	struct pollfd *fds;
 	int ret;
+	int *user_fds;
 
 	fds = fds_alloc(nfds);
 	if (!fds)
 		return ERR(ENOMEM);
 
-	select_to_rpoll(fds, &nfds, readfds, writefds, exceptfds);
+	user_fds = fds_r_alloc(nfds);
+	if (!user_fds)
+		return ERR(ENOMEM);
+
+	select_to_rpoll(fds, &nfds, readfds, writefds, exceptfds, user_fds);
 	ret = rpoll(fds, nfds, rs_convert_timeout(timeout));
 
 	if (readfds)
@@ -996,7 +1015,7 @@ int select(int nfds, fd_set *readfds, fd_set *writefds,
 		FD_ZERO(exceptfds);
 
 	if (ret > 0)
-		ret = rpoll_to_select(fds, nfds, readfds, writefds, exceptfds);
+		ret = rpoll_to_select(fds, nfds, readfds, writefds, exceptfds, user_fds);
 
 	return ret;
 }
