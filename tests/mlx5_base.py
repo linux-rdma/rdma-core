@@ -511,6 +511,8 @@ class Mlx5DevxRcResources(BaseResources):
         self.rmac = None
         self.devx_objs = []
         self.qattr = QueueAttrs()
+        self.with_odp = False
+        self.user_addr = None
         if activate_port_state:
             start_state_t = time.perf_counter()
             self.change_port_state_with_registers(PortStatus.MLX5_PORT_UP)
@@ -953,10 +955,18 @@ class Mlx5DevxTrafficBase(Mlx5RDMATestCase):
         self.client.pre_run(self.server.psn, self.server.qpn, self.server.gid,
                             self.server.lid, self.mac_addr)
 
+    def invalidate_mr_pages(self):
+        if self.client.with_odp:
+            mem.madvise(self.client.mr.buf, self.client.msg_size)
+            self.client.mem_write('c' * self.client.msg_size, self.client.msg_size)
+        if self.server.with_odp:
+            mem.madvise(self.server.mr.buf, self.server.msg_size)
+
     def send_imm_traffic(self):
         self.client.mem_write('c' * self.client.msg_size, self.client.msg_size)
         for _ in range(self.client.num_msgs):
             cons_idx = self.client.qattr.cq.cons_idx
+            self.invalidate_mr_pages()
             self.server.post_recv()
             self.client.post_send()
             # Poll client and verify received cqe opcode

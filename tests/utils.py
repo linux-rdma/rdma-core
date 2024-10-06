@@ -697,7 +697,6 @@ def poll_cq_ex(cqex, count=1, data=None, sgid=None):
             if isinstance(cqex, EfaCQ):
                 if sgid is not None and cqex.read_opcode() == e.IBV_WC_RECV:
                     assert sgid.gid == cqex.read_sgid().gid
-            count -= 1
         if count > 0:
             raise PyverbsError(f'Got timeout on polling ({count} CQEs remaining)')
     finally:
@@ -1378,7 +1377,8 @@ def xrc_traffic(client, server, is_cq_ex=False, send_op=None, force_page_faults=
 def requires_odp(qp_type, required_odp_caps):
     def outer(func):
         def inner(instance):
-            odp_supported(instance.ctx, qp_type, required_odp_caps)
+            ctx = getattr(instance, 'ctx', d.Context(name=instance.dev_name))
+            odp_supported(ctx, qp_type, required_odp_caps)
             if getattr(instance, 'is_implicit', False):
                 odp_implicit_supported(instance.ctx)
             return func(instance)
@@ -1437,6 +1437,30 @@ def odp_implicit_supported(ctx):
     has_odp_implicit = odp_caps.general_caps & e.IBV_ODP_SUPPORT_IMPLICIT
     if has_odp_implicit == 0:
         raise unittest.SkipTest('ODP implicit is not supported')
+
+
+def odp_v2_supported(ctx):
+    """
+    ODPv2 check
+    :return: True/False if ODPv2 supported
+    """
+    from tests.mlx5_prm_structs import QueryHcaCapIn, QueryOdpCapOut, DevxOps, QueryHcaCapMod
+    query_cap_in = QueryHcaCapIn(op_mod=DevxOps.MLX5_CMD_OP_QUERY_ODP_CAP << 1 | \
+                                        QueryHcaCapMod.CURRENT)
+    cmd_res = ctx.devx_general_cmd(query_cap_in, len(QueryOdpCapOut()))
+    query_cap_out = QueryOdpCapOut(cmd_res)
+    if query_cap_out.status:
+        raise PyverbsRDMAError(f'QUERY_HCA_CAP has failed with status ({query_cap_out.status}) '
+                               f'and syndrome ({query_cap_out.syndrome})')
+    return query_cap_out.capability.mem_page_fault == 1
+
+
+def requires_odpv2(func):
+    def inner(instance):
+        if not odp_v2_supported(instance.ctx):
+            raise unittest.SkipTest('ODPv2 is not supported')
+        return func(instance)
+    return inner
 
 
 def get_pci_name(dev_name):

@@ -208,6 +208,10 @@ cdef class CQ(PyverbsCM):
     def cqe(self):
         return self.cq.cqe
 
+    @property
+    def cq(self):
+       return <object>self.cq
+
 
 cdef class CqInitAttrEx(PyverbsObject):
     def __init__(self, cqe = 100, CompChannel channel = None, comp_vector = 0,
