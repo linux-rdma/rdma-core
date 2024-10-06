@@ -10,6 +10,7 @@
 		connect;
 		dup2;
 		fcntl;
+		fcntl64;
 		getpeername;
 		getsockname;
 		getsockopt;
