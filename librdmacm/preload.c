@@ -90,13 +90,18 @@ struct socket_calls {
 	int (*dup2)(int oldfd, int newfd);
 	ssize_t (*sendfile)(int out_fd, int in_fd, off_t *offset, size_t count);
 	int (*fxstat)(int ver, int fd, struct stat *buf);
+	int (*epoll_create)(int size);
+	int (*epoll_create1)(int flags);
+	int (*epoll_ctl)(int epfd, int op, int fd, struct epoll_event *event);
 };
 
 static struct socket_calls real;
 static struct socket_calls rs;
 
 static struct index_map idm;
+static struct index_map ep_idm;
 static pthread_mutex_t mut = PTHREAD_MUTEX_INITIALIZER;
+static pthread_mutex_t ep_mut = PTHREAD_MUTEX_INITIALIZER;
 
 static int sq_size;
 static int rq_size;
@@ -411,6 +416,9 @@ static void init_preload(void)
 	real.dup2 = dlsym(RTLD_NEXT, "dup2");
 	real.sendfile = dlsym(RTLD_NEXT, "sendfile");
 	real.fxstat = dlsym(RTLD_NEXT, "__fxstat");
+	real.epoll_create = dlsym(RTLD_NEXT, "epoll_create");
+	real.epoll_create1 = dlsym(RTLD_NEXT, "epoll_create1");
+	real.epoll_ctl = dlsym(RTLD_NEXT, "epoll_ctl");
 
 	rs.socket = dlsym(RTLD_DEFAULT, "rsocket");
 	rs.bind = dlsym(RTLD_DEFAULT, "rbind");
@@ -1194,4 +1202,40 @@ int __fxstat(int ver, int socket, struct stat *buf)
 		ret = real.fxstat(ver, fd, buf);
 	}
 	return ret;
+}
+
+int epoll_create(int size)
+{
+	if (size <= 0)
+		return ERR(EINVAL);
+
+	return epoll_create1(0);
+}
+
+int epoll_create1(int flags)
+{
+	init_preload();
+
+	int epfd = real.epoll_create1(flags);
+	int ep_reg = real.epoll_create1(flags);
+	struct epoll_event event;
+	int ret;
+
+	if (epfd < 0 || ep_reg < 0)
+		return -1;
+
+	event.events = EPOLLIN | EPOLLOUT;
+	event.data.fd = ep_reg;
+
+	ret = real.epoll_ctl(epfd, EPOLL_CTL_ADD, ep_reg, &event);
+	pthread_mutex_lock(&ep_mut);
+	if (idm_set(&ep_idm, epfd, (void *)(uintptr_t)ep_reg) < 0) {
+		pthread_mutex_unlock(&ep_mut);
+		close(epfd);
+		close(ep_reg);
+		return -1;
+	}
+
+	pthread_mutex_unlock(&ep_mut);
+	return repoll_create1(epfd);
 }

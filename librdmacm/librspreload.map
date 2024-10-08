@@ -29,5 +29,7 @@
 		socket;
 		write;
 		writev;
+		epoll_create;
+		epoll_create1;
 	local: *;
 };
