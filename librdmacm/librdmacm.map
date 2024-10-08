@@ -62,6 +62,7 @@ RDMACM_1.0 {
 		rselect;
 		repoll_create1;
 		repoll_ctl;
+		repoll_wait;
 		rdma_get_src_port;
 		rdma_get_dst_port;
 		riomap;
