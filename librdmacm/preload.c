@@ -99,9 +99,11 @@ static struct socket_calls real;
 static struct socket_calls rs;
 
 static struct index_map idm;
+static struct index_map ridm;
 static struct index_map ep_idm;
 static pthread_mutex_t mut = PTHREAD_MUTEX_INITIALIZER;
 static pthread_mutex_t ep_mut = PTHREAD_MUTEX_INITIALIZER;
+static pthread_mutex_t rs_mut = PTHREAD_MUTEX_INITIALIZER;
 
 static int sq_size;
 static int rq_size;
@@ -1237,4 +1239,40 @@ int epoll_create1(int flags)
 
 	pthread_mutex_unlock(&ep_mut);
 	return repoll_create1(epfd);
+}
+
+int epoll_ctl(int epfd, int op, int fd, struct epoll_event *event)
+{
+	int ep_reg, rfd;
+
+	if (fd < 0)
+		return ERR(EBADF);
+	if (op  & EPOLL_FLAG)
+		return real.epoll_ctl(epfd, op & ~EPOLL_FLAG, fd, event);
+
+	if ((fd == epfd) || (event->events & EPOLLET))
+		return ERR(EINVAL);
+
+	if (!(fd_gett(fd) == fd_rsocket)) {
+		pthread_mutex_lock(&ep_mut);
+		ep_reg = (uintptr_t)idm_at(&ep_idm, epfd);
+		pthread_mutex_unlock(&ep_mut);
+
+		if (!ep_reg)
+			return ERR(ENOENT);
+		return real.epoll_ctl(ep_reg, op, fd, event);
+	}
+
+	rfd = fd_getd(fd);
+	if (op == EPOLL_CTL_ADD) {
+		pthread_mutex_lock(&rs_mut);
+		if (idm_set(&ridm, rfd, (void *)(uintptr_t)fd) < 0) {
+			pthread_mutex_unlock(&rs_mut);
+			return ERR(EFAULT);
+		}
+
+		pthread_mutex_unlock(&rs_mut);
+	}
+
+	return repoll_ctl(epfd, op, rfd, event);
 }
