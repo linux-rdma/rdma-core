@@ -93,6 +93,7 @@ struct socket_calls {
 	int (*epoll_create)(int size);
 	int (*epoll_create1)(int flags);
 	int (*epoll_ctl)(int epfd, int op, int fd, struct epoll_event *event);
+	int (*epoll_wait)(int epfd, struct epoll_event *events, int maxevents, int timeout);
 };
 
 static struct socket_calls real;
@@ -421,6 +422,7 @@ static void init_preload(void)
 	real.epoll_create = dlsym(RTLD_NEXT, "epoll_create");
 	real.epoll_create1 = dlsym(RTLD_NEXT, "epoll_create1");
 	real.epoll_ctl = dlsym(RTLD_NEXT, "epoll_ctl");
+	real.epoll_wait = dlsym(RTLD_NEXT, "epoll_wait");
 
 	rs.socket = dlsym(RTLD_DEFAULT, "rsocket");
 	rs.bind = dlsym(RTLD_DEFAULT, "rbind");
@@ -1275,4 +1277,61 @@ int epoll_ctl(int epfd, int op, int fd, struct epoll_event *event)
 	}
 
 	return repoll_ctl(epfd, op, rfd, event);
+}
+
+int epoll_wait(int epfd, struct epoll_event *events, int maxevents, int timeout)
+{
+	struct epoll_event ev;
+	int ret, reg_count = 0, count = 0;
+	int ep_reg = (uintptr_t)idm_at(&ep_idm, epfd);
+	int fd;
+
+	// Defensive check: events must be valid when maxevents > 0
+	{
+		struct epoll_event *evp = events;
+
+		if (maxevents > 0 && !evp)
+			return ERR(EFAULT);
+	}
+
+	//no events requested
+	if (maxevents <= 0)
+		return ERR(EINVAL);
+
+	count = repoll_wait(epfd, events, maxevents, 0);
+	for (int i = 0; i < count; i++) {
+		fd = (uintptr_t)idm_lookup(&ridm, events[i].data.fd);
+		if (!fd)
+			return -1;
+		events[i].data.fd = fd;
+	}
+
+	if ((count < maxevents) && (ep_reg >= 0)) {
+		reg_count = real.epoll_wait(ep_reg, events + count, maxevents-count, 0);
+		if (reg_count < 0)
+			return reg_count;
+	}
+
+	if (count + reg_count)
+		return count + reg_count;
+
+	ret = real.epoll_wait(epfd, &ev, 1, timeout);
+	if (!ret)
+		return ret;
+
+	count = repoll_wait(epfd, events, maxevents, 0);
+	for (int j = 0; j < count; j++) {
+		fd = (uintptr_t)idm_lookup(&ridm, events[j].data.fd);
+		if (!fd)
+			return -1;
+		events[j].data.fd = fd;
+	}
+
+	if ((count < maxevents) && (ep_reg >= 0)) {
+		reg_count = real.epoll_wait(ep_reg, events + count, maxevents-count, 0);
+		if (reg_count < 0)
+			return reg_count;
+		}
+
+	return count + reg_count;
 }
