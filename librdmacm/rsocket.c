@@ -5099,3 +5099,19 @@ int repoll_ctl(int epfd, int op, int fd, struct epoll_event *event)
 
 	return 0;
 }
+
+int repoll_wait(int epfd, struct epoll_event *events, int maxevents, int timeout)
+{
+	struct epoll_inst *instance = get_epins(epfd);
+
+	pthread_spin_lock(&instance->evlock);
+
+	int count = (instance->rdy_cnt > maxevents) ? maxevents : instance->rdy_cnt;
+
+	for (int i = 0; i < count; i++)
+		events[i] = instance->rev[i];
+
+	pthread_spin_unlock(&instance->evlock);
+
+	return count;
+}
