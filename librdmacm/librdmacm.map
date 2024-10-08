@@ -99,4 +99,5 @@ RDMACM_1.5 {
 	global:
 		repoll_create1;
 		repoll_ctl;
+		repoll_wait;
 } RDMACM_1.4;
