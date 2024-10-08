@@ -231,7 +231,7 @@ static inline int handle_responder_lazy(struct mlx5_cq *cq, struct mlx5_cqe64 *c
 			wq = &(rsc_to_mrwq(cur_rsc)->rq);
 		}
 
-		wqe_ctr = wq->tail & (wq->wqe_cnt - 1);
+		wqe_ctr = be16toh(cqe->wqe_counter) & (wq->wqe_cnt - 1);
 		cq->verbs_cq.cq_ex.wr_id = wq->wrid[wqe_ctr];
 		++wq->tail;
 		if (cqe->op_own & MLX5_INLINE_SCATTER_32)
@@ -283,7 +283,7 @@ static inline int handle_responder(struct ibv_wc *wc, struct mlx5_cqe64 *cqe,
 			wq = &(rsc_to_mrwq(cur_rsc)->rq);
 		}
 
-		wqe_ctr = wq->tail & (wq->wqe_cnt - 1);
+		wqe_ctr = be16toh(cqe->wqe_counter) & (wq->wqe_cnt - 1);
 		wc->wr_id = wq->wrid[wqe_ctr];
 		++wq->tail;
 		if (cqe->op_own & MLX5_INLINE_SCATTER_32)
@@ -746,6 +746,7 @@ again:
 	}
 
 	opcode = mlx5dv_get_cqe_opcode(cqe64);
+	wqe_ctr = be16toh(cqe64->wqe_counter);
 	switch (opcode) {
 	case MLX5_CQE_REQ:
 	{
@@ -755,7 +756,6 @@ again:
 		if (unlikely(!mqp))
 			return CQ_POLL_ERR;
 		wq = &mqp->sq;
-		wqe_ctr = be16toh(cqe64->wqe_counter);
 		idx = wqe_ctr & (wq->wqe_cnt - 1);
 		if (lazy) {
 			uint32_t wc_byte_len;
@@ -909,7 +909,6 @@ again:
 			if (unlikely(!mqp))
 				return CQ_POLL_ERR;
 			wq = &mqp->sq;
-			wqe_ctr = be16toh(cqe64->wqe_counter);
 			idx = wqe_ctr & (wq->wqe_cnt - 1);
 			if (lazy)
 				cq->verbs_cq.cq_ex.wr_id = wq->wrid[idx];
@@ -923,7 +922,6 @@ again:
 				return CQ_POLL_ERR;
 
 			if (is_srq) {
-				wqe_ctr = be16toh(cqe64->wqe_counter);
 				if (is_odp_pfault_err(ecqe)) {
 					mlx5_complete_odp_fault(*cur_srq, wqe_ctr);
 					err = mlx5_get_next_cqe(cq, &cqe64, &cqe);
@@ -950,10 +948,11 @@ again:
 					break;
 				}
 
+				idx = wqe_ctr & (wq->wqe_cnt - 1);
 				if (lazy)
-					cq->verbs_cq.cq_ex.wr_id = wq->wrid[wq->tail & (wq->wqe_cnt - 1)];
+					cq->verbs_cq.cq_ex.wr_id = wq->wrid[idx];
 				else
-					wc->wr_id = wq->wrid[wq->tail & (wq->wqe_cnt - 1)];
+					wc->wr_id = wq->wrid[idx];
 				++wq->tail;
 			}
 		}

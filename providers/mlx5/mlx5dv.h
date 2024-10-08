@@ -88,6 +88,7 @@ enum mlx5dv_context_comp_mask {
 	MLX5DV_CONTEXT_MASK_CRYPTO_OFFLOAD	= 1 << 13,
 	MLX5DV_CONTEXT_MASK_MAX_DC_RD_ATOM	= 1 << 14,
 	MLX5DV_CONTEXT_MASK_REG_C0		= 1 << 15,
+	MLX5DV_CONTEXT_MASK_OOO_RECV_WRS	= 1 << 16,
 };
 
 struct mlx5dv_cqe_comp_caps {
@@ -213,6 +214,14 @@ struct mlx5dv_crypto_caps {
 	uint32_t flags; /* use enum mlx5dv_crypto_caps_flags */
 };
 
+struct mlx5dv_ooo_recv_wrs_caps {
+	uint32_t max_rc;
+	uint32_t max_xrc;
+	uint32_t max_dct;
+	uint32_t max_ud;
+	uint32_t max_uc;
+};
+
 /*
  * Direct verbs device-specific attributes
  */
@@ -237,6 +246,7 @@ struct mlx5dv_context {
 	uint64_t max_dc_rd_atom;
 	uint64_t max_dc_init_rd_atom;
 	struct mlx5dv_reg reg_c0;
+	struct mlx5dv_ooo_recv_wrs_caps ooo_recv_wrs_caps;
 };
 
 enum mlx5dv_context_flags {
@@ -283,6 +293,7 @@ enum mlx5dv_qp_create_flags {
 	MLX5DV_QP_CREATE_ALLOW_SCATTER_TO_CQE = 1 << 4,
 	MLX5DV_QP_CREATE_PACKET_BASED_CREDIT_MODE = 1 << 5,
 	MLX5DV_QP_CREATE_SIG_PIPELINING = 1 << 6,
+	MLX5DV_QP_CREATE_OOO_DP = 1 << 7,
 };
 
 enum mlx5dv_mkey_init_attr_flags {
