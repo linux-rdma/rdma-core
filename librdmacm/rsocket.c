@@ -136,6 +136,7 @@ static uint32_t def_mem = (1 << 17);
 static uint32_t def_wmem = (1 << 17);
 static uint32_t polling_time = 10;
 static int wake_up_interval = 5000;
+static int max_events = 40000;
 
 /*
  * Immediate data format is determined by the upper bits
@@ -423,6 +424,45 @@ struct ds_udp_header {
 	} addr;
 };
 
+struct rfd_nd {
+	int fd;
+	uint32_t events;
+	struct rfd_nd *next;
+	struct rfd_nd *prev;
+};
+
+struct epoll_inst {
+	int epfd;
+	struct rfd_nd *fds;
+	int rdy_cnt;
+	int fd_cnt;
+	int wakeup;
+	pthread_t thread;
+	pthread_spinlock_t evlock;
+	pthread_spinlock_t fdlock;
+	struct epoll_event *rev;
+};
+
+struct fdm_entry {
+	int key;
+	struct epoll_inst *ep;
+};
+
+int wake_pipe[2];
+int pipe_init;
+
+pthread_t glep_thread;
+pthread_mutex_t glep_lock = PTHREAD_MUTEX_INITIALIZER;
+pthread_cond_t glep_cond = PTHREAD_COND_INITIALIZER;
+struct index_map evidm;
+
+struct eplist {
+	struct epoll_inst **ep;
+	int cnt;
+	int cap;
+	int idx;
+} glep_list = {NULL, 0, 0, 0};
+
 #define DS_UDP_IPV4_HDR_LEN 16
 #define DS_UDP_IPV6_HDR_LEN 28
 
@@ -584,6 +624,13 @@ static void rs_configure(void)
 		failable_fscanf(f, "%d", &wake_up_interval);
 		fclose(f);
 	}
+
+	f = fopen(RS_CONF_DIR "/max_events", "r");
+	if (f) {
+		failable_fscanf(f, "%d", &max_events);
+		fclose(f);
+	}
+
 	if ((f = fopen(RS_CONF_DIR "/inline_default", "r"))) {
 		failable_fscanf(f, "%hu", &def_inline);
 		fclose(f);
@@ -4565,7 +4612,7 @@ static void tcp_svc_send_keepalive(struct rsocket *rs)
 			      0, (uintptr_t) NULL, (uintptr_t) NULL);
 	}
 	fastlock_release(&rs->cq_lock);
-}	
+}
 
 static void *tcp_svc_run(void *arg)
 {
@@ -4696,4 +4743,253 @@ static void *cm_svc_run(void *arg)
 	} while (svc->cnt >= 1);
 
 	return NULL;
+}
+
+uint32_t epoll_rs(int fd, uint32_t events)
+{
+	struct pollfd fds;
+	uint32_t revents = 0;
+	int ret;
+	struct rsocket *rs = idm_lookup(&idm, fd);
+
+check_cq:
+	if ((rs->type & SOCK_STREAM) && ((rs->state & rs_connected) ||
+	     (rs->state == rs_disconnected) || (rs->state & rs_error))) {
+		rs_process_cq(rs, 1, rs_poll_all);
+
+		if ((events & EPOLLIN) && rs_conn_have_rdata(rs))
+			revents |= EPOLLIN;
+		if ((events & EPOLLOUT) && rs_can_send(rs))
+			revents |= EPOLLOUT;
+		if (!(rs->state & rs_connected)) {
+			if (rs->state == rs_disconnected)
+				revents |= EPOLLHUP;
+			else
+				revents |= EPOLLERR;
+		}
+
+		return revents;
+	} else if (rs->type & SOCK_DGRAM) {
+		ds_process_cqs(rs, 1, rs_poll_all);
+
+		if ((events & EPOLLIN) && rs_have_rdata(rs))
+			revents |= EPOLLIN;
+		if ((events & EPOLLOUT) && ds_can_send(rs))
+			revents |= EPOLLOUT;
+
+		return revents;
+	}
+
+	if (rs->state == rs_listening) {
+		fds.fd = rs->accept_queue[0];
+		fds.revents = 0;
+			if (events & EPOLLIN)
+				fds.events |= POLLIN;
+			if (events & EPOLLOUT)
+				fds.events |= POLLOUT;
+			if (events & EPOLLERR)
+				fds.events |= POLLERR;
+			if (events & EPOLLHUP)
+				fds.events |= POLLHUP;
+
+
+		poll(&fds, 1, 0);
+		if (fds.revents & POLLIN)
+			revents |= EPOLLIN;
+		if (fds.revents & POLLOUT)
+			revents |= EPOLLOUT;
+		if (fds.revents & POLLERR)
+			revents |= EPOLLERR;
+		if (fds.revents & POLLHUP)
+			revents |= EPOLLHUP;
+
+		return revents;
+	}
+
+	if (rs->state & rs_opening) {
+		ret = rs_do_connect(rs);
+		if (ret && (errno == EINPROGRESS))
+			errno = 0;
+		else
+			goto check_cq;
+	}
+
+	if (rs->state == rs_connect_error) {
+		if (events & EPOLLOUT)
+			revents |= EPOLLOUT;
+		if (events & EPOLLIN)
+			revents |= EPOLLIN;
+		revents |= EPOLLERR;
+		return revents;
+	}
+
+	return 0;
+}
+
+static void get_pipe(void)
+{
+	int ret;
+	uint64_t u = 1;
+
+	if (!pipe_init) {
+		ret = pipe(wake_pipe);
+		ret = write(wake_pipe[1], &u, sizeof(u));
+		pipe_init = 1;
+	}
+
+}
+
+static void update_wakeup(struct epoll_inst *instance, int count)
+{
+	struct epoll_event eve;
+	int ret;
+
+	eve.events = EPOLLIN | EPOLLET;
+	eve.data.fd = wake_pipe[0];
+
+	if (count && !instance->wakeup) {
+		ret = epoll_ctl(instance->epfd, EPOLL_CTL_ADD | EPOLL_FLAG, wake_pipe[0], &eve);
+		instance->wakeup = 1;
+	} else if (!count && instance->wakeup) {
+		ret = epoll_ctl(instance->epfd, EPOLL_CTL_DEL | EPOLL_FLAG, wake_pipe[0], NULL);
+		instance->wakeup = 0;
+	}
+
+}
+
+static int add_epins(int fd, struct epoll_inst *instance)
+{
+	struct fdm_entry *entry = malloc(sizeof(struct fdm_entry));
+
+	if (!entry)
+		return ERR(ENOMEM);
+
+	entry->key = fd;
+	entry->ep = instance;
+	idm_set(&evidm, fd, entry);
+
+	return fd;
+}
+
+static void *epoll_thread(void *arg)
+{
+	struct eplist *list = &glep_list;
+	struct epoll_event temp_revents2[max_events];
+	struct rfd_nd *curr;
+	struct epoll_inst *instance;
+	int count, ret, revent;
+
+	while (1) {
+		pthread_mutex_lock(&glep_lock);
+		while (list->cnt == 0 || list->idx >= list->cnt)
+			pthread_cond_wait(&glep_cond, &glep_lock);
+
+		instance = list->ep[list->idx];
+		list->idx = (list->idx + 1) % list->cnt;
+		pthread_mutex_unlock(&glep_lock);
+
+		memset(temp_revents2, 0, sizeof(temp_revents2));
+
+		count = 0;
+		pthread_spin_lock(&instance->fdlock);
+		curr = instance->fds;
+		while (curr != NULL) {
+			if (count >= max_events)
+				break;
+
+			revent = epoll_rs(curr->fd, curr->events);
+			if (revent) {
+				temp_revents2[count].data.fd = curr->fd;
+				temp_revents2[count].events = revent;
+				count++;
+			}
+			curr = curr->next;
+		}
+
+		pthread_spin_unlock(&instance->fdlock);
+
+		pthread_spin_lock(&instance->evlock);
+		memset(instance->rev, 0, sizeof(instance->rev));
+		memcpy(instance->rev, temp_revents2, count * sizeof(struct epoll_event));
+
+		instance->rdy_cnt = count;
+		update_wakeup(instance, count);
+
+		pthread_spin_unlock(&instance->evlock);
+
+	}
+
+}
+
+static int mng_epfd_thread(struct epoll_inst *instance)
+{
+	struct epoll_inst **new_instances;
+	int ret, new_capacity;
+
+	pthread_mutex_lock(&glep_lock);
+
+	// Check if we need to expand the global instance list
+	if (glep_list.cnt == glep_list.cap) {
+		new_capacity = glep_list.cap ? glep_list.cap * 2 : 4;
+		new_instances = realloc(glep_list.ep, new_capacity * sizeof(struct repoll_instance *));
+		if (!new_instances) {
+			pthread_mutex_unlock(&glep_lock);
+			return ERR(ENOMEM);
+		}
+
+		glep_list.ep = new_instances;
+		glep_list.cap = new_capacity;
+	}
+
+	// Add the new instance to the global instance list
+	glep_list.ep[glep_list.cnt++] = instance;
+
+	// Create the global epoll thread if it doesn't exist
+	if (glep_list.cnt > 0 && !glep_thread) {
+		ret = pthread_create(&glep_thread, NULL, epoll_thread, NULL);
+		if (ret) {
+			pthread_mutex_unlock(&glep_lock);
+			// TODO: Handle the thread creation error properly
+			return ERR(EAGAIN);
+		}
+	}
+
+	// Signal the global thread to start or resume processing
+	glep_list.idx = 0; // Start from the beginning
+	pthread_cond_signal(&glep_cond);
+	pthread_mutex_unlock(&glep_lock);
+
+	return 0;
+}
+
+int repoll_create1(int flags)
+{
+	get_pipe();
+	int ret, epfd = flags;
+	struct epoll_inst *instance;
+
+	instance = malloc(sizeof(struct epoll_inst));
+	if (!instance)
+		goto error;
+
+	instance->epfd = epfd;
+	instance->fds = NULL;
+	instance->rdy_cnt = 0;
+	instance->fd_cnt = 0;
+	instance->wakeup = 0;
+	instance->rev = (struct epoll_event *)malloc(max_events * sizeof(struct epoll_event));
+
+	pthread_spin_init(&instance->evlock, PTHREAD_PROCESS_PRIVATE);
+	pthread_spin_init(&instance->fdlock, PTHREAD_PROCESS_PRIVATE);
+
+	ret = mng_epfd_thread(instance);
+	if (ret)
+		goto free_instance;
+
+	return add_epins(epfd, instance);
+
+free_instance:
+	free(instance);
+error:
+	return ERR(ENOMEM);
 }

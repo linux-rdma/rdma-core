@@ -94,3 +94,8 @@ RDMACM_1.4 {
 		rdma_resolve_addrinfo;
 		rdma_write_cm_event;
 } RDMACM_1.3;
+
+RDMACM_1.5 {
+	global:
+		repoll_create1;
+} RDMACM_1.4;

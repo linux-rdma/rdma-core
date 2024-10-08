@@ -40,6 +40,7 @@
 #include <poll.h>
 #include <sys/select.h>
 #include <sys/mman.h>
+#include <sys/epoll.h>
 
 #ifdef __cplusplus
 extern "C" {
@@ -69,6 +70,8 @@ ssize_t rwritev(int socket, const struct iovec *iov, int iovcnt);
 int rpoll(struct pollfd *fds, nfds_t nfds, int timeout);
 int rselect(int nfds, fd_set *readfds, fd_set *writefds,
 	    fd_set *exceptfds, struct timeval *timeout);
+
+int repoll_create1(int flags);
 
 int rgetpeername(int socket, struct sockaddr *addr, socklen_t *addrlen);
 int rgetsockname(int socket, struct sockaddr *addr, socklen_t *addrlen);
