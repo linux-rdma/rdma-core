@@ -143,4 +143,4 @@ See [Contributing to rdma-core](Documentation/contributing.md).
 # Stable branches
 
 Stable versions are released regularly with backported fixes (see Documentation/stable.md)
-The current minimum version still maintained is 'v30.X'
+The current minimum version still maintained is 'v33.X'
