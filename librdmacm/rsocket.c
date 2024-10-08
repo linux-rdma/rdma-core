@@ -4871,6 +4871,12 @@ static int add_epins(int fd, struct epoll_inst *instance)
 	return fd;
 }
 
+static struct epoll_inst *get_epins(int fd)
+{
+	struct fdm_entry *entry = idm_lookup(&evidm, fd);
+	return entry ? entry->ep : NULL;
+}
+
 static void *epoll_thread(void *arg)
 {
 	struct eplist *list = &glep_list;
@@ -4962,6 +4968,69 @@ static int mng_epfd_thread(struct epoll_inst *instance)
 	return 0;
 }
 
+static int epoll_add(struct epoll_inst *instance, int fd, struct epoll_event *event)
+{
+	struct rfd_nd *node = (struct rfd_nd *)malloc(sizeof(struct rfd_nd));
+
+	if (!node)
+		return ERR(ENOMEM);
+
+	node->fd = fd;
+	node->events = event->events;
+	node->prev = NULL;
+
+	pthread_spin_lock(&instance->fdlock);
+
+	node->next = instance->fds;
+	if (instance->fds)
+		instance->fds->prev = node;
+
+	instance->fds = node;
+	instance->fd_cnt++;
+
+	pthread_spin_unlock(&instance->fdlock);
+
+	return 0;
+}
+
+static void epoll_mod(struct epoll_inst *instance, struct epoll_event *event, struct rfd_nd *node)
+{
+	pthread_spin_lock(&instance->fdlock);
+	node->events = event->events;
+	pthread_spin_unlock(&instance->fdlock);
+}
+
+static void epoll_del(struct epoll_inst *instance, struct rfd_nd *node)
+{
+	pthread_spin_lock(&instance->fdlock);
+	instance->fd_cnt--;
+	if (!node->prev)
+		instance->fds = node->next;
+	else
+		node->prev->next = node->next;
+
+	if (node->next)
+		node->next->prev = node->prev;
+
+	pthread_spin_unlock(&instance->fdlock);
+
+	free(node);
+}
+
+static struct rfd_nd *find_rfd(struct epoll_inst *instance, int fd)
+{
+	struct rfd_nd *curr = instance->fds;
+
+	while (curr != NULL) {
+		if (curr->fd == fd)
+			return curr;
+
+		curr = curr->next;
+	}
+
+	return NULL;
+}
+
 int repoll_create1(int flags)
 {
 	get_pipe();
@@ -4992,4 +5061,41 @@ free_instance:
 	free(instance);
 error:
 	return ERR(ENOMEM);
+}
+
+int repoll_ctl(int epfd, int op, int fd, struct epoll_event *event)
+{
+	struct epoll_inst *instance = get_epins(epfd);
+
+	if (!instance)
+		return ERR(EBADF);
+
+	struct rfd_nd *nd_fd = find_rfd(instance, fd);
+
+	switch (op) {
+	case EPOLL_CTL_ADD:
+		if (nd_fd)
+			return ERR(EEXIST);
+
+		return epoll_add(instance, fd, event);
+
+	case EPOLL_CTL_MOD:
+		if (!nd_fd)
+			return ERR(ENOENT);
+
+		epoll_mod(instance, event, nd_fd);
+		break;
+
+	case EPOLL_CTL_DEL:
+		if (!nd_fd)
+			return ERR(ENOENT);
+
+		epoll_del(instance, nd_fd);
+		break;
+
+	default:
+		return ERR(EINVAL);
+	}
+
+	return 0;
 }

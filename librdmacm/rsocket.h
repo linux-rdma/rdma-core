@@ -72,6 +72,7 @@ int rselect(int nfds, fd_set *readfds, fd_set *writefds,
 	    fd_set *exceptfds, struct timeval *timeout);
 
 int repoll_create1(int flags);
+int repoll_ctl(int epfd, int op, int fd, struct epoll_event *event);
 
 int rgetpeername(int socket, struct sockaddr *addr, socklen_t *addrlen);
 int rgetsockname(int socket, struct sockaddr *addr, socklen_t *addrlen);

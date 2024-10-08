@@ -30,7 +30,7 @@ rpoll, rselect
 rgetpeername, rgetsockname
 .P
 rsetsockopt, rgetsockopt, rfcntl
-repoll_create1
+repoll_create1, repoll_ctl
 .P
 Functions take the same parameters as that used for sockets.  The
 follow capabilities and flags are supported at this time:
