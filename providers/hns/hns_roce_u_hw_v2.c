@@ -728,6 +728,13 @@ static int hns_roce_poll_one(struct hns_roce_context *ctx,
 	return hns_roce_flush_cqe(*cur_qp, status);
 }
 
+static bool hns_roce_is_reset(struct hns_roce_context *ctx)
+{
+	struct hns_roce_reset_state *state = ctx->reset_state;
+
+	return state && !state->hw_ready;
+}
+
 static int hns_roce_u_v2_poll_cq(struct ibv_cq *ibvcq, int ne,
 				 struct ibv_wc *wc)
 {
@@ -782,10 +789,15 @@ static int hns_roce_u_v2_arm_cq(struct ibv_cq *ibvcq, int solicited)
 
 static inline int check_qp_send(struct ibv_qp *qp)
 {
+	struct hns_roce_context *ctx = to_hr_ctx(qp->context);
+
 	if (unlikely(qp->state == IBV_QPS_RESET ||
 		     qp->state == IBV_QPS_INIT ||
 		     qp->state == IBV_QPS_RTR))
 		return EINVAL;
+
+	if (hns_roce_is_reset(ctx))
+		return EIO;
 
 	return 0;
 }
@@ -1357,8 +1369,13 @@ out:
 
 static inline int check_qp_recv(struct ibv_qp *qp)
 {
+	struct hns_roce_context *ctx = to_hr_ctx(qp->context);
+
 	if (qp->state == IBV_QPS_RESET)
 		return EINVAL;
+
+	if (hns_roce_is_reset(ctx))
+		return EIO;
 
 	return 0;
 }
@@ -1757,6 +1774,14 @@ static void update_srq_db(struct hns_roce_context *ctx, struct hns_roce_db *db,
 			 (__le32 *)db);
 }
 
+static int check_srq_recv(struct hns_roce_context *ctx)
+{
+	if (hns_roce_is_reset(ctx))
+		return EIO;
+
+	return 0;
+}
+
 static int hns_roce_u_v2_post_srq_recv(struct ibv_srq *ib_srq,
 				       struct ibv_recv_wr *wr,
 				       struct ibv_recv_wr **bad_wr)
@@ -1767,6 +1792,12 @@ static int hns_roce_u_v2_post_srq_recv(struct ibv_srq *ib_srq,
 	struct hns_roce_db srq_db;
 	int ret = 0;
 	void *wqe;
+
+	ret = check_srq_recv(ctx);
+	if (ret) {
+		*bad_wr = wr;
+		return ret;
+	}
 
 	hns_roce_spin_lock(&srq->hr_lock);
 
@@ -2553,13 +2584,12 @@ static void wr_set_inline_data_list_ud(struct ibv_qp_ex *ibv_qp, size_t num_buf,
 static void wr_start(struct ibv_qp_ex *ibv_qp)
 {
 	struct hns_roce_qp *qp = to_hr_qp(&ibv_qp->qp_base);
-	enum ibv_qp_state state = ibv_qp->qp_base.state;
+	int ret;
 
-	if (state == IBV_QPS_RESET ||
-	    state == IBV_QPS_INIT ||
-	    state == IBV_QPS_RTR) {
+	ret = check_qp_send(&ibv_qp->qp_base);
+	if (ret) {
 		hns_roce_spin_lock(&qp->sq.hr_lock);
-		qp->err = EINVAL;
+		qp->err = ret;
 		return;
 	}
 
