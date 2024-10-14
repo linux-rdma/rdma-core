@@ -204,6 +204,7 @@ struct hns_roce_spinlock {
 struct hns_roce_context {
 	struct verbs_context		ibv_ctx;
 	void				*uar;
+	void                            *reset_state;
 	pthread_spinlock_t		uar_lock;
 
 	struct {

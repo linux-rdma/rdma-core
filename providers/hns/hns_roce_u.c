@@ -189,6 +189,41 @@ static void hns_roce_destroy_context_lock(struct hns_roce_context *context)
 	pthread_mutex_destroy(&context->db_list_mutex);
 }
 
+static int hns_roce_mmap(struct hns_roce_device *hr_dev,
+			 struct hns_roce_alloc_ucontext_resp *resp,
+			 struct hns_roce_context *context, int cmd_fd)
+{
+	uint64_t reset_mmap_key = resp->reset_mmap_key;
+
+	context->uar = mmap(NULL, hr_dev->page_size, PROT_READ | PROT_WRITE,
+			    MAP_SHARED, cmd_fd, 0);
+	if (context->uar == MAP_FAILED)
+		return ENOMEM;
+
+	/* Check whether kernel supports mmapping reset state */
+	if (!reset_mmap_key)
+		return 0;
+
+	context->reset_state = mmap(NULL, hr_dev->page_size, PROT_READ,
+				    MAP_SHARED, cmd_fd, reset_mmap_key);
+	if (context->reset_state == MAP_FAILED)
+		goto db_free;
+
+	return 0;
+
+db_free:
+	munmap(context->uar, hr_dev->page_size);
+	return ENOMEM;
+}
+
+static void hns_roce_munmap(struct hns_roce_device *hr_dev,
+			    struct hns_roce_context *context)
+{
+	munmap(context->uar, hr_dev->page_size);
+	if (context->reset_state)
+		munmap(context->reset_state, hr_dev->page_size);
+}
+
 static struct verbs_context *hns_roce_alloc_context(struct ibv_device *ibdev,
 						    int cmd_fd,
 						    void *private_data)
@@ -215,11 +250,8 @@ static struct verbs_context *hns_roce_alloc_context(struct ibv_device *ibdev,
 	if (set_context_attr(hr_dev, context, &resp))
 		goto err_set_attr;
 
-	context->uar = mmap(NULL, hr_dev->page_size, PROT_READ | PROT_WRITE,
-			    MAP_SHARED, cmd_fd, 0);
-	if (context->uar == MAP_FAILED)
+	if (hns_roce_mmap(hr_dev, &resp, context, cmd_fd))
 		goto err_set_attr;
-
 
 	verbs_set_ops(&context->ibv_ctx, &hns_common_ops);
 	verbs_set_ops(&context->ibv_ctx, &hr_dev->u_hw->hw_ops);
@@ -239,7 +271,7 @@ static void hns_roce_free_context(struct ibv_context *ibctx)
 	struct hns_roce_device *hr_dev = to_hr_dev(ibctx->device);
 	struct hns_roce_context *context = to_hr_ctx(ibctx);
 
-	munmap(context->uar, hr_dev->page_size);
+	hns_roce_munmap(hr_dev, context);
 	hns_roce_destroy_context_lock(context);
 	verbs_uninit_context(&context->ibv_ctx);
 	free(context);
