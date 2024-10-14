@@ -267,6 +267,11 @@ struct hns_roce_cq {
 	unsigned int			cqe_size;
 	struct hns_roce_v2_cqe		*cqe;
 	struct ibv_pd			*parent_domain;
+	struct list_head list_sq;
+	struct list_head list_rq;
+	struct list_head list_srq;
+	struct list_head list_xrc_srq;
+	struct hns_roce_v2_cqe *sw_cqe;
 };
 
 struct hns_roce_idx_que {
@@ -302,6 +307,7 @@ struct hns_roce_srq {
 	unsigned int			*rdb;
 	unsigned int			cap_flags;
 	unsigned short			counter;
+	struct list_node xrc_srcq_node;
 };
 
 struct hns_roce_wq {
@@ -362,6 +368,9 @@ struct hns_roce_qp {
 	void				*cur_wqe;
 	unsigned int			rb_sq_head; /* roll back sq head */
 	struct hns_roce_sge_info	sge_info;
+	struct list_node rcq_node;
+	struct list_node scq_node;
+	struct list_node srcq_node;
 };
 
 struct hns_roce_av {
