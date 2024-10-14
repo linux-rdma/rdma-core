@@ -498,6 +498,32 @@ static int exec_cq_create_cmd(struct ibv_context *context,
 	return 0;
 }
 
+static int hns_roce_init_cq_swc(struct hns_roce_cq *cq,
+				struct ibv_cq_init_attr_ex *attr)
+{
+	list_head_init(&cq->list_sq);
+	list_head_init(&cq->list_rq);
+	list_head_init(&cq->list_srq);
+	list_head_init(&cq->list_xrc_srq);
+
+	if (!(attr->wc_flags & CREATE_CQ_SUPPORTED_WC_FLAGS))
+		return 0;
+
+	cq->sw_cqe = calloc(1, sizeof(struct hns_roce_v2_cqe));
+	if (!cq->sw_cqe)
+		return ENOMEM;
+
+	return 0;
+}
+
+static void hns_roce_uninit_cq_swc(struct hns_roce_cq *cq)
+{
+	if (cq->sw_cqe) {
+		free(cq->sw_cqe);
+		cq->sw_cqe = NULL;
+	}
+}
+
 static struct ibv_cq_ex *create_cq(struct ibv_context *context,
 			 struct ibv_cq_init_attr_ex *attr)
 {
@@ -535,6 +561,10 @@ static struct ibv_cq_ex *create_cq(struct ibv_context *context,
 		goto err_db;
 	}
 
+	ret = hns_roce_init_cq_swc(cq, attr);
+	if (ret)
+		goto err_swc;
+
 	ret = exec_cq_create_cmd(context, cq, attr);
 	if (ret)
 		goto err_cmd;
@@ -544,6 +574,8 @@ static struct ibv_cq_ex *create_cq(struct ibv_context *context,
 	return &cq->verbs_cq.cq_ex;
 
 err_cmd:
+	hns_roce_uninit_cq_swc(cq);
+err_swc:
 	hns_roce_free_db(hr_ctx, cq->db, HNS_ROCE_CQ_TYPE_DB);
 err_db:
 	hns_roce_free_buf(&cq->buf);
@@ -607,6 +639,8 @@ int hns_roce_u_destroy_cq(struct ibv_cq *cq)
 	ret = ibv_cmd_destroy_cq(cq);
 	if (ret)
 		return ret;
+
+	hns_roce_uninit_cq_swc(hr_cq);
 
 	hns_roce_free_db(to_hr_ctx(cq->context), hr_cq->db,
 			 HNS_ROCE_CQ_TYPE_DB);
@@ -808,6 +842,22 @@ static int exec_srq_create_cmd(struct ibv_context *context,
 	return 0;
 }
 
+static void init_srq_cq_list(struct hns_roce_srq *srq,
+			     struct ibv_srq_init_attr_ex *init_attr)
+{
+	struct hns_roce_cq *srq_cq;
+
+	list_node_init(&srq->xrc_srcq_node);
+
+	if (!init_attr->cq)
+		return;
+
+	srq_cq = to_hr_cq(init_attr->cq);
+	hns_roce_spin_lock(&srq_cq->hr_lock);
+	list_add_tail(&srq_cq->list_xrc_srq, &srq->xrc_srcq_node);
+	hns_roce_spin_unlock(&srq_cq->hr_lock);
+}
+
 static struct ibv_srq *create_srq(struct ibv_context *context,
 				  struct ibv_srq_init_attr_ex *init_attr)
 {
@@ -851,6 +901,8 @@ static struct ibv_srq *create_srq(struct ibv_context *context,
 	srq->max_gs = init_attr->attr.max_sge;
 	init_attr->attr.max_sge =
 		min(init_attr->attr.max_sge - srq->rsv_sge, hr_ctx->max_srq_sge);
+
+	init_srq_cq_list(srq, init_attr);
 
 	return &srq->verbs_srq.srq;
 
@@ -927,12 +979,26 @@ int hns_roce_u_query_srq(struct ibv_srq *srq, struct ibv_srq_attr *srq_attr)
 	return ret;
 }
 
+static void del_srq_from_cq_list(struct hns_roce_srq *srq)
+{
+	struct hns_roce_cq *srq_cq = to_hr_cq(srq->verbs_srq.cq);
+
+	if (!srq_cq)
+		return;
+
+	hns_roce_spin_lock(&srq_cq->hr_lock);
+	list_del(&srq->xrc_srcq_node);
+	hns_roce_spin_unlock(&srq_cq->hr_lock);
+}
+
 int hns_roce_u_destroy_srq(struct ibv_srq *ibv_srq)
 {
 	struct hns_roce_context *ctx = to_hr_ctx(ibv_srq->context);
 	struct hns_roce_pad *pad = to_hr_pad(ibv_srq->pd);
 	struct hns_roce_srq *srq = to_hr_srq(ibv_srq);
 	int ret;
+
+	del_srq_from_cq_list(srq);
 
 	ret = ibv_cmd_destroy_srq(ibv_srq);
 	if (ret)
@@ -1517,6 +1583,30 @@ static int mmap_dwqe(struct ibv_context *ibv_ctx, struct hns_roce_qp *qp,
 	return 0;
 }
 
+static void add_qp_to_cq_list(struct ibv_qp_init_attr_ex *attr,
+			      struct hns_roce_qp *qp)
+{
+	struct hns_roce_cq *send_cq, *recv_cq;
+
+	send_cq = attr->send_cq ? to_hr_cq(attr->send_cq) : NULL;
+	recv_cq = attr->recv_cq ? to_hr_cq(attr->recv_cq) : NULL;
+
+	list_node_init(&qp->scq_node);
+	list_node_init(&qp->rcq_node);
+	list_node_init(&qp->srcq_node);
+
+	hns_roce_lock_cqs(&qp->verbs_qp.qp);
+	if (send_cq)
+		list_add_tail(&send_cq->list_sq, &qp->scq_node);
+	if (recv_cq) {
+		if (attr->srq)
+			list_add_tail(&recv_cq->list_srq, &qp->srcq_node);
+		else
+			list_add_tail(&recv_cq->list_rq, &qp->rcq_node);
+	}
+	hns_roce_unlock_cqs(&qp->verbs_qp.qp);
+}
+
 static struct ibv_qp *create_qp(struct ibv_context *ibv_ctx,
 				struct ibv_qp_init_attr_ex *attr,
 				struct hnsdv_qp_init_attr *hns_attr)
@@ -1569,6 +1659,7 @@ static struct ibv_qp *create_qp(struct ibv_context *ibv_ctx,
 	}
 
 	qp_setup_config(attr, qp, context);
+	add_qp_to_cq_list(attr, qp);
 
 	return &qp->verbs_qp.qp;
 

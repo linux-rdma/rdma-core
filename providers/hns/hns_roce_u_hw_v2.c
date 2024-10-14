@@ -728,6 +728,170 @@ static int hns_roce_poll_one(struct hns_roce_context *ctx,
 	return hns_roce_flush_cqe(*cur_qp, status);
 }
 
+static void hns_roce_fill_swc(struct hns_roce_cq *cq, struct ibv_wc *wc,
+			      uint64_t wr_id, uint32_t qp_num)
+{
+	if (!wc) {
+		cq->verbs_cq.cq_ex.status = IBV_WC_WR_FLUSH_ERR;
+		cq->verbs_cq.cq_ex.wr_id = wr_id;
+		hr_reg_write(cq->sw_cqe,  CQE_LCL_QPN, qp_num);
+		return;
+	}
+
+	wc->wr_id = wr_id;
+	wc->status = IBV_WC_WR_FLUSH_ERR;
+	wc->vendor_err = 0;
+	wc->qp_num = qp_num;
+}
+
+static int hns_roce_get_wq_swc(struct hns_roce_cq *cq, struct hns_roce_qp *qp,
+			       struct ibv_wc *wc, bool is_sq)
+{
+	struct hns_roce_wq *wq = is_sq ? &qp->sq : &qp->rq;
+	unsigned int left_wr;
+	uint64_t wr_id;
+
+	left_wr = wq->head - wq->tail;
+	if (left_wr == 0) {
+		if (is_sq)
+			list_del_init(&qp->scq_node);
+		else
+			list_del_init(&qp->rcq_node);
+
+		return ENOENT;
+	}
+
+	wr_id = wq->wrid[wq->tail & (wq->wqe_cnt - 1)];
+	hns_roce_fill_swc(cq, wc, wr_id, qp->verbs_qp.qp.qp_num);
+	wq->tail++;
+	return V2_CQ_OK;
+}
+
+static int hns_roce_gen_sq_swc(struct hns_roce_cq *cq, struct ibv_wc *wc)
+{
+	struct hns_roce_qp *next, *qp = NULL;
+
+	list_for_each_safe(&cq->list_sq, qp, next, scq_node) {
+		if (hns_roce_get_wq_swc(cq, qp, wc, true) == ENOENT)
+			continue;
+
+		return V2_CQ_OK;
+	}
+
+	return !wc ? ENOENT : V2_CQ_EMPTY;
+}
+
+static int hns_roce_gen_rq_swc(struct hns_roce_cq *cq, struct ibv_wc *wc)
+{
+	struct hns_roce_qp *next, *qp = NULL;
+
+	list_for_each_safe(&cq->list_rq, qp, next, rcq_node) {
+		if (hns_roce_get_wq_swc(cq, qp, wc, false) == ENOENT)
+			continue;
+
+		return V2_CQ_OK;
+	}
+
+	return !wc ? ENOENT : V2_CQ_EMPTY;
+}
+
+static int hns_roce_get_srq_swc(struct hns_roce_cq *cq, struct hns_roce_qp *qp,
+				struct hns_roce_srq *srq, struct ibv_wc *wc)
+{
+	unsigned int left_wr;
+	uint64_t wr_id;
+
+	hns_roce_spin_lock(&srq->hr_lock);
+	left_wr = srq->idx_que.head - srq->idx_que.tail;
+	if (left_wr == 0) {
+		if (qp)
+			list_del_init(&qp->srcq_node);
+		else
+			list_del_init(&srq->xrc_srcq_node);
+
+		hns_roce_spin_unlock(&srq->hr_lock);
+		return ENOENT;
+	}
+
+	wr_id = srq->wrid[srq->idx_que.tail & (srq->wqe_cnt - 1)];
+	hns_roce_fill_swc(cq, wc, wr_id, srq->srqn);
+	srq->idx_que.tail++;
+	hns_roce_spin_unlock(&srq->hr_lock);
+
+	return V2_CQ_OK;
+}
+
+static int hns_roce_gen_common_srq_swc(struct hns_roce_cq *cq,
+				       struct ibv_wc *wc)
+{
+	struct hns_roce_qp *next, *qp = NULL;
+	struct hns_roce_srq *srq;
+
+	list_for_each_safe(&cq->list_srq, qp, next, srcq_node) {
+		srq = to_hr_srq(qp->verbs_qp.qp.srq);
+		if (hns_roce_get_srq_swc(cq, qp, srq, wc) == ENOENT)
+			continue;
+
+		return V2_CQ_OK;
+	}
+
+	return !wc ? ENOENT : V2_CQ_EMPTY;
+}
+
+static int hns_roce_gen_xrc_srq_swc(struct hns_roce_cq *cq, struct ibv_wc *wc)
+{
+	struct hns_roce_srq *next, *srq = NULL;
+
+	list_for_each_safe(&cq->list_xrc_srq, srq, next, xrc_srcq_node) {
+		if (hns_roce_get_srq_swc(cq, NULL, srq, wc) == ENOENT)
+			continue;
+
+		return V2_CQ_OK;
+	}
+
+	return !wc ? ENOENT : V2_CQ_EMPTY;
+}
+
+static int hns_roce_gen_srq_swc(struct hns_roce_cq *cq, struct ibv_wc *wc)
+{
+	int err;
+
+	err = hns_roce_gen_common_srq_swc(cq, wc);
+	if (err == V2_CQ_OK)
+		return err;
+
+	return hns_roce_gen_xrc_srq_swc(cq, wc);
+}
+
+static int hns_roce_poll_one_swc(struct hns_roce_cq *cq, struct ibv_wc *wc)
+{
+	int err;
+
+	err = hns_roce_gen_sq_swc(cq, wc);
+	if (err == V2_CQ_OK)
+		return err;
+
+	err = hns_roce_gen_rq_swc(cq, wc);
+	if (err == V2_CQ_OK)
+		return err;
+
+	return hns_roce_gen_srq_swc(cq, wc);
+}
+
+static int hns_roce_poll_swc(struct hns_roce_cq *cq, int ne, struct ibv_wc *wc)
+{
+	int npolled;
+	int err;
+
+	for (npolled = 0; npolled < ne; npolled++) {
+		err = hns_roce_poll_one_swc(cq, wc + npolled);
+		if (err == V2_CQ_EMPTY)
+			break;
+	}
+
+	return npolled;
+}
+
 static bool hns_roce_is_reset(struct hns_roce_context *ctx)
 {
 	struct hns_roce_reset_state *state = ctx->reset_state;
@@ -745,6 +909,12 @@ static int hns_roce_u_v2_poll_cq(struct ibv_cq *ibvcq, int ne,
 	int npolled;
 
 	hns_roce_spin_lock(&cq->hr_lock);
+
+	if (unlikely(hns_roce_is_reset(ctx))) {
+		npolled = hns_roce_poll_swc(cq, ne, wc);
+		hns_roce_spin_unlock(&cq->hr_lock);
+		return npolled;
+	}
 
 	for (npolled = 0; npolled < ne; ++npolled) {
 		err = hns_roce_poll_one(ctx, &qp, cq, wc + npolled);
@@ -1621,7 +1791,7 @@ static int hns_roce_u_v2_modify_qp(struct ibv_qp *qp, struct ibv_qp_attr *attr,
 	return ret;
 }
 
-static void hns_roce_lock_cqs(struct ibv_qp *qp)
+void hns_roce_lock_cqs(struct ibv_qp *qp)
 {
 	struct hns_roce_cq *send_cq = to_hr_cq(qp->send_cq);
 	struct hns_roce_cq *recv_cq = to_hr_cq(qp->recv_cq);
@@ -1643,7 +1813,7 @@ static void hns_roce_lock_cqs(struct ibv_qp *qp)
 	}
 }
 
-static void hns_roce_unlock_cqs(struct ibv_qp *qp)
+void hns_roce_unlock_cqs(struct ibv_qp *qp)
 {
 	struct hns_roce_cq *send_cq = to_hr_cq(qp->send_cq);
 	struct hns_roce_cq *recv_cq = to_hr_cq(qp->recv_cq);
@@ -1683,13 +1853,19 @@ static int hns_roce_u_v2_destroy_qp(struct ibv_qp *ibqp)
 
 	hns_roce_lock_cqs(ibqp);
 
-	if (ibqp->recv_cq)
+	if (ibqp->recv_cq) {
 		__hns_roce_v2_cq_clean(to_hr_cq(ibqp->recv_cq), ibqp->qp_num,
 				       ibqp->srq ? to_hr_srq(ibqp->srq) : NULL);
+		list_del(&qp->srcq_node);
+		list_del(&qp->rcq_node);
+	}
 
-	if (ibqp->send_cq && ibqp->send_cq != ibqp->recv_cq)
-		__hns_roce_v2_cq_clean(to_hr_cq(ibqp->send_cq), ibqp->qp_num,
-				       NULL);
+	if (ibqp->send_cq) {
+		if (ibqp->send_cq != ibqp->recv_cq)
+			__hns_roce_v2_cq_clean(to_hr_cq(ibqp->send_cq),
+					       ibqp->qp_num, NULL);
+		list_del(&qp->scq_node);
+	}
 
 	hns_roce_unlock_cqs(ibqp);
 
@@ -1854,7 +2030,11 @@ static int wc_start_poll_cq(struct ibv_cq_ex *current,
 
 	hns_roce_spin_lock(&cq->hr_lock);
 
-	err = hns_roce_poll_one(ctx, &qp, cq, NULL);
+	if (unlikely(hns_roce_is_reset(ctx)))
+		err = hns_roce_poll_one_swc(cq, NULL);
+	else
+		err = hns_roce_poll_one(ctx, &qp, cq, NULL);
+
 	if (err != V2_CQ_OK)
 		hns_roce_spin_unlock(&cq->hr_lock);
 
@@ -1867,6 +2047,9 @@ static int wc_next_poll_cq(struct ibv_cq_ex *current)
 	struct hns_roce_context *ctx = to_hr_ctx(current->context);
 	struct hns_roce_qp *qp = NULL;
 	int err;
+
+	if (unlikely(hns_roce_is_reset(ctx)))
+		return hns_roce_poll_one_swc(cq, NULL);
 
 	err = hns_roce_poll_one(ctx, &qp, cq, NULL);
 	if (err != V2_CQ_OK)
@@ -1885,11 +2068,15 @@ static void wc_end_poll_cq(struct ibv_cq_ex *current)
 	struct hns_roce_cq *cq = to_hr_cq(ibv_cq_ex_to_cq(current));
 	struct hns_roce_context *ctx = to_hr_ctx(current->context);
 
+	if (unlikely(hns_roce_is_reset(ctx)))
+		goto end_poll_done;
+
 	if (cq->flags & HNS_ROCE_CQ_FLAG_RECORD_DB)
 		*cq->db = cq->cons_index & RECORD_DB_CI_MASK;
 	else
 		update_cq_db(ctx, cq);
 
+end_poll_done:
 	hns_roce_spin_unlock(&cq->hr_lock);
 }
 
