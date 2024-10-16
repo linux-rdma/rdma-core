@@ -182,6 +182,14 @@ cdef class EfaQPInitAttr(PyverbsObject):
     def flags(self, val):
         self.qp_init_attr.flags = val
 
+    @property
+    def sl(self):
+        return self.qp_init_attr.sl
+
+    @sl.setter
+    def sl(self,val):
+        self.qp_init_attr.sl = val
+
 
 cdef class SRDQPEx(QPEx):
     """

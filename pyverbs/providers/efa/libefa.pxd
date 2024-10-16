@@ -30,7 +30,8 @@ cdef extern from 'infiniband/efadv.h':
         uint64_t comp_mask;
         uint32_t driver_qp_type;
         uint16_t flags;
-        uint8_t reserved[2];
+        uint8_t sl;
+        uint8_t reserved[1];
 
     cdef struct efadv_cq_init_attr:
         uint64_t comp_mask;
