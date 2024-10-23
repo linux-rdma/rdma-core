@@ -221,6 +221,7 @@ enum mlx5_vendor_cap_flags {
 	MLX5_VENDOR_CAP_FLAGS_CQE_128B_PAD	= 1 << 4,
 	MLX5_VENDOR_CAP_FLAGS_PACKET_BASED_CREDIT_MODE	= 1 << 5,
 	MLX5_VENDOR_CAP_FLAGS_SCAT2CQE_DCT = 1 << 6,
+	MLX5_VENDOR_CAP_FLAGS_OOO_DP = 1 << 7,
 };
 
 enum {
@@ -423,6 +424,7 @@ struct mlx5_context {
 	uint64_t			max_dc_rd_atom;
 	uint64_t			max_dc_init_rd_atom;
 	struct mlx5dv_reg		reg_c0;
+	struct mlx5dv_ooo_recv_wrs_caps ooo_recv_wrs_caps;
 };
 
 struct mlx5_hugetlb_mem {
@@ -652,6 +654,7 @@ struct mlx5_mr {
 enum mlx5_qp_flags {
 	MLX5_QP_FLAGS_USE_UNDERLAY = 0x01,
 	MLX5_QP_FLAGS_DRAIN_SIGERR = 0x02,
+	MLX5_QP_FLAGS_OOO_DP = 1 << 2,
 };
 
 struct mlx5_qp {
