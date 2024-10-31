@@ -328,8 +328,10 @@ struct ibv_cq *bnxt_re_create_cq(struct ibv_context *ibvctx, int ncqe,
 	struct bnxt_re_context *cntx = to_bnxt_re_context(ibvctx);
 	struct bnxt_re_dev *dev = to_bnxt_re_dev(ibvctx->device);
 
-	if (ncqe > dev->max_cq_depth)
+	if (ncqe > dev->max_cq_depth) {
+		errno = EINVAL;
 		return NULL;
+	}
 
 	cq = calloc(1, (sizeof(*cq) + sizeof(struct bnxt_re_queue)));
 	if (!cq)
