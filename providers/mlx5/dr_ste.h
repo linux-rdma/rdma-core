@@ -223,12 +223,14 @@ struct dr_ste_ctx {
 	uint32_t actions_caps;
 	const struct dr_ste_action_modify_field *action_modify_field_arr;
 	size_t action_modify_field_arr_size;
-	void (*set_actions_rx)(uint8_t *action_type_set,
+	void (*set_actions_rx)(struct dr_ste_ctx *ste_ctx,
+			       uint8_t *action_type_set,
 			       uint32_t actions_caps,
 			       uint8_t *hw_ste_arr,
 			       struct dr_ste_actions_attr *attr,
 			       uint32_t *added_stes);
-	void (*set_actions_tx)(uint8_t *action_type_set,
+	void (*set_actions_tx)(struct dr_ste_ctx *ste_ctx,
+			       uint8_t *action_type_set,
 			       uint32_t actions_caps,
 			       uint8_t *hw_ste_arr,
 			       struct dr_ste_actions_attr *attr,
@@ -262,7 +264,17 @@ struct dr_ste_ctx {
 	int (*alloc_modify_hdr_chunk)(struct mlx5dv_dr_action *action,
 				      uint32_t chunck_size);
 	void (*dealloc_modify_hdr_chunk)(struct mlx5dv_dr_action *action);
-
+	/* Actions bit set */
+	void (*set_encap)(uint8_t *hw_ste_p, uint8_t *d_action,
+			  uint32_t reformat_id, int size);
+	void (*set_push_vlan)(uint8_t *ste, uint8_t *d_action,
+			      uint32_t vlan_hdr);
+	void (*set_pop_vlan)(uint8_t *hw_ste_p, uint8_t *s_action,
+			     uint8_t vlans_num);
+	void (*set_rx_decap)(uint8_t *hw_ste_p, uint8_t *s_action);
+	void (*set_encap_l3)(uint8_t *hw_ste_p, uint8_t *frst_s_action,
+			     uint8_t *scnd_d_action, uint32_t reformat_id,
+			     int size);
 	/* Send */
 	void (*prepare_for_postsend)(uint8_t *hw_ste_p, uint32_t ste_size);
 };
@@ -270,5 +282,6 @@ struct dr_ste_ctx {
 struct dr_ste_ctx *dr_ste_get_ctx_v0(void);
 struct dr_ste_ctx *dr_ste_get_ctx_v1(void);
 struct dr_ste_ctx *dr_ste_get_ctx_v2(void);
+struct dr_ste_ctx *dr_ste_get_ctx_v3(void);
 
 #endif

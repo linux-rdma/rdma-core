@@ -604,7 +604,7 @@ void dr_ste_set_actions_tx(struct dr_ste_ctx *ste_ctx,
 			   struct dr_ste_actions_attr *attr,
 			   uint32_t *added_stes)
 {
-	ste_ctx->set_actions_tx(action_type_set, ste_ctx->actions_caps,
+	ste_ctx->set_actions_tx(ste_ctx, action_type_set, ste_ctx->actions_caps,
 				hw_ste_arr, attr, added_stes);
 }
 
@@ -614,7 +614,7 @@ void dr_ste_set_actions_rx(struct dr_ste_ctx *ste_ctx,
 			   struct dr_ste_actions_attr *attr,
 			   uint32_t *added_stes)
 {
-	ste_ctx->set_actions_rx(action_type_set, ste_ctx->actions_caps,
+	ste_ctx->set_actions_rx(ste_ctx, action_type_set, ste_ctx->actions_caps,
 				hw_ste_arr, attr, added_stes);
 }
 
@@ -1765,6 +1765,8 @@ struct dr_ste_ctx *dr_ste_get_ctx(uint8_t version)
 		return dr_ste_get_ctx_v1();
 	else if (version == MLX5_HW_CONNECTX_7)
 		return dr_ste_get_ctx_v2();
+	else if (version == MLX5_HW_CONNECTX_8)
+		return dr_ste_get_ctx_v3();
 
 	errno = EOPNOTSUPP;
 

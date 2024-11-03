@@ -308,7 +308,7 @@ static bool dr_domain_caps_is_sw_owner_supported(bool sw_owner,
 						 uint8_t sw_format_ver)
 {
 	return sw_owner ||
-	       (sw_owner_v2 && sw_format_ver <= MLX5_HW_CONNECTX_7);
+	       (sw_owner_v2 && sw_format_ver <= MLX5_HW_CONNECTX_8);
 }
 
 static int dr_domain_caps_init(struct ibv_context *ctx,
