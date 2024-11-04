@@ -2568,9 +2568,9 @@ static inline int ibv_close_xrcd(struct ibv_xrcd *xrcd)
  * ibv_reg_mr_iova2 - Register memory region with a virtual offset address
  *
  * This version will be called if ibv_reg_mr or ibv_reg_mr_iova were called
- * with at least one potential access flag from the IBV_OPTIONAL_ACCESS_RANGE
- * flags range The optional access flags will be masked if running over kernel
- * that does not support passing them.
+ * with at least one optional access flag from the IBV_ACCESS_OPTIONAL_RANGE
+ * bits flag range. The optional access flags will be masked if running over
+ * kernel that does not support passing them.
  */
 struct ibv_mr *ibv_reg_mr_iova2(struct ibv_pd *pd, void *addr, size_t length,
 				uint64_t iova, unsigned int access);
