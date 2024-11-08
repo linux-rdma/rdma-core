@@ -1083,11 +1083,11 @@ int hns_roce_u_v2_post_send(struct ibv_qp *ibvqp, struct ibv_send_wr *wr,
 	struct hns_roce_context *ctx = to_hr_ctx(ibvqp->context);
 	struct hns_roce_qp *qp = to_hr_qp(ibvqp);
 	struct hns_roce_sge_info sge_info = {};
+	struct hns_roce_rc_sq_wqe *wqe = NULL;
 	struct ibv_qp_attr attr = {};
 	unsigned int wqe_idx;
 	int attr_mask;
 	int ret = 0;
-	void *wqe;
 	int nreq;
 
 	/* check that state is OK to post send */
@@ -1102,15 +1102,15 @@ int hns_roce_u_v2_post_send(struct ibv_qp *ibvqp, struct ibv_send_wr *wr,
 	sge_info.start_idx = qp->next_sge; /* start index of extend sge */
 
 	for (nreq = 0; wr; ++nreq, wr = wr->next) {
-		if (hns_roce_v2_wq_overflow(&qp->sq, nreq,
-					    to_hr_cq(qp->ibv_qp.send_cq))) {
-			ret = ENOMEM;
+		if (wr->num_sge > (int)qp->sq.max_gs) {
+			ret = qp->sq.max_gs > 0 ? EINVAL : EOPNOTSUPP;
 			*bad_wr = wr;
 			goto out;
 		}
 
-		if (wr->num_sge > qp->sq.max_gs) {
-			ret = EINVAL;
+		if (hns_roce_v2_wq_overflow(&qp->sq, nreq,
+					    to_hr_cq(qp->ibv_qp.send_cq))) {
+			ret = ENOMEM;
 			*bad_wr = wr;
 			goto out;
 		}
