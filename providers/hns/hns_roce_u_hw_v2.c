@@ -1205,7 +1205,7 @@ static int set_rc_wqe(void *wqe, struct hns_roce_qp *qp, struct ibv_send_wr *wr,
 
 	hr_reg_write_bool(wqe, RCWQE_CQE,
 			  !!(wr->send_flags & IBV_SEND_SIGNALED));
-	hr_reg_write_bool(wqe, RCWQE_FENCE,
+	hr_reg_write_bool(wqe, RCWQE_SO,
 			  !!(wr->send_flags & IBV_SEND_FENCE));
 	hr_reg_write_bool(wqe, RCWQE_SE,
 			  !!(wr->send_flags & IBV_SEND_SOLICITED));
