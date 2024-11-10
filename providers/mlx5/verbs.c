@@ -1765,22 +1765,67 @@ static int mlx5_calc_rwq_size(struct mlx5_context *ctx,
 	return wq_size;
 }
 
+static int mlx5_get_max_recv_wr(struct mlx5_context *ctx,
+				struct ibv_qp_init_attr_ex *attr,
+				struct mlx5dv_qp_init_attr *mlx5_qp_attr,
+				uint32_t *max_recv_wr)
+{
+	if (mlx5_qp_attr && (mlx5_qp_attr->create_flags & MLX5DV_QP_CREATE_OOO_DP) &&
+	    attr->cap.max_recv_wr > 1) {
+		uint32_t max_recv_wr_cap = 0;
+
+		/* OOO-enabled cyclic buffers require double the user requested size. */
+		switch (attr->qp_type) {
+		case IBV_QPT_RC:
+			max_recv_wr_cap = ctx->ooo_recv_wrs_caps.max_rc;
+			break;
+		case IBV_QPT_UC:
+			max_recv_wr_cap = ctx->ooo_recv_wrs_caps.max_uc;
+			break;
+		case IBV_QPT_UD:
+			max_recv_wr_cap = ctx->ooo_recv_wrs_caps.max_ud;
+			break;
+		default:
+			break;
+		}
+
+		if (max_recv_wr_cap) {
+			if (attr->cap.max_recv_wr > max_recv_wr_cap)
+				goto inval_max_wr;
+			*max_recv_wr = attr->cap.max_recv_wr << 1;
+			return 0;
+		}
+	}
+
+	if (attr->cap.max_recv_wr > ctx->max_recv_wr)
+		goto inval_max_wr;
+
+	*max_recv_wr = attr->cap.max_recv_wr;
+	return 0;
+
+inval_max_wr:
+	mlx5_dbg(ctx->dbg_fp, MLX5_DBG_QP, "Invalid max_recv_wr value\n");
+	return -EINVAL;
+}
+
 static int mlx5_calc_rq_size(struct mlx5_context *ctx,
 			     struct ibv_qp_init_attr_ex *attr,
+			     struct mlx5dv_qp_init_attr *mlx5_qp_attr,
 			     struct mlx5_qp *qp)
 {
 	int wqe_size;
 	int wq_size;
 	int scat_spc;
+	int ret;
+	uint32_t max_recv_wr;
 	FILE *fp = ctx->dbg_fp;
 
 	if (!attr->cap.max_recv_wr)
 		return 0;
 
-	if (attr->cap.max_recv_wr > ctx->max_recv_wr) {
-		mlx5_dbg(fp, MLX5_DBG_QP, "\n");
-		return -EINVAL;
-	}
+	ret = mlx5_get_max_recv_wr(ctx, attr, mlx5_qp_attr, &max_recv_wr);
+	if (ret < 0)
+		return ret;
 
 	wqe_size = mlx5_calc_rcv_wqe(ctx, attr, qp);
 	if (wqe_size < 0 || wqe_size > ctx->max_rq_desc_sz) {
@@ -1788,12 +1833,23 @@ static int mlx5_calc_rq_size(struct mlx5_context *ctx,
 		return -EINVAL;
 	}
 
-	wq_size = roundup_pow_of_two(attr->cap.max_recv_wr) * wqe_size;
+	wq_size = roundup_pow_of_two(max_recv_wr) * wqe_size;
 	if (wqe_size) {
 		wq_size = max(wq_size, MLX5_SEND_WQE_BB);
 		qp->rq.wqe_cnt = wq_size / wqe_size;
 		qp->rq.wqe_shift = ilog32(wqe_size - 1);
-		qp->rq.max_post = 1 << ilog32(wq_size / wqe_size - 1);
+		/* If cyclic OOO RQ buffer is used, the max_posts a user can do
+		 * is half the internally allocated size (wqe_cnt).
+		 * This prevents overwriting non-consumed WQEs during the
+		 * execution of mlx5_post_recv(), enforced by mlx5_wq_overflow().
+		 */
+		if (max_recv_wr != attr->cap.max_recv_wr) {
+			/* OOO is applicable only when max_recv_wr and wqe_cnt are larger than 1 */
+			assert(qp->rq.wqe_cnt > 1);
+			qp->rq.max_post = 1 << (ilog32(qp->rq.wqe_cnt - 1) - 1);
+		} else {
+			qp->rq.max_post = 1 << ilog32(qp->rq.wqe_cnt - 1);
+		}
 		scat_spc = wqe_size -
 			(qp->wq_sig ? sizeof(struct mlx5_rwqe_sig) : 0);
 		qp->rq.max_gs = scat_spc / sizeof(struct mlx5_wqe_data_seg);
@@ -1819,7 +1875,7 @@ static int mlx5_calc_wq_size(struct mlx5_context *ctx,
 		return ret;
 
 	result = ret;
-	ret = mlx5_calc_rq_size(ctx, attr, qp);
+	ret = mlx5_calc_rq_size(ctx, attr, mlx5_qp_attr, qp);
 	if (ret < 0)
 		return ret;
 
@@ -2142,7 +2198,8 @@ enum {
 		 MLX5DV_QP_CREATE_DISABLE_SCATTER_TO_CQE |
 		 MLX5DV_QP_CREATE_ALLOW_SCATTER_TO_CQE |
 		 MLX5DV_QP_CREATE_PACKET_BASED_CREDIT_MODE |
-		 MLX5DV_QP_CREATE_SIG_PIPELINING),
+		 MLX5DV_QP_CREATE_SIG_PIPELINING |
+		 MLX5DV_QP_CREATE_OOO_DP),
 };
 
 static int create_dct(struct ibv_context *context,
@@ -2292,6 +2349,29 @@ static void set_qp_operational_state(struct mlx5_qp *qp,
 	}
 }
 
+static int is_qpt_ooo_sup(struct mlx5_context *ctx,
+			  struct ibv_qp_init_attr_ex *attr)
+{
+	if (!(ctx->vendor_cap_flags & MLX5_VENDOR_CAP_FLAGS_OOO_DP))
+		return 0;
+
+	switch (attr->qp_type) {
+	case IBV_QPT_DRIVER:
+		return ctx->ooo_recv_wrs_caps.max_dct;
+	case IBV_QPT_RC:
+		return ctx->ooo_recv_wrs_caps.max_rc;
+	case IBV_QPT_XRC_SEND:
+	case IBV_QPT_XRC_RECV:
+		return ctx->ooo_recv_wrs_caps.max_xrc;
+	case IBV_QPT_UC:
+		return ctx->ooo_recv_wrs_caps.max_uc;
+	case IBV_QPT_UD:
+		return ctx->ooo_recv_wrs_caps.max_ud;
+	default:
+		return 0;
+	}
+}
+
 static struct ibv_qp *create_qp(struct ibv_context *context,
 				struct ibv_qp_init_attr_ex *attr,
 				struct mlx5dv_qp_init_attr *mlx5_qp_attr)
@@ -2423,6 +2503,13 @@ static struct ibv_qp *create_qp(struct ibv_context *context,
 				qp->flags |= MLX5_QP_FLAGS_DRAIN_SIGERR;
 			}
 
+			if (mlx5_qp_attr->create_flags & MLX5DV_QP_CREATE_OOO_DP) {
+				if (!is_qpt_ooo_sup(ctx, attr)) {
+					errno = EOPNOTSUPP;
+					goto err;
+				}
+				qp->flags |= MLX5_QP_FLAGS_OOO_DP;
+			}
 		}
 
 		if (attr->qp_type == IBV_QPT_DRIVER) {
@@ -2638,7 +2725,6 @@ static struct ibv_qp *create_qp(struct ibv_context *context,
 	qp->get_ece = resp_drv->ece_options;
 	map_uuar(context, qp, resp_drv->bfreg_index, bf);
 
-	qp->rq.max_post = qp->rq.wqe_cnt;
 	if (attr->sq_sig_all)
 		qp->sq_signal_bits = MLX5_WQE_CTRL_CQ_UPDATE;
 	else
@@ -2889,6 +2975,9 @@ int mlx5_query_qp(struct ibv_qp *ibqp, struct ibv_qp_attr *attr,
 	init_attr->cap.max_send_sge    = qp->sq.max_gs;
 	init_attr->cap.max_inline_data = qp->max_inline_data;
 
+	if (qp->flags & MLX5_QP_FLAGS_OOO_DP && init_attr->cap.max_recv_wr > 1)
+		init_attr->cap.max_recv_wr = init_attr->cap.max_recv_wr >> 1;
+
 	attr->cap = init_attr->cap;
 
 	return 0;
@@ -2910,6 +2999,9 @@ static int modify_dct(struct ibv_qp *qp, struct ibv_qp_attr *attr,
 	int ret;
 
 	cmd_ex.ece_options = mqp->set_ece;
+	if (mqp->flags & MLX5_QP_FLAGS_OOO_DP &&
+	    attr_mask & IBV_QP_STATE && attr->qp_state == IBV_QPS_INIT)
+		cmd_ex.comp_mask |= MLX5_IB_MODIFY_QP_OOO_DP;
 	ret = ibv_cmd_modify_qp_ex(qp, attr, attr_mask, &cmd_ex.ibv_cmd,
 				   sizeof(cmd_ex), &resp.ibv_resp,
 				   sizeof(resp));
@@ -3025,8 +3117,12 @@ int mlx5_modify_qp(struct ibv_qp *qp, struct ibv_qp_attr *attr,
 		}
 	}
 
-	if (attr_mask & MLX5_MODIFY_QP_EX_ATTR_MASK || mqp->set_ece) {
+	if (attr_mask & MLX5_MODIFY_QP_EX_ATTR_MASK || mqp->set_ece ||
+	    mqp->flags & MLX5_QP_FLAGS_OOO_DP) {
 		cmd_ex.ece_options = mqp->set_ece;
+		if (mqp->flags & MLX5_QP_FLAGS_OOO_DP &&
+		    attr_mask & IBV_QP_STATE && attr->qp_state == IBV_QPS_INIT)
+			cmd_ex.comp_mask |= MLX5_IB_MODIFY_QP_OOO_DP;
 		ret = ibv_cmd_modify_qp_ex(qp, attr, attr_mask, &cmd_ex.ibv_cmd,
 					   sizeof(cmd_ex), &resp.ibv_resp,
 					   sizeof(resp));
@@ -3821,6 +3917,7 @@ static void get_hca_general_caps(struct mlx5_context *mctx)
 		HCA_CAP_OPMOD_GET_CUR;
 	uint32_t out[DEVX_ST_SZ_DW(query_hca_cap_out)] = {};
 	uint32_t in[DEVX_ST_SZ_DW(query_hca_cap_in)] = {};
+	int max_cyclic_qp_wr;
 	int ret;
 
 	DEVX_SET(query_hca_cap_in, in, opcode, MLX5_CMD_OP_QUERY_HCA_CAP);
@@ -3907,6 +4004,28 @@ static void get_hca_general_caps(struct mlx5_context *mctx)
 		else
 			mctx->dma_mmo_caps.dma_max_size = MLX5_DMA_MMO_MAX_SIZE;
 	}
+
+	/* OOO-enabled cyclic buffers require double the user requested size.
+	 * XRC and DC are implemented as linked-list buffers. Hence, halving
+	 * is not required.
+	 */
+	max_cyclic_qp_wr = mctx->max_recv_wr > 1 ? mctx->max_recv_wr >> 1 : mctx->max_recv_wr;
+
+	if (DEVX_GET(query_hca_cap_out, out,
+		     capability.cmd_hca_cap.dp_ordering_ooo_all_xrc))
+		mctx->ooo_recv_wrs_caps.max_xrc = mctx->max_recv_wr;
+	if (DEVX_GET(query_hca_cap_out, out,
+		     capability.cmd_hca_cap.dp_ordering_ooo_all_dc))
+		mctx->ooo_recv_wrs_caps.max_dct = mctx->max_recv_wr;
+	if (DEVX_GET(query_hca_cap_out, out,
+		     capability.cmd_hca_cap.dp_ordering_ooo_all_rc))
+		mctx->ooo_recv_wrs_caps.max_rc = max_cyclic_qp_wr;
+	if (DEVX_GET(query_hca_cap_out, out,
+		     capability.cmd_hca_cap.dp_ordering_ooo_all_ud))
+		mctx->ooo_recv_wrs_caps.max_ud = max_cyclic_qp_wr;
+	if (DEVX_GET(query_hca_cap_out, out,
+		     capability.cmd_hca_cap.dp_ordering_ooo_all_uc))
+		mctx->ooo_recv_wrs_caps.max_uc = max_cyclic_qp_wr;
 }
 
 static void get_qos_caps(struct mlx5_context *mctx)
@@ -4114,6 +4233,9 @@ void mlx5_query_device_ctx(struct mlx5_context *mctx)
 
 	if (resp.flags & MLX5_IB_QUERY_DEV_RESP_FLAGS_SCAT2CQE_DCT)
 		mctx->vendor_cap_flags |= MLX5_VENDOR_CAP_FLAGS_SCAT2CQE_DCT;
+
+	if (resp.flags & MLX5_IB_QUERY_DEV_RESP_FLAGS_OOO_DP)
+		mctx->vendor_cap_flags |= MLX5_VENDOR_CAP_FLAGS_OOO_DP;
 }
 
 static int rwq_sig_enabled(struct ibv_context *context)

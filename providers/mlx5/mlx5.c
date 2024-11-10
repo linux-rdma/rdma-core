@@ -979,6 +979,13 @@ static int _mlx5dv_query_device(struct ibv_context *ctx_in,
 		}
 	}
 
+	if (attrs_out->comp_mask & MLX5DV_CONTEXT_MASK_OOO_RECV_WRS) {
+		if (mctx->vendor_cap_flags & MLX5_VENDOR_CAP_FLAGS_OOO_DP) {
+			attrs_out->ooo_recv_wrs_caps = mctx->ooo_recv_wrs_caps;
+			comp_mask_out |= MLX5DV_CONTEXT_MASK_OOO_RECV_WRS;
+		}
+	}
+
 	attrs_out->comp_mask = comp_mask_out;
 
 	return 0;

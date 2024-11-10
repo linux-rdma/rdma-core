@@ -65,6 +65,7 @@ struct mlx5dv_crypto_caps crypto_caps;
 uint64_t max_dc_rd_atom; /* Maximum number of outstanding RDMA read/atomic per DC QP as a requester */
 uint64_t max_dc_init_rd_atom; /* Maximum number of outstanding RDMA read/atomic per DC QP as a responder */
 struct mlx5dv_reg reg_c0; /* value and mask to match local vport egress traffic in FDB */
+struct mlx5dv_ooo_recv_wrs_caps ooo_recv_wrs_caps; /* Maximum number of outstanding WRs per out-of-order QP type */
 .in -8
 };
 
@@ -107,6 +108,7 @@ MLX5DV_CONTEXT_MASK_WR_MEMCPY_LENGTH    = 1 << 12,
 MLX5DV_CONTEXT_MASK_CRYPTO_OFFLOAD      = 1 << 13,
 MLX5DV_CONTEXT_MASK_MAX_DC_RD_ATOM      = 1 << 14,
 MLX5DV_CONTEXT_MASK_REG_C0              = 1 << 15,
+MLX5DV_CONTEXT_MASK_OOO_RECV_WRS        = 1 << 16,
 .in -8
 };
 
@@ -247,6 +249,18 @@ enum mlx5dv_crypto_caps_flags {
 	 * will be set to 0.
 	 */
 	MLX5DV_CRYPTO_CAPS_WRAPPED_CRYPTO_GOING_TO_COMMISSIONING = 1 << 2,
+.in -8
+};
+
+.PP
+.nf
+struct mlx5dv_ooo_recv_wrs_caps {
+.in +8
+uint32_t max_rc;
+uint32_t max_xrc;
+uint32_t max_dct;
+uint32_t max_ud;
+uint32_t max_uc;
 .in -8
 };
 
