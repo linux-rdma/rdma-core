@@ -135,7 +135,7 @@ static uint16_t def_rqsize = 384;
 static uint32_t def_mem = (1 << 17);
 static uint32_t def_wmem = (1 << 17);
 static uint32_t polling_time = 10;
-static int wake_up_interval = 5000;
+static int wake_up_interval = 500;
 
 /*
  * Immediate data format is determined by the upper bits
