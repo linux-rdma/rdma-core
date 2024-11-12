@@ -54,4 +54,6 @@ IBUMAD_1.2 {
 IBUMAD_1.3 {
 	global:
 		umad_open_smi_port;
+		umad_get_cas_pairs;
+		umad_get_ca_pair_by_name;
 } IBUMAD_1.2;
