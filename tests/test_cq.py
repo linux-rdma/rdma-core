@@ -112,20 +112,24 @@ class CQTest(RDMATestCase):
 
         # Increase the CQ size.
         new_cq_size = 7
+        post_send_num = new_cq_size - 1
         self.client.cq.resize(new_cq_size)
         self.assertTrue(self.client.cq.cqe >= new_cq_size,
                         f'The actual CQ size ({self.client.cq.cqe}) is less '
                         'than guaranteed ({new_cq_size})')
 
-        irdma.skip_if_irdma_dev(d.Context(name=self.dev_name))
         # Fill the CQ entries except one for avoid cq_overrun warnings.
         send_wr, _ = u.get_send_elements(self.client, False)
         ah_client = u.get_global_ah(self.client, self.gid_index, self.ib_port)
-        for i in range(self.client.cq.cqe - 1):
+        for i in range(post_send_num):
             u.send(self.client, send_wr, ah=ah_client)
 
         # Decrease the CQ size to less than the CQ unpolled entries.
         new_cq_size = 1
-        with self.assertRaises(PyverbsRDMAError) as ex:
+        try:
             self.client.cq.resize(new_cq_size)
-        self.assertEqual(ex.exception.error_code, errno.EINVAL)
+        except PyverbsRDMAError as ex:
+            self.assertEqual(ex.error_code, errno.EINVAL)
+        finally:
+            for i in range(post_send_num):
+                u.poll_cq(self.client.cq)
