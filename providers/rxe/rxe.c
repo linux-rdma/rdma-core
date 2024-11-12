@@ -261,15 +261,17 @@ static int cq_next_poll(struct ibv_cq_ex *current)
 {
 	struct rxe_cq *cq = container_of(current, struct rxe_cq, vcq.cq_ex);
 
-	advance_cq_cur_index(cq);
+	struct rxe_queue_buf *q = cq->queue;
+	uint32_t next_index = (cq->cur_index + 1) & q->index_mask;
 
-	if (check_cq_queue_empty(cq)) {
+	if (next_index == load_producer_index(q)) {
 		store_consumer_index(cq->queue, cq->cur_index);
 		pthread_spin_unlock(&cq->lock);
 		errno = ENOENT;
 		return errno;
 	}
 
+	cq->cur_index = next_index;
 	cq->wc = addr_from_index(cq->queue, cq->cur_index);
 	cq->vcq.cq_ex.status = cq->wc->status;
 	cq->vcq.cq_ex.wr_id = cq->wc->wr_id;
