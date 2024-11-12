@@ -1513,7 +1513,7 @@ cdef class WqeCtrlSeg(WqeSeg):
         using mlx5dv_set_ctrl_seg, segment values are accessed
         through the getters/setters.
         """
-        self.segment = calloc(sizeof(dv.mlx5_wqe_ctrl_seg), 1)
+        self.segment = calloc(1, sizeof(dv.mlx5_wqe_ctrl_seg))
         self.set_ctrl_seg(pi, opcode, opmod, qp_num, fm_ce_se, ds, signature, imm)
 
     def __str__(self):
@@ -1584,7 +1584,7 @@ cdef class WqeDataSeg(WqeSeg):
         Create a dv.mlx5_wqe_data_seg by allocating it and using
         dv.mlx5dv_set_data_seg with the values received in init
         """
-        self.segment = calloc(sizeof(dv.mlx5_wqe_data_seg), 1)
+        self.segment = calloc(1, sizeof(dv.mlx5_wqe_data_seg))
         self.set_data_seg(length, lkey, addr)
 
     @staticmethod
@@ -1646,7 +1646,7 @@ cdef class Wqe(PyverbsCM):
             self.is_user_addr = False
             allocation_size = sum(map(lambda x: x.sizeof() if isinstance(x, WqeSeg) else len(x),
                                       self.segments))
-            self.addr = calloc(allocation_size, 1)
+            self.addr = calloc(1, allocation_size)
         addr = <uintptr_t>self.addr
         for seg in self.segments:
             if isinstance(seg, WqeSeg):
