@@ -1501,6 +1501,8 @@ static struct ibv_qp *create_qp(struct ibv_context *ibvctx,
 	if (efa_attr->flags & EFADV_QP_FLAGS_UNSOLICITED_WRITE_RECV)
 		req.flags |= EFA_CREATE_QP_WITH_UNSOLICITED_WRITE_RECV;
 
+	req.sl = efa_attr->sl;
+
 	err = ibv_cmd_create_qp_ex(ibvctx, &qp->verbs_qp,
 				   attr, &req.ibv_cmd, sizeof(req),
 				   &resp.ibv_resp, sizeof(resp));

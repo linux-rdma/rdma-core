@@ -45,7 +45,8 @@ struct efadv_qp_init_attr {
 	uint64_t comp_mask;
 	uint32_t driver_qp_type;
 	uint16_t flags;
-	uint8_t reserved[2];
+	uint8_t sl;
+	uint8_t reserved[1];
 };
 ```
 
@@ -66,6 +67,9 @@ struct efadv_qp_init_attr {
 
 	EFADV_QP_FLAGS_UNSOLICITED_WRITE_RECV:
 		Receive WRs will not be consumed for RDMA write with imm.
+
+*sl*
+:	Service Level - 0 value implies default level.
 
 # RETURN VALUE
 
