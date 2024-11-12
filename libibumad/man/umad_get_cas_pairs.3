@@ -1,0 +1,56 @@
+.\" -*- nroff -*-
+.\" Licensed under the OpenIB.org BSD license (FreeBSD Variant) - See COPYING.md
+.\"
+.TH UMAD_GET_CAS_PAIRS 3  "May 21, 2007" "OpenIB" "OpenIB Programmer's Manual"
+.SH "NAME"
+umad_get_cas_pairs \- get cas as SMI/GSI pairs
+.SH "SYNOPSIS"
+.nf
+.B #include <infiniband/umad.h>
+.sp
+.BI "int umad_get_cas_pairs(umad_ca_pair_t " "cas[]" ", size_t " "max" );
+.fi
+.SH "DESCRIPTION"
+.B umad_get_cas_pairs()
+fill a user allocated array of struct
+.I umad_ca_pair\fr
+it fills up to
+.I max
+devices
+The argument
+.I cas
+is an array of
+.I umad_ca_pair_t as specified in  <infiniband/umad.h>.
+.PP
+.nf
+typedef struct umad_ca_pair {
+.in +1
+umad_ca_pair_item_t smi;
+.in +0
+umad_ca_pair_item_t gsi;
+.in -2
+} umad_ca_pair;
+.nf
+.nf
+typedef struct umad_ca_pair_item {
+.in +1
+	char         name[UMAD_CA_NAME_LEN];
+.in +0
+	uint32_t     ports[UMAD_CA_MAX_PORTS];
+.in +0
+	uint32_t     numports;
+.in +0
+	uint32_t     preferred_port;
+.in -2
+} umad_ca_pair_item_t;
+.fi
+.PP
+
+.SH "RETURN VALUE"
+.B umad_get_cas_pairs()
+returns the number of devices filled,
+or -1 on error.
+
+.SH "AUTHORS"
+.TP
+Asaf Mazor <amazor@nvidia.com>

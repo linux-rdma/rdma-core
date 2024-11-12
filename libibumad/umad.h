@@ -169,6 +169,19 @@ typedef struct umad_ca {
 	umad_port_t *ports[UMAD_CA_MAX_PORTS];
 } umad_ca_t;
 
+typedef struct umad_ca_pair_item {
+	char         name[UMAD_CA_NAME_LEN];
+	uint32_t     ports[UMAD_CA_MAX_PORTS];
+	uint32_t     numports;
+	uint32_t     preferred_port;
+} umad_ca_pair_item_t;
+
+typedef struct umad_ca_pair {
+	umad_ca_pair_item_t smi;
+	umad_ca_pair_item_t gsi;
+} umad_ca_pair_t;
+
+
 struct umad_device_node {
 	struct umad_device_node *next; /* next umad device node  */
 	const char *ca_name; /* ca name */
@@ -237,6 +250,8 @@ int umad_register2(int port_fd, struct umad_reg_attr *attr,
 int umad_debug(int level);
 void umad_addr_dump(ib_mad_addr_t * addr);
 void umad_dump(void *umad);
+int umad_get_cas_pairs(umad_ca_pair_t cas[], size_t max);
+int umad_get_ca_pair_by_name(const char *devname, uint8_t portnum, umad_ca_pair_t *ca);
 
 static inline void *umad_alloc(int num, size_t size)
 {				/* alloc array of umad buffers */
