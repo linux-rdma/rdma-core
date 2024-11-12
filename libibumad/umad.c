@@ -1386,6 +1386,7 @@ static umad_ca_pair_t *get_ca_pair_from_arr_by_guid(__be64 port_guid,
 	umad_ca_pair_t *dev = NULL;
 	// attempt to find the port guid in the mapping
 	size_t i = 0;
+
 	for (i = 0; i < *map_added; ++i) {
 		if (mapping[i].port_guid == port_guid)
 			return mapping[i].ca_pair;
@@ -1408,6 +1409,7 @@ static uint8_t get_port_guid_count(__be64 guid, const struct port_guid_port_coun
 							size_t max_guids)
 {
 	size_t i = 0;
+
 	for (i = 0; i < max_guids; ++i) {
 		if (counts[i].port_guid == guid)
 			return counts[i].count;
@@ -1421,6 +1423,7 @@ static bool find_port_guid_count(struct port_guid_port_count counts[], size_t ma
 						  __be64 port_guid, size_t *index)
 {
 	size_t i = 0;
+
 	for (i = 0; i < max; ++i) {
 		if (counts[i].port_guid == 0) {
 			*index = i;
@@ -1445,6 +1448,7 @@ static int count_ports_by_guid(char legacy_ca_names[][UMAD_CA_NAME_LEN], size_t 
 	memset(counts, 0, max * sizeof(struct port_guid_port_count));
 
 	size_t c_idx = 0;
+
 	for (c_idx = 0; c_idx < num_cas; ++c_idx) {
 		umad_ca_t curr_ca;
 
@@ -1452,6 +1456,7 @@ static int count_ports_by_guid(char legacy_ca_names[][UMAD_CA_NAME_LEN], size_t 
 			continue;
 
 		size_t p_idx = 1;
+
 		for (p_idx = 1; p_idx < (size_t)curr_ca.numports + 1; ++p_idx) {
 			umad_port_t *p_port = curr_ca.ports[p_idx];
 			size_t count_idx = 0;
@@ -1495,6 +1500,7 @@ int umad_get_cas_pairs(umad_ca_pair_t cas[], size_t max)
 	count_ports_by_guid(legacy_ca_names, cas_found, counts, UMAD_MAX_PORTS);
 
 	size_t c_idx = 0;
+
 	for (c_idx = 0; c_idx < (size_t)cas_found; ++c_idx) {
 		umad_ca_t curr_ca;
 
@@ -1502,6 +1508,7 @@ int umad_get_cas_pairs(umad_ca_pair_t cas[], size_t max)
 			continue;
 
 		size_t p_idx = 1;
+
 		for (p_idx = 1; p_idx < (size_t)curr_ca.numports + 1; ++p_idx) {
 			umad_port_t *p_port = curr_ca.ports[p_idx];
 			uint8_t guid_count = 0;
