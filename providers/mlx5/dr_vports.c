@@ -241,7 +241,8 @@ void dr_vports_table_del_wire(struct dr_devx_vports *vports)
 		goto out_unlock;
 	}
 
-	vport = h->buckets[idx];
+	prev = h->buckets[idx];
+	vport = prev->next;
 	while (vport) {
 		if (vport == wire) {
 			prev->next = vport->next;
