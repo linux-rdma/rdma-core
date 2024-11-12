@@ -1556,7 +1556,7 @@ static int umad_check_active(umad_ca_pair_item_t *dev, int prefered)
 	return !(state > 1);
 }
 
-static int umad_find_active(umad_ca_pair_item_t *dev) 
+static int umad_find_active(umad_ca_pair_item_t *dev)
 {
 	int i;
 
@@ -1617,10 +1617,10 @@ int umad_get_ca_pair_by_name(const char *name, uint8_t portnum, umad_ca_pair_t *
 			found_port = false;
 
 			for (port_idx = 0; port_idx < dev->numports; ++port_idx) {
-				
+
 				if (!dev->ports[port_idx])
 					break;
-				
+
 				if (dev->ports[port_idx] == portnum)
 					found_port = true;
 			}
