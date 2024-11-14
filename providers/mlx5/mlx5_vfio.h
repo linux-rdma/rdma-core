@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: GPL-2.0-only
+// SPDX-License-Identifier: GPL-2.0 or Linux-OpenIB
 /*
  * Copyright (c) 2021, NVIDIA CORPORATION & AFFILIATES. All rights reserved
  */
