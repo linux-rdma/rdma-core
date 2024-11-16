@@ -100,6 +100,7 @@ static int run(void)
 		goto out_dereg_send;
 	}
 
+
 	ret = rdma_connect(id, NULL);
 	if (ret) {
 		perror("rdma_connect");
