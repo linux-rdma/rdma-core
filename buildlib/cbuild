@@ -220,10 +220,10 @@ class centos9(Environment):
                          (" ".join(sorted(self.pkgs))))
         return res
 
-class fc39(Environment):
-    docker_parent = "fedora:39";
+class fc41(Environment):
+    docker_parent = "fedora:41";
     pkgs = centos8.pkgs | {"util-linux"}
-    name = "fc39";
+    name = "fc41";
     specfile = "redhat/rdma-core.spec";
     ninja_cmd = "ninja-build";
     is_rpm = True;
@@ -626,7 +626,7 @@ environments = [centos7(),
                 jammy(),
                 jessie(),
                 stretch(),
-                fc39(),
+                fc41(),
                 leap(),
                 tumbleweed(),
                 debian_experimental(),
