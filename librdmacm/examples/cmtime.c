@@ -990,7 +990,7 @@ int main(int argc, char **argv)
 		exit(EXIT_FAILURE);
 	}
 
-	nodes = calloc(sizeof *nodes, iter);
+	nodes = calloc(iter, sizeof *nodes);
 	if (!nodes) {
 		perror("calloc");
 		exit(EXIT_FAILURE);
