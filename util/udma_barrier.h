@@ -93,7 +93,7 @@
 #elif defined(__sparc_v9__)
 #define udma_to_device_barrier() asm volatile("membar #StoreStore" ::: "memory")
 #elif defined(__aarch64__)
-#define udma_to_device_barrier() asm volatile("dsb st" ::: "memory");
+#define udma_to_device_barrier() asm volatile("dmb oshst" ::: "memory")
 #elif defined(__sparc__) || defined(__s390x__)
 #define udma_to_device_barrier() asm volatile("" ::: "memory")
 #elif defined(__loongarch__)
@@ -131,7 +131,7 @@
 #elif defined(__sparc_v9__)
 #define udma_from_device_barrier() asm volatile("membar #LoadLoad" ::: "memory")
 #elif defined(__aarch64__)
-#define udma_from_device_barrier() asm volatile("dsb ld" ::: "memory");
+#define udma_from_device_barrier() asm volatile("dmb oshld" ::: "memory")
 #elif defined(__sparc__) || defined(__s390x__)
 #define udma_from_device_barrier() asm volatile("" ::: "memory")
 #elif defined(__loongarch__)
