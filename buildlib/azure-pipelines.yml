@@ -195,7 +195,7 @@ stages:
         steps:
           - checkout: none
 
-          - task: DownloadPipelineArtifact@0
+          - task: DownloadPipelineArtifact@2
             inputs:
               artifactName: source_tar
               targetPath: .
@@ -229,7 +229,7 @@ stages:
         steps:
           - checkout: none
 
-          - task: DownloadPipelineArtifact@0
+          - task: DownloadPipelineArtifact@2
             inputs:
               artifactName: source_tar
               targetPath: .
