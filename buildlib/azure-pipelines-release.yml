@@ -28,6 +28,10 @@ stages:
 
           - bash: |
               set -e
+              git_tag=$(git describe --exact-match HEAD)
+              rel_ver=$(echo $git_tag | sed -e 's/^v//')
+              echo "Version is $rel_ver"
+              echo "##vso[task.setvariable variable=rel_ver]$rel_ver"
               mkdir build-pandoc artifacts
               cd build-pandoc
               CC=gcc-12 cmake -GNinja ..
@@ -37,12 +41,13 @@ stages:
               python3 buildlib/cbuild make-dist-tar build-pandoc
             displayName: Prebuild Documentation
 
-          - task: GithubRelease@0
+          - task: GithubRelease@1
             displayName: 'Create GitHub Release'
             inputs:
               githubConnection: github_release
               repositoryName: linux-rdma/rdma-core
               assets: ./*.tar.gz
               action: create
+              title: rdma-core-$(rel_ver)
               isDraft: true
               addChangeLog: true
