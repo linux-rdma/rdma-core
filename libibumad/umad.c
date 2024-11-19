@@ -1484,7 +1484,7 @@ static int count_ports_by_guid(char legacy_ca_names[][UMAD_CA_NAME_LEN], size_t 
 	return num_of_guid;
 }
 
-int umad_get_cas_pairs(umad_ca_pair_t cas[], size_t max)
+int umad_get_smi_gsi_pairs(umad_ca_pair_t cas[], size_t max)
 {
 	size_t added_devices = 0, added_mappings = 0;
 	char legacy_ca_names[UMAD_MAX_DEVICES][UMAD_CA_NAME_LEN] = {};
@@ -1579,7 +1579,7 @@ static int umad_find_active(umad_ca_pair_item_t *dev)
 	return 1;
 }
 
-int umad_get_ca_pair_by_name(const char *name, uint8_t portnum, umad_ca_pair_t *ca)
+int umad_get_smi_gsi_pair_by_ca_name(const char *name, uint8_t portnum, umad_ca_pair_t *ca)
 {
 	int rc			= 1;
 	size_t i		= 0;
@@ -1597,7 +1597,7 @@ int umad_get_ca_pair_by_name(const char *name, uint8_t portnum, umad_ca_pair_t *
 	memset(cas_pair, 0, sizeof(cas_pair));
 	memset(ca, 0, sizeof(*ca));
 
-	num_cas = umad_get_cas_pairs(cas_pair, UMAD_MAX_PORTS);
+	num_cas = umad_get_smi_gsi_pairs(cas_pair, UMAD_MAX_PORTS);
 
 	if (num_cas <= 0)
 		return num_cas;

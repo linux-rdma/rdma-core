@@ -250,8 +250,8 @@ int umad_register2(int port_fd, struct umad_reg_attr *attr,
 int umad_debug(int level);
 void umad_addr_dump(ib_mad_addr_t * addr);
 void umad_dump(void *umad);
-int umad_get_cas_pairs(umad_ca_pair_t cas[], size_t max);
-int umad_get_ca_pair_by_name(const char *devname, uint8_t portnum, umad_ca_pair_t *ca);
+int umad_get_smi_gsi_pairs(umad_ca_pair_t cas[], size_t max);
+int umad_get_smi_gsi_pair_by_ca_name(const char *devname, uint8_t portnum, umad_ca_pair_t *ca);
 
 static inline void *umad_alloc(int num, size_t size)
 {				/* alloc array of umad buffers */
