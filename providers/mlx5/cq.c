@@ -1823,6 +1823,16 @@ void __mlx5_cq_clean(struct mlx5_cq *cq, uint32_t rsn, struct mlx5_srq *srq)
 		return;
 
 	/*
+	 * For CQ created in single threaded mode serving multiple
+	 * QPs, if the user destroys a QP between ibv_start_poll()
+	 * and ibv_end_poll(), then cq->cur_rsc should be invalidated
+	 * since it may point to the QP that is being destroyed, which
+	 * may cause UAF error in the next ibv_next_poll() call.
+	 */
+	if (unlikely(cq->cur_rsc && rsn == cq->cur_rsc->rsn))
+		cq->cur_rsc = NULL;
+
+	/*
 	 * First we need to find the current producer index, so we
 	 * know where to start cleaning from.  It doesn't matter if HW
 	 * adds new entries after this loop -- the QP we're worried
