@@ -87,7 +87,7 @@ struct port_guid_port_count {
 
 struct guid_ca_pairs_mapping {
 	__be64 port_guid;
-	umad_ca_pair_t *ca_pair;
+	struct umad_ca_pair *ca_pair;
 };
 
 #define IBWARN(fmt, args...) fprintf(stderr, "ibwarn: [%d] %s: " fmt "\n", getpid(), __func__, ## args)
@@ -1366,24 +1366,13 @@ void umad_free_ca_device_list(struct umad_device_node *head)
 	}
 }
 
-static void add_new_port(umad_ca_pair_item_t *dev, umad_port_t *p_port)
-{
-	if (!dev->name[0]) {
-		memcpy(dev->name, p_port->ca_name, UMAD_CA_NAME_LEN);
-		dev->numports = 0;
-	}
-
-	if (dev->numports < UMAD_CA_MAX_PORTS)
-		dev->ports[dev->numports++] = p_port->portnum;
-}
-
-static umad_ca_pair_t *get_ca_pair_from_arr_by_guid(__be64 port_guid,
+static struct umad_ca_pair *get_ca_pair_from_arr_by_guid(__be64 port_guid,
 					struct guid_ca_pairs_mapping mapping[],
 					size_t map_max, size_t *map_added,
-					umad_ca_pair_t devs[],
+					struct umad_ca_pair devs[],
 					size_t devs_max, size_t *devs_added)
 {
-	umad_ca_pair_t *dev = NULL;
+	struct umad_ca_pair *dev = NULL;
 	// attempt to find the port guid in the mapping
 	size_t i = 0;
 
@@ -1484,14 +1473,14 @@ static int count_ports_by_guid(char legacy_ca_names[][UMAD_CA_NAME_LEN], size_t 
 	return num_of_guid;
 }
 
-int umad_get_smi_gsi_pairs(umad_ca_pair_t cas[], size_t max)
+int umad_get_smi_gsi_pairs(struct umad_ca_pair cas[], size_t max)
 {
 	size_t added_devices = 0, added_mappings = 0;
 	char legacy_ca_names[UMAD_MAX_DEVICES][UMAD_CA_NAME_LEN] = {};
 	struct port_guid_port_count counts[UMAD_MAX_PORTS] = {};
 	struct guid_ca_pairs_mapping mapping[UMAD_MAX_PORTS] = {};
 
-	memset(cas, 0, sizeof(umad_ca_pair_t) * max);
+	memset(cas, 0, sizeof(struct umad_ca_pair) * max);
 	int cas_found = umad_get_cas_names(legacy_ca_names, UMAD_MAX_DEVICES);
 
 	if (cas_found < 0)
@@ -1518,7 +1507,7 @@ int umad_get_smi_gsi_pairs(umad_ca_pair_t cas[], size_t max)
 
 			guid_count = get_port_guid_count(curr_ca.ports[p_idx]->port_guid,
 								counts, UMAD_MAX_PORTS);
-			umad_ca_pair_t *dev = get_ca_pair_from_arr_by_guid(p_port->port_guid,
+			struct umad_ca_pair *dev = get_ca_pair_from_arr_by_guid(p_port->port_guid,
 								mapping, UMAD_MAX_PORTS,
 								&added_mappings, cas,
 								max, &added_devices);
@@ -1526,15 +1515,16 @@ int umad_get_smi_gsi_pairs(umad_ca_pair_t cas[], size_t max)
 					continue;
 			if (guid_count > 1) {
 				// planarized port
-				add_new_port(is_smi_disabled(p_port) ?
-						&dev->gsi : &dev->smi, p_port);
+				char *dev_name = is_smi_disabled(p_port) ? dev->gsi_name : dev->smi_name;
+				strncpy(dev_name, curr_ca.ca_name, UMAD_CA_NAME_LEN);
+				break;
 			} else if (guid_count == 1) {
 				if (!is_smi_disabled(p_port))
-					add_new_port(&dev->smi, p_port);
-
-				// all ports are GSI ports in legacy HCAs
-				add_new_port(&dev->gsi, p_port);
+					strncpy(dev->smi_name, curr_ca.ca_name, UMAD_CA_NAME_LEN);
+				strncpy(dev->gsi_name, curr_ca.ca_name, UMAD_CA_NAME_LEN);
+				break;
 			} else {
+				umad_release_ca(&curr_ca);
 				return -1;
 			}
 		}
@@ -1545,57 +1535,72 @@ int umad_get_smi_gsi_pairs(umad_ca_pair_t cas[], size_t max)
 	return added_devices;
 }
 
-static int umad_check_active(umad_ca_pair_item_t *dev, int prefered)
+static int umad_check_active(const umad_ca_t *ca, int prefered_portnum)
 {
-	umad_ca_t ca;
-
-	if (!dev)
+	if (!ca)
 		return 1;
 
-	// check if candidate is active
-	if (umad_get_ca(dev->name, &ca) < 0)
-		return 2;
+	if (!ca->ports[prefered_portnum])
+		return 1;
 
-	int state = ca.ports[prefered]->state;
-
-	umad_release_ca(&ca);
+	int state = ca->ports[prefered_portnum]->state;
 
 	return !(state > 1);
 }
 
-static int umad_find_active(umad_ca_pair_item_t *dev)
+static int umad_find_active(struct umad_ca_pair *ca_pair, const umad_ca_t *ca, bool is_gsi)
 {
-	int i;
+	size_t i = 1;
+	uint32_t *portnum_to_set = is_gsi ?
+							   &ca_pair->gsi_preferred_port :
+							   &ca_pair->smi_preferred_port;
 
-	if (!dev)
+	if (!ca_pair)
 		return 1;
 
-	for (i = 0; i < dev->numports; ++i)
-		if (!umad_check_active(dev, dev->ports[i])) {
-			dev->preferred_port = dev->ports[i];
+	for (i = 1; i < (size_t)ca->numports + 1; ++i) {
+		if (!umad_check_active(ca, i)) {
+			*portnum_to_set = ca->ports[i]->portnum;
 			return 0;
 		}
+	}
 
 	return 1;
 }
 
-int umad_get_smi_gsi_pair_by_ca_name(const char *name, uint8_t portnum, umad_ca_pair_t *ca)
+static int find_preferred_ports(struct umad_ca_pair *ca_pair, const umad_ca_t *ca, bool is_gsi, int portnum)
+{
+	if (portnum) {
+		uint32_t *port_to_set = is_gsi ?
+								&ca_pair->gsi_preferred_port :
+								&ca_pair->smi_preferred_port;
+		if (!umad_check_active(ca, portnum)) {
+			*port_to_set = portnum;
+			return umad_find_active(ca_pair, ca, !is_gsi);
+		}
+		return 1;
+	}
+
+	return umad_find_active(ca_pair, ca, false)
+			  + umad_find_active(ca_pair, ca, true);
+
+}
+
+int umad_get_smi_gsi_pair_by_ca_name(const char *name, uint8_t portnum, struct umad_ca_pair *ca_pair)
 {
 	int rc			= 1;
 	size_t i		= 0;
 	int num_cas		= 0;
-	size_t port_idx = 0;
 	bool is_gsi		= false;
-	bool found_port = false;
 
-	umad_ca_pair_item_t *dev                     = NULL;
-	umad_ca_pair_t       cas_pair[UMAD_MAX_PORTS] = {};
+	umad_ca_t ca;
+	struct umad_ca_pair cas_pair[UMAD_MAX_PORTS] = {};
 
-	if (!ca)
+	if (!ca_pair)
 		return -1;
 
 	memset(cas_pair, 0, sizeof(cas_pair));
-	memset(ca, 0, sizeof(*ca));
+	memset(ca_pair, 0, sizeof(*ca_pair));
 
 	num_cas = umad_get_smi_gsi_pairs(cas_pair, UMAD_MAX_PORTS);
 
@@ -1603,54 +1608,34 @@ int umad_get_smi_gsi_pair_by_ca_name(const char *name, uint8_t portnum, umad_ca_
 		return num_cas;
 
 	for (i = 0; i < (size_t)num_cas; ++i) {
-		if (!cas_pair[i].gsi.name[0] || !cas_pair[i].smi.name[0] ||
-				!cas_pair[i].gsi.numports || !cas_pair[i].smi.numports)
+		if (!cas_pair[i].gsi_name[0] || !cas_pair[i].smi_name[0])
 			continue;
 
 		if (name)
 			// name doesn't match - keep searching
-			if (strncmp(cas_pair[i].gsi.name, name, UMAD_CA_NAME_LEN)
-				&& strncmp(cas_pair[i].smi.name, name, UMAD_CA_NAME_LEN)) {
+			if (strncmp(cas_pair[i].gsi_name, name, UMAD_CA_NAME_LEN)
+				&& strncmp(cas_pair[i].smi_name, name, UMAD_CA_NAME_LEN)) {
 				continue;
 			}
 
 		// check that the device given by "name" has a port number "portnum"
 		// (if name doesn't exist, assume SMI port is given)
-		is_gsi = (name && !strncmp(name, cas_pair[i].gsi.name, UMAD_CA_NAME_LEN));
+		is_gsi = (name && !strncmp(name, cas_pair[i].gsi_name, UMAD_CA_NAME_LEN));
 
 		if (portnum) {
-			dev = is_gsi ? &cas_pair[i].gsi : &cas_pair[i].smi;
-
-			found_port = false;
-
-			for (port_idx = 0; port_idx < dev->numports; ++port_idx) {
-
-				if (!dev->ports[port_idx])
-					break;
-
-				if (dev->ports[port_idx] == portnum)
-					found_port = true;
-			}
-
-			// couldn't find portnum - keep searching
-			if (!found_port)
+			if (umad_get_ca(is_gsi ? cas_pair[i].gsi_name : cas_pair[i].smi_name, &ca) < 0)
 				continue;
+
+			if (!ca.ports[portnum]) {
+				umad_release_ca(&ca);
+				continue;
+			}
 		}
 
 		// fill candidate
-		*ca = cas_pair[i];
-
-		if (portnum)
-			if (is_gsi)
-				rc = umad_find_active(&ca->smi)
-						+ umad_check_active(&ca->gsi, portnum);
-			else
-				rc = umad_check_active(&ca->smi, portnum)
-						+ umad_find_active(&ca->gsi);
-		else {
-			rc = umad_find_active(&ca->smi)
-					+ umad_find_active(&ca->gsi);
-		}
+		*ca_pair = cas_pair[i];
+		rc = find_preferred_ports(ca_pair, &ca, is_gsi, portnum);
+		umad_release_ca(&ca);
 
 		if (!rc)
 			break;
