@@ -1,14 +1,14 @@
 .\" -*- nroff -*-
 .\" Licensed under the OpenIB.org BSD license (FreeBSD Variant) - See COPYING.md
 .\"
-.TH UMAD_GET_SMI_GSI_PAIRS 3  "May 21, 2007" "OpenIB" "OpenIB Programmer's Manual"
+.TH UMAD_GET_SMI_GSI_PAIRS 3  "Dec 1, 2024" "OpenIB" "OpenIB Programmer's Manual"
 .SH "NAME"
 umad_get_smi_gsi_pairs \- get cas as SMI/GSI pairs
 .SH "SYNOPSIS"
 .nf
 .B #include <infiniband/umad.h>
 .sp
-.BI "int umad_get_smi_gsi_pairs(umad_ca_pair_t " "cas[]" ", size_t " "max" );
+.BI "int umad_get_smi_gsi_pairs(struct umad_ca_pair " "cas[]" ", size_t " "max" );
 .fi
 .SH "DESCRIPTION"
 .B umad_get_smi_gsi_pairs()
@@ -20,31 +20,25 @@ devices
 The argument
 .I cas
 is an array of
-.I umad_ca_pair_t as specified in  <infiniband/umad.h>.
+.I struct umad_ca_pair as specified in  <infiniband/umad.h>.
 .PP
 .nf
-typedef struct umad_ca_pair {
+struct umad_ca_pair {
 .in +1
-umad_ca_pair_item_t smi;
+char smi_name[UMAD_CA_NAME_LEN];
 .in +0
-umad_ca_pair_item_t gsi;
+uint32_t smi_preferred_port;
+.in +0
+char gsi_name[UMAD_CA_NAME_LEN];
+.in +0
+uint32_t gsi_preferred_port;
 .in -2
 } umad_ca_pair;
 .nf
-.nf
-typedef struct umad_ca_pair_item {
-.in +1
-	char         name[UMAD_CA_NAME_LEN];
-.in +0
-	uint32_t     ports[UMAD_CA_MAX_PORTS];
-.in +0
-	uint32_t     numports;
-.in +0
-	uint32_t     preferred_port;
-.in -2
-} umad_ca_pair_item_t;
 .fi
 .PP
+
+smi_preferred_port/gsi_preferred_port are the first ports found active for SMI/GSI device
 
 .SH "RETURN VALUE"
 .B umad_get_smi_gsi_pairs()
