@@ -69,7 +69,7 @@ setters are optional. *num_setters* can be zero to apply *attr* only. Each
 setter can be called only once per the WR builder.
 
 The WR configures *mkey* and applies *attr* of the builder function and setter
-functions' arguments for it. If *mkey* is already configured the WR overrides
+functions' arguments for it. If *mkey* is already configured, the WR overrides
 some *mkey* properties depends on builder and setter functions' arguments (see
 details in setters' description). To clear configuration of *mkey*, use
 **ibv_post_send**() with **IBV_WR_LOCAL_INV** opcode or **ibv_wr_local_inv**().
@@ -95,7 +95,7 @@ delivered with the **IBV_WC_DRIVER1** opcode.
 **mlx5dv_wr_mkey_configure()**
 
 :	Post a work request to configure an existing MKEY. With this
-	call alone it is possible to configure the MKEY and keep or
+	call alone, it is possible to configure the MKEY and keep or
 	reset signature attributes. This call may be followed by zero or
 	more optional setters.
 
@@ -167,7 +167,7 @@ struct mlx5dv_mkey_conf_attr {
 
 Data layout setters define how data referenced by the MKEY will be
 scattered/gathered in the memory. In order to use MKEY with RDMA
-operations it must be configured with a layout.
+operations, it must be configured with a layout.
 
 Not more than one data layout setter may follow builder
 function. Layout can be updated in the next calls to builder
@@ -183,7 +183,7 @@ an offset in the total data.
 	configured and the data layout was defined by some data layout setter
 	(not necessary this one), the setter overrides the previous value.
 
-	Default WQE size can fit only 4 SGE entries. To allow more the QP
+	Default WQE size can fit only 4 SGE entries. To allow more, the QP
 	should be created with a larger WQE size that may fit it. This
 	should be done using the **max_inline_data** attribute of **struct
 	ibv_qp_cap** upon QP creation.
@@ -208,7 +208,7 @@ an offset in the total data.
 	configured and the data layout was defined by some data layout setter
 	(not necessary this one), the setter overrides the previous value.
 
-	Default WQE size can fit only 3 interleaved entries. To allow more
+	Default WQE size can fit only 3 interleaved entries. To allow more,
 	the QP should be created with a larger WQE size that may fit
 	it. This should be done using the **max_inline_data** attribute of
 	**struct ibv_qp_cap** upon QP creation.
