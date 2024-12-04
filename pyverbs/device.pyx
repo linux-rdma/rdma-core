@@ -1169,7 +1169,7 @@ def phys_state_to_str(phys):
 
 
 def width_to_str(width):
-    l = {1: '1X', 2: '4X', 4: '8X', 16: '2X'}
+    l = {1: '1X', 2: '4X', 4: '8X', 8: '12X', 16: '2X'}
     try:
         return '{s} ({n})'.format(s=l[width], n=width)
     except KeyError:
