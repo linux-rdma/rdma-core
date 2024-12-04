@@ -115,7 +115,7 @@ Debugging flags
 
 .. include:: common/opt_e.rst
 .. include:: common/opt_h.rst
-.. include:: common/opt_v.rst
+.. include:: common/opt_verbose.rst
 .. include:: common/opt_V.rst
 
 EXIT STATUS
