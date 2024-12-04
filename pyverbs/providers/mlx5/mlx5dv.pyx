@@ -313,7 +313,8 @@ cdef class Mlx5Context(Context):
                 dve.MLX5DV_CONTEXT_MASK_DCI_STREAMS |\
                 dve.MLX5DV_CONTEXT_MASK_WR_MEMCPY_LENGTH |\
                 dve.MLX5DV_CONTEXT_MASK_CRYPTO_OFFLOAD |\
-                dve.MLX5DV_CONTEXT_MASK_MAX_DC_RD_ATOM
+                dve.MLX5DV_CONTEXT_MASK_MAX_DC_RD_ATOM |\
+                dve.MLX5DV_CONTEXT_MASK_OOO_RECV_WRS
         else:
             dv_attr.comp_mask = comp_mask
         rc = dv.mlx5dv_query_device(self.context, &dv_attr.dv)
@@ -445,6 +446,18 @@ cdef class Mlx5Context(Context):
             raise PyverbsRDMAError('Failed to query EQN', rc)
         return eqn
 
+    def get_data_direct_sysfs_path(self, length=512):
+        cdef char *buffer = <char *> calloc(1, length)
+        if buffer == NULL:
+            raise MemoryError('Failed to allocate memory')
+        rc = dv.mlx5dv_get_data_direct_sysfs_path(self.context, buffer, length)
+        if rc:
+            free(buffer)
+            raise PyverbsRDMAError('Get data direct sysfs path failed.', rc)
+        buffer_str = str(buffer.decode())
+        free(buffer)
+        return buffer_str
+
     cdef add_ref(self, obj):
         try:
             Context.add_ref(self, obj)
@@ -542,6 +555,10 @@ cdef class Mlx5DVContext(PyverbsObject):
     @property
     def max_dc_init_rd_atom(self):
         return self.dv.max_dc_init_rd_atom
+
+    @property
+    def ooo_recv_wrs_caps(self):
+        return self.dv.ooo_recv_wrs_caps
 
     def __str__(self):
         print_format = '{:20}: {:<20}\n'

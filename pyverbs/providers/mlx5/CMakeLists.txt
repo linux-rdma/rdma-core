@@ -12,6 +12,7 @@ rdma_cython_module(pyverbs/providers/mlx5 mlx5
   mlx5_vfio.pyx
   mlx5dv.pyx
   mlx5dv_crypto.pyx
+  mlx5dv_dmabuf.pyx
   mlx5dv_flow.pyx
   mlx5dv_mkey.pyx
   mlx5dv_objects.pyx

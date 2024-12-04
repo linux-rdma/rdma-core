@@ -49,6 +49,7 @@ cdef extern from 'infiniband/mlx5dv.h':
         MLX5DV_CONTEXT_MASK_WR_MEMCPY_LENGTH    = 1 << 12
         MLX5DV_CONTEXT_MASK_CRYPTO_OFFLOAD      = 1 << 13
         MLX5DV_CONTEXT_MASK_MAX_DC_RD_ATOM      = 1 << 14
+        MLX5DV_CONTEXT_MASK_OOO_RECV_WRS        = 1 << 16
 
     cpdef enum mlx5dv_context_flags:
         MLX5DV_CONTEXT_FLAGS_CQE_V1                     = 1 << 0
@@ -101,6 +102,7 @@ cdef extern from 'infiniband/mlx5dv.h':
         MLX5DV_QP_CREATE_ALLOW_SCATTER_TO_CQE       = 1 << 4
         MLX5DV_QP_CREATE_PACKET_BASED_CREDIT_MODE   = 1 << 5
         MLX5DV_QP_CREATE_SIG_PIPELINING             = 1 << 6
+        MLX5DV_QP_CREATE_OOO_DP                     = 1 << 7
 
     cpdef enum mlx5dv_dc_type:
         MLX5DV_DCTYPE_DCT   = 1
@@ -320,3 +322,5 @@ cdef extern from 'infiniband/mlx5_api.h':
     cdef int MLX5DV_FLOW_ACTION_PACKET_REFORMAT_TYPE_L2_TO_L2_TUNNEL
     cdef int MLX5DV_FLOW_ACTION_PACKET_REFORMAT_TYPE_L3_TUNNEL_TO_L2
     cdef int MLX5DV_FLOW_ACTION_PACKET_REFORMAT_TYPE_L2_TO_L3_TUNNEL
+
+    cdef int MLX5DV_REG_DMABUF_ACCESS_DATA_DIRECT
