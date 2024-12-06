@@ -549,7 +549,7 @@ static uint8_t bnxt_re_poll_err_scqe(struct bnxt_re_qp *qp,
 	uint8_t status;
 	uint32_t head;
 
-	scq = to_bnxt_re_cq(qp->ibvqp.send_cq);
+	scq = to_bnxt_re_cq(qp->ibvqp->send_cq);
 
 	head = qp->jsqq->last_idx;
 	swrid = &qp->jsqq->swque[head];
@@ -651,7 +651,7 @@ static int bnxt_re_poll_err_rcqe(struct bnxt_re_qp *qp, struct ibv_wc *ibvwc,
 	struct bnxt_re_cq *rcq;
 	uint32_t head = 0;
 
-	rcq = to_bnxt_re_cq(qp->ibvqp.recv_cq);
+	rcq = to_bnxt_re_cq(qp->ibvqp->recv_cq);
 
 	if (!qp->srq) {
 		rq = qp->jrqq->hwque;
@@ -801,8 +801,8 @@ static void bnxt_re_qp_move_flush_err(struct bnxt_re_qp *qp)
 {
 	struct bnxt_re_cq *scq, *rcq;
 
-	scq = to_bnxt_re_cq(qp->ibvqp.send_cq);
-	rcq = to_bnxt_re_cq(qp->ibvqp.recv_cq);
+	scq = to_bnxt_re_cq(qp->ibvqp->send_cq);
+	rcq = to_bnxt_re_cq(qp->ibvqp->recv_cq);
 
 	if (qp->qpst != IBV_QPS_ERR)
 		qp->qpst = IBV_QPS_ERR;
@@ -1127,7 +1127,7 @@ int bnxt_re_arm_cq(struct ibv_cq *ibvcq, int flags)
 }
 
 static int bnxt_re_check_qp_limits(struct bnxt_re_context *cntx,
-				   struct ibv_qp_init_attr *attr)
+				   struct ibv_qp_init_attr_ex *attr)
 {
 	struct ibv_device_attr *devattr;
 	struct bnxt_re_dev *rdev;
@@ -1226,7 +1226,7 @@ static int bnxt_re_get_sq_slots(struct bnxt_re_dev *rdev,
 }
 
 static int bnxt_re_get_sqmem_size(struct bnxt_re_context *cntx,
-				  struct ibv_qp_init_attr *attr,
+				  struct ibv_qp_init_attr_ex *attr,
 				  struct bnxt_re_qattr *qattr)
 {
 	uint32_t nsge, nswr, diff = 0;
@@ -1267,7 +1267,7 @@ static int bnxt_re_get_sqmem_size(struct bnxt_re_context *cntx,
 }
 
 static int bnxt_re_get_rqmem_size(struct bnxt_re_context *cntx,
-				  struct ibv_qp_init_attr *attr,
+				  struct ibv_qp_init_attr_ex *attr,
 				  struct bnxt_re_qattr *qattr)
 {
 	uint32_t nrwr, nsge;
@@ -1294,7 +1294,7 @@ static int bnxt_re_get_rqmem_size(struct bnxt_re_context *cntx,
 }
 
 static int bnxt_re_get_qpmem_size(struct bnxt_re_context *cntx,
-				  struct ibv_qp_init_attr *attr,
+				  struct ibv_qp_init_attr_ex *attr,
 				  struct bnxt_re_qattr *qattr)
 {
 	int size = 0;
@@ -1327,7 +1327,7 @@ static int bnxt_re_get_qpmem_size(struct bnxt_re_context *cntx,
 }
 
 static void *bnxt_re_alloc_qpslab(struct bnxt_re_context *cntx,
-				  struct ibv_qp_init_attr *attr,
+				  struct ibv_qp_init_attr_ex *attr,
 				  struct bnxt_re_qattr *qattr)
 {
 	int bytes;
@@ -1339,7 +1339,7 @@ static void *bnxt_re_alloc_qpslab(struct bnxt_re_context *cntx,
 }
 
 static int bnxt_re_alloc_queue_ptr(struct bnxt_re_qp *qp,
-				   struct ibv_qp_init_attr *attr)
+				   struct ibv_qp_init_attr_ex *attr)
 {
 	int rc = -ENOMEM;
 	int jqsz, qsz;
@@ -1387,7 +1387,7 @@ static int bnxt_re_alloc_init_swque(struct bnxt_re_joint_queue *jqq,
 }
 
 static int bnxt_re_alloc_queues(struct bnxt_re_qp *qp,
-				struct ibv_qp_init_attr *attr,
+				struct ibv_qp_init_attr_ex *attr,
 				struct bnxt_re_qattr *qattr)
 {
 	struct bnxt_re_queue *que;
@@ -1490,10 +1490,10 @@ void bnxt_re_async_event(struct ibv_context *context,
 	}
 }
 
-struct ibv_qp *bnxt_re_create_qp(struct ibv_pd *ibvpd,
-				 struct ibv_qp_init_attr *attr)
+static struct ibv_qp *__bnxt_re_create_qp(struct ibv_context *ibvctx,
+					  struct ibv_qp_init_attr_ex *attr)
 {
-	struct bnxt_re_context *cntx = to_bnxt_re_context(ibvpd->context);
+	struct bnxt_re_context *cntx = to_bnxt_re_context(ibvctx);
 	struct bnxt_re_dev *dev = to_bnxt_re_dev(cntx->ibvctx.context.device);
 	struct ubnxt_re_qp_resp resp = {};
 	struct bnxt_re_qattr qattr[2];
@@ -1512,6 +1512,7 @@ struct ibv_qp *bnxt_re_create_qp(struct ibv_pd *ibvpd,
 	qp = bnxt_re_get_obj(mem, sizeof(*qp));
 	if (!qp)
 		goto fail;
+	qp->ibvqp = &qp->vqp.qp;
 	qp->mem = mem;
 
 	qp->cctx = &cntx->cctx;
@@ -1532,8 +1533,8 @@ struct ibv_qp *bnxt_re_create_qp(struct ibv_pd *ibvpd,
 	if (qp->qpmode == BNXT_RE_WQE_MODE_VARIABLE)
 		req.sq_slots = qattr[BNXT_RE_QATTR_SQ_INDX].slots;
 
-	if (ibv_cmd_create_qp(ibvpd, &qp->ibvqp, attr, &req.ibv_cmd, sizeof(req),
-			      &resp.ibv_resp, sizeof(resp)))
+	if (ibv_cmd_create_qp_ex(ibvctx, &qp->vqp, attr,
+				&req.ibv_cmd, sizeof(req), &resp.ibv_resp, sizeof(resp)))
 		goto fail;
 
 	qp->qpid = resp.qpid;
@@ -1560,10 +1561,26 @@ struct ibv_qp *bnxt_re_create_qp(struct ibv_pd *ibvpd,
 		qp->pbuf = bnxt_re_get_pbuf(&qp->push_st_en, cntx);
 	}
 
-	return &qp->ibvqp;
+	return qp->ibvqp;
 fail:
 	bnxt_re_free_mem(mem);
 	return NULL;
+}
+
+struct ibv_qp *bnxt_re_create_qp(struct ibv_pd *ibvpd,
+				 struct ibv_qp_init_attr *attr)
+{
+	struct ibv_qp_init_attr_ex attr_ex;
+	struct ibv_qp *qp;
+
+	memset(&attr_ex, 0, sizeof(attr_ex));
+	memcpy(&attr_ex, attr, sizeof(attr_ex));
+	attr_ex.comp_mask = IBV_QP_INIT_ATTR_PD;
+	attr_ex.pd = ibvpd;
+	qp = __bnxt_re_create_qp(ibvpd->context, &attr_ex);
+	if (qp)
+		memcpy(attr, &attr_ex, sizeof(*attr));
+	return qp;
 }
 
 int bnxt_re_modify_qp(struct ibv_qp *ibvqp, struct ibv_qp_attr *attr,
@@ -1955,7 +1972,7 @@ static void bnxt_re_force_rts2rts(struct bnxt_re_qp *qp)
 
 	attr_mask = IBV_QP_STATE;
 	attr.qp_state = IBV_QPS_RTS;
-	bnxt_re_modify_qp(&qp->ibvqp, &attr, attr_mask);
+	bnxt_re_modify_qp(qp->ibvqp, &attr, attr_mask);
 	qp->wqe_cnt = 0;
 }
 

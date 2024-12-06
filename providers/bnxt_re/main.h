@@ -187,7 +187,8 @@ struct bnxt_re_joint_queue {
 };
 
 struct bnxt_re_qp {
-	struct ibv_qp ibvqp;
+	struct verbs_qp vqp;
+	struct ibv_qp *ibvqp;
 	struct bnxt_re_chip_ctx *cctx;
 	struct bnxt_re_context *cntx;
 	struct xorshift32_state rand;
@@ -325,7 +326,9 @@ static inline struct bnxt_re_cq *to_bnxt_re_cq(struct ibv_cq *ibvcq)
 
 static inline struct bnxt_re_qp *to_bnxt_re_qp(struct ibv_qp *ibvqp)
 {
-	return container_of(ibvqp, struct bnxt_re_qp, ibvqp);
+	struct verbs_qp *vqp = (struct verbs_qp *)ibvqp;
+
+	return container_of(vqp, struct bnxt_re_qp, vqp);
 }
 
 static inline struct bnxt_re_srq *to_bnxt_re_srq(struct ibv_srq *ibvsrq)
