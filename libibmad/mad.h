@@ -49,6 +49,7 @@
 extern "C" {
 #endif
 
+#define MAD_CA_NAME_LEN 20
 #define IB_MAD_RPC_VERSION_MASK	0x0f00
 #define IB_MAD_RPC_VERSION1	(1<<8)
 
@@ -1408,6 +1409,16 @@ typedef struct ib_bm_call {
 	uint64_t bkey;
 } ib_bm_call_t;
 
+typedef struct ibmad_ports_item {
+	struct ibmad_port *port;
+	char ca_name[MAD_CA_NAME_LEN];
+} ibmad_ports_item_t;
+
+struct ibmad_ports_pair {
+	ibmad_ports_item_t smi;
+	ibmad_ports_item_t gsi;
+};
+
 #define IB_MIN_UCAST_LID	1
 #define IB_MAX_UCAST_LID	(0xc000-1)
 #define IB_MIN_MCAST_LID	0xc000
@@ -1483,7 +1494,10 @@ int madrpc_set_retries(int retries);
 int madrpc_set_timeout(int timeout);
 struct ibmad_port *mad_rpc_open_port(char *dev_name, int dev_port,
 				     int *mgmt_classes, int num_classes);
+struct ibmad_ports_pair *mad_rpc_open_port2(char *dev_name, int dev_port,
+				     int *mgmt_classes, int num_classes);
 void mad_rpc_close_port(struct ibmad_port *srcport);
+void mad_rpc_close_port2(struct  ibmad_ports_pair *srcport);
 
 /*
  * On redirection, the dport argument is updated with the redirection target,
