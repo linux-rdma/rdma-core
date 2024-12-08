@@ -47,7 +47,9 @@
 
 #include "ibdiag_common.h"
 
-static struct ibmad_port *srcport;
+static struct ibmad_ports_pair *srcport;
+static struct ibmad_port *smi_port;
+static struct ibmad_port *gsi_port;
 
 static op_fn_t node_desc, node_info, port_info, switch_info, pkey_table,
     sl2vl_table, vlarb_table, guid_info, mlnx_ext_port_info, port_info_extended;
@@ -80,13 +82,13 @@ static const char *node_desc(ib_portid_t *dest, char **argv, int argc)
 	char dots[128];
 	char *nodename = NULL;
 
-	if (!smp_query_via(data, dest, IB_ATTR_NODE_INFO, 0, 0, srcport))
+	if (!smp_query_via(data, dest, IB_ATTR_NODE_INFO, 0, 0, smi_port))
 		return "node info query failed";
 
 	mad_decode_field(data, IB_NODE_TYPE_F, &node_type);
 	mad_decode_field(data, IB_NODE_GUID_F, &node_guid);
 
-	if (!smp_query_via(nd, dest, IB_ATTR_NODE_DESC, 0, 0, srcport))
+	if (!smp_query_via(nd, dest, IB_ATTR_NODE_DESC, 0, 0, smi_port))
 		return "node desc query failed";
 
 	nodename = remap_node_name(node_name_map, node_guid, nd);
@@ -110,7 +112,7 @@ static const char *node_info(ib_portid_t * dest, char **argv, int argc)
 	char buf[2048];
 	char data[IB_SMP_DATA_SIZE] = { 0 };
 
-	if (!smp_query_via(data, dest, IB_ATTR_NODE_INFO, 0, 0, srcport))
+	if (!smp_query_via(data, dest, IB_ATTR_NODE_INFO, 0, 0, smi_port))
 		return "node info query failed";
 
 	mad_dump_nodeinfo(buf, sizeof buf, data, sizeof data);
@@ -128,11 +130,11 @@ static const char *port_info_extended(ib_portid_t *dest, char **argv, int argc)
 	if (argc > 0)
 		portnum = strtol(argv[0], NULL, 0);
 
-	if (!is_port_info_extended_supported(dest, portnum, srcport))
+	if (!is_port_info_extended_supported(dest, portnum, smi_port))
 		return "port info extended not supported";
 
 	if (!smp_query_via(data, dest, IB_ATTR_PORT_INFO_EXT, portnum, 0,
-			   srcport))
+			   smi_port))
 		return "port info extended query failed";
 
 	mad_dump_portinfo_ext(buf, sizeof buf, data, sizeof data);
@@ -152,7 +154,7 @@ static const char *port_info(ib_portid_t *dest, char **argv, int argc)
 	if (extended_speeds)
 		portnum |= (1U) << 31;
 
-	if (!smp_query_via(data, dest, IB_ATTR_PORT_INFO, portnum, 0, srcport))
+	if (!smp_query_via(data, dest, IB_ATTR_PORT_INFO, portnum, 0, smi_port))
 		return "port info query failed";
 
 	printf("# Port info: %s port %d\n", portid2str(dest), orig_portnum);
@@ -169,7 +171,7 @@ static const char *mlnx_ext_port_info(ib_portid_t *dest, char **argv, int argc)
 	if (argc > 0)
 		portnum = strtol(argv[0], NULL, 0);
 
-	if (!smp_query_via(data, dest, IB_ATTR_MLNX_EXT_PORT_INFO, portnum, 0, srcport))
+	if (!smp_query_via(data, dest, IB_ATTR_MLNX_EXT_PORT_INFO, portnum, 0, smi_port))
 		return "Mellanox ext port info query failed";
 
 	mad_dump_mlnx_ext_port_info(buf, sizeof buf, data, sizeof data);
@@ -183,7 +185,7 @@ static const char *switch_info(ib_portid_t *dest, char **argv, int argc)
 	char buf[2048];
 	char data[IB_SMP_DATA_SIZE] = { 0 };
 
-	if (!smp_query_via(data, dest, IB_ATTR_SWITCH_INFO, 0, 0, srcport))
+	if (!smp_query_via(data, dest, IB_ATTR_SWITCH_INFO, 0, 0, smi_port))
 		return "switch info query failed";
 
 	mad_dump_switchinfo(buf, sizeof buf, data, sizeof data);
@@ -205,7 +207,7 @@ static const char *pkey_table(ib_portid_t *dest, char **argv, int argc)
 		portnum = strtol(argv[0], NULL, 0);
 
 	/* Get the partition capacity */
-	if (!smp_query_via(data, dest, IB_ATTR_NODE_INFO, 0, 0, srcport))
+	if (!smp_query_via(data, dest, IB_ATTR_NODE_INFO, 0, 0, smi_port))
 		return "node info query failed";
 
 	mad_decode_field(data, IB_NODE_TYPE_F, &t);
@@ -215,7 +217,7 @@ static const char *pkey_table(ib_portid_t *dest, char **argv, int argc)
 
 	if ((t == IB_NODE_SWITCH) && (portnum != 0)) {
 		if (!smp_query_via(data, dest, IB_ATTR_SWITCH_INFO, 0, 0,
-				   srcport))
+				   smi_port))
 			return "switch info failed";
 		mad_decode_field(data, IB_SW_PARTITION_ENFORCE_CAP_F, &n);
 	} else
@@ -224,7 +226,7 @@ static const char *pkey_table(ib_portid_t *dest, char **argv, int argc)
 	for (i = 0; i < (n + 31) / 32; i++) {
 		mod = i | (portnum << 16);
 		if (!smp_query_via(data, dest, IB_ATTR_PKEY_TBL, mod, 0,
-				   srcport))
+				   smi_port))
 			return "pkey table query failed";
 		if (i + 1 == (n + 31) / 32)
 			k = ((n + 7 - i * 32) / 8) * 8;
@@ -250,7 +252,7 @@ static const char *sl2vl_dump_table_entry(ib_portid_t *dest, int in, int out)
 	char data[IB_SMP_DATA_SIZE] = { 0 };
 	int portnum = (in << 8) | out;
 
-	if (!smp_query_via(data, dest, IB_ATTR_SLVL_TABLE, portnum, 0, srcport))
+	if (!smp_query_via(data, dest, IB_ATTR_SLVL_TABLE, portnum, 0, smi_port))
 		return "slvl query failed";
 
 	mad_dump_sltovl(buf, sizeof buf, data, sizeof data);
@@ -269,7 +271,7 @@ static const char *sl2vl_table(ib_portid_t *dest, char **argv, int argc)
 	if (argc > 0)
 		portnum = strtol(argv[0], NULL, 0);
 
-	if (!smp_query_via(data, dest, IB_ATTR_NODE_INFO, 0, 0, srcport))
+	if (!smp_query_via(data, dest, IB_ATTR_NODE_INFO, 0, 0, smi_port))
 		return "node info query failed";
 
 	mad_decode_field(data, IB_NODE_TYPE_F, &type);
@@ -301,7 +303,7 @@ static const char *vlarb_dump_table_entry(ib_portid_t *dest, int portnum,
 	char data[IB_SMP_DATA_SIZE] = { 0 };
 
 	if (!smp_query_via(data, dest, IB_ATTR_VL_ARBITRATION,
-			   (offset << 16) | portnum, 0, srcport))
+			   (offset << 16) | portnum, 0, smi_port))
 		return "vl arb query failed";
 	mad_dump_vlarbitration(buf, sizeof(buf), data, cap * 2);
 	printf("%s", buf);
@@ -335,14 +337,14 @@ static const char *vlarb_table(ib_portid_t *dest, char **argv, int argc)
 	/* port number of 0 could mean SP0 or port MAD arrives on */
 	if (portnum == 0) {
 		if (!smp_query_via(data, dest, IB_ATTR_NODE_INFO, 0, 0,
-				   srcport))
+				   smi_port))
 			return "node info query failed";
 
 		mad_decode_field(data, IB_NODE_TYPE_F, &type);
 		if (type == IB_NODE_SWITCH) {
 			memset(data, 0, sizeof(data));
 			if (!smp_query_via(data, dest, IB_ATTR_SWITCH_INFO, 0,
-					   0, srcport))
+					   0, smi_port))
 				return "switch info query failed";
 			mad_decode_field(data, IB_SW_ENHANCED_PORT0_F, &enhsp0);
 			if (!enhsp0) {
@@ -355,7 +357,7 @@ static const char *vlarb_table(ib_portid_t *dest, char **argv, int argc)
 		}
 	}
 
-	if (!smp_query_via(data, dest, IB_ATTR_PORT_INFO, portnum, 0, srcport))
+	if (!smp_query_via(data, dest, IB_ATTR_PORT_INFO, portnum, 0, smi_port))
 		return "port info query failed";
 
 	mad_decode_field(data, IB_PORT_VL_ARBITRATION_LOW_CAP_F, &lowcap);
@@ -382,14 +384,14 @@ static const char *guid_info(ib_portid_t *dest, char **argv, int argc)
 	int n;
 
 	/* Get the guid capacity */
-	if (!smp_query_via(data, dest, IB_ATTR_PORT_INFO, 0, 0, srcport))
+	if (!smp_query_via(data, dest, IB_ATTR_PORT_INFO, 0, 0, smi_port))
 		return "port info failed";
 	mad_decode_field(data, IB_PORT_GUID_CAP_F, &n);
 
 	for (i = 0; i < (n + 7) / 8; i++) {
 		mod = i;
 		if (!smp_query_via(data, dest, IB_ATTR_GUID_INFO, mod, 0,
-				   srcport))
+				   smi_port))
 			return "guid info query failed";
 		if (i + 1 == (n + 7) / 8)
 			k = ((n + 1 - i * 8) / 2) * 2;
@@ -475,17 +477,20 @@ int main(int argc, char **argv)
 	if (!(fn = match_op(match_tbl, argv[0])))
 		IBEXIT("operation '%s' not supported", argv[0]);
 
-	srcport = mad_rpc_open_port(ibd_ca, ibd_ca_port, mgmt_classes, 3);
+	srcport = mad_rpc_open_port2(ibd_ca, ibd_ca_port, mgmt_classes, 3);
 	if (!srcport)
 		IBEXIT("Failed to open '%s' port '%d'", ibd_ca, ibd_ca_port);
 
-	smp_mkey_set(srcport, ibd_mkey);
+	smi_port = srcport->smi.port;
+	gsi_port = srcport->gsi.port;
+
+	smp_mkey_set(smi_port, ibd_mkey);
 
 	node_name_map = open_node_name_map(node_name_map_file);
 
 	if (ibd_dest_type != IB_DEST_DRSLID) {
-		if (resolve_portid_str(ibd_ca, ibd_ca_port, &portid, argv[1],
-				       ibd_dest_type, ibd_sm_id, srcport) < 0)
+		if (resolve_portid_str(srcport->gsi.ca_name, ibd_ca_port, &portid, argv[1],
+				       ibd_dest_type, ibd_sm_id, gsi_port) < 0)
 			IBEXIT("can't resolve destination port %s", argv[1]);
 		if ((err = fn(&portid, argv + 2, argc - 2)))
 			IBEXIT("operation %s: %s", argv[0], err);
@@ -494,13 +499,13 @@ int main(int argc, char **argv)
 
 		memset(concat, 0, 64);
 		snprintf(concat, sizeof(concat), "%s %s", argv[1], argv[2]);
-		if (resolve_portid_str(ibd_ca, ibd_ca_port, &portid, concat,
-				       ibd_dest_type, ibd_sm_id, srcport) < 0)
+		if (resolve_portid_str(srcport->smi.ca_name, ibd_ca_port, &portid, concat,
+				       ibd_dest_type, ibd_sm_id, smi_port) < 0)
 			IBEXIT("can't resolve destination port %s", concat);
 		if ((err = fn(&portid, argv + 3, argc - 3)))
 			IBEXIT("operation %s: %s", argv[0], err);
 	}
 	close_node_name_map(node_name_map);
-	mad_rpc_close_port(srcport);
+	mad_rpc_close_port2(srcport);
 	exit(0);
 }
