@@ -9,7 +9,7 @@ publish_internal_headers(util
 
 rdma_library(ibmad libibmad.map
   # See Documentation/versioning.md
-  5 5.4.${PACKAGE_VERSION}
+  5 5.5.${PACKAGE_VERSION}
   bm.c
   cc.c
   dump.c
