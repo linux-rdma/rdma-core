@@ -344,5 +344,7 @@ void hns_roce_v2_clear_qp(struct hns_roce_context *ctx, struct hns_roce_qp *qp);
 void hns_roce_attach_cq_ex_ops(struct ibv_cq_ex *cq_ex, uint64_t wc_flags);
 int hns_roce_attach_qp_ex_ops(struct ibv_qp_init_attr_ex *attr,
 			      struct hns_roce_qp *qp);
+void hns_roce_lock_cqs(struct ibv_qp *qp);
+void hns_roce_unlock_cqs(struct ibv_qp *qp);
 
 #endif /* _HNS_ROCE_U_HW_V2_H */
