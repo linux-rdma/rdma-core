@@ -932,6 +932,7 @@ enum ibv_qp_type {
 	IBV_QPT_RAW_PACKET = 8,
 	IBV_QPT_XRC_SEND = 9,
 	IBV_QPT_XRC_RECV,
+	IBV_QPT_RU,
 	IBV_QPT_DRIVER = 0xff,
 };
 
@@ -961,6 +962,7 @@ enum ibv_qp_init_attr_mask {
 	IBV_QP_INIT_ATTR_IND_TABLE	= 1 << 4,
 	IBV_QP_INIT_ATTR_RX_HASH	= 1 << 5,
 	IBV_QP_INIT_ATTR_SEND_OPS_FLAGS = 1 << 6,
+	IBV_QP_INIT_ATTR_QP_ATTR	= 1 << 7,
 };
 
 enum ibv_qp_create_flags {
@@ -1015,6 +1017,9 @@ struct ibv_qp_init_attr_ex {
 	uint32_t		source_qpn;
 	/* See enum ibv_qp_create_send_ops_flags */
 	uint64_t send_ops_flags;
+
+	struct ibv_qp_attr	*qp_attr;
+	int			qp_attr_mask;
 };
 
 enum ibv_qp_open_attr_mask {
