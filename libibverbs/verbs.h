@@ -562,6 +562,8 @@ enum ibv_create_cq_wc_flags {
 	IBV_WC_EX_WITH_FLOW_TAG		= 1 << 9,
 	IBV_WC_EX_WITH_TM_INFO		= 1 << 10,
 	IBV_WC_EX_WITH_COMPLETION_TIMESTAMP_WALLCLOCK	= 1 << 11,
+	IBV_WC_EX_WITH_IMM64		= 1 << 12,
+	IBV_WC_EX_WITH_SRC_ID		= 1 << 13, /* implies job id */
 };
 
 enum {
@@ -1659,6 +1661,9 @@ struct ibv_cq_ex {
 	void (*read_tm_info)(struct ibv_cq_ex *current,
 			     struct ibv_wc_tm_info *tm_info);
 	uint64_t (*read_completion_wallclock_ns)(struct ibv_cq_ex *current);
+	__be64 (*read_imm64_data)(struct ibv_cq_ex *current);
+	uint64_t (*read_job_id)(struct ibv_cq_ex *current);
+	uint32_t (*read_src_id)(struct ibv_cq_ex *current);
 };
 
 static inline struct ibv_cq *ibv_cq_ex_to_cq(struct ibv_cq_ex *cq)
@@ -1717,6 +1722,11 @@ static inline __be32 ibv_wc_read_imm_data(struct ibv_cq_ex *cq)
 	return cq->read_imm_data(cq);
 }
 
+static inline __be64 ibv_wc_read_imm64_data(struct ibv_cq_ex *cq)
+{
+	return cq->read_imm64_data(cq);
+}
+
 static inline uint32_t ibv_wc_read_invalidated_rkey(struct ibv_cq_ex *cq)
 {
 #ifdef __CHECKER__
@@ -1734,6 +1744,16 @@ static inline uint32_t ibv_wc_read_qp_num(struct ibv_cq_ex *cq)
 static inline uint32_t ibv_wc_read_src_qp(struct ibv_cq_ex *cq)
 {
 	return cq->read_src_qp(cq);
+}
+
+static inline uint64_t ibv_wc_read_job_id(struct ibv_cq_ex *cq)
+{
+	return cq->read_job_id(cq);
+}
+
+static inline uint32_t ibv_wc_read_src_id(struct ibv_cq_ex *cq)
+{
+	return cq->read_src_id(cq);
 }
 
 static inline unsigned int ibv_wc_read_wc_flags(struct ibv_cq_ex *cq)
