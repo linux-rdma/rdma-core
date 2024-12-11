@@ -1490,6 +1490,77 @@ void bnxt_re_async_event(struct ibv_context *context,
 	}
 }
 
+static void *bnxt_re_pull_psn_buff(struct bnxt_re_queue *que, bool hw_retx)
+{
+	if (hw_retx)
+		return (void *)(que->pad + ((que->msn) << que->pad_stride_log2));
+	return (void *)(que->pad + ((*que->dbtail) << que->pad_stride_log2));
+}
+
+static void bnxt_re_fill_psns_for_msntbl(struct bnxt_re_qp *qp, uint32_t len,
+					 uint32_t st_idx, uint8_t opcode)
+{
+	uint32_t npsn = 0, start_psn = 0, next_psn = 0;
+	struct bnxt_re_msns *msns;
+	uint32_t pkt_cnt = 0;
+
+	msns = bnxt_re_pull_psn_buff(qp->jsqq->hwque, true);
+	msns->start_idx_next_psn_start_psn = 0;
+
+	if (qp->qptyp == IBV_QPT_RC) {
+		start_psn = qp->sq_psn;
+		pkt_cnt = (len / qp->mtu);
+		if (len % qp->mtu)
+			pkt_cnt++;
+		/* Increment the psn even for 0 len packets
+		 * e.g. for opcode rdma-write-with-imm-data
+		 * with length field = 0
+		 */
+		if (len == 0)
+			pkt_cnt = 1;
+		/* make it 24 bit */
+		next_psn = qp->sq_psn + pkt_cnt;
+		npsn = next_psn;
+		qp->sq_psn = next_psn;
+		msns->start_idx_next_psn_start_psn |=
+			bnxt_re_update_msn_tbl(st_idx, npsn, start_psn);
+		qp->jsqq->hwque->msn++;
+		qp->jsqq->hwque->msn %= qp->jsqq->hwque->msn_tbl_sz;
+	}
+}
+
+static void bnxt_re_fill_psns(struct bnxt_re_qp *qp, uint32_t len,
+			      uint32_t st_idx, uint8_t opcode)
+{
+	uint32_t opc_spsn = 0, flg_npsn = 0;
+	struct bnxt_re_psns_ext *psns_ext;
+	uint32_t pkt_cnt = 0, nxt_psn = 0;
+	struct bnxt_re_psns *psns;
+
+	psns = bnxt_re_pull_psn_buff(qp->jsqq->hwque, false);
+	psns_ext = (struct bnxt_re_psns_ext *)psns;
+
+	if (qp->qptyp == IBV_QPT_RC) {
+		opc_spsn = qp->sq_psn & BNXT_RE_PSNS_SPSN_MASK;
+		pkt_cnt = (len / qp->mtu);
+		if (len % qp->mtu)
+			pkt_cnt++;
+		if (len == 0)
+			pkt_cnt = 1;
+		nxt_psn = ((qp->sq_psn + pkt_cnt) & BNXT_RE_PSNS_NPSN_MASK);
+		flg_npsn = nxt_psn;
+		qp->sq_psn = nxt_psn;
+	}
+	opc_spsn |= (((uint32_t)opcode & BNXT_RE_PSNS_OPCD_MASK) <<
+		      BNXT_RE_PSNS_OPCD_SHIFT);
+	memset(psns, 0, sizeof(*psns));
+	psns->opc_spsn = htole32(opc_spsn);
+	psns->flg_npsn = htole32(flg_npsn);
+	if (qp->cctx->gen_p5_p7)
+		psns_ext->st_slot_idx = st_idx;
+}
+
+
 static struct ibv_qp *__bnxt_re_create_qp(struct ibv_context *ibvctx,
 					  struct ibv_qp_init_attr_ex *attr)
 {
@@ -1816,76 +1887,6 @@ static int bnxt_re_build_tx_sge(struct bnxt_re_queue *que, uint32_t *idx,
 	return bnxt_re_put_tx_sge(que, idx, wr->sg_list, wr->num_sge);
 }
 
-static void *bnxt_re_pull_psn_buff(struct bnxt_re_queue *que, bool hw_retx)
-{
-	if (hw_retx)
-		return (void *)(que->pad + ((que->msn) << que->pad_stride_log2));
-	return (void *)(que->pad + ((*que->dbtail) << que->pad_stride_log2));
-}
-
-static void bnxt_re_fill_psns_for_msntbl(struct bnxt_re_qp *qp, uint32_t len, uint32_t st_idx)
-{
-	uint32_t npsn = 0, start_psn = 0, next_psn = 0;
-	struct bnxt_re_msns *msns;
-	uint32_t pkt_cnt = 0;
-
-	msns = bnxt_re_pull_psn_buff(qp->jsqq->hwque, true);
-	msns->start_idx_next_psn_start_psn = 0;
-
-	if (qp->qptyp == IBV_QPT_RC) {
-		start_psn = qp->sq_psn;
-		pkt_cnt = (len / qp->mtu);
-		if (len % qp->mtu)
-			pkt_cnt++;
-		/* Increment the psn even for 0 len packets
-		 * e.g. for opcode rdma-write-with-imm-data
-		 * with length field = 0
-		 */
-		if (len == 0)
-			pkt_cnt = 1;
-		/* make it 24 bit */
-		next_psn = qp->sq_psn + pkt_cnt;
-		npsn = next_psn;
-		qp->sq_psn = next_psn;
-		msns->start_idx_next_psn_start_psn |=
-			bnxt_re_update_msn_tbl(st_idx, npsn, start_psn);
-		qp->jsqq->hwque->msn++;
-		qp->jsqq->hwque->msn %= qp->jsqq->hwque->msn_tbl_sz;
-	}
-}
-
-static void bnxt_re_fill_psns(struct bnxt_re_qp *qp, struct bnxt_re_wrid *wrid,
-			      uint32_t len)
-{
-	uint32_t opc_spsn = 0, flg_npsn = 0;
-	struct bnxt_re_psns_ext *psns_ext;
-	uint32_t pkt_cnt = 0, nxt_psn = 0;
-	uint8_t opcode = wrid->wc_opcd;
-	struct bnxt_re_psns *psns;
-
-	psns = bnxt_re_pull_psn_buff(qp->jsqq->hwque, false);
-	psns_ext = (struct bnxt_re_psns_ext *)psns;
-
-	if (qp->qptyp == IBV_QPT_RC) {
-		opc_spsn = qp->sq_psn & BNXT_RE_PSNS_SPSN_MASK;
-		pkt_cnt = (len / qp->mtu);
-		if (len % qp->mtu)
-			pkt_cnt++;
-		if (len == 0)
-			pkt_cnt = 1;
-		nxt_psn = ((qp->sq_psn + pkt_cnt) & BNXT_RE_PSNS_NPSN_MASK);
-		flg_npsn = nxt_psn;
-		qp->sq_psn = nxt_psn;
-	}
-	opc_spsn |= (((uint32_t)opcode & BNXT_RE_PSNS_OPCD_MASK) <<
-		      BNXT_RE_PSNS_OPCD_SHIFT);
-	memset(psns, 0, sizeof(*psns));
-	psns->opc_spsn = htole32(opc_spsn);
-	psns->flg_npsn = htole32(flg_npsn);
-	if (qp->cctx->gen_p5_p7)
-		psns_ext->st_slot_idx = wrid->st_slot_idx;
-}
-
 static void bnxt_re_fill_wrid(struct bnxt_re_wrid *wrid, uint64_t wr_id,
 			      uint32_t len, uint8_t sqsig, uint32_t st_idx,
 			      uint8_t slots)
@@ -2076,9 +2077,9 @@ int bnxt_re_post_send(struct ibv_qp *ibvqp, struct ibv_send_wr *wr,
 				  sig, sq->tail, slots);
 		wrid->wc_opcd = bnxt_re_ibv_wr_to_wc_opcd(wr->opcode);
 		if (BNXT_RE_MSN_TBL_EN(qp->cntx))
-			bnxt_re_fill_psns_for_msntbl(qp, bytes, *sq->dbtail);
+			bnxt_re_fill_psns_for_msntbl(qp, bytes, *sq->dbtail, wr->opcode);
 		else
-			bnxt_re_fill_psns(qp, wrid, bytes);
+			bnxt_re_fill_psns(qp, bytes, *sq->dbtail, wr->opcode);
 		bnxt_re_jqq_mod_start(qp->jsqq, swq_idx);
 		bnxt_re_incr_tail(sq, slots);
 		ring_db = true;
