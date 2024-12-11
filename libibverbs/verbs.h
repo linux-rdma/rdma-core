@@ -1160,7 +1160,8 @@ enum ibv_send_flags {
 	IBV_SEND_SIGNALED	= 1 << 1,
 	IBV_SEND_SOLICITED	= 1 << 2,
 	IBV_SEND_INLINE		= 1 << 3,
-	IBV_SEND_IP_CSUM	= 1 << 4
+	IBV_SEND_IP_CSUM	= 1 << 4,
+	IBV_SEND_DELIVERY_COMPLETE = 1 << 5,
 };
 
 enum ibv_placement_type {
@@ -1390,6 +1391,19 @@ struct ibv_qp_ex {
 	void (*wr_flush)(struct ibv_qp_ex *qp, uint32_t rkey,
 			 uint64_t remote_addr, size_t len, uint8_t type,
 			 uint8_t level);
+
+	void (*wr_send_imm64)(struct ibv_qp_ex *qp, __be64 imm_data);
+	void (*wr_rdma_read64)(struct ibv_qp_ex *qp, uint64_t rkey,
+			       uint64_t remote_addr);
+	void (*wr_rdma_write64)(struct ibv_qp_ex *qp, uint64_t rkey,
+				uint64_t remote_addr);
+	void (*wr_rdma_write64_imm)(struct ibv_qp_ex *qp, uint64_t rkey,
+				    uint64_t remote_addr, __be64 imm_data);
+	void (*wr_set_ru_addr)(struct ibv_qp_ex *qp, struct ibv_ah *ah,
+			       uint32_t remote_qpn, uint32_t jkey);
+	void (*wr_set_job_addr)(struct ibv_qp_ex *qp, unsigned int addr_idx,
+				uint32_t jkey);
+	void (*wr_set_wq_num)(struct ibv_qp_ex *qp, uint32_t wq_num);
 };
 
 struct ibv_qp_ex *ibv_qp_to_qp_ex(struct ibv_qp *qp);
@@ -1426,10 +1440,22 @@ static inline void ibv_wr_rdma_read(struct ibv_qp_ex *qp, uint32_t rkey,
 	qp->wr_rdma_read(qp, rkey, remote_addr);
 }
 
+static inline void ibv_wr_rdma_read64(struct ibv_qp_ex *qp, uint64_t rkey,
+				      uint64_t remote_addr)
+{
+	qp->wr_rdma_read64(qp, rkey, remote_addr);
+}
+
 static inline void ibv_wr_rdma_write(struct ibv_qp_ex *qp, uint32_t rkey,
 				     uint64_t remote_addr)
 {
 	qp->wr_rdma_write(qp, rkey, remote_addr);
+}
+
+static inline void ibv_wr_rdma_write64(struct ibv_qp_ex *qp, uint64_t rkey,
+				       uint64_t remote_addr)
+{
+	qp->wr_rdma_write64(qp, rkey, remote_addr);
 }
 
 static inline void ibv_wr_flush(struct ibv_qp_ex *qp, uint32_t rkey,
@@ -1445,6 +1471,12 @@ static inline void ibv_wr_rdma_write_imm(struct ibv_qp_ex *qp, uint32_t rkey,
 	qp->wr_rdma_write_imm(qp, rkey, remote_addr, imm_data);
 }
 
+static inline void ibv_wr_rdma_write64_imm(struct ibv_qp_ex *qp, uint64_t rkey,
+					   uint64_t remote_addr, __be64 imm_data)
+{
+	qp->wr_rdma_write64_imm(qp, rkey, remote_addr, imm_data);
+}
+
 static inline void ibv_wr_send(struct ibv_qp_ex *qp)
 {
 	qp->wr_send(qp);
@@ -1453,6 +1485,11 @@ static inline void ibv_wr_send(struct ibv_qp_ex *qp)
 static inline void ibv_wr_send_imm(struct ibv_qp_ex *qp, __be32 imm_data)
 {
 	qp->wr_send_imm(qp, imm_data);
+}
+
+static inline void ibv_wr_send_imm64(struct ibv_qp_ex *qp, __be64 imm_data)
+{
+	qp->wr_send_imm64(qp, imm_data);
 }
 
 static inline void ibv_wr_send_inv(struct ibv_qp_ex *qp,
@@ -1471,6 +1508,25 @@ static inline void ibv_wr_set_ud_addr(struct ibv_qp_ex *qp, struct ibv_ah *ah,
 				      uint32_t remote_qpn, uint32_t remote_qkey)
 {
 	qp->wr_set_ud_addr(qp, ah, remote_qpn, remote_qkey);
+}
+
+static inline void ibv_wr_set_ru_addr(struct ibv_qp_ex *qp, struct ibv_ah *ah,
+				      uint32_t remote_qpn, uint32_t jkey)
+{
+	qp->wr_set_ru_addr(qp, ah, remote_qpn, jkey);
+}
+
+static inline void ibv_wr_set_job_addr(struct ibv_qp_ex *qp,
+				       unsigned int addr_idx,
+				       uint32_t jkey)
+{
+	qp->wr_set_job_addr(qp, addr_idx, jkey);
+}
+
+static inline void ibv_wr_set_wq_num(struct ibv_qp_ex *qp,
+				     uint32_t wq_num)
+{
+	qp->wr_set_wq_num(qp, wq_num);
 }
 
 static inline void ibv_wr_set_xrc_srqn(struct ibv_qp_ex *qp,
