@@ -18,7 +18,7 @@ rdma_rst_common(
   opt_C.rst
   opt_diffcheck.rst
   opt_diff.rst
-  opt_d.rst
+  opt_debug.rst
   opt_D.rst
   opt_D_with_param.rst
   opt_e.rst
@@ -34,7 +34,7 @@ rdma_rst_common(
   opt_P.rst
   opt_s.rst
   opt_t.rst
-  opt_v.rst
+  opt_verbose.rst
   opt_V.rst
   opt_y.rst
   opt_z-config.in.rst
