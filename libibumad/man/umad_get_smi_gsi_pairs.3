@@ -1,0 +1,50 @@
+.. -*- rst -*-
+.. Licensed under the OpenIB.org BSD license (FreeBSD Variant) - See COPYING.md
+
+umad_get_smi_gsi_pairs(3)
+=========================
+
+Get CAs as SMI/GSI pairs.
+
+Synopsis
+--------
+
+.. code-block:: c
+
+    #include <infiniband/umad.h>
+
+    int umad_get_smi_gsi_pairs(struct umad_ca_pair cas[], size_t max);
+
+Description
+-----------
+
+``umad_get_smi_gsi_pairs()`` fills a user-allocated array of ``struct umad_ca_pair``.
+It fills up to ``max`` devices.
+
+The argument ``cas`` is an array of ``struct umad_ca_pair`` as specified in ``<infiniband/umad.h>``:
+
+.. code-block:: c
+
+    struct umad_ca_pair {
+        char smi_name[UMAD_CA_NAME_LEN];
+        /* Name of the SMI */
+        uint32_t smi_preferred_port;
+        /* Preferred port for the SMI */
+        char gsi_name[UMAD_CA_NAME_LEN];
+        /* Name of the GSI */
+        uint32_t gsi_preferred_port;
+        /* Preferred port for the GSI */
+    };
+
+The ``smi_preferred_port`` and ``gsi_preferred_port`` fields represent the first ports found active
+for the corresponding SMI/GSI device.
+
+Return Value
+------------
+
+``umad_get_smi_gsi_pairs()`` returns the number of devices filled, or **-1** on error.
+
+Authors
+-------
+
+- Asaf Mazor <amazor@nvidia.com>
