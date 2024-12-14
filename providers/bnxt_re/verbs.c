@@ -1432,7 +1432,7 @@ static inline int bnxt_re_calc_inline_len(struct ibv_send_wr *swr)
 	illen = 0;
 	for (indx = 0; indx < swr->num_sge; indx++)
 		illen += swr->sg_list[indx].length;
-	return align(illen, sizeof(struct bnxt_re_sge));
+	return illen;
 }
 
 static int bnxt_re_put_inline(struct bnxt_re_queue *que, uint32_t *idx,
@@ -1496,6 +1496,7 @@ static int bnxt_re_required_slots(struct bnxt_re_qp *qp, struct ibv_send_wr *wr,
 		ilsize = bnxt_re_calc_inline_len(wr);
 		if (ilsize > qp->cap.max_inline)
 			return -EINVAL;
+		ilsize = align(ilsize, sizeof(struct bnxt_re_sge));
 		if (qp->push_st_en && ilsize <= qp->max_push_sz)
 			*push = true;
 		wqe_byte = (ilsize + bnxt_re_get_sqe_hdr_sz());
