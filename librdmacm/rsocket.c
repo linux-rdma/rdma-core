@@ -1774,12 +1774,10 @@ int rconnect(int socket, const struct sockaddr *addr, socklen_t addrlen)
 	if (rs->type == SOCK_STREAM) {
 		memcpy(&rs->cm_id->route.addr.dst_addr, addr, addrlen);
 		ret = rs_do_connect(rs);
-		if (ret == -1 && errno == EINPROGRESS) {
-			save_errno = errno;
-			/* The app can still drive the CM state on failure */
-			rs_notify_svc(&connect_svc, rs, RS_SVC_ADD_CM);
-			errno = save_errno;
-		}
+		save_errno = errno;
+		/* The app can still drive the CM state on failure, and can respond to disconnect requests*/
+		rs_notify_svc(&connect_svc, rs, RS_SVC_ADD_CM);
+		errno = save_errno;
 	} else {
 		if (rs->state == rs_init) {
 			ret = ds_init_ep(rs);
