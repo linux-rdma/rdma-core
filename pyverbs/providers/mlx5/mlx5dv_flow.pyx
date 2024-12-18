@@ -6,7 +6,7 @@ from libc.string cimport memcpy
 
 from pyverbs.pyverbs_error import PyverbsRDMAError, PyverbsError, \
     PyverbsUserError
-from pyverbs.device cimport Context
+from pyverbs.providers.mlx5.mlx5dv cimport Mlx5DevxObj
 from pyverbs.base import PyverbsRDMAErrno
 from pyverbs.base cimport close_weakrefs
 from pyverbs.device cimport Context
@@ -168,7 +168,7 @@ cdef class Mlx5PacketReformatFlowAction(FlowAction):
 
 cdef class Mlx5FlowActionAttr(PyverbsObject):
     def __init__(self, action_type=None, QP qp=None,
-                 FlowAction flow_action=None):
+                 FlowAction flow_action=None, Mlx5DevxObj obj=None):
         """
         Initialize a Mlx5FlowActionAttr object over an underlying
         mlx5dv_flow_action_attr C object that defines actions attributes for
@@ -176,6 +176,7 @@ cdef class Mlx5FlowActionAttr(PyverbsObject):
         :param action_type: Type of the action
         :param qp: A QP target for go to QP action
         :param flow_action: An action to perform for the flow
+        :param obj: DEVX object
         """
         super().__init__()
         if action_type:
@@ -186,6 +187,8 @@ cdef class Mlx5FlowActionAttr(PyverbsObject):
         elif action_type == dv.MLX5DV_FLOW_ACTION_IBV_FLOW_ACTION:
             self.attr.action = flow_action.action
             self.action = flow_action
+        elif action_type == dv.MLX5DV_FLOW_ACTION_DEST_DEVX:
+            self.attr.obj = obj.obj
         elif action_type:
             raise PyverbsUserError(f'Unsupported action type: {action_type}.')
 
@@ -252,7 +255,8 @@ cdef class Mlx5Flow(Flow):
             if (<Mlx5FlowActionAttr>attr).attr.type == dv.MLX5DV_FLOW_ACTION_DEST_IBV_QP:
                 (<QP>(attr.qp)).add_ref(self)
                 self.qp = (<Mlx5FlowActionAttr>attr).qp
-            elif (<Mlx5FlowActionAttr>attr).attr.type not in [dv.MLX5DV_FLOW_ACTION_IBV_FLOW_ACTION]:
+            elif (<Mlx5FlowActionAttr>attr).attr.type not in \
+                [dv.MLX5DV_FLOW_ACTION_IBV_FLOW_ACTION, dv.MLX5DV_FLOW_ACTION_DEST_DEVX]:
                raise PyverbsUserError(f'Unsupported action type: '
                                       f'{<Mlx5FlowActionAttr>attr).attr.type}.')
             memcpy(tmp_addr, &(<Mlx5FlowActionAttr>attr).attr,
