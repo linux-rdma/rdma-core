@@ -161,3 +161,10 @@ IBMAD_1.4 {
 		mad_dump_linkspeedexten2;
 		mad_dump_linkspeedextsup2;
 } IBMAD_1.3;
+
+IBMAD_1.5 {
+	global:
+		mad_rpc_open_port2;
+		mad_rpc_close_port2;
+} IBMAD_1.4;
+
