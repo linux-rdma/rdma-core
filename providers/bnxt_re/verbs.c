@@ -1557,6 +1557,7 @@ struct ibv_qp *bnxt_re_create_qp(struct ibv_pd *ibvpd,
 	if (qp->cctx->gen_p5_p7 && cntx->udpi.wcdpi) {
 		qp->push_st_en = 1;
 		qp->max_push_sz = BNXT_RE_MAX_INLINE_SIZE;
+		qp->pbuf = bnxt_re_get_pbuf(&qp->push_st_en, cntx);
 	}
 
 	return &qp->ibvqp;
@@ -1628,6 +1629,10 @@ int bnxt_re_destroy_qp(struct ibv_qp *ibvqp)
 	if (status)
 		return status;
 
+	if (qp->pbuf) {
+		bnxt_re_put_pbuf(qp->cntx, qp->pbuf);
+		qp->pbuf = NULL;
+	}
 	bnxt_re_cleanup_cq(qp, qp->rcq);
 	bnxt_re_cleanup_cq(qp, qp->scq);
 	mem = qp->mem;
@@ -1740,7 +1745,7 @@ static int bnxt_re_required_slots(struct bnxt_re_qp *qp, struct ibv_send_wr *wr,
 			return -EINVAL;
 		ilsize = align(ilsize, sizeof(struct bnxt_re_sge));
 		if (qp->push_st_en && ilsize <= qp->max_push_sz)
-			*pbuf = bnxt_re_get_pbuf(&qp->push_st_en, qp->cntx);
+			*pbuf = qp->pbuf;
 		wqe_byte = (ilsize + bnxt_re_get_sqe_hdr_sz());
 	} else {
 		wqe_byte = bnxt_re_calc_wqe_sz(wr->num_sge);
@@ -2065,7 +2070,6 @@ int bnxt_re_post_send(struct ibv_qp *ibvqp, struct ibv_send_wr *wr,
 			ring_db = false;
 			pbuf->tail = *sq->dbtail;
 			bnxt_re_fill_push_wcb(qp, pbuf, idx);
-			bnxt_re_put_pbuf(qp->cntx, pbuf);
 			pbuf = NULL;
 		}
 
@@ -2081,8 +2085,6 @@ bad_wr:
 	if (ring_db)
 		bnxt_re_ring_sq_db(qp);
 
-	if (pbuf)
-		bnxt_re_put_pbuf(qp->cntx, pbuf);
 
 	pthread_spin_unlock(&sq->qlock);
 	return ret;
