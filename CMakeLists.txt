@@ -449,15 +449,17 @@ if (NOT HAVE_LARGE_FILES)
   add_definitions("-D_FILE_OFFSET_BITS=64")
 endif()
 
-# librspreload: probe libc for fcntl64; CMake sets RDMA_PRELOAD_WRAP_LFS64 when
-# preload should implement the fcntl64 wrapper (see RDMA_PRELOAD_WRAP_LFS64 below).
+# librspreload: probe libc for fcntl64/sendfile64; CMake sets RDMA_PRELOAD_WRAP_LFS64 when
+# preload should implement the fcntl64/sendfile64 wrapper (see RDMA_PRELOAD_WRAP_LFS64 below).
 set(CMAKE_REQUIRED_QUIET 1)
 set(SAFE_CMAKE_REQUIRED_DEFINITIONS "${CMAKE_REQUIRED_DEFINITIONS}")
 set(CMAKE_REQUIRED_DEFINITIONS "")
 CHECK_C_SOURCE_COMPILES("
 #include <fcntl.h>
+#include <sys/sendfile.h>
 int main(void) {
   (void)&fcntl64;
+  (void)&sendfile64;
   return 0;
 }
 " RDMA_PRELOAD_LIBC_HAS_FCNTL64_SENDFILE64)
@@ -469,8 +471,8 @@ else()
   set(RDMA_PRELOAD_HAVE_LFS_WRAPPER_SYMS 0)
 endif()
 
-# Single gate for preload.c fcntl64 wrapper: need libc symbol and must not compile
-# preload with _FILE_OFFSET_BITS=64 (CMake adds that when HAVE_LARGE_FILES is false).
+# Single gate for preload.c fcntl64/sendfile64 wrappers: need libc symbols and must
+# not compile preload with _FILE_OFFSET_BITS=64 (CMake adds that when HAVE_LARGE_FILES is false).
 if(RDMA_PRELOAD_HAVE_LFS_WRAPPER_SYMS AND HAVE_LARGE_FILES)
   set(RDMA_PRELOAD_WRAP_LFS64 1)
 else()
@@ -490,6 +492,17 @@ int fcntl64(int socket, int cmd, ...) { (void)socket;(void)cmd; return 0; }
 " RDMA_PRELOAD_FCNTL64_DECLARED_IN_HEADER)
   if(RDMA_PRELOAD_FCNTL64_DECLARED_IN_HEADER)
     set(RDMA_PRELOAD_FCNTL64_IN_HEADER 1)
+  endif()
+  CHECK_C_SOURCE_COMPILES("
+#define _GNU_SOURCE
+#include <sys/sendfile.h>
+#include <sys/types.h>
+ssize_t sendfile64(int out_fd, int in_fd, off64_t *offset64, size_t count) {
+  (void)out_fd;(void)in_fd;(void)offset64;(void)count; return 0;
+}
+" RDMA_PRELOAD_SENDFILE64_DECLARED_IN_HEADER)
+  if(RDMA_PRELOAD_SENDFILE64_DECLARED_IN_HEADER)
+    set(RDMA_PRELOAD_SENDFILE64_IN_HEADER 1)
   endif()
   set(CMAKE_REQUIRED_FLAGS "${SAFE_CMAKE_REQUIRED_FLAGS}")
   set(CMAKE_REQUIRED_QUIET 0)

@@ -121,12 +121,13 @@ function(rdma_library DEST VERSION_SCRIPT SOVERSION VERSION)
 endfunction()
 
 # rsocket LD_PRELOAD module. Requires RDMA_PRELOAD_* variables from top-level
-# CMakeLists.txt (RDMA_PRELOAD_WRAP_LFS64 and fcntl64 header probe).
+# CMakeLists.txt (RDMA_PRELOAD_WRAP_LFS64 and fcntl64/sendfile64 header probe).
 function(rdma_rspreload_module DEST VERSION_SCRIPT)
   add_library(${DEST} MODULE ${ARGN})
   target_compile_definitions(${DEST} PRIVATE
     RDMA_PRELOAD_WRAP_LFS64=${RDMA_PRELOAD_WRAP_LFS64}
-    RDMA_PRELOAD_FCNTL64_IN_HEADER=${RDMA_PRELOAD_FCNTL64_IN_HEADER})
+    RDMA_PRELOAD_FCNTL64_IN_HEADER=${RDMA_PRELOAD_FCNTL64_IN_HEADER}
+    RDMA_PRELOAD_SENDFILE64_IN_HEADER=${RDMA_PRELOAD_SENDFILE64_IN_HEADER})
   set_target_properties(${DEST} PROPERTIES LINK_FLAGS ${CMAKE_SHARED_LINKER_FLAGS})
   set_target_properties(${DEST} PROPERTIES LIBRARY_OUTPUT_DIRECTORY "${BUILD_LIB}")
   rdma_set_library_map(${DEST} ${VERSION_SCRIPT})
