@@ -15,7 +15,8 @@ from pyverbs.pyverbs_error import PyverbsRDMAError, PyverbsUserError
 import pyverbs.providers.mlx5.mlx5_enums as dve
 import pyverbs.enums as e
 from tests.mlx5_base import Mlx5RDMATestCase, create_privileged_context, Mlx5RcResources
-from tests.utils import requires_root_on_eth, PacketConsts, is_eth, requires_root
+from tests.utils import requires_root_on_eth, PacketConsts, is_eth, requires_root, \
+    requires_no_sriov
 from tests.base import RawResources
 import tests.utils as u
 import struct
@@ -124,7 +125,7 @@ class Mlx5RCFlowResources(Mlx5RcResources):
         :param dev_name: Device name to be used
         :param ib_port: IB port of the device to use
         :param gid_index: Which GID index to use
-        :param is_privileged_ctx: If True, creates a privileged context
+        :param is_privileged_ctx: If True, creates a privileged context (default: False)
         """
         self.obj_to_cleanup = []
         self.is_privileged_ctx = is_privileged_ctx
@@ -300,6 +301,22 @@ class Mlx5MatcherTest(Mlx5RDMATestCase):
             if traffic:
                 u.traffic(client=self.client, server=self.server,iters=self.iters,
                           gid_idx=self.gid_index, port=self.ib_port, is_cq_ex=True)
+
+    @u.skip_unsupported
+    @requires_root()
+    @requires_no_sriov()
+    def test_flow_table_drop(self):
+        """
+        Creates rules with DevX objects for RDMA RX and TX tables.
+            - Creates two flow tables, one for RDMA RX and one for RDMA TX.
+            - Configures matchers with different flow tables.
+            - Configures flow actions to drop.
+        """
+        self.create_players(Mlx5RCFlowResources)
+        flow_table_type_mapping = {
+            dve.MLX5DV_FLOW_TABLE_TYPE_RDMA_RX_: NIC_RX_RDMA_TABLE_TYPE,
+            dve.MLX5DV_FLOW_TABLE_TYPE_RDMA_TX_: NIC_TX_RDMA_TABLE_TYPE}
+        self.generic_test_mlx5_flow_table(flow_table_type_mapping, action=DROP_ACTION)
 
     @u.skip_unsupported
     @requires_root()
