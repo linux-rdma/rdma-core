@@ -1501,7 +1501,7 @@ class FlowTableEntryMatchSetMisc5(PRMPacket):
     ]
 
 
-class FlowTableEntryMatchParam(PRMPacket):
+class FlowTableEntryMatchParamSW(PRMPacket):
     fields_desc = [
         PacketField('outer_headers', FlowTableEntryMatchSetLyr24(), FlowTableEntryMatchSetLyr24),
         PacketField('misc_parameters', FlowTableEntryMatchSetMisc(), FlowTableEntryMatchSetMisc),
