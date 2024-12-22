@@ -91,6 +91,7 @@ struct socket_calls {
 	int (*fcntl64)(int socket, int cmd, ... /* arg */);
 	int (*dup2)(int oldfd, int newfd);
 	ssize_t (*sendfile)(int out_fd, int in_fd, off_t *offset, size_t count);
+	ssize_t (*sendfile64)(int out_fd, int in_fd, off64_t *offset64, size_t count);
 	int (*fxstat)(int ver, int fd, struct stat *buf);
 	int (*epoll_create)(int size);
 	int (*epoll_create1)(int flags);
@@ -422,6 +423,7 @@ static void init_preload(void)
 	real.fcntl64 = dlsym(RTLD_NEXT, "fcntl64");
 	real.dup2 = dlsym(RTLD_NEXT, "dup2");
 	real.sendfile = dlsym(RTLD_NEXT, "sendfile");
+	real.sendfile64 = dlsym(RTLD_NEXT, "sendfile64");
 	real.fxstat = dlsym(RTLD_NEXT, "__fxstat");
 	real.epoll_create = dlsym(RTLD_NEXT, "epoll_create");
 	real.epoll_create1 = dlsym(RTLD_NEXT, "epoll_create1");
@@ -1282,6 +1284,26 @@ ssize_t sendfile(int out_fd, int in_fd, off_t *offset, size_t count)
 
 	ret = rwrite(fd, file_addr, count);
 	if ((ret > 0) && offset)
+		lseek(in_fd, ret, SEEK_CUR);
+	munmap(file_addr, count);
+	return ret;
+}
+
+ssize_t sendfile64(int out_fd, int in_fd, off64_t *offset64, size_t count)
+{
+	void *file_addr;
+	int fd;
+	size_t ret;
+
+	if (fd_get(out_fd, &fd) != fd_rsocket)
+		return real.sendfile64(fd, in_fd, offset64, count);
+
+	file_addr = mmap(NULL, count, PROT_READ, 0, in_fd, offset64 ? *offset64 : 0);
+	if (file_addr == (void *) -1)
+		return -1;
+
+	ret = rwrite(fd, file_addr, count);
+	if ((ret > 0) && offset64)
 		lseek(in_fd, ret, SEEK_CUR);
 	munmap(file_addr, count);
 	return ret;
