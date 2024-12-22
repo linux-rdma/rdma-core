@@ -24,6 +24,7 @@
 		select;
 		send;
 		sendfile;
+		sendfile64;
 		sendmsg;
 		sendto;
 		setsockopt;
