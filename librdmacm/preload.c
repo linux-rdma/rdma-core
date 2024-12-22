@@ -89,6 +89,7 @@ struct socket_calls {
 			  void *optval, socklen_t *optlen);
 	int (*fcntl)(int socket, int cmd, ... /* arg */);
 	int (*fcntl64)(int socket, int cmd, ... /* arg */);
+	int (*dup)(int oldfd);
 	int (*dup2)(int oldfd, int newfd);
 	ssize_t (*sendfile)(int out_fd, int in_fd, off_t *offset, size_t count);
 	ssize_t (*sendfile64)(int out_fd, int in_fd, off64_t *offset64, size_t count);
@@ -425,6 +426,7 @@ static void init_preload(void)
 #else
 	real.fcntl64 = real.fcntl;
 #endif
+	real.dup = dlsym(RTLD_NEXT, "dup");
 	real.dup2 = dlsym(RTLD_NEXT, "dup2");
 	real.sendfile = dlsym(RTLD_NEXT, "sendfile");
 #if _FILE_OFFSET_BITS != 64
@@ -1226,6 +1228,12 @@ int fcntl64(int socket, int cmd, ... /* arg */)
 	return ret;
 }
 #endif
+
+int dup(int oldfd)
+{
+	int new_fd = fcntl(oldfd, F_DUPFD, 0);
+	return dup2(oldfd, new_fd);
+}
 
 /*
  * dup2 is not thread safe
