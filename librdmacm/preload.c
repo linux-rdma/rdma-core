@@ -64,6 +64,7 @@ struct socket_calls {
 	int (*bind)(int socket, const struct sockaddr *addr, socklen_t addrlen);
 	int (*listen)(int socket, int backlog);
 	int (*accept)(int socket, struct sockaddr *addr, socklen_t *addrlen);
+	int (*accept4)(int socket, struct sockaddr *addr, socklen_t *addrlen, int flags);
 	int (*connect)(int socket, const struct sockaddr *addr, socklen_t addrlen);
 	ssize_t (*recv)(int socket, void *buf, size_t len, int flags);
 	ssize_t (*recvfrom)(int socket, void *buf, size_t len, int flags,
@@ -397,6 +398,7 @@ static void init_preload(void)
 	real.bind = dlsym(RTLD_NEXT, "bind");
 	real.listen = dlsym(RTLD_NEXT, "listen");
 	real.accept = dlsym(RTLD_NEXT, "accept");
+	real.accept4 = dlsym(RTLD_NEXT, "accept4");
 	real.connect = dlsym(RTLD_NEXT, "connect");
 	real.recv = dlsym(RTLD_NEXT, "recv");
 	real.recvfrom = dlsym(RTLD_NEXT, "recvfrom");
@@ -631,6 +633,38 @@ int accept(int socket, struct sockaddr *addr, socklen_t *addrlen)
 		return real.accept(fd, addr, addrlen);
 	}
 }
+
+int accept4(int socket, struct sockaddr *addr, socklen_t *addrlen, int flags)
+{
+	int cur_flags = 0;
+	int fd = accept(socket, addr, addrlen);
+
+	if (fd < 0)
+		return fd;
+	if (flags & SOCK_NONBLOCK) {
+		cur_flags = fcntl(fd, F_GETFL);
+
+		if (cur_flags != -1)
+			cur_flags = fcntl(fd, F_SETFL, flags | O_NONBLOCK);
+
+		if (cur_flags == -1)
+			goto close;
+	}
+
+	if (flags & SOCK_CLOEXEC) {
+		cur_flags = fcntl(fd, F_GETFD);
+		if (cur_flags != -1)
+			cur_flags = fcntl(fd, F_SETFD, flags | FD_CLOEXEC);
+		if (cur_flags == -1)
+			goto close;
+	}
+
+	return fd;
+close:
+	close(fd);
+	return -1;
+}
+
 
 /*
  * We can't fork RDMA connections and pass them from the parent to the child
