@@ -4,6 +4,7 @@
 	   the signature this will go sideways.. */
 	global:
 		accept;
+		accept4;
 		bind;
 		close;
 		connect;
