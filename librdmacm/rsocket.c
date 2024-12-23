@@ -378,6 +378,7 @@ struct rsocket {
 
 	int		  opts;
 	int		  fd_flags;
+	int		  fs_flags;
 	int		  ipv4_opts;
 	uint64_t	  so_opts;
 	uint64_t	  ipv6_opts;
@@ -894,7 +895,7 @@ static int rs_create_cq(struct rsocket *rs, struct rdma_cm_id *cm_id)
 	if (!cm_id->recv_cq)
 		goto err1;
 
-	if (rs->fd_flags & O_NONBLOCK) {
+	if (rs->fs_flags & O_NONBLOCK) {
 		if (set_fd_nonblock(cm_id->recv_cq_channel->fd, true))
 			goto err2;
 	}
@@ -1326,7 +1327,7 @@ int rlisten(int socket, int backlog)
 	if (ret)
 		return ret;
 
-	if (rs->fd_flags & O_NONBLOCK) {
+	if (rs->fs_flags & O_NONBLOCK) {
 		ret = set_fd_nonblock(rs->accept_queue[0], true);
 		if (ret)
 			return ret;
@@ -1518,7 +1519,7 @@ connected:
 		rs->state = rs_connect_rdwr;
 		break;
 	case rs_accepting:
-		if (!(rs->fd_flags & O_NONBLOCK))
+		if (!(rs->fs_flags & O_NONBLOCK))
 			set_fd_nonblock(rs->cm_id->channel->fd, true);
 
 		ret = ucma_complete(rs->cm_id);
@@ -2393,7 +2394,7 @@ static int ds_get_comp(struct rsocket *rs, int nonblock, int (*test)(struct rsoc
 
 static int rs_nonblocking(struct rsocket *rs, int flags)
 {
-	return (rs->fd_flags & O_NONBLOCK) || (flags & MSG_DONTWAIT);
+	return (rs->fs_flags & O_NONBLOCK) || (flags & MSG_DONTWAIT);
 }
 
 static int rs_is_cq_armed(struct rsocket *rs)
@@ -3542,7 +3543,7 @@ int rshutdown(int socket, int how)
 	if (rs->opts & RS_OPT_KEEPALIVE)
 		rs_notify_svc(&tcp_svc, rs, RS_SVC_REM_KEEPALIVE);
 
-	if (rs->fd_flags & O_NONBLOCK)
+	if (rs->fs_flags & O_NONBLOCK)
 		rs_set_nonblocking(rs, 0);
 
 	if (rs->state & rs_connected) {
@@ -3575,8 +3576,8 @@ int rshutdown(int socket, int how)
 		rs_process_cq(rs, 0, rs_conn_all_sends_done);
 
 out:
-	if ((rs->fd_flags & O_NONBLOCK) && (rs->state & rs_connected))
-		rs_set_nonblocking(rs, rs->fd_flags);
+	if ((rs->fs_flags & O_NONBLOCK) && (rs->state & rs_connected))
+		rs_set_nonblocking(rs, rs->fs_flags);
 
 	if (rs->state & rs_disconnected) {
 		/* Generate event by flushing receives to unblock rpoll */
@@ -3592,14 +3593,14 @@ static void ds_shutdown(struct rsocket *rs)
 	if (rs->opts & RS_OPT_UDP_SVC)
 		rs_notify_svc(&udp_svc, rs, RS_SVC_REM_DGRAM);
 
-	if (rs->fd_flags & O_NONBLOCK)
+	if (rs->fs_flags & O_NONBLOCK)
 		rs_set_nonblocking(rs, 0);
 
 	rs->state &= ~(rs_readable | rs_writable);
 	ds_process_cqs(rs, 0, ds_all_sends_done);
 
-	if (rs->fd_flags & O_NONBLOCK)
-		rs_set_nonblocking(rs, rs->fd_flags);
+	if (rs->fs_flags & O_NONBLOCK)
+		rs_set_nonblocking(rs, rs->fs_flags);
 }
 
 int rclose(int socket)
@@ -4076,15 +4077,22 @@ int rfcntl(int socket, int cmd, ... /* arg */ )
 	va_start(args, cmd);
 	switch (cmd) {
 	case F_GETFL:
-		ret = rs->fd_flags;
+		ret = rs->fs_flags;
 		break;
 	case F_SETFL:
 		param = va_arg(args, int);
-		if ((rs->fd_flags & O_NONBLOCK) != (param & O_NONBLOCK))
+		if ((rs->fs_flags & O_NONBLOCK) != (param & O_NONBLOCK))
 			ret = rs_set_nonblocking(rs, param & O_NONBLOCK);
 
 		if (!ret)
-			rs->fd_flags = param;
+			rs->fs_flags = param;
+		break;
+	case F_GETFD:
+		ret = rs->fd_flags;
+		break;
+	case F_SETFD:
+		param = va_arg(args, int);
+		rs->fd_flags = param;
 		break;
 	default:
 		ret = ERR(ENOTSUP);
