@@ -19,7 +19,7 @@ is included:
  - erdma.ko
  - iw_cxgb4.ko
  - hfi1.ko
- - hns-roce.ko
+ - hns-roce-hw-v2.ko
  - irdma.ko
  - ib_qib.ko
  - mana_ib.ko
