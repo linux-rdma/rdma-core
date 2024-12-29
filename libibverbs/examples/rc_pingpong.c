@@ -83,6 +83,8 @@ struct pingpong_context {
 	int			 pending;
 	struct ibv_port_attr     portinfo;
 	uint64_t		 completion_timestamp_mask;
+	struct ibv_send_wr	*bad_send_wr;
+	struct ibv_recv_wr	*bad_recv_wr;
 };
 
 static struct ibv_cq *pp_cq(struct pingpong_context *ctx)
@@ -639,11 +641,10 @@ static int pp_post_recv(struct pingpong_context *ctx, int n)
 		.sg_list    = &list,
 		.num_sge    = 1,
 	};
-	struct ibv_recv_wr *bad_wr;
 	int i;
 
 	for (i = 0; i < n; ++i)
-		if (ibv_post_recv(ctx->qp, &wr, &bad_wr))
+		if (ibv_post_recv(ctx->qp, &wr, &ctx->bad_recv_wr))
 			break;
 
 	return i;
@@ -663,8 +664,6 @@ static int pp_post_send(struct pingpong_context *ctx)
 		.opcode     = IBV_WR_SEND,
 		.send_flags = ctx->send_flags,
 	};
-	struct ibv_send_wr *bad_wr;
-
 	if (use_new_send) {
 		ibv_wr_start(ctx->qpx);
 
@@ -676,7 +675,7 @@ static int pp_post_send(struct pingpong_context *ctx)
 
 		return ibv_wr_complete(ctx->qpx);
 	} else {
-		return ibv_post_send(ctx->qp, &wr, &bad_wr);
+		return ibv_post_send(ctx->qp, &wr, &ctx->bad_send_wr);
 	}
 }
 
