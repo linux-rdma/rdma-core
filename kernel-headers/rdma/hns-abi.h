@@ -136,6 +136,7 @@ struct hns_roce_ib_alloc_ucontext_resp {
 	__u32	max_inline_data;
 	__u8	congest_type;
 	__u8	reserved0[7];
+	__aligned_u64 reset_mmap_key;
 };
 
 struct hns_roce_ib_alloc_ucontext {
@@ -151,6 +152,11 @@ struct hns_roce_ib_create_ah_resp {
 	__u8 dmac[6];
 	__u8 priority;
 	__u8 tc_mode;
+};
+
+struct hns_roce_reset_state {
+	__u32 hw_ready;
+	__u32 reserved;
 };
 
 #endif /* HNS_ABI_USER_H */
