@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: GPL-2.0 OR BSD-2-Clause
 /*
- * Copyright 2019-2021 Amazon.com, Inc. or its affiliates. All rights reserved.
+ * Copyright 2019-2025 Amazon.com, Inc. or its affiliates. All rights reserved.
  */
 
 #include <assert.h>
@@ -787,13 +787,13 @@ static struct ibv_cq_ex *create_cq(struct ibv_context *ibvctx,
 	}
 
 	if (resp.comp_mask & EFA_CREATE_CQ_RESP_DB_OFF) {
-		cq->db = mmap(NULL,
-			      to_efa_dev(ibvctx->device)->pg_sz, PROT_WRITE,
-			      MAP_SHARED, ibvctx->cmd_fd, resp.db_mmap_key);
-		if (cq->db == MAP_FAILED)
+		cq->db_mmap_addr = mmap(NULL,
+					to_efa_dev(ibvctx->device)->pg_sz, PROT_WRITE,
+					MAP_SHARED, ibvctx->cmd_fd, resp.db_mmap_key);
+		if (cq->db_mmap_addr == MAP_FAILED)
 			goto err_unmap_cq;
 
-		cq->db = (uint32_t *)((uint8_t *)cq->db + resp.db_off);
+		cq->db = (uint32_t *)(cq->db_mmap_addr + resp.db_off);
 	}
 
 	efa_cq_fill_pfns(&cq->verbs_cq.cq_ex, attr);
@@ -852,7 +852,7 @@ int efa_destroy_cq(struct ibv_cq *ibvcq)
 		return err;
 	}
 
-	munmap(cq->db, to_efa_dev(cq->verbs_cq.cq.context->device)->pg_sz);
+	munmap(cq->db_mmap_addr, to_efa_dev(cq->verbs_cq.cq.context->device)->pg_sz);
 	munmap(cq->buf, cq->buf_size);
 
 	pthread_spin_destroy(&cq->lock);
