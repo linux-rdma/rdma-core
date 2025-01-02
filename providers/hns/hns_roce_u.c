@@ -217,9 +217,10 @@ static struct verbs_context *hns_roce_alloc_context(struct ibv_device *ibdev,
 
 	context->uar = mmap(NULL, hr_dev->page_size, PROT_READ | PROT_WRITE,
 			    MAP_SHARED, cmd_fd, 0);
-	if (context->uar == MAP_FAILED)
+	if (context->uar == MAP_FAILED) {
+		verbs_err(&context->ibv_ctx, "failed to mmap uar page.\n");
 		goto err_set_attr;
-
+	}
 
 	verbs_set_ops(&context->ibv_ctx, &hns_common_ops);
 	verbs_set_ops(&context->ibv_ctx, &hr_dev->u_hw->hw_ops);

@@ -417,8 +417,11 @@ static int verify_cq_create_attr(struct ibv_cq_init_attr_ex *attr,
 {
 	struct hns_roce_pad *pad = to_hr_pad(attr->parent_domain);
 
-	if (!attr->cqe || attr->cqe > context->max_cqe)
+	if (!attr->cqe || attr->cqe > context->max_cqe) {
+		verbs_err(&context->ibv_ctx, "unsupported cq depth %u.\n",
+			  attr->cqe);
 		return EINVAL;
+	}
 
 	if (!check_comp_mask(attr->comp_mask, CREATE_CQ_SUPPORTED_COMP_MASK)) {
 		verbs_err(&context->ibv_ctx, "unsupported cq comps 0x%x\n",
@@ -426,8 +429,11 @@ static int verify_cq_create_attr(struct ibv_cq_init_attr_ex *attr,
 		return EOPNOTSUPP;
 	}
 
-	if (!check_comp_mask(attr->wc_flags, CREATE_CQ_SUPPORTED_WC_FLAGS))
+	if (!check_comp_mask(attr->wc_flags, CREATE_CQ_SUPPORTED_WC_FLAGS)) {
+		verbs_err(&context->ibv_ctx, "unsupported wc flags 0x%llx.\n",
+			  attr->wc_flags);
 		return EOPNOTSUPP;
+	}
 
 	if (attr->comp_mask & IBV_CQ_INIT_ATTR_MASK_PD) {
 		if (!pad) {
@@ -489,8 +495,11 @@ static int exec_cq_create_cmd(struct ibv_context *context,
 	ret = ibv_cmd_create_cq_ex(context, attr, &cq->verbs_cq,
 				   &cmd_ex.ibv_cmd, sizeof(cmd_ex),
 				   &resp_ex.ibv_resp, sizeof(resp_ex), 0);
-	if (ret)
+	if (ret) {
+		verbs_err(verbs_get_ctx(context),
+			  "failed to exec create cq cmd, ret = %d.\n", ret);
 		return ret;
+	}
 
 	cq->cqn = resp_drv->cqn;
 	cq->flags = resp_drv->cap_flags;
@@ -676,13 +685,20 @@ static int verify_srq_create_attr(struct hns_roce_context *context,
 				  struct ibv_srq_init_attr_ex *attr)
 {
 	if (attr->srq_type != IBV_SRQT_BASIC &&
-	    attr->srq_type != IBV_SRQT_XRC)
+	    attr->srq_type != IBV_SRQT_XRC) {
+		verbs_err(&context->ibv_ctx,
+			  "unsupported srq type, type = %d.\n", attr->srq_type);
 		return -EINVAL;
+	}
 
 	if (!attr->attr.max_sge ||
 	    attr->attr.max_wr > context->max_srq_wr ||
-	    attr->attr.max_sge > context->max_srq_sge)
+	    attr->attr.max_sge > context->max_srq_sge) {
+		verbs_err(&context->ibv_ctx,
+			  "invalid srq attr size, max_wr = %u, max_sge = %u.\n",
+			  attr->attr.max_wr, attr->attr.max_sge);
 		return -EINVAL;
+	}
 
 	attr->attr.max_wr = max_t(uint32_t, attr->attr.max_wr,
 				  HNS_ROCE_MIN_SRQ_WQE_NUM);
@@ -799,8 +815,12 @@ static int exec_srq_create_cmd(struct ibv_context *context,
 	ret = ibv_cmd_create_srq_ex(context, &srq->verbs_srq, init_attr,
 				    &cmd_ex.ibv_cmd, sizeof(cmd_ex),
 				    &resp_ex.ibv_resp, sizeof(resp_ex));
-	if (ret)
+	if (ret) {
+		verbs_err(verbs_get_ctx(context),
+			  "failed to exec create srq cmd, ret = %d.\n",
+			  ret);
 		return ret;
+	}
 
 	srq->srqn = resp_ex.srqn;
 	srq->cap_flags = resp_ex.cap_flags;
@@ -981,9 +1001,12 @@ static int check_qp_create_mask(struct hns_roce_context *ctx,
 				struct ibv_qp_init_attr_ex *attr)
 {
 	struct hns_roce_device *hr_dev = to_hr_dev(ctx->ibv_ctx.context.device);
+	int ret = 0;
 
-	if (!check_comp_mask(attr->comp_mask, CREATE_QP_SUP_COMP_MASK))
-		return EOPNOTSUPP;
+	if (!check_comp_mask(attr->comp_mask, CREATE_QP_SUP_COMP_MASK)) {
+		ret = EOPNOTSUPP;
+		goto out;
+	}
 
 	switch (attr->qp_type) {
 	case IBV_QPT_UD:
@@ -993,17 +1016,21 @@ static int check_qp_create_mask(struct hns_roce_context *ctx,
 	case IBV_QPT_RC:
 	case IBV_QPT_XRC_SEND:
 		if (!(attr->comp_mask & IBV_QP_INIT_ATTR_PD))
-			return EINVAL;
+			ret = EINVAL;
 		break;
 	case IBV_QPT_XRC_RECV:
 		if (!(attr->comp_mask & IBV_QP_INIT_ATTR_XRCD))
-			return EINVAL;
+			ret = EINVAL;
 		break;
 	default:
 		return EOPNOTSUPP;
 	}
 
-	return 0;
+out:
+	if (ret)
+		verbs_err(&ctx->ibv_ctx, "invalid comp_mask 0x%x.\n",
+			  attr->comp_mask);
+	return ret;
 }
 
 static int hns_roce_qp_has_rq(struct ibv_qp_init_attr_ex *attr)
@@ -1028,8 +1055,13 @@ static int verify_qp_create_cap(struct hns_roce_context *ctx,
 	if (cap->max_send_wr > ctx->max_qp_wr ||
 	    cap->max_recv_wr > ctx->max_qp_wr ||
 	    cap->max_send_sge > ctx->max_sge  ||
-	    cap->max_recv_sge > ctx->max_sge)
+	    cap->max_recv_sge > ctx->max_sge) {
+		verbs_err(&ctx->ibv_ctx,
+			  "invalid qp cap size, max_send/recv_wr = {%u, %u}, max_send/recv_sge = {%u, %u}.\n",
+			  cap->max_send_wr, cap->max_recv_wr,
+			  cap->max_send_sge, cap->max_recv_sge);
 		return -EINVAL;
+	}
 
 	has_rq = hns_roce_qp_has_rq(attr);
 	if (!has_rq) {
@@ -1038,12 +1070,20 @@ static int verify_qp_create_cap(struct hns_roce_context *ctx,
 	}
 
 	min_wqe_num = HNS_ROCE_V2_MIN_WQE_NUM;
-	if (cap->max_send_wr < min_wqe_num)
+	if (cap->max_send_wr < min_wqe_num) {
+		verbs_debug(&ctx->ibv_ctx,
+			    "change sq depth from %u to minimum %u.\n",
+			    cap->max_send_wr, min_wqe_num);
 		cap->max_send_wr = min_wqe_num;
+	}
 
 	if (cap->max_recv_wr) {
-		if (cap->max_recv_wr < min_wqe_num)
+		if (cap->max_recv_wr < min_wqe_num) {
+			verbs_debug(&ctx->ibv_ctx,
+				    "change rq depth from %u to minimum %u.\n",
+				    cap->max_recv_wr, min_wqe_num);
 			cap->max_recv_wr = min_wqe_num;
+		}
 
 		if (!cap->max_recv_sge)
 			return -EINVAL;
@@ -1446,6 +1486,11 @@ static int qp_exec_create_cmd(struct ibv_qp_init_attr_ex *attr,
 	ret = ibv_cmd_create_qp_ex2(&ctx->ibv_ctx.context, &qp->verbs_qp, attr,
 				    &cmd_ex.ibv_cmd, sizeof(cmd_ex),
 				    &resp_ex.ibv_resp, sizeof(resp_ex));
+	if (ret) {
+		verbs_err(&ctx->ibv_ctx,
+			  "failed to exec create qp cmd, ret = %d.\n", ret);
+		return ret;
+	}
 
 	qp->flags = resp_ex.drv_payload.cap_flags;
 	*dwqe_mmap_key = resp_ex.drv_payload.dwqe_mmap_key;
@@ -1511,8 +1556,12 @@ static int mmap_dwqe(struct ibv_context *ibv_ctx, struct hns_roce_qp *qp,
 {
 	qp->dwqe_page = mmap(NULL, HNS_ROCE_DWQE_PAGE_SIZE, PROT_WRITE,
 			     MAP_SHARED, ibv_ctx->cmd_fd, dwqe_mmap_key);
-	if (qp->dwqe_page == MAP_FAILED)
+	if (qp->dwqe_page == MAP_FAILED) {
+		verbs_err(verbs_get_ctx(ibv_ctx),
+			  "failed to mmap direct wqe page, QPN = %u.\n",
+			  qp->verbs_qp.qp.qp_num);
 		return -EINVAL;
+	}
 
 	return 0;
 }

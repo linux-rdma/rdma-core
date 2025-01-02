@@ -2680,6 +2680,9 @@ static int fill_send_wr_ops(const struct ibv_qp_init_attr_ex *attr,
 		fill_send_wr_ops_ud(qp_ex);
 		break;
 	default:
+		verbs_err(verbs_get_ctx(qp_ex->qp_base.context),
+			  "QP type %d not supported for qp_ex send ops.\n",
+			  attr->qp_type);
 		return -EOPNOTSUPP;
 	}
 
