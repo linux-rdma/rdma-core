@@ -71,9 +71,9 @@ M:	Dennis Dalessandro <dennis.dalessandro@cornelisnetworks.com>
 S:	Supported
 F:	providers/hfi1verbs/
 
-HNS USERSPACE PROVIDER (for hns-roce.ko)
-M:	Lijun Ou <oulijun@huawei.com>
-M:	Wei Hu(Xavier) <xavier.huwei@huawei.com>
+HNS USERSPACE PROVIDER (for hns-roce-hw-v2.ko)
+M:	Junxian Huang <huangjunxian6@hisilicon.com>
+M:	Chengchang Tang <tangchengchang@huawei.com>
 S:	Supported
 F:	providers/hns/
 
