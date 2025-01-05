@@ -488,6 +488,9 @@ cdef extern from 'infiniband/mlx5dv.h':
                                                                  void *data,
                                                                  unsigned char reformat_type,
                                                                  unsigned char ft_type)
+    v.ibv_flow_action *mlx5dv_create_flow_action_modify_header(v.ibv_context *ctx,
+                                                               size_t actions_sz, void *actions,
+                                                               unsigned char ft_type)
     v.ibv_mr *mlx5dv_reg_dmabuf_mr(v.ibv_pd *pd, uint64_t offset, size_t length, uint64_t iova,
                                    int fd, int access, int mlx5_access)
     int mlx5dv_get_data_direct_sysfs_path(v.ibv_context *context, char *buf, size_t buf_len)

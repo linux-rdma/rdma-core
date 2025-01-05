@@ -2,6 +2,7 @@
 # Copyright (c) 2020 Nvidia, Inc. All rights reserved. See COPYING file
 
 from libc.stdlib cimport calloc, free
+from libc.stdint cimport uint64_t
 from libc.string cimport memcpy
 
 from pyverbs.pyverbs_error import PyverbsRDMAError, PyverbsError, \
@@ -13,6 +14,11 @@ from pyverbs.device cimport Context
 cimport pyverbs.libibverbs as v
 from pyverbs.qp cimport QP
 import weakref
+import struct
+
+
+be64toh = lambda num: struct.unpack('Q'.encode(), struct.pack('!8s'.encode(), num))[0]
+ACTION_SIZE = 8
 
 
 cdef class Mlx5FlowMatchParameters(PyverbsObject):
@@ -166,6 +172,30 @@ cdef class Mlx5PacketReformatFlowAction(FlowAction):
             raise PyverbsRDMAErrno('Failed to create flow action packet reformat')
 
 
+cdef class Mlx5ModifyFlowAction(FlowAction):
+    def __init__(self, Context ctx, ft_type=dv.MLX5DV_FLOW_TABLE_TYPE_NIC_RX, actions=list()):
+        """
+        Initialize a Mlx5ModifyFlowAction object derived from FlowAction class and represents modify
+        flow steering action that allows to modify packet headers.
+        :param ctx: Context object
+        :param ft_type: Flow table type
+        :param actions: List of modify actions of types AddActionIn, SetActionIn, CopyActionIn
+                        defined in prm_structs
+        """
+        super().__init__()
+        action_buf_size = len(actions) * ACTION_SIZE
+        cdef uint64_t *buf = <uint64_t *> calloc(1, action_buf_size)
+        if buf == NULL:
+           raise MemoryError('Failed to allocate memory')
+        for i in range(len(actions)):
+            buf[i] = be64toh(bytes(actions[i]))
+        self.action = dv.mlx5dv_create_flow_action_modify_header(ctx.context, action_buf_size,
+                                                                 buf, ft_type)
+        free(buf)
+        if self.action == NULL:
+            raise PyverbsRDMAErrno('Failed to create flow action modify')
+
+
 cdef class Mlx5FlowActionAttr(PyverbsObject):
     def __init__(self, action_type=None, QP qp=None,
                  FlowAction flow_action=None, Mlx5DevxObj obj=None):
@@ -187,8 +217,9 @@ cdef class Mlx5FlowActionAttr(PyverbsObject):
         elif action_type == dv.MLX5DV_FLOW_ACTION_IBV_FLOW_ACTION:
             self.attr.action = flow_action.action
             self.action = flow_action
-        elif action_type == dv.MLX5DV_FLOW_ACTION_DEST_DEVX:
+        elif action_type in [dv.MLX5DV_FLOW_ACTION_DEST_DEVX, dv.MLX5DV_FLOW_ACTION_COUNTERS_DEVX]:
             self.attr.obj = obj.obj
+            self.devx_obj = obj
         elif action_type:
             raise PyverbsUserError(f'Unsupported action type: {action_type}.')
 
@@ -198,7 +229,9 @@ cdef class Mlx5FlowActionAttr(PyverbsObject):
 
     @type.setter
     def type(self, action_type):
-        if self.attr.type != dv.MLX5DV_FLOW_ACTION_DEST_IBV_QP:
+        if not (self.attr.type in [dv.MLX5DV_FLOW_ACTION_DEST_IBV_QP,
+                                   dv.MLX5DV_FLOW_ACTION_DEST_DEVX,
+                                   dv.MLX5DV_FLOW_ACTION_COUNTERS_DEVX]):
             raise PyverbsUserError(f'Unsupported action type: {action_type}.')
         self.attr.type = action_type
 
@@ -213,6 +246,22 @@ cdef class Mlx5FlowActionAttr(PyverbsObject):
         if self.attr.type != dv.MLX5DV_FLOW_ACTION_DEST_IBV_QP:
             raise PyverbsUserError(f'Action attr of type {self.attr.type} doesn\'t have a qp')
         self.qp = qp
+        self.attr.qp = qp.qp
+
+    @property
+    def devx_obj(self):
+        if not (self.attr.type in [dv.MLX5DV_FLOW_ACTION_DEST_DEVX,
+                                  dv.MLX5DV_FLOW_ACTION_COUNTERS_DEVX]):
+            raise PyverbsUserError(f'Action attr of type {self.attr.type} doesn\'t have a devx_obj')
+        return self.devx_obj
+
+    @devx_obj.setter
+    def devx_obj(self, Mlx5DevxObj devx_obj):
+        if not (self.attr.type in [dv.MLX5DV_FLOW_ACTION_DEST_DEVX,
+                                   dv.MLX5DV_FLOW_ACTION_COUNTERS_DEVX]):
+            raise PyverbsUserError(f'Action attr of type {self.attr.type} doesn\'t have a devx_obj')
+        self.devx_obj = devx_obj
+        self.attr.obj = devx_obj.obj
 
     @property
     def action(self):
@@ -255,10 +304,12 @@ cdef class Mlx5Flow(Flow):
             if (<Mlx5FlowActionAttr>attr).attr.type == dv.MLX5DV_FLOW_ACTION_DEST_IBV_QP:
                 (<QP>(attr.qp)).add_ref(self)
                 self.qp = (<Mlx5FlowActionAttr>attr).qp
-            elif (<Mlx5FlowActionAttr>attr).attr.type not in \
-                [dv.MLX5DV_FLOW_ACTION_IBV_FLOW_ACTION, dv.MLX5DV_FLOW_ACTION_DEST_DEVX]:
+            elif (<Mlx5FlowActionAttr>attr).attr.type in [dv.MLX5DV_FLOW_ACTION_DEST_DEVX,
+                                                          dv.MLX5DV_FLOW_ACTION_COUNTERS_DEVX]:
+                self.devx_obj = (<Mlx5FlowActionAttr>attr).devx_obj
+            elif (<Mlx5FlowActionAttr>attr).attr.type not in [dv.MLX5DV_FLOW_ACTION_IBV_FLOW_ACTION]:
                raise PyverbsUserError(f'Unsupported action type: '
-                                      f'{<Mlx5FlowActionAttr>attr).attr.type}.')
+                                      f'{(<Mlx5FlowActionAttr>attr).attr.type}.')
             memcpy(tmp_addr, &(<Mlx5FlowActionAttr>attr).attr,
                    sizeof(dv.mlx5dv_flow_action_attr))
             tmp_addr += sizeof(dv.mlx5dv_flow_action_attr)
