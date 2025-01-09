@@ -119,6 +119,8 @@ static const struct verbs_context_ops bnxt_re_cntx_ops = {
 	.create_ah     = bnxt_re_create_ah,
 	.destroy_ah    = bnxt_re_destroy_ah,
 	.free_context  = bnxt_re_free_context,
+
+	.create_qp_ex  = bnxt_re_create_qp_ex,
 };
 
 static inline bool bnxt_re_is_chip_gen_p7(struct bnxt_re_chip_ctx *cctx)
