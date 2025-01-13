@@ -1,0 +1,57 @@
+.. -*- rst -*-
+.. Licensed under the OpenIB.org BSD license (FreeBSD Variant) - See COPYING.md
+
+umad_get_smi_gsi_pair_by_ca_name(3)
+===================================
+
+Retrieve SMI/GSI pair information based on device name and port number.
+
+Synopsis
+--------
+
+.. code-block:: c
+
+    #include <infiniband/umad.h>
+
+    int umad_get_smi_gsi_pair_by_ca_name(const char *devname, uint8_t portnum,
+                                        struct umad_ca_pair *ca, unsigned enforce_smi);
+
+Description
+-----------
+
+``umad_get_smi_gsi_pair_by_ca_name()`` fills the provided ``ca`` structure with the SMI and GSI pair information
+for the specified device name and port number.
+
+The ``devname`` parameter specifies the name of the device, and ``portnum`` is the associated port number.
+
+``enforce_smi`` parameter if enabled, will look only for pairs that has both SMI and GSI interfaces.
+
+The ``struct umad_ca_pair`` is defined in ``<infiniband/umad.h>`` and includes the following members:
+
+.. code-block:: c
+
+    struct umad_ca_pair {
+        char smi_name[UMAD_CA_NAME_LEN];
+        /* Name of the SMI */
+        uint32_t smi_preferred_port;
+        /* Preferred port for the SMI */
+        char gsi_name[UMAD_CA_NAME_LEN];
+        /* Name of the GSI */
+        uint32_t gsi_preferred_port;
+        /* Preferred port for the GSI */
+    };
+
+The function populates this structure with the relevant data for the given ``devname`` and ``portnum``.
+
+Return Value
+------------
+
+``umad_get_smi_gsi_pair_by_ca_name()`` returns:
+
+- **0**: If the specified device and port are found and the structure is successfully populated.
+- **1**: If no matching device or port is found.
+
+Authors
+-------
+
+- Asaf Mazor <amazor@nvidia.com>

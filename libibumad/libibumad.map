@@ -55,3 +55,10 @@ IBUMAD_1.3 {
 	global:
 		umad_open_smi_port;
 } IBUMAD_1.2;
+
+IBUMAD_1.4 {
+	global:
+		umad_get_smi_gsi_pairs;
+		umad_get_smi_gsi_pair_by_ca_name;
+} IBUMAD_1.3;
+
