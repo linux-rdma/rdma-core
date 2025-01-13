@@ -48,6 +48,7 @@
 #include "ibdiag_common.h"
 
 static struct ibmad_port *srcport;
+static struct ibmad_ports_pair *srcports;
 
 static op_fn_t node_desc, node_info, port_info, switch_info, pkey_table,
     sl2vl_table, vlarb_table, guid_info, mlnx_ext_port_info, port_info_extended;
@@ -475,17 +476,19 @@ int main(int argc, char **argv)
 	if (!(fn = match_op(match_tbl, argv[0])))
 		IBEXIT("operation '%s' not supported", argv[0]);
 
-	srcport = mad_rpc_open_port(ibd_ca, ibd_ca_port, mgmt_classes, 3);
-	if (!srcport)
+	srcports = mad_rpc_open_port2(ibd_ca, ibd_ca_port, mgmt_classes, 3, 1);
+	if (!srcports)
 		IBEXIT("Failed to open '%s' port '%d'", ibd_ca, ibd_ca_port);
+
+	srcport = srcports->smi.port;
 
 	smp_mkey_set(srcport, ibd_mkey);
 
 	node_name_map = open_node_name_map(node_name_map_file);
 
 	if (ibd_dest_type != IB_DEST_DRSLID) {
-		if (resolve_portid_str(ibd_ca, ibd_ca_port, &portid, argv[1],
-				       ibd_dest_type, ibd_sm_id, srcport) < 0)
+		if (resolve_portid_str(srcports->gsi.ca_name, ibd_ca_port, &portid, argv[1],
+				       ibd_dest_type, ibd_sm_id, srcports->gsi.port) < 0)
 			IBEXIT("can't resolve destination port %s", argv[1]);
 		if ((err = fn(&portid, argv + 2, argc - 2)))
 			IBEXIT("operation %s: %s", argv[0], err);
@@ -494,13 +497,13 @@ int main(int argc, char **argv)
 
 		memset(concat, 0, 64);
 		snprintf(concat, sizeof(concat), "%s %s", argv[1], argv[2]);
-		if (resolve_portid_str(ibd_ca, ibd_ca_port, &portid, concat,
+		if (resolve_portid_str(srcports->smi.ca_name, ibd_ca_port, &portid, concat,
 				       ibd_dest_type, ibd_sm_id, srcport) < 0)
 			IBEXIT("can't resolve destination port %s", concat);
 		if ((err = fn(&portid, argv + 3, argc - 3)))
 			IBEXIT("operation %s: %s", argv[0], err);
 	}
 	close_node_name_map(node_name_map);
-	mad_rpc_close_port(srcport);
+	mad_rpc_close_port2(srcports);
 	exit(0);
 }
