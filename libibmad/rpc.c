@@ -436,3 +436,152 @@ void mad_rpc_close_port(struct ibmad_port *port)
 	umad_close_port(port->port_id);
 	free(port);
 }
+
+static int get_smi_gsi_pair(const char *ca_name, int portnum, struct ibmad_ports_pair *ports_pair,
+			    unsigned enforce_smi)
+{
+	struct umad_ca_pair ca_pair;
+	int smi_port_id = -1;
+	int gsi_port_id = -1;
+	int rc = -1;
+	rc = umad_get_smi_gsi_pair_by_ca_name(ca_name, portnum, &ca_pair, enforce_smi);
+
+	if (rc < 0) {
+		IBWARN("Can't open UMAD port (%s) (%s:%d)", strerror(-rc), ca_name, portnum);
+		return rc;
+	}
+	smi_port_id = umad_open_port(ca_pair.smi_name, ca_pair.smi_preferred_port);
+
+	if (smi_port_id < 0 && enforce_smi) {
+		IBWARN("Can't open SMI UMAD port (%s) (%s:%d)", strerror(-smi_port_id), ca_pair.smi_name, ca_pair.smi_preferred_port);
+		return smi_port_id;
+	}
+
+	gsi_port_id = umad_open_port(ca_pair.gsi_name, ca_pair.gsi_preferred_port);
+
+	if (gsi_port_id < 0) {
+		IBWARN("Can't open GSI UMAD port (%s) (%s:%d)", strerror(-gsi_port_id), ca_pair.gsi_name, ca_pair.gsi_preferred_port);
+		umad_close_port(smi_port_id);
+		return gsi_port_id;
+	}
+
+	ports_pair->smi.port->port_id = smi_port_id;
+	ports_pair->gsi.port->port_id = gsi_port_id;
+	strncpy(ports_pair->smi.ca_name, ca_pair.smi_name, UMAD_CA_NAME_LEN);
+	strncpy(ports_pair->gsi.ca_name, ca_pair.gsi_name, UMAD_CA_NAME_LEN);
+
+	return 0;
+}
+
+static struct ibmad_port *get_port_for_class(struct ibmad_ports_pair *ports_pair, int mgmt_class, unsigned enforce_smi)
+{
+	if (mgmt_class != IB_SMI_CLASS && mgmt_class != IB_SMI_DIRECT_CLASS) {
+		if (ports_pair->gsi.port->port_id < 0) {
+			IBWARN("required port for GSI is invalid");
+			return NULL;
+		}
+		return ports_pair->gsi.port;
+	}
+
+	if (ports_pair->smi.port->port_id < 0) {
+		if (enforce_smi) {
+			IBWARN("required port for SMI is invalid");
+			return NULL;
+		}
+		return ports_pair->gsi.port;
+	}
+
+	return ports_pair->smi.port;
+}
+
+struct ibmad_ports_pair *mad_rpc_open_port2(char *dev_name, int dev_port,
+				     int *mgmt_classes, int num_classes, unsigned enforce_smi)
+{
+	struct ibmad_port *smi;
+	struct ibmad_port *gsi;
+	struct ibmad_ports_pair *ports_pair;
+	char *debug_level_env;
+
+	if (num_classes >= MAX_CLASS) {
+		IBWARN("too many classes %d requested", num_classes);
+		errno = EINVAL;
+		return NULL;
+	}
+
+	if (umad_init() < 0) {
+		IBWARN("can't init UMAD library");
+		errno = ENODEV;
+		return NULL;
+	}
+
+	debug_level_env = getenv("LIBIBMAD_DEBUG_LEVEL");
+	if (debug_level_env) {
+		ibdebug = atoi(debug_level_env);
+	}
+
+	smi = malloc(sizeof(*smi));
+	if (!smi) {
+		errno = ENOMEM;
+		return NULL;
+	}
+	memset(smi, 0, sizeof(*smi));
+
+	gsi = malloc(sizeof(*gsi));
+	if (!gsi) {
+		errno = ENOMEM;
+		return NULL;
+	}
+	memset(gsi, 0, sizeof(*gsi));
+
+	ports_pair = malloc(sizeof(*ports_pair));
+	if (!ports_pair) {
+		errno = ENOMEM;
+		return NULL;
+	}
+	memset(ports_pair, 0, sizeof(*ports_pair));
+	ports_pair->smi.port = smi;
+	ports_pair->gsi.port = gsi;
+
+	if ((get_smi_gsi_pair(dev_name, dev_port, ports_pair, enforce_smi)) < 0) {
+		IBWARN("can't open UMAD port (%s:%d)", dev_name, dev_port);
+		if (!errno)
+			errno = EIO;
+		free(smi);
+		free(gsi);
+		free(ports_pair);
+		return NULL;
+	}
+
+	memset(ports_pair->smi.port->class_agents, 0xff, sizeof ports_pair->smi.port->class_agents);
+	memset(ports_pair->gsi.port->class_agents, 0xff, sizeof ports_pair->gsi.port->class_agents);
+	while (num_classes--) {
+		uint8_t rmpp_version = 0;
+		int mgmt = *mgmt_classes++;
+		struct ibmad_port *p = get_port_for_class(ports_pair, mgmt, enforce_smi);
+		if (mgmt == IB_SA_CLASS)
+			rmpp_version = 1;
+		if (mgmt < 0 || mgmt >= MAX_CLASS || !p ||
+		    mad_register_client_via(mgmt, rmpp_version, p) < 0) {
+			IBWARN("client_register for mgmt %d failed", mgmt);
+			if (!errno)
+				errno = EINVAL;
+			umad_close_port(ports_pair->smi.port->port_id);
+			umad_close_port(ports_pair->gsi.port->port_id);
+			free(ports_pair->smi.port);
+			free(ports_pair->gsi.port);
+			free(ports_pair);
+			return NULL;
+		}
+	}
+
+	return ports_pair;
+}
+
+void mad_rpc_close_port2(struct ibmad_ports_pair *srcport)
+{
+	umad_close_port(srcport->smi.port->port_id);
+	umad_close_port(srcport->gsi.port->port_id);
+	free(srcport->smi.port);
+	free(srcport->gsi.port);
+	free(srcport);
+}
