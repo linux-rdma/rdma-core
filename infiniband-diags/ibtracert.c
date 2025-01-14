@@ -48,6 +48,7 @@
 #include "ibdiag_common.h"
 
 static struct ibmad_port *srcport;
+static struct ibmad_ports_pair *srcports;
 
 #define MAXHOPS	63
 
@@ -808,14 +809,14 @@ static int get_route(char *srcid, char *dstid) {
 	ib_portid_t dest_portid = { 0 };
 	Node *endnode;
 
-	if (resolve_portid_str(ibd_ca, ibd_ca_port, &src_portid, srcid,
-			       ibd_dest_type, ibd_sm_id, srcport) < 0) {
+	if (resolve_portid_str(srcports->gsi.ca_name, ibd_ca_port, &src_portid, srcid,
+			       ibd_dest_type, ibd_sm_id, srcports->gsi.port) < 0) {
 		IBWARN("can't resolve source port %s", srcid);
 		return -1;
 	}
 
-	if (resolve_portid_str(ibd_ca, ibd_ca_port, &dest_portid, dstid,
-			       ibd_dest_type, ibd_sm_id, srcport) < 0) {
+	if (resolve_portid_str(srcports->gsi.ca_name, ibd_ca_port, &dest_portid, dstid,
+			       ibd_dest_type, ibd_sm_id, srcports->gsi.port) < 0) {
 		IBWARN("can't resolve destination port %s", dstid);
 		return -1;
 	}
@@ -920,7 +921,11 @@ int main(int argc, char **argv)
 	if (ibd_timeout)
 		timeout = ibd_timeout;
 
-	srcport = mad_rpc_open_port(ibd_ca, ibd_ca_port, mgmt_classes, 3);
+	srcports = mad_rpc_open_port2(ibd_ca, ibd_ca_port, mgmt_classes, 3, 1);
+	if (!srcports)
+		IBEXIT("Failed to open '%s' port '%d'", ibd_ca, ibd_ca_port);
+
+	srcport = srcports->smi.port;
 	if (!srcport)
 		IBEXIT("Failed to open '%s' port '%d'", ibd_ca, ibd_ca_port);
 
@@ -967,7 +972,7 @@ int main(int argc, char **argv)
         }
 	close_node_name_map(node_name_map);
 
-	mad_rpc_close_port(srcport);
+	mad_rpc_close_port2(srcports);
 
 	exit(0);
 }
