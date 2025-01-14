@@ -45,6 +45,7 @@
 static uint8_t sminfo[1024] = { 0 };
 
 static struct ibmad_port *srcport;
+static struct ibmad_ports_pair *srcports;
 
 enum {
 	SMINFO_NOTACT,
@@ -111,18 +112,21 @@ int main(int argc, char **argv)
 	if (argc > 1)
 		mod = atoi(argv[1]);
 
-	srcport = mad_rpc_open_port(ibd_ca, ibd_ca_port, mgmt_classes, 3);
+	srcports = mad_rpc_open_port2(ibd_ca, ibd_ca_port, mgmt_classes, 3, 1);
+	if (!srcports)
+		IBEXIT("Failed to open '%s' port '%d'", ibd_ca, ibd_ca_port);
+	srcport = srcports->smi.port;
 	if (!srcport)
 		IBEXIT("Failed to open '%s' port '%d'", ibd_ca, ibd_ca_port);
 
 	smp_mkey_set(srcport, ibd_mkey);
 
 	if (argc) {
-		if (resolve_portid_str(ibd_ca, ibd_ca_port, &portid, argv[0],
-				       ibd_dest_type, NULL, srcport) < 0)
+		if (resolve_portid_str(srcports->gsi.ca_name, ibd_ca_port, &portid, argv[0],
+				       ibd_dest_type, NULL, srcports->gsi.port) < 0)
 			IBEXIT("can't resolve destination port %s", argv[0]);
 	} else {
-		if (resolve_sm_portid(ibd_ca, ibd_ca_port, &portid) < 0)
+		if (resolve_sm_portid(srcports->smi.ca_name, ibd_ca_port, &portid) < 0)
 			IBEXIT("can't resolve sm port %s", argv[0]);
 	}
 
