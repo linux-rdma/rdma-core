@@ -770,6 +770,7 @@ ibnd_fabric_t *ibnd_discover_fabric(char * ca_name, int ca_port,
 	smp_engine_t engine;
 	ibnd_scan_t scan;
 	struct ibmad_port *ibmad_port;
+	struct ibmad_ports_pair *ibmad_ports;
 	int nc = 2;
 	int mc[2] = { IB_SMI_CLASS, IB_SMI_DIRECT_CLASS };
 
@@ -793,7 +794,12 @@ ibnd_fabric_t *ibnd_discover_fabric(char * ca_name, int ca_port,
 	scan.cfg = &config;
 	scan.initial_hops = from->drpath.cnt;
 
-	ibmad_port = mad_rpc_open_port(ca_name, ca_port, mc, nc);
+	ibmad_ports = mad_rpc_open_port2(ca_name, ca_port, mc, nc, 1);
+	if (!ibmad_ports) {
+		IBND_ERROR("can't open MAD port (%s:%d)\n", ca_name, ca_port);
+		goto error_int;
+	}
+	ibmad_port = ibmad_ports->smi.port;
 	if (!ibmad_port) {
 		IBND_ERROR("can't open MAD port (%s:%d)\n", ca_name, ca_port);
 		goto error_int;
@@ -805,12 +811,18 @@ ibnd_fabric_t *ibnd_discover_fabric(char * ca_name, int ca_port,
 	if (ib_resolve_self_via(&scan.selfportid,
 				NULL, NULL, ibmad_port) < 0) {
 		IBND_ERROR("Failed to resolve self\n");
-		mad_rpc_close_port(ibmad_port);
+		mad_rpc_close_port2(ibmad_ports);
 		goto error_int;
 	}
-	mad_rpc_close_port(ibmad_port);
 
-	if (smp_engine_init(&engine, ca_name, ca_port, &scan, &config)) {
+	//in case of smi/gsi seperation make sure we take the smi name
+	char fixed_ca_name[UMAD_CA_NAME_LEN];
+	memset(fixed_ca_name, 0, UMAD_CA_NAME_LEN);
+	strncpy(fixed_ca_name, ibmad_ports->smi.ca_name, UMAD_CA_NAME_LEN);
+
+	mad_rpc_close_port2(ibmad_ports);
+
+	if (smp_engine_init(&engine, fixed_ca_name, ca_port, &scan, &config)) {
 		goto error_int;
 	}
 
