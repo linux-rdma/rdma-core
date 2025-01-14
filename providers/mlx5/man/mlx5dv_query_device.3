@@ -41,8 +41,10 @@ uint32_t supported_qpts;
 .PP
 .nf
 struct mlx5dv_dci_streams_caps {
+.in +8
 uint8_t max_log_num_concurent; /* max log number of parallel different streams that could be handled by HW */
 uint8_t max_log_num_errored; /* max DCI error stream channels supported per DCI before a DCI move to an error state */
+.in -8
 };
 .PP
 .nf
@@ -207,15 +209,15 @@ uint32_t flags; /* use enum mlx5dv_crypto_caps_flags */
 /* This bitmap indicates which crypto engines are supported by the device. */
 enum mlx5dv_crypto_engines_caps {
 .in +8
-	/* Deprecated, replaced by MLX5DV_CRYPTO_ENGINES_CAP_AES_XTS_SINGLE_BLOCK */
-	MLX5DV_CRYPTO_ENGINES_CAP_AES_XTS = 1 << 0,
-	/*
-	 * Indicates that AES-XTS only supports encrypting a single block
-	 * at a time.
-	 */
-	MLX5DV_CRYPTO_ENGINES_CAP_AES_XTS_SINGLE_BLOCK = 1 << 1,
-	/* Indicates that AES-XTS supports multi-block encryption. */
-	MLX5DV_CRYPTO_ENGINES_CAP_AES_XTS_MULTI_BLOCK = 1 << 2,
+/* Deprecated, replaced by MLX5DV_CRYPTO_ENGINES_CAP_AES_XTS_SINGLE_BLOCK */
+ MLX5DV_CRYPTO_ENGINES_CAP_AES_XTS = 1 << 0,
+/*
+ * Indicates that AES-XTS only supports encrypting a single block
+ * at a time.
+ */
+ MLX5DV_CRYPTO_ENGINES_CAP_AES_XTS_SINGLE_BLOCK = 1 << 1,
+/* Indicates that AES-XTS supports multi-block encryption. */
+ MLX5DV_CRYPTO_ENGINES_CAP_AES_XTS_MULTI_BLOCK = 1 << 2,
 .in -8
 };
 
@@ -231,24 +233,24 @@ enum mlx5dv_crypto_engines_caps {
  */
 enum mlx5dv_crypto_wrapped_import_method_caps {
 .in +8
-	MLX5DV_CRYPTO_WRAPPED_IMPORT_METHOD_CAP_AES_XTS = 1 << 0,
+ MLX5DV_CRYPTO_WRAPPED_IMPORT_METHOD_CAP_AES_XTS = 1 << 0,
 .in -8
 };
 
 enum mlx5dv_crypto_caps_flags {
 .in +8
-	/* Indicates whether crypto capabilities are enabled on the device. */
-	MLX5DV_CRYPTO_CAPS_CRYPTO = 1 << 0,
+/* Indicates whether crypto capabilities are enabled on the device. */
+ MLX5DV_CRYPTO_CAPS_CRYPTO = 1 << 0,
 
-	/* Indicates whether crypto engines that are in wrapped import method are operational. */
-	MLX5DV_CRYPTO_CAPS_WRAPPED_CRYPTO_OPERATIONAL = 1 << 1,
+/* Indicates whether crypto engines that are in wrapped import method are operational. */
+ MLX5DV_CRYPTO_CAPS_WRAPPED_CRYPTO_OPERATIONAL = 1 << 1,
 
-	/*
-	 * If set, indicates that after the next FW reset the device will go back to
-	 * commissioning mode, meaning that MLX5DV_CRYPTO_CAPS_WRAPPED_CRYPTO_OPERATIONAL
-	 * will be set to 0.
-	 */
-	MLX5DV_CRYPTO_CAPS_WRAPPED_CRYPTO_GOING_TO_COMMISSIONING = 1 << 2,
+/*
+ * If set, indicates that after the next FW reset the device will go back to
+ * commissioning mode, meaning that MLX5DV_CRYPTO_CAPS_WRAPPED_CRYPTO_OPERATIONAL
+ * will be set to 0.
+ */
+ MLX5DV_CRYPTO_CAPS_WRAPPED_CRYPTO_GOING_TO_COMMISSIONING = 1 << 2,
 .in -8
 };
 
