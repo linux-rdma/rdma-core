@@ -161,7 +161,7 @@ struct mlx5dv_mkey_conf_attr {
 
 	:	The desired memory protection attributes; it is either 0 or
 		the bitwise OR of one or more of flags in **enum
-		ibv_access_flags**.
+		ibv_access_flags**. IBV_ACCESS_RELAXED_ORDERING is not supported.
 
 ## Data layout setters
 
