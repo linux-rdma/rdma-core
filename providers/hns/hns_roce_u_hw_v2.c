@@ -471,9 +471,13 @@ static void parse_for_ud_qp(struct hns_roce_v2_cqe *cqe, struct ibv_wc *wc)
 }
 
 static void parse_cqe_for_srq(struct hns_roce_v2_cqe *cqe, struct ibv_wc *wc,
-			      struct hns_roce_srq *srq)
+			      struct hns_roce_srq *srq,
+			      struct hns_roce_qp *hr_qp)
 {
 	uint32_t wqe_idx;
+
+	if (hr_qp->verbs_qp.qp.qp_type == IBV_QPT_UD)
+		parse_for_ud_qp(cqe, wc);
 
 	wqe_idx = hr_reg_read(cqe, CQE_WQE_IDX);
 	wc->wr_id = srq->wrid[wqe_idx & (srq->wqe_cnt - 1)];
@@ -592,7 +596,7 @@ static int hns_roce_v2_poll_one(struct hns_roce_cq *cq,
 			return V2_CQ_POLL_ERR;
 
 		if (srq) {
-			parse_cqe_for_srq(cqe, wc, srq);
+			parse_cqe_for_srq(cqe, wc, srq, *cur_qp);
 		} else {
 			if (parse_cqe_for_resp(cqe, wc, *cur_qp, opcode))
 				return V2_CQ_POLL_ERR;
