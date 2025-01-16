@@ -355,7 +355,7 @@ struct ibv_cq *bnxt_re_create_cq(struct ibv_context *ibvctx, int ncqe,
 	 */
 	cq->cqq->va = cq->mem->va_head;
 	if (!cq->cqq->va)
-		goto fail;
+		goto cmdfail;
 
 	pthread_spin_init(&cq->cqq->qlock, PTHREAD_PROCESS_PRIVATE);
 
