@@ -2249,17 +2249,30 @@ int rdma_ack_cm_event(struct rdma_cm_event *event)
 
 static void ucma_process_addr_resolved(struct cma_event *evt)
 {
+	struct rdma_cm_id *id = &evt->id_priv->id;
+
 	if (af_ib_support) {
-		evt->event.status = ucma_query_addr(&evt->id_priv->id);
+		evt->event.status = ucma_query_addr(id);
+		if (!evt->event.status && !id->verbs)
+			goto err_dev;
+
 		if (!evt->event.status &&
-		    evt->id_priv->id.verbs->device->transport_type == IBV_TRANSPORT_IB)
-			evt->event.status = ucma_query_gid(&evt->id_priv->id);
+		    id->verbs->device->transport_type == IBV_TRANSPORT_IB) {
+			evt->event.status = ucma_query_gid(id);
+		}
 	} else {
-		evt->event.status = ucma_query_route(&evt->id_priv->id);
+		evt->event.status = ucma_query_route(id);
+		if (!evt->event.status && !id->verbs)
+			goto err_dev;
 	}
 
 	if (evt->event.status)
 		evt->event.event = RDMA_CM_EVENT_ADDR_ERROR;
+	return;
+
+err_dev:
+	evt->event.status = ERR(ENODEV);
+	evt->event.event = RDMA_CM_EVENT_ADDR_ERROR;
 }
 
 static void ucma_process_route_resolved(struct cma_event *evt)
