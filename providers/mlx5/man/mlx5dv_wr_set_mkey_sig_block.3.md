@@ -32,7 +32,8 @@ required (or expected) in two domains: the wire domain and the memory domain.
 
 The MKEY represents a virtually contiguous memory, by configuring a layout to it.
 The memory signature domain describes whether data in this virtually contiguous
-memory includes integrity fields, and if so, what kind and what block size.
+memory includes integrity fields, and if so, what kind(**enum mlx5dv_sig_type**)
+and what block size(**enum mlx5dv_block_size**).
 
 The wire signature domain describes the same kind of properties for the data as
 it is seen on the wire. Now, depending on the actual operation that happens (TX
@@ -125,7 +126,7 @@ struct mlx5dv_sig_block_attr {
 
 	**MLX5DV_SIG_BLOCK_ATTR_FLAG_COPY_MASK**
 
-	:	If the bit is not set then *copy_mask* is ignored. See details
+	:	If the bit is not set, then *copy_mask* is ignored. See details
 		in the *copy_mask* description.
 
 *check_mask*
@@ -158,13 +159,13 @@ struct mlx5dv_sig_block_attr {
 	configurted on both domains. The parts of the T10-DIF are compared and
 	handled independetly.
 
-	If **MLX5DV_SIG_BLOCK_ATTR_FLAG_COPY_MASK** is set the
+	If **MLX5DV_SIG_BLOCK_ATTR_FLAG_COPY_MASK** is set, the
 	*copy_mask* attribute overrides the calculated value of the copy mask.
 	Otherwise, *copy_mask* is ignored.
 
 	Each bit of *copy_mask* corresponds to a byte of the signature field.
-	If corresponding bit in *copy_mask* is set, byte of the signature is
-	copied from the input domain to the output domain. Calculation
+	If corresponding bit in *copy_mask* is set, byte of the signature field
+	is copied from the input domain to the output domain. Calculation
 	according to the output domain configuration is not performed in this
 	case. Bits not relevant to the signature type are ignored. *copy_mask*
 	may be used only if input and output domains have the same structure,
@@ -219,7 +220,7 @@ struct mlx5dv_sig_block_domain {
 
 *block_size*
 
-:	The block size for this domain, one of **enum mlx5dv_sig_block_size**.
+:	The block size for this domain, one of **enum mlx5dv_block_size**.
 
 *comp_mask*
 
