@@ -76,12 +76,16 @@ class DeviceTest(PyverbsAPITestCase):
         Test ibv_get_pkey_index()
         """
         source_pkey_index = 0
-        with d.Context(name=self.dev_name) as ctx:
-            pkey = u.get_pkey_from_kernel(device=self.dev_name, port=self.ib_port,
-                                          index=source_pkey_index)
-            queried_pkey_idx = ctx.get_pkey_index(port_num=self.ib_port, pkey=pkey)
-            self.assertEqual(queried_pkey_idx, source_pkey_index,
-                             f'Got index={queried_pkey_idx}\nExpected index={source_pkey_index}')
+        for dev in self.get_device_list():
+            with d.Context(name=dev.name.decode()) as ctx:
+                if dev.node_type == e.IBV_NODE_CA:
+                    pkey = u.get_pkey_from_kernel(device=dev.name.decode(),
+                                                  port=self.ib_port,
+                                                  index=source_pkey_index)
+                    queried_pkey_idx = ctx.get_pkey_index(port_num=self.ib_port,
+                                                          pkey=pkey)
+                    self.assertEqual(queried_pkey_idx, source_pkey_index,
+                                    f'Got index={queried_pkey_idx}\nExpected index={source_pkey_index}')
 
     def test_query_gid(self):
         """
