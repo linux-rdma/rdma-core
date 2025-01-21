@@ -2,7 +2,33 @@ rdma-core (56.0-1) unstable; urgency=medium
 
   * New upstream release.
 
- -- Jason Gunthorpe <jgg@obsidianresearch.com>  Tue, 27 Feb 2024 11:32:22 +0100
+ -- Jason Gunthorpe <jgg@obsidianresearch.com>  Tue, 21 Jan 2025 13:44:36 +0100
+
+rdma-core (55.0-1) unstable; urgency=medium
+
+  * New upstream release.
+  * Bump Standards-Version to 4.7.0
+  * Update library symbols
+
+ -- Benjamin Drung <bdrung@ubuntu.com>  Tue, 21 Jan 2025 12:50:59 +0100
+
+rdma-core (52.0-2) unstable; urgency=medium
+
+  * Exclude hns provider on archs without coherent DMA (Closes: #1073050)
+
+ -- Benjamin Drung <bdrung@ubuntu.com>  Thu, 27 Jun 2024 13:49:34 +0200
+
+rdma-core (52.0-1) unstable; urgency=medium
+
+  * New upstream release.
+
+ -- Benjamin Drung <bdrung@ubuntu.com>  Mon, 03 Jun 2024 11:07:43 +0200
+
+rdma-core (50.0-2) unstable; urgency=medium
+
+  * Rename libraries for 64-bit time_t transition (Closes: #1064313)
+
+ -- Benjamin Drung <bdrung@ubuntu.com>  Thu, 29 Feb 2024 03:11:46 +0100
 
 rdma-core (50.0-1) unstable; urgency=medium
 
