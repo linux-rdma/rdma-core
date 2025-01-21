@@ -2,6 +2,7 @@ libibmad.so.5 libibmad5 #MINVER#
 * Build-Depends-Package: libibmad-dev
  IBMAD_1.3@IBMAD_1.3 1.3.11
  IBMAD_1.4@IBMAD_1.4 54
+ IBMAD_1.5@IBMAD_1.5 56
  bm_call_via@IBMAD_1.3 1.3.11
  cc_config_status_via@IBMAD_1.3 1.3.11
  cc_query_status_via@IBMAD_1.3 1.3.11
@@ -157,6 +158,5 @@ libibmad.so.5 libibmad5 #MINVER#
  smp_set_via@IBMAD_1.3 1.3.11
  str2drpath@IBMAD_1.3 1.3.11
  xdump@IBMAD_1.3 1.3.11
- mad_rpc_open_port2@IBMAD_1.5 5.5.56
- mad_rpc_close_port2@IBMAD_1.5 5.5.56
-
+ mad_rpc_open_port2@IBMAD_1.5 56
+ mad_rpc_close_port2@IBMAD_1.5 56
