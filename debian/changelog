@@ -1,3 +1,11 @@
+rdma-core (55.0-1) unstable; urgency=medium
+
+  * New upstream release.
+  * Bump Standards-Version to 4.7.0
+  * Update library symbols
+
+ -- Benjamin Drung <bdrung@ubuntu.com>  Tue, 21 Jan 2025 12:50:59 +0100
+
 rdma-core (52.0-2) unstable; urgency=medium
 
   * Exclude hns provider on archs without coherent DMA (Closes: #1073050)
