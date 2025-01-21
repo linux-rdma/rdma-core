@@ -136,6 +136,7 @@ libibverbs.so.1 libibverbs1 #MINVER#
  ibv_cmd_create_ah@IBVERBS_PRIVATE_34 34
  ibv_cmd_create_counters@IBVERBS_PRIVATE_34 34
  ibv_cmd_create_cq@IBVERBS_PRIVATE_34 34
+ ibv_cmd_create_cq_ex2@IBVERBS_PRIVATE_34 53
  ibv_cmd_create_cq_ex@IBVERBS_PRIVATE_34 34
  ibv_cmd_create_flow@IBVERBS_PRIVATE_34 34
  ibv_cmd_create_flow_action_esp@IBVERBS_PRIVATE_34 34
