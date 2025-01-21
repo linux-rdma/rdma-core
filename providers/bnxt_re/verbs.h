@@ -62,7 +62,7 @@ struct bnxt_re_work_compl {
 
 static inline uint8_t bnxt_re_get_psne_size(struct bnxt_re_context *cntx)
 {
-	return (BNXT_RE_HW_RETX(cntx)) ? sizeof(struct bnxt_re_msns) :
+	return (BNXT_RE_MSN_TBL_EN(cntx)) ? sizeof(struct bnxt_re_msns) :
 					      (cntx->cctx.gen_p5_p7) ?
 					      sizeof(struct bnxt_re_psns_ext) :
 					      sizeof(struct bnxt_re_psns);

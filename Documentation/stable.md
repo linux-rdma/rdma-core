@@ -12,11 +12,15 @@ All bug fixes are to be backported from mainline and applied by stable branch ma
 
 Branched stable releases will append an additional release number (e.g. 15.1) and will ensure that Azure Pipelines CI reports a successful build.
 
-Regular stable releases will be generated at the same time as mainline releases.
+Regular stable releases are usually generated at the same time as a mainline release.
+Some mainline release are however skipped if not enough significant patches have been queued.
 Additional stable releases can be generated if the need arise (Needed by distributions or OFED).
+Please contact the maintainer if a stable release is needed outside of the regular schedule.
 
 Stable branches are named stable-vXX where XX is the base version number.
 Once older release are no longer supported, their branch will be deleted but the stable release tags will be kept.
+
+Branches are maintained for about 4 years.
 
 ## Patch Rules
 

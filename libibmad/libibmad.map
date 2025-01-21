@@ -154,3 +154,10 @@ IBMAD_1.3 {
 		ib_node_query_via;
 	local: *;
 };
+
+IBMAD_1.4 {
+	global:
+		mad_dump_linkspeedext2;
+		mad_dump_linkspeedexten2;
+		mad_dump_linkspeedextsup2;
+} IBMAD_1.3;

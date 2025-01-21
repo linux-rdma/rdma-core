@@ -4,7 +4,7 @@
 #define _GNU_SOURCE
 #include <stdio.h>
 #include <stdlib.h>
-#include <string.h>
+#include <libgen.h>
 #include <stdbool.h>
 #include <errno.h>
 #include <unistd.h>
@@ -57,6 +57,7 @@ struct data {
 	uint64_t node_guid;
 	char *name;
 	int idx;
+	int name_assign_type;
 };
 
 static bool debug_mode;
@@ -555,6 +556,11 @@ static int get_nldata_cb(struct nl_msg *msg, void *data)
 
 	d->idx = nla_get_u32(tb[RDMA_NLDEV_ATTR_DEV_INDEX]);
 	d->node_guid = nla_get_u64(tb[RDMA_NLDEV_ATTR_NODE_GUID]);
+
+	if (tb[RDMA_NLDEV_ATTR_NAME_ASSIGN_TYPE])
+		d->name_assign_type =
+			nla_get_u8(tb[RDMA_NLDEV_ATTR_NAME_ASSIGN_TYPE]);
+
 	return NL_STOP;
 }
 
@@ -636,6 +642,13 @@ int main(int argc, char **argv)
 
 	if (rdmanl_get_devices(nl, get_nldata_cb, &d)) {
 		pr_err("%s: Failed to connect to NETLINK_RDMA\n", d.curr);
+		goto out;
+	}
+
+	if (d.name_assign_type == RDMA_NAME_ASSIGN_TYPE_USER) {
+		pr_dbg("%s: Leave user-assigned names, do nothing\n", d.curr);
+		/* Do nothing */
+		ret = 0;
 		goto out;
 	}
 

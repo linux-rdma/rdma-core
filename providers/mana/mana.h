@@ -7,6 +7,8 @@
 #define _MANA_H_
 
 #include "manadv.h"
+#include <ccan/minmax.h>
+#include "shadow_queue.h"
 
 #define COMP_ENTRY_SIZE 64
 #define MANA_IB_TOEPLITZ_HASH_KEY_SIZE_IN_BYTES 40
@@ -24,31 +26,59 @@
 #define DOORBELL_PAGE_SIZE 4096
 #define MANA_PAGE_SIZE 4096
 
-static inline int align_next_power2(int size)
+#define MANA_QP_TABLE_SIZE 4096
+#define MANA_QP_TABLE_SHIFT 12
+#define MANA_QP_TABLE_MASK (MANA_QP_TABLE_SIZE - 1)
+
+/* PSN 24 bit arithmetic comparisons */
+#define PSN_MASK 0xFFFFFF
+#define PSN_SIGN_BIT 0x800000
+#define PSN_GE(PSN1, PSN2) ((((PSN1) - (PSN2)) & PSN_SIGN_BIT) == 0)
+#define PSN_GT(PSN1, PSN2) PSN_GE(PSN1, (PSN2) + 1)
+#define PSN_LE(PSN1, PSN2) PSN_GE(PSN2, PSN1)
+#define PSN_LT(PSN1, PSN2) PSN_GT(PSN2, PSN1)
+#define MTU_SIZE(MTU) (1U << ((MTU) + 7))
+#define PSN_DELTA(MSG_SIZE, MTU) max(1U, ((MSG_SIZE) + MTU_SIZE(MTU) - 1) >> (MTU + 7))
+#define PSN_DEC(PSN) (((PSN) - 1) & PSN_MASK)
+#define PSN_INC(PSN) (((PSN) + 1) & PSN_MASK)
+#define PSN_ADD(PSN, DELTA) (((PSN) + (DELTA)) & PSN_MASK)
+
+enum user_queue_types {
+	USER_RC_SEND_QUEUE_REQUESTER = 0,
+	USER_RC_SEND_QUEUE_RESPONDER = 1,
+	USER_RC_RECV_QUEUE_REQUESTER = 2,
+	USER_RC_RECV_QUEUE_RESPONDER = 3,
+	USER_RC_QUEUE_TYPE_MAX = 4,
+};
+
+static inline uint32_t align_hw_size(uint32_t size)
 {
-	int val = 1;
-
-	while (val < size)
-		val <<= 1;
-
-	return val;
+	size = roundup_pow_of_two(size);
+	return align(size, MANA_PAGE_SIZE);
 }
 
-static inline int align_hw_size(int size)
+static inline uint32_t get_wqe_size(uint32_t sge)
 {
-	size = align(size, MANA_PAGE_SIZE);
-	return align_next_power2(size);
+	uint32_t wqe_size = sge * SGE_SIZE + DMA_OOB_SIZE + INLINE_OOB_SMALL_SIZE;
+
+	return align(wqe_size, GDMA_WQE_ALIGNMENT_UNIT_SIZE);
 }
 
-static inline int get_wqe_size(int sge)
+static inline uint32_t get_large_wqe_size(uint32_t sge)
 {
-	int wqe_size = sge * SGE_SIZE + DMA_OOB_SIZE + INLINE_OOB_SMALL_SIZE;
+	uint32_t wqe_size = sge * SGE_SIZE + DMA_OOB_SIZE + INLINE_OOB_LARGE_SIZE;
 
 	return align(wqe_size, GDMA_WQE_ALIGNMENT_UNIT_SIZE);
 }
 
 struct mana_context {
 	struct verbs_context ibv_ctx;
+	struct {
+		struct mana_qp **table;
+		int refcnt;
+	} qp_table[MANA_QP_TABLE_SIZE];
+	pthread_mutex_t qp_table_mutex;
+
 	struct manadv_ctx_allocators extern_alloc;
 	void *db_page;
 };
@@ -60,16 +90,49 @@ struct mana_rwq_ind_table {
 	struct ibv_wq **ind_tbl;
 };
 
-struct mana_qp {
-	struct verbs_qp ibqp;
+struct mana_gdma_queue {
+	uint32_t id;
+	uint32_t size;
+	uint32_t prod_idx;
+	uint32_t cons_idx;
 
+	void *db_page;
+	void *buffer;
+};
+
+struct mana_ib_raw_qp {
 	void *send_buf;
 	uint32_t send_buf_size;
-
 	int send_wqe_count;
-
 	uint32_t sqid;
 	uint32_t tx_vp_offset;
+};
+
+struct mana_ib_rc_qp {
+	struct mana_gdma_queue queues[USER_RC_QUEUE_TYPE_MAX];
+
+	uint32_t sq_ssn;
+	uint32_t sq_psn;
+	uint32_t sq_highest_completed_psn;
+};
+
+struct mana_qp {
+	struct verbs_qp ibqp;
+	pthread_spinlock_t sq_lock;
+	pthread_spinlock_t rq_lock;
+
+	union {
+		struct mana_ib_raw_qp raw_qp;
+		struct mana_ib_rc_qp rc_qp;
+	};
+
+	enum ibv_mtu mtu;
+
+	struct shadow_queue shadow_rq;
+	struct shadow_queue shadow_sq;
+
+	struct list_node send_cq_node;
+	struct list_node recv_cq_node;
 };
 
 struct mana_wq {
@@ -87,9 +150,19 @@ struct mana_wq {
 struct mana_cq {
 	struct ibv_cq ibcq;
 	uint32_t cqe;
+	uint32_t cqid;
 	void *buf;
 
-	uint32_t cqid;
+	pthread_spinlock_t lock;
+	uint32_t head;
+	uint32_t last_armed_head;
+	uint32_t ready_wcs;
+	void *db_page;
+	/* list of qp's that use this cq for send completions */
+	struct list_head send_qp_list;
+	/* list of qp's that use this cq for recv completions */
+	struct list_head recv_qp_list;
+	bool buf_external;
 };
 
 struct mana_device {
@@ -107,6 +180,8 @@ struct mana_parent_domain {
 };
 
 struct mana_context *to_mctx(struct ibv_context *ibctx);
+
+void *mana_alloc_mem(uint32_t size);
 
 int mana_query_device_ex(struct ibv_context *context,
 			 const struct ibv_query_device_ex_input *input,
@@ -133,6 +208,8 @@ struct ibv_cq *mana_create_cq(struct ibv_context *context, int cqe,
 
 int mana_destroy_cq(struct ibv_cq *cq);
 
+int mana_poll_cq(struct ibv_cq *ibcq, int nwc, struct ibv_wc *wc);
+
 struct ibv_wq *mana_create_wq(struct ibv_context *context,
 			      struct ibv_wq_init_attr *attr);
 
@@ -154,4 +231,13 @@ int mana_modify_qp(struct ibv_qp *qp, struct ibv_qp_attr *attr, int attr_mask);
 
 int mana_destroy_qp(struct ibv_qp *ibqp);
 
+int mana_post_recv(struct ibv_qp *ibqp, struct ibv_recv_wr *wr,
+		   struct ibv_recv_wr **bad);
+
+int mana_post_send(struct ibv_qp *ibqp, struct ibv_send_wr *wr,
+		   struct ibv_send_wr **bad);
+
+int mana_arm_cq(struct ibv_cq *ibcq, int solicited);
+
+struct mana_qp *mana_get_qp_from_rq(struct mana_context *ctx, uint32_t qpn);
 #endif

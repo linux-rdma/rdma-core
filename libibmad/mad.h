@@ -1504,7 +1504,6 @@ int mad_get_timeout(const struct ibmad_port *srcport, int override_ms);
 int mad_get_retries(const struct ibmad_port *srcport);
 
 /* register.c */
-int mad_register_port_client(int port_id, int mgmt, uint8_t rmpp_version);
 int mad_register_client(int mgmt, uint8_t rmpp_version)
 	__attribute__((deprecated));
 int mad_register_server(int mgmt, uint8_t rmpp_version,

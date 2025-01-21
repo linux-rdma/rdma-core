@@ -1,0 +1,37 @@
+.\" -*- nroff -*-
+.\" Licensed under the OpenIB.org BSD license (FreeBSD Variant) - See COPYING.md
+.\"
+.TH UMAD_OPEN_SMI_PORT 3  "June 18, 2024" "OpenIB" "OpenIB Programmer's Manual"
+.SH "NAME"
+umad_open_smi_port \- open InfiniBand device SMI port for umad access
+.SH "SYNOPSIS"
+.nf
+.B #include <infiniband/umad.h>
+.sp
+.BI "int umad_open_smi_port(char " "*ca_name" ", int " "portnum" );
+.fi
+.SH "DESCRIPTION"
+.B umad_open_smi_port()
+opens the SMI port
+.I portnum
+of the IB device
+.I ca_name
+for umad access. The port is selected by the library if not all parameters
+are provided (see
+.B umad_get_port()
+for details). Only SMI ports will be selected.
+.fi
+.SH "RETURN VALUE"
+.B umad_open_smi_port()
+returns 0 or an unique positive value of umad device descriptor on success, and a negative value on error as follows:
+ -EOPNOTSUPP ABI version doesn't match
+ -ENODEV     IB device with SMI port can't be resolved
+ -EINVAL     port is not valid (bad
+.I portnum\fR
+or no umad device)
+ -EIO        umad device for this port can't be opened
+.SH "SEE ALSO"
+.BR umad_open_port (3),
+.SH "AUTHOR"
+.TP
+Amir Nir <anir@nvidia.com>

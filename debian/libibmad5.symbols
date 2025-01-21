@@ -48,8 +48,11 @@ libibmad.so.5 libibmad5 #MINVER#
  mad_dump_linkspeed@IBMAD_1.3 1.3.11
  mad_dump_linkspeeden@IBMAD_1.3 1.3.11
  mad_dump_linkspeedext@IBMAD_1.3 1.3.11
+ mad_dump_linkspeedext2@IBMAD_1.4 5.4.54
  mad_dump_linkspeedexten@IBMAD_1.3 1.3.11
+ mad_dump_linkspeedexten2@IBMAD_1.4 5.4.54
  mad_dump_linkspeedextsup@IBMAD_1.3 1.3.11
+ mad_dump_linkspeedextsup2@IBMAD_1.4 5.4.54
  mad_dump_linkspeedsup@IBMAD_1.3 1.3.11
  mad_dump_linkwidth@IBMAD_1.3 1.3.11
  mad_dump_linkwidthen@IBMAD_1.3 1.3.11

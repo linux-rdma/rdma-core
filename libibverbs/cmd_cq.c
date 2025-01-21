@@ -127,6 +127,32 @@ static int ibv_icmd_create_cq(struct ibv_context *context, int cqe,
 	return 0;
 }
 
+static int ibv_icmd_create_cq_ex(struct ibv_context *context,
+				 const struct ibv_cq_init_attr_ex *cq_attr,
+				 struct verbs_cq *cq,
+				 struct ibv_command_buffer *cmdb,
+				 uint32_t cmd_flags)
+{
+	uint32_t flags = 0;
+
+	if (!check_comp_mask(cq_attr->comp_mask,
+			     IBV_CQ_INIT_ATTR_MASK_FLAGS |
+			     IBV_CQ_INIT_ATTR_MASK_PD))
+		return EOPNOTSUPP;
+
+	if (cq_attr->wc_flags & IBV_WC_EX_WITH_COMPLETION_TIMESTAMP ||
+	    cq_attr->wc_flags & IBV_WC_EX_WITH_COMPLETION_TIMESTAMP_WALLCLOCK)
+		flags |= IB_UVERBS_CQ_FLAGS_TIMESTAMP_COMPLETION;
+
+	if ((cq_attr->comp_mask & IBV_CQ_INIT_ATTR_MASK_FLAGS) &&
+	    cq_attr->flags & IBV_CREATE_CQ_ATTR_IGNORE_OVERRUN)
+		flags |= IB_UVERBS_CQ_FLAGS_IGNORE_OVERRUN;
+
+	return ibv_icmd_create_cq(context, cq_attr->cqe, cq_attr->channel,
+				  cq_attr->comp_vector, flags,
+				  &cq->cq, cmdb, cmd_flags);
+}
+
 int ibv_cmd_create_cq(struct ibv_context *context, int cqe,
 		      struct ibv_comp_channel *channel, int comp_vector,
 		      struct ibv_cq *cq, struct ibv_create_cq *cmd,
@@ -153,24 +179,25 @@ int ibv_cmd_create_cq_ex(struct ibv_context *context,
 	DECLARE_CMD_BUFFER_COMPAT(cmdb, UVERBS_OBJECT_CQ,
 				  UVERBS_METHOD_CQ_CREATE, cmd, cmd_size, resp,
 				  resp_size);
-	uint32_t flags = 0;
 
-	if (!check_comp_mask(cq_attr->comp_mask,
-			     IBV_CQ_INIT_ATTR_MASK_FLAGS |
-			     IBV_CQ_INIT_ATTR_MASK_PD))
-		return EOPNOTSUPP;
+	return ibv_icmd_create_cq_ex(context, cq_attr, cq, cmdb, cmd_flags);
+}
 
-	if (cq_attr->wc_flags & IBV_WC_EX_WITH_COMPLETION_TIMESTAMP ||
-	    cq_attr->wc_flags & IBV_WC_EX_WITH_COMPLETION_TIMESTAMP_WALLCLOCK)
-		flags |= IB_UVERBS_CQ_FLAGS_TIMESTAMP_COMPLETION;
+int ibv_cmd_create_cq_ex2(struct ibv_context *context,
+			  const struct ibv_cq_init_attr_ex *cq_attr,
+			  struct verbs_cq *cq,
+			  struct ibv_create_cq_ex *cmd,
+			  size_t cmd_size,
+			  struct ib_uverbs_ex_create_cq_resp *resp,
+			  size_t resp_size,
+			  uint32_t cmd_flags,
+			  struct ibv_command_buffer *driver)
+{
+	DECLARE_CMD_BUFFER_LINK_COMPAT(cmdb, UVERBS_OBJECT_CQ,
+				       UVERBS_METHOD_CQ_CREATE,
+				       driver, cmd, cmd_size, resp, resp_size);
 
-	if ((cq_attr->comp_mask & IBV_CQ_INIT_ATTR_MASK_FLAGS) &&
-	    cq_attr->flags & IBV_CREATE_CQ_ATTR_IGNORE_OVERRUN)
-		flags |= IB_UVERBS_CQ_FLAGS_IGNORE_OVERRUN;
-
-	return ibv_icmd_create_cq(context, cq_attr->cqe, cq_attr->channel,
-				  cq_attr->comp_vector, flags,
-				  &cq->cq, cmdb, cmd_flags);
+	return ibv_icmd_create_cq_ex(context, cq_attr, cq, cmdb, cmd_flags);
 }
 
 int ibv_cmd_destroy_cq(struct ibv_cq *cq)

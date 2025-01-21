@@ -79,7 +79,7 @@ endif()
 set(PACKAGE_NAME "RDMA")
 
 # See Documentation/versioning.md
-set(PACKAGE_VERSION "52.0")
+set(PACKAGE_VERSION "55.0")
 # When this is changed the values in these files need changing too:
 #   debian/control
 #   debian/libibverbs1.symbols
@@ -539,7 +539,7 @@ RDMA_DoFixup("${SYSTEMD_FOUND}" "systemd/sd-daemon.h")
 # drm headers
 
 # Check if the headers have been installed by kernel-headers
-find_path(DRM_INCLUDE_DIRS "drm.h" PATH_SUFFIXES "drm")
+find_path(DRM_INCLUDE_DIRS "drm.h" PATH_SUFFIXES "drm" "libdrm")
 
 # Alternatively the headers could have been installed by libdrm
 if (NOT DRM_INCLUDE_DIRS)
@@ -547,7 +547,7 @@ if (NOT DRM_INCLUDE_DIRS)
 endif()
 
 if (DRM_INCLUDE_DIRS)
-  if (EXISTS ${DRM_INCLUDE_DIRS}/i915_drm.h AND EXISTS ${DRM_INCLUDE_DIRS}/amdgpu_drm.h)
+  if (EXISTS "${DRM_INCLUDE_DIRS}/i915_drm.h" AND EXISTS "${DRM_INCLUDE_DIRS}/amdgpu_drm.h")
     include_directories(${DRM_INCLUDE_DIRS})
   else()
     unset(DRM_INCLUDE_DIRS CACHE)

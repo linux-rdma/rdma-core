@@ -229,3 +229,9 @@ MLX5_1.24 {
 		mlx5dv_destroy_steering_anchor;
 		mlx5dv_dr_action_create_dest_root_table;
 } MLX5_1.23;
+
+MLX5_1.25 {
+	global:
+		mlx5dv_get_data_direct_sysfs_path;
+		mlx5dv_reg_dmabuf_mr;
+} MLX5_1.24;

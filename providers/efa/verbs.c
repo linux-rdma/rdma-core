@@ -247,7 +247,7 @@ struct ibv_mr *efa_reg_dmabuf_mr(struct ibv_pd *ibvpd, uint64_t offset,
 		return NULL;
 
 	err = ibv_cmd_reg_dmabuf_mr(ibvpd, offset, length, iova, fd, acc,
-				    &mr->vmr);
+				    &mr->vmr, NULL);
 	if (err) {
 		free(mr);
 		errno = err;
@@ -470,6 +470,7 @@ static enum ibv_wc_status to_ibv_status(enum efa_io_comp_status status)
 	case EFA_IO_COMP_STATUS_REMOTE_ERROR_BAD_LENGTH:
 		return IBV_WC_REM_INV_REQ_ERR;
 	case EFA_IO_COMP_STATUS_LOCAL_ERROR_UNRESP_REMOTE:
+	case EFA_IO_COMP_STATUS_LOCAL_ERROR_UNREACH_REMOTE:
 		return IBV_WC_RESP_TIMEOUT_ERR;
 	case EFA_IO_COMP_STATUS_REMOTE_ERROR_BAD_ADDRESS:
 		return IBV_WC_REM_ACCESS_ERR;
@@ -1499,6 +1500,8 @@ static struct ibv_qp *create_qp(struct ibv_context *ibvctx,
 		req.driver_qp_type = efa_attr->driver_qp_type;
 	if (efa_attr->flags & EFADV_QP_FLAGS_UNSOLICITED_WRITE_RECV)
 		req.flags |= EFA_CREATE_QP_WITH_UNSOLICITED_WRITE_RECV;
+
+	req.sl = efa_attr->sl;
 
 	err = ibv_cmd_create_qp_ex(ibvctx, &qp->verbs_qp,
 				   attr, &req.ibv_cmd, sizeof(req),

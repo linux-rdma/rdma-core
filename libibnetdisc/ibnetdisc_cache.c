@@ -557,7 +557,7 @@ static int _rebuild_nodes(ibnd_fabric_cache_t * fabric_cache)
 		/* Rebuild node ports array */
 
 		if (!(node->ports =
-		      calloc(sizeof(*node->ports), node->numports + 1))) {
+		      calloc(node->numports + 1, sizeof(*node->ports)))) {
 			IBND_DEBUG("OOM: node->ports\n");
 			return -1;
 		}

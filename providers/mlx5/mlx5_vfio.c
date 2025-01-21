@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: GPL-2.0-only
+// SPDX-License-Identifier: GPL-2.0 or Linux-OpenIB
 /*
  * Copyright (c) 2021, NVIDIA CORPORATION & AFFILIATES. All rights reserved
  */
@@ -14,7 +14,7 @@
 #include <sys/stat.h>
 #include <fcntl.h>
 #include <sys/mman.h>
-#include <string.h>
+#include <libgen.h>
 #include <sys/param.h>
 #include <linux/vfio.h>
 #include <sys/eventfd.h>

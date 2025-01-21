@@ -476,7 +476,7 @@ void verbs_register_driver(const struct verbs_device_ops *ops);
 #define PROVIDER_DRIVER(provider_name, drv_struct)                             \
 	extern const struct verbs_device_ops verbs_provider_##provider_name    \
 		__attribute__((alias(stringify(drv_struct))));                 \
-	static __attribute__((constructor)) void drv##__register_driver(void)  \
+	static __attribute__((constructor)) void provider_name##_register_driver(void) \
 	{                                                                      \
 		verbs_register_driver(&drv_struct);                            \
 	}
@@ -556,7 +556,8 @@ int ibv_cmd_advise_mr(struct ibv_pd *pd,
 		      uint32_t num_sge);
 int ibv_cmd_reg_dmabuf_mr(struct ibv_pd *pd, uint64_t offset, size_t length,
 			  uint64_t iova, int fd, int access,
-			  struct verbs_mr *vmr);
+			  struct verbs_mr *vmr,
+			  struct ibv_command_buffer *driver);
 int ibv_cmd_alloc_mw(struct ibv_pd *pd, enum ibv_mw_type type,
 		     struct ibv_mw *mw, struct ibv_alloc_mw *cmd,
 		     size_t cmd_size,
@@ -575,6 +576,15 @@ int ibv_cmd_create_cq_ex(struct ibv_context *context,
 			 struct ib_uverbs_ex_create_cq_resp *resp,
 			 size_t resp_size,
 			 uint32_t cmd_flags);
+int ibv_cmd_create_cq_ex2(struct ibv_context *context,
+			  const struct ibv_cq_init_attr_ex *cq_attr,
+			  struct verbs_cq *cq,
+			  struct ibv_create_cq_ex *cmd,
+			  size_t cmd_size,
+			  struct ib_uverbs_ex_create_cq_resp *resp,
+			  size_t resp_size,
+			  uint32_t cmd_flags,
+			  struct ibv_command_buffer *driver);
 int ibv_cmd_poll_cq(struct ibv_cq *cq, int ne, struct ibv_wc *wc);
 int ibv_cmd_req_notify_cq(struct ibv_cq *cq, int solicited_only);
 int ibv_cmd_resize_cq(struct ibv_cq *cq, int cqe,

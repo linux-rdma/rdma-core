@@ -231,7 +231,7 @@ static inline int handle_responder_lazy(struct mlx5_cq *cq, struct mlx5_cqe64 *c
 			wq = &(rsc_to_mrwq(cur_rsc)->rq);
 		}
 
-		wqe_ctr = wq->tail & (wq->wqe_cnt - 1);
+		wqe_ctr = be16toh(cqe->wqe_counter) & (wq->wqe_cnt - 1);
 		cq->verbs_cq.cq_ex.wr_id = wq->wrid[wqe_ctr];
 		++wq->tail;
 		if (cqe->op_own & MLX5_INLINE_SCATTER_32)
@@ -283,7 +283,7 @@ static inline int handle_responder(struct ibv_wc *wc, struct mlx5_cqe64 *cqe,
 			wq = &(rsc_to_mrwq(cur_rsc)->rq);
 		}
 
-		wqe_ctr = wq->tail & (wq->wqe_cnt - 1);
+		wqe_ctr = be16toh(cqe->wqe_counter) & (wq->wqe_cnt - 1);
 		wc->wr_id = wq->wrid[wqe_ctr];
 		++wq->tail;
 		if (cqe->op_own & MLX5_INLINE_SCATTER_32)
@@ -691,8 +691,8 @@ static inline void get_sig_err_info(struct mlx5_sigerr_cqe *cqe,
 	err->actual = (uint64_t)be32toh(cqe->actual_trans_sig) << 32 |
 		      be32toh(cqe->actual_ref_tag);
 	err->offset = be64toh(cqe->sig_err_offset);
-	err->sig_type = cqe->sig_type;
-	err->domain = cqe->domain;
+	err->sig_type = cqe->sig_type & 0x7;
+	err->domain = cqe->domain & 0x7;
 }
 
 static inline int is_odp_pfault_err(struct mlx5_err_cqe *ecqe)
@@ -746,6 +746,7 @@ again:
 	}
 
 	opcode = mlx5dv_get_cqe_opcode(cqe64);
+	wqe_ctr = be16toh(cqe64->wqe_counter);
 	switch (opcode) {
 	case MLX5_CQE_REQ:
 	{
@@ -755,7 +756,6 @@ again:
 		if (unlikely(!mqp))
 			return CQ_POLL_ERR;
 		wq = &mqp->sq;
-		wqe_ctr = be16toh(cqe64->wqe_counter);
 		idx = wqe_ctr & (wq->wqe_cnt - 1);
 		if (lazy) {
 			uint32_t wc_byte_len;
@@ -909,7 +909,6 @@ again:
 			if (unlikely(!mqp))
 				return CQ_POLL_ERR;
 			wq = &mqp->sq;
-			wqe_ctr = be16toh(cqe64->wqe_counter);
 			idx = wqe_ctr & (wq->wqe_cnt - 1);
 			if (lazy)
 				cq->verbs_cq.cq_ex.wr_id = wq->wrid[idx];
@@ -923,7 +922,6 @@ again:
 				return CQ_POLL_ERR;
 
 			if (is_srq) {
-				wqe_ctr = be16toh(cqe64->wqe_counter);
 				if (is_odp_pfault_err(ecqe)) {
 					mlx5_complete_odp_fault(*cur_srq, wqe_ctr);
 					err = mlx5_get_next_cqe(cq, &cqe64, &cqe);
@@ -950,10 +948,11 @@ again:
 					break;
 				}
 
+				idx = wqe_ctr & (wq->wqe_cnt - 1);
 				if (lazy)
-					cq->verbs_cq.cq_ex.wr_id = wq->wrid[wq->tail & (wq->wqe_cnt - 1)];
+					cq->verbs_cq.cq_ex.wr_id = wq->wrid[idx];
 				else
-					wc->wr_id = wq->wrid[wq->tail & (wq->wqe_cnt - 1)];
+					wc->wr_id = wq->wrid[idx];
 				++wq->tail;
 			}
 		}
@@ -1163,8 +1162,11 @@ static inline int mlx5_start_poll(struct ibv_cq_ex *ibcq, struct ibv_poll_cq_att
 		goto out;
 	}
 
-	if (clock_update && !err)
+	if (clock_update && !err) {
 		err = mlx5dv_get_clock_info(ibcq->context, &cq->last_clock_info);
+		if (lock && err)
+			mlx5_spin_unlock(&cq->lock);
+	}
 
 out:
 	return err;
@@ -1819,6 +1821,16 @@ void __mlx5_cq_clean(struct mlx5_cq *cq, uint32_t rsn, struct mlx5_srq *srq)
 
 	if (!cq || cq->flags & MLX5_CQ_FLAGS_DV_OWNED)
 		return;
+
+	/*
+	 * For CQ created in single threaded mode serving multiple
+	 * QPs, if the user destroys a QP between ibv_start_poll()
+	 * and ibv_end_poll(), then cq->cur_rsc should be invalidated
+	 * since it may point to the QP that is being destroyed, which
+	 * may cause UAF error in the next ibv_next_poll() call.
+	 */
+	if (unlikely(cq->cur_rsc && rsn == cq->cur_rsc->rsn))
+		cq->cur_rsc = NULL;
 
 	/*
 	 * First we need to find the current producer index, so we

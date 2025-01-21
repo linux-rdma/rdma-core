@@ -173,6 +173,9 @@ struct bnxt_re_srq {
 	int start_idx;
 	int last_idx;
 	bool arm_req;
+	uint32_t mem_handle;
+	uint32_t toggle_size;
+	void *toggle_map;
 };
 
 struct bnxt_re_joint_queue {
@@ -616,5 +619,5 @@ static inline void bnxt_re_sub_sec_busy_wait(uint32_t nsec)
 	}
 }
 
-#define BNXT_RE_HW_RETX(a) ((a)->comp_mask & BNXT_RE_COMP_MASK_UCNTX_HW_RETX_ENABLED)
+#define BNXT_RE_MSN_TBL_EN(a) ((a)->comp_mask & BNXT_RE_COMP_MASK_UCNTX_MSN_TABLE_ENABLED)
 #endif

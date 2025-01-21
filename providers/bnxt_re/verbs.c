@@ -277,7 +277,7 @@ struct ibv_mr *bnxt_re_reg_dmabuf_mr(struct ibv_pd *ibvpd, uint64_t start, size_
 		return NULL;
 
 	if (ibv_cmd_reg_dmabuf_mr(ibvpd, start, len, iova, fd,
-				  access, &mr->vmr)) {
+				  access, &mr->vmr, NULL)) {
 		free(mr);
 		return NULL;
 	}
@@ -328,8 +328,10 @@ struct ibv_cq *bnxt_re_create_cq(struct ibv_context *ibvctx, int ncqe,
 	struct bnxt_re_context *cntx = to_bnxt_re_context(ibvctx);
 	struct bnxt_re_dev *dev = to_bnxt_re_dev(ibvctx->device);
 
-	if (ncqe > dev->max_cq_depth)
+	if (ncqe > dev->max_cq_depth) {
+		errno = EINVAL;
 		return NULL;
+	}
 
 	cq = calloc(1, (sizeof(*cq) + sizeof(struct bnxt_re_queue)));
 	if (!cq)
@@ -420,14 +422,17 @@ static void bnxt_re_resize_cq_complete(struct bnxt_re_cq *cq)
 	cq->resize_mem = NULL;
 	cq->cqq->va = cq->mem->va_head;
 
+	/* mark the CQ resize flag and save the old head index */
+	cq->cqq->cq_resized = true;
+	cq->cqq->old_head = cq->cqq->head;
+
 	cq->cqq->depth = cq->mem->pad;
 	cq->cqq->stride = cntx->rdev->cqe_size;
 	cq->cqq->head = 0;
 	cq->cqq->tail = 0;
 	cq->phase = BNXT_RE_QUEUE_START_PHASE;
 	/* Reset epoch portion of the flags */
-	cq->cqq->flags &= ~(BNXT_RE_FLAG_EPOCH_TAIL_MASK |
-			    BNXT_RE_FLAG_EPOCH_HEAD_MASK);
+	cq->cqq->flags &= ~(BNXT_RE_FLAG_EPOCH_TAIL_MASK);
 	bnxt_re_ring_cq_arm_db(cq, BNXT_RE_QUE_TYPE_CQ_CUT_ACK);
 }
 
@@ -438,6 +443,8 @@ int bnxt_re_resize_cq(struct ibv_cq *ibvcq, int ncqe)
 	struct bnxt_re_cq *cq = to_bnxt_re_cq(ibvcq);
 	struct ib_uverbs_resize_cq_resp resp = {};
 	struct ubnxt_re_resize_cq cmd = {};
+	uint16_t msec_wait = 100;
+	uint16_t exit_cnt = 20;
 	int rc = 0;
 
 	if (ncqe > dev->max_cq_depth)
@@ -488,6 +495,13 @@ int bnxt_re_resize_cq(struct ibv_cq *ibvcq, int ncqe)
 			list_add_tail(&cq->prev_cq_head, &compl->list);
 			compl = NULL;
 			memset(&tmp_wc, 0, sizeof(tmp_wc));
+		} else {
+			exit_cnt--;
+			if (unlikely(!exit_cnt)) {
+				rc = -EIO;
+				break;
+			}
+			bnxt_re_sub_sec_busy_wait(msec_wait * 1000000);
 		}
 	}
 done:
@@ -544,6 +558,7 @@ static uint8_t bnxt_re_poll_err_scqe(struct bnxt_re_qp *qp,
 	status = (le32toh(hdr->flg_st_typ_ph) >> BNXT_RE_BCQE_STATUS_SHIFT) &
 		  BNXT_RE_BCQE_STATUS_MASK;
 	ibvwc->status = bnxt_re_to_ibv_wc_status(status, true);
+	ibvwc->vendor_err = status;
 	ibvwc->wc_flags = 0;
 	ibvwc->wr_id = swrid->wrid;
 	ibvwc->qp_num = qp->qpid;
@@ -663,6 +678,7 @@ static int bnxt_re_poll_err_rcqe(struct bnxt_re_qp *qp, struct ibv_wc *ibvwc,
 		return 0;
 
 	ibvwc->status = bnxt_re_to_ibv_wc_status(status, false);
+	ibvwc->vendor_err = status;
 	ibvwc->qp_num = qp->qpid;
 	ibvwc->opcode = IBV_WC_RECV;
 	ibvwc->byte_len = 0;
@@ -1166,6 +1182,8 @@ static int bnxt_re_get_rq_slots(struct bnxt_re_dev *rdev, uint8_t qpmode,
 	return slots;
 }
 
+#define BNXT_VAR_MAX_SLOT_ALIGN 256
+
 static int bnxt_re_get_sq_slots(struct bnxt_re_dev *rdev,
 				uint8_t qpmode, uint32_t nswr,
 				uint32_t nsge, uint32_t ils, uint32_t *esize)
@@ -1202,6 +1220,8 @@ static int bnxt_re_get_sq_slots(struct bnxt_re_dev *rdev,
 	if (esize)
 		*esize = wqe_size;
 	slots = (nswr * wqe_size) / stride;
+	if (qpmode == BNXT_RE_WQE_MODE_VARIABLE)
+		slots = align(slots, BNXT_VAR_MAX_SLOT_ALIGN);
 	return slots;
 }
 
@@ -1228,7 +1248,7 @@ static int bnxt_re_get_sqmem_size(struct bnxt_re_context *cntx,
 	if (nslots < 0)
 		return nslots;
 	npsn = bnxt_re_get_npsn(mode, nswr, nslots);
-	if (BNXT_RE_HW_RETX(cntx))
+	if (BNXT_RE_MSN_TBL_EN(cntx))
 		npsn = roundup_pow_of_two(npsn);
 
 	qattr->nwr = nswr;
@@ -1403,7 +1423,7 @@ static int bnxt_re_alloc_queues(struct bnxt_re_qp *qp,
 		       &que->tail : &qp->jsqq->start_idx;
 
 	/* Init and adjust MSN table size according to qp mode */
-	if (!BNXT_RE_HW_RETX(qp->cntx))
+	if (!BNXT_RE_MSN_TBL_EN(qp->cntx))
 		goto skip_msn;
 	que->msn = 0;
 	que->msn_tbl_sz = 0;
@@ -1509,6 +1529,8 @@ struct ibv_qp *bnxt_re_create_qp(struct ibv_pd *ibvpd,
 	req.qpsva = (uintptr_t)qp->jsqq->hwque->va;
 	req.qprva = qp->jrqq ? (uintptr_t)qp->jrqq->hwque->va : 0;
 	req.qp_handle = (uintptr_t)qp;
+	if (qp->qpmode == BNXT_RE_WQE_MODE_VARIABLE)
+		req.sq_slots = qattr[BNXT_RE_QATTR_SQ_INDX].slots;
 
 	if (ibv_cmd_create_qp(ibvpd, &qp->ibvqp, attr, &req.ibv_cmd, sizeof(req),
 			      &resp.ibv_resp, sizeof(resp)))
@@ -2030,7 +2052,7 @@ int bnxt_re_post_send(struct ibv_qp *ibvqp, struct ibv_send_wr *wr,
 		bnxt_re_fill_wrid(wrid, wr->wr_id, bytes,
 				  sig, sq->tail, slots);
 		wrid->wc_opcd = bnxt_re_ibv_wr_to_wc_opcd(wr->opcode);
-		if (BNXT_RE_HW_RETX(qp->cntx))
+		if (BNXT_RE_MSN_TBL_EN(qp->cntx))
 			bnxt_re_fill_psns_for_msntbl(qp, bytes, *sq->dbtail);
 		else
 			bnxt_re_fill_psns(qp, wrid, bytes);
@@ -2215,8 +2237,9 @@ struct ibv_srq *bnxt_re_create_srq(struct ibv_pd *ibvpd,
 				   struct ibv_srq_init_attr *attr)
 {
 	struct bnxt_re_context *cntx = to_bnxt_re_context(ibvpd->context);
+	struct bnxt_re_mmap_info minfo = {};
+	struct ubnxt_re_srq_resp resp = {};
 	struct bnxt_re_qattr qattr = {};
-	struct ubnxt_re_srq_resp resp;
 	struct ubnxt_re_srq req;
 	struct bnxt_re_srq *srq;
 	void *mem;
@@ -2251,7 +2274,19 @@ struct ibv_srq *bnxt_re_create_srq(struct ibv_pd *ibvpd,
 	srq->cap.max_sge = attr->attr.max_sge;
 	srq->cap.srq_limit = attr->attr.srq_limit;
 	srq->arm_req = false;
-
+	if (resp.comp_mask & BNXT_RE_SRQ_TOGGLE_PAGE_SUPPORT) {
+		minfo.type = BNXT_RE_SRQ_TOGGLE_MEM;
+		minfo.res_id = resp.srqid;
+		ret = bnxt_re_get_toggle_mem(ibvpd->context, &minfo, &srq->mem_handle);
+		if (ret)
+			goto fail;
+		srq->toggle_map = mmap(NULL, minfo.alloc_size, PROT_READ,
+				       MAP_SHARED, ibvpd->context->cmd_fd,
+				       minfo.alloc_offset);
+		if (srq->toggle_map == MAP_FAILED)
+			goto fail;
+		srq->toggle_size = minfo.alloc_size;
+	}
 	return &srq->ibvsrq;
 fail:
 	bnxt_re_free_mem(mem);
@@ -2285,6 +2320,8 @@ int bnxt_re_destroy_srq(struct ibv_srq *ibvsrq)
 	if (ret)
 		return ret;
 
+	if (srq->toggle_map)
+		munmap(srq->toggle_map, srq->toggle_size);
 	mem = srq->mem;
 	bnxt_re_free_mem(mem);
 	return 0;

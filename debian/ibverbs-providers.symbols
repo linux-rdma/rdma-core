@@ -32,6 +32,7 @@ libmlx5.so.1 ibverbs-providers #MINVER#
  MLX5_1.22@MLX5_1.22 38
  MLX5_1.23@MLX5_1.23 40
  MLX5_1.24@MLX5_1.24 42
+ MLX5_1.25@MLX5_1.25 54
  mlx5dv_init_obj@MLX5_1.0 13
  mlx5dv_init_obj@MLX5_1.2 15
  mlx5dv_query_device@MLX5_1.0 13
@@ -161,6 +162,8 @@ libmlx5.so.1 ibverbs-providers #MINVER#
  mlx5dv_crypto_login_query@MLX5_1.24 42
  mlx5dv_destroy_steering_anchor@MLX5_1.24 42
  mlx5dv_dr_action_create_dest_root_table@MLX5_1.24 42
+ mlx5dv_get_data_direct_sysfs_path@MLX5_1.25 54
+ mlx5dv_reg_dmabuf_mr@MLX5_1.25 54
 libefa.so.1 ibverbs-providers #MINVER#
 * Build-Depends-Package: libibverbs-dev
  EFA_1.0@EFA_1.0 24
