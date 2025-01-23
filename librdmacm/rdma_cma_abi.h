@@ -71,7 +71,8 @@ enum {
 	UCMA_CMD_BIND,
 	UCMA_CMD_RESOLVE_ADDR,
 	UCMA_CMD_JOIN_MCAST,
-	UCMA_CMD_RESOLVE_IB_SERVICE
+	UCMA_CMD_RESOLVE_IB_SERVICE,
+	UCMA_CMD_WRITE_CM_EVENT,
 };
 
 struct ucma_abi_cmd_hdr {
@@ -335,6 +336,7 @@ struct ucma_abi_event_resp {
 	union {
 		struct ucma_abi_conn_param conn;
 		struct ucma_abi_ud_param   ud;
+		__u32 arg32[2];
 	} param;
 	struct ucma_abi_ece ece;
 };
@@ -401,6 +403,21 @@ struct ucma_user_service_rec {
 struct ucma_abi_query_ib_service_resp {
 	__u32 num_service_recs;
 	struct ucma_user_service_rec recs[];
+};
+
+struct ucma_abi_write_cm_event {
+	__u32 cmd;
+	__u16 in;
+	__u16 out;
+	__u32 id;
+	__u32 reserved;
+	__u32 event;
+	__u32 status;
+	union {
+		struct ucma_abi_conn_param conn;
+		struct ucma_abi_ud_param   ud;
+		__u64 arg;
+	} param;
 };
 
 #endif /* RDMA_CMA_ABI_H */

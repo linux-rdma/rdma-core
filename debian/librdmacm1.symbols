@@ -52,6 +52,7 @@ librdmacm.so.1 librdmacm1 #MINVER#
  rdma_resolve_route@RDMACM_1.0 1.0.15
  rdma_set_local_ece@RDMACM_1.3 31
  rdma_set_option@RDMACM_1.0 1.0.15
+ rdma_write_cm_event@RDMACM_1.4 60
  rfcntl@RDMACM_1.0 1.0.16
  rgetpeername@RDMACM_1.0 1.0.16
  rgetsockname@RDMACM_1.0 1.0.16
