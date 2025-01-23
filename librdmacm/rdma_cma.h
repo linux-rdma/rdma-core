@@ -66,6 +66,8 @@ enum rdma_cm_event_type {
 	RDMA_CM_EVENT_TIMEWAIT_EXIT,
 	RDMA_CM_EVENT_ADDRINFO_RESOLVED,
 	RDMA_CM_EVENT_ADDRINFO_ERROR,
+	RDMA_CM_EVENT_USER,
+	RDMA_CM_EVENT_INTERNAL,
 };
 
 enum rdma_port_space {
@@ -173,6 +175,7 @@ struct rdma_cm_event {
 	union {
 		struct rdma_conn_param conn;
 		struct rdma_ud_param   ud;
+		uint64_t arg;
 	} param;
 };
 
@@ -797,6 +800,12 @@ int rdma_resolve_addrinfo(struct rdma_cm_id *id, const char *node,
  * rdma_query_addrinfo - Query the resolved address information
  */
 int rdma_query_addrinfo(struct rdma_cm_id *id, struct rdma_addrinfo **info);
+
+/**
+ * rdma_write_cm_event - Write an event into a cm channel.
+ */
+int rdma_write_cm_event(struct rdma_cm_id *id, enum rdma_cm_event_type event,
+			int status, uint64_t arg);
 
 #ifdef __cplusplus
 }
