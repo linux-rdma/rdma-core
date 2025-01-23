@@ -2752,6 +2752,12 @@ retry:
 	case RDMA_CM_EVENT_ADDRINFO_ERROR:
 		clear_resolving_ai_flag(evt->id_priv);
 		break;
+	case RDMA_CM_EVENT_USER:
+		memcpy(&evt->event.param.arg, resp.param.arg32,
+		       sizeof(evt->event.param.arg));
+		break;
+	case RDMA_CM_EVENT_INTERNAL:
+		break;
 	default:
 		evt->id_priv = (void *) (uintptr_t) resp.uid;
 		evt->event.id = &evt->id_priv->id;
@@ -3087,6 +3093,36 @@ static void resolve_ai_set_cmd_service(const char *service,
 	} else {
 		ibs->flags |= UCMA_IB_SERVICE_FLAG_ID;
 	}
+}
+
+static int __rdma_write_cm_event(struct rdma_cm_id *id, enum rdma_cm_event_type event,
+				 int status, uint64_t arg)
+{
+	struct ucma_abi_write_cm_event cmd;
+	struct cma_id_private *id_priv;
+	int ret;
+
+	CMA_INIT_CMD(&cmd, sizeof(cmd), WRITE_CM_EVENT);
+
+	id_priv = container_of(id, struct cma_id_private, id);
+	cmd.id = id_priv->handle;
+	cmd.event = event;
+	cmd.status = status;
+	cmd.param.arg = arg;
+	ret = write(id->channel->fd, &cmd, sizeof(cmd));
+	if (ret != sizeof(cmd))
+		return (ret >= 0) ? ERR(ENODATA) : -1;
+
+	return 0;
+}
+
+int rdma_write_cm_event(struct rdma_cm_id *id, enum rdma_cm_event_type event,
+			int status, uint64_t arg)
+{
+	if (event != RDMA_CM_EVENT_USER)
+		return ERR(EINVAL);
+
+	return __rdma_write_cm_event(id, event, status, arg);
 }
 
 static int resolve_ai_sa(struct cma_id_private *id_priv, const char *service)
