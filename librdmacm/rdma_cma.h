@@ -184,6 +184,7 @@ struct rdma_cm_event {
 #define RAI_NOROUTE		0x00000004
 #define RAI_FAMILY		0x00000008
 #define RAI_SA			0x00000010
+#define RAI_DNS			0x00000020 /* Mutual-exclusive with RAI_SA */
 
 struct rdma_addrinfo {
 	int			ai_flags;
