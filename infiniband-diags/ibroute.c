@@ -46,6 +46,7 @@
 #include "ibdiag_common.h"
 
 static struct ibmad_port *srcport;
+static struct ibmad_ports_pair *srcports;
 
 static int brief, dump_all, multicast;
 
@@ -465,14 +466,18 @@ int main(int argc, char **argv)
 
 	node_name_map = open_node_name_map(node_name_map_file);
 
-	srcport = mad_rpc_open_port(ibd_ca, ibd_ca_port, mgmt_classes, 3);
+	srcports = mad_rpc_open_port2(ibd_ca, ibd_ca_port, mgmt_classes, 3, 1);
+	if (!srcports)
+		IBEXIT("Failed to open '%s' port '%d'", ibd_ca, ibd_ca_port);
+
+	srcport = srcports->smi.port;
 	if (!srcport)
 		IBEXIT("Failed to open '%s' port '%d'", ibd_ca, ibd_ca_port);
 
 	smp_mkey_set(srcport, ibd_mkey);
 
-	if (resolve_portid_str(ibd_ca, ibd_ca_port, &portid, argv[0],
-			       ibd_dest_type, ibd_sm_id, srcport) < 0)
+	if (resolve_portid_str(srcports->gsi.ca_name, ibd_ca_port, &portid, argv[0],
+			       ibd_dest_type, ibd_sm_id, srcports->gsi.port) < 0)
 		IBEXIT("can't resolve destination port %s", argv[0]);
 
 	if (multicast)
@@ -483,7 +488,7 @@ int main(int argc, char **argv)
 	if (err)
 		IBEXIT("dump tables: %s", err);
 
-	mad_rpc_close_port(srcport);
+	mad_rpc_close_port2(srcports);
 	close_node_name_map(node_name_map);
 	exit(0);
 }

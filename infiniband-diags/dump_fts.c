@@ -50,6 +50,7 @@
 #include "ibdiag_common.h"
 
 static struct ibmad_port *srcport;
+static struct ibmad_ports_pair *srcports;
 
 static unsigned startlid, endlid;
 
@@ -457,10 +458,16 @@ int main(int argc, char **argv)
 	if ((fabric = ibnd_discover_fabric(ibd_ca, ibd_ca_port, NULL,
 						&config)) != NULL) {
 
-		srcport = mad_rpc_open_port(ibd_ca, ibd_ca_port, mgmt_classes, 3);
-		if (!srcport) {
+		srcports = mad_rpc_open_port2(ibd_ca, ibd_ca_port, mgmt_classes, 3, 1);
+		if (!srcports) {
 			fprintf(stderr,
 				"Failed to open '%s' port '%d'\n", ibd_ca, ibd_ca_port);
+			rc = -1;
+			goto Exit;
+		}
+		srcport = srcports->smi.port;
+		if (!srcport) {
+			fprintf(stderr, "Failed to open '%s' port '%d'\n", ibd_ca, ibd_ca_port);
 			rc = -1;
 			goto Exit;
 		}
@@ -472,7 +479,7 @@ int main(int argc, char **argv)
 
 		ibnd_iter_nodes_type(fabric, process_switch, IB_NODE_SWITCH, fabric);
 
-		mad_rpc_close_port(srcport);
+		mad_rpc_close_port2(srcports);
 
 	} else {
 		fprintf(stderr, "Failed to discover fabric\n");

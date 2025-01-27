@@ -44,6 +44,7 @@
 #define MAX_CPUS 256
 
 static struct ibmad_port *srcport;
+static struct ibmad_ports_pair *srcports;
 
 enum ib_sysstat_attr_t {
 	IB_PING_ATTR = 0x10,
@@ -334,7 +335,11 @@ int main(int argc, char **argv)
 	if (argc > 1 && (attr = match_attr(argv[1])) < 0)
 		ibdiag_show_usage();
 
-	srcport = mad_rpc_open_port(ibd_ca, ibd_ca_port, mgmt_classes, 3);
+	srcports = mad_rpc_open_port2(ibd_ca, ibd_ca_port, mgmt_classes, 3, 0);
+	if (!srcports)
+		IBEXIT("Failed to open '%s' port '%d'", ibd_ca, ibd_ca_port);
+
+	srcport = srcports->gsi.port;
 	if (!srcport)
 		IBEXIT("Failed to open '%s' port '%d'", ibd_ca, ibd_ca_port);
 
@@ -354,13 +359,13 @@ int main(int argc, char **argv)
 	if (mad_register_client_via(sysstat_class, 1, srcport) < 0)
 		IBEXIT("can't register to sysstat class %d", sysstat_class);
 
-	if (resolve_portid_str(ibd_ca, ibd_ca_port, &portid, argv[0],
+	if (resolve_portid_str(srcports->gsi.ca_name, ibd_ca_port, &portid, argv[0],
 			       ibd_dest_type, ibd_sm_id, srcport) < 0)
 		IBEXIT("can't resolve destination port %s", argv[0]);
 
 	if ((err = ibsystat(&portid, attr)))
 		IBEXIT("ibsystat to %s: %s", portid2str(&portid), err);
 
-	mad_rpc_close_port(srcport);
+	mad_rpc_close_port2(srcports);
 	exit(0);
 }

@@ -55,6 +55,7 @@
 
 
 static struct ibmad_port *srcport;
+static struct ibmad_ports_pair *srcports;
 
 typedef struct {
 	__be16 hw_revision;
@@ -374,32 +375,36 @@ int main(int argc, char **argv)
 	if (argc > 1)
 		port = strtoul(argv[1], NULL, 0);
 
-	srcport = mad_rpc_open_port(ibd_ca, ibd_ca_port, mgmt_classes, 2);
+	srcports = mad_rpc_open_port2(ibd_ca, ibd_ca_port, mgmt_classes, 2, 0);
+	if (!srcports)
+		IBEXIT("Failed to open '%s' port '%d'", ibd_ca, ibd_ca_port);
+
+	srcport = srcports->gsi.port;
 	if (!srcport)
 		IBEXIT("Failed to open '%s' port '%d'", ibd_ca, ibd_ca_port);
 
 	if (argc) {
-		if (resolve_portid_str(ibd_ca, ibd_ca_port, &portid, argv[0],
-				       ibd_dest_type, ibd_sm_id, srcport) < 0) {
-			mad_rpc_close_port(srcport);
+		if (resolve_portid_str(srcports->gsi.ca_name, ibd_ca_port, &portid, argv[0],
+				       ibd_dest_type, ibd_sm_id, srcports->gsi.port) < 0) {
+			mad_rpc_close_port2(srcports);
 			IBEXIT("can't resolve destination port %s", argv[0]);
 		}
 	} else {
-		if (resolve_self(ibd_ca, ibd_ca_port, &portid, &port, NULL) < 0) {
-			mad_rpc_close_port(srcport);
+		if (resolve_self(srcports->gsi.ca_name, ibd_ca_port, &portid, &port, NULL) < 0) {
+			mad_rpc_close_port2(srcports);
 			IBEXIT("can't resolve self port %s", argv[0]);
 		}
 	}
 
 	if (counter_group_info) {
 		counter_groups_info(&portid, port);
-		mad_rpc_close_port(srcport);
+		mad_rpc_close_port2(srcports);
 		exit(0);
 	}
 
 	if (config_counter_group) {
 		config_counter_groups(&portid, port);
-		mad_rpc_close_port(srcport);
+		mad_rpc_close_port2(srcports);
 		exit(0);
 	}
 
@@ -410,7 +415,7 @@ int main(int argc, char **argv)
 		if (write_cs_records)
 			do_config_space_records(&portid, 1, &write_cs,
 						write_cs_records);
-		mad_rpc_close_port(srcport);
+		mad_rpc_close_port2(srcports);
 		exit(0);
 	}
 
@@ -419,7 +424,7 @@ int main(int argc, char **argv)
 	/* Only General Info and Port Xmit Wait Counters */
 	/* queries are currently supported */
 	if (!general_info && !xmit_wait) {
-		mad_rpc_close_port(srcport);
+		mad_rpc_close_port2(srcports);
 		IBEXIT("at least one of -N and -w must be specified");
 	}
 	/* Would need a list of these and it might not be complete */
@@ -429,14 +434,14 @@ int main(int argc, char **argv)
 	memset(&buf, 0, sizeof(buf));
 	if (do_vendor(&portid, IB_MLX_VENDOR_CLASS, IB_MAD_METHOD_GET,
 		      CLASS_PORT_INFO, 0, buf)) {
-		mad_rpc_close_port(srcport);
+		mad_rpc_close_port2(srcports);
 		IBEXIT("classportinfo query");
 	}
 	memset(&buf, 0, sizeof(buf));
 	gi_is3 = (is3_general_info_t *) &buf;
 	if (do_vendor(&portid, IB_MLX_VENDOR_CLASS, IB_MAD_METHOD_GET,
 		      IB_MLX_IS3_GENERAL_INFO, 0, gi_is3)) {
-		mad_rpc_close_port(srcport);
+		mad_rpc_close_port2(srcports);
 		IBEXIT("generalinfo query");
 	}
 
@@ -480,7 +485,7 @@ int main(int argc, char **argv)
 		unsigned i;
 
 		if (ntohs(gi_is3->hw_info.device_id) != IS3_DEVICE_ID) {
-			mad_rpc_close_port(srcport);
+			mad_rpc_close_port2(srcports);
 			IBEXIT("Unsupported device ID 0x%x",
 				ntohs(gi_is3->hw_info.device_id));
 		}
@@ -493,7 +498,7 @@ int main(int argc, char **argv)
 		if (do_vendor(&portid, IB_MLX_VENDOR_CLASS,
 			      IB_MAD_METHOD_GET, IB_MLX_IS3_CONFIG_SPACE_ACCESS,
 			      2 << 22 | 16 << 16, cs)) {
-			mad_rpc_close_port(srcport);
+			mad_rpc_close_port2(srcports);
 			IBEXIT("vendstat");
 		}
 		for (i = 0; i < 16; i++)
@@ -510,7 +515,7 @@ int main(int argc, char **argv)
 		if (do_vendor(&portid, IB_MLX_VENDOR_CLASS,
 			      IB_MAD_METHOD_GET, IB_MLX_IS3_CONFIG_SPACE_ACCESS,
 			      2 << 22 | 8 << 16, cs)) {
-			mad_rpc_close_port(srcport);
+			mad_rpc_close_port2(srcports);
 			IBEXIT("vendstat");
 		}
 
@@ -521,6 +526,6 @@ int main(int argc, char **argv)
 				       ntohl(cs->record[i].data));
 	}
 
-	mad_rpc_close_port(srcport);
+	mad_rpc_close_port2(srcports);
 	exit(0);
 }

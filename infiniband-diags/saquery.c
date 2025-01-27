@@ -1859,7 +1859,7 @@ int main(int argc, char **argv)
 	if (umad_init())
 		IBEXIT("Failed to initialized umad library");
 
-	h = sa_get_handle();
+	h = sa_get_handle(NULL);
 	if (!h)
 		IBPANIC("Failed to bind to the SA");
 

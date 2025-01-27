@@ -45,6 +45,7 @@
 #include "ibdiag_common.h"
 
 static struct ibmad_port *srcport;
+static struct ibmad_ports_pair *srcports;
 
 struct perf_count {
 	uint32_t portselect;
@@ -579,13 +580,13 @@ static uint8_t is_rsfec_mode_active(ib_portid_t * portid, int port,
 	uint32_t fec_mode_active = 0;
 	uint32_t pie_capmask = 0;
 	if (cap_mask & IS_PM_RSFEC_COUNTERS_SUP) {
-		if (!is_port_info_extended_supported(portid, port, srcport)) {
+		if (!is_port_info_extended_supported(portid, port, srcports->smi.port)) {
 			IBWARN("Port Info Extended not supported");
 			return 0;
 		}
 
 		if (!smp_query_via(data, portid, IB_ATTR_PORT_INFO_EXT, port, 0,
-				   srcport))
+				   srcports->smi.port))
 			IBEXIT("smp query portinfo extended failed");
 
 		mad_decode_field(data, IB_PORT_EXT_CAPMASK_F, &pie_capmask);
@@ -916,18 +917,20 @@ int main(int argc, char **argv)
 		mask = ext_mask;
 	}
 
-	srcport = mad_rpc_open_port(ibd_ca, ibd_ca_port, mgmt_classes, 3);
-	if (!srcport)
+	srcports = mad_rpc_open_port2(ibd_ca, ibd_ca_port, mgmt_classes, 3, 0);
+	if (!srcports)
 		IBEXIT("Failed to open '%s' port '%d'", ibd_ca, ibd_ca_port);
 
-	smp_mkey_set(srcport, ibd_mkey);
+	srcport = srcports->gsi.port;
+
+	smp_mkey_set(srcports->smi.port, ibd_mkey);
 
 	if (argc) {
-		if (resolve_portid_str(ibd_ca, ibd_ca_port, &portid, argv[0],
+		if (resolve_portid_str(srcports->gsi.ca_name, ibd_ca_port, &portid, argv[0],
 				       ibd_dest_type, ibd_sm_id, srcport) < 0)
 			IBEXIT("can't resolve destination port %s", argv[0]);
 	} else {
-		if (resolve_self(ibd_ca, ibd_ca_port, &portid, &info.port, NULL) <
+		if (resolve_self(srcports->gsi.ca_name, ibd_ca_port, &portid, &info.port, NULL) <
 		    0)
 			IBEXIT("can't resolve self port %s", argv[0]);
 	}
@@ -1042,7 +1045,7 @@ int main(int argc, char **argv)
 	if (all_ports_loop ||
 	    (info.loop_ports && (info.all_ports || info.port == ALL_PORTS))) {
 		if (!smp_query_via(data, &portid, IB_ATTR_NODE_INFO, 0, 0,
-				   srcport))
+				   srcports->smi.port))
 			IBEXIT("smp query nodeinfo failed");
 		node_type = mad_get_field(data, 0, IB_NODE_TYPE_F);
 		mad_decode_field(data, IB_NODE_NPORTS_F, &num_ports);
@@ -1051,7 +1054,7 @@ int main(int argc, char **argv)
 
 		if (node_type == IB_NODE_SWITCH) {
 			if (!smp_query_via(data, &portid, IB_ATTR_SWITCH_INFO,
-					   0, 0, srcport))
+					   0, 0, srcports->smi.port))
 				IBEXIT("smp query nodeinfo failed");
 			enhancedport0 =
 			    mad_get_field(data, 0, IB_SW_ENHANCED_PORT0_F);
@@ -1129,6 +1132,6 @@ do_reset:
 		reset_counters(info.extended, ibd_timeout, mask, &portid, info.port);
 
 done:
-	mad_rpc_close_port(srcport);
+	mad_rpc_close_port2(srcports);
 	exit(0);
 }

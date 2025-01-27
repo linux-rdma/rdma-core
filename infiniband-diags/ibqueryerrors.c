@@ -55,6 +55,7 @@
 #include "ibdiag_sa.h"
 
 static struct ibmad_port *ibmad_port;
+static struct ibmad_ports_pair *ibmad_ports;
 static char *node_name_map_file = NULL;
 static nn_map_t *node_name_map = NULL;
 static char *load_cache_file = NULL;
@@ -319,9 +320,10 @@ static int path_record_query(ib_gid_t sgid,uint64_t dguid)
      ib_path_rec_t pr;
      __be64 comp_mask = 0;
      uint8_t reversible = 0;
-     struct sa_handle * h;
+     struct sa_handle *h;
 
-     if (!(h = sa_get_handle()))
+	h = sa_get_handle(ibmad_ports->gsi.ca_name);
+	if (!h)
 	return -1;
 
      ibd_timeout = DEFAULT_HALF_WORLD_PR_TIMEOUT;
@@ -1026,9 +1028,11 @@ int main(int argc, char **argv)
 	if (!node_type_to_print)
 		node_type_to_print = PRINT_ALL;
 
-	ibmad_port = mad_rpc_open_port(ibd_ca, ibd_ca_port, mgmt_classes, 4);
-	if (!ibmad_port)
+	ibmad_ports = mad_rpc_open_port2(ibd_ca, ibd_ca_port, mgmt_classes, 4, 0);
+	if (!ibmad_ports)
 		IBEXIT("Failed to open port; %s:%d\n", ibd_ca, ibd_ca_port);
+
+	ibmad_port = ibmad_ports->gsi.port;
 
 	smp_mkey_set(ibmad_port, ibd_mkey);
 
@@ -1041,13 +1045,14 @@ int main(int argc, char **argv)
 	config.mkey = ibd_mkey;
 
 	if (dr_path && load_cache_file) {
-		mad_rpc_close_port(ibmad_port);
+		mad_rpc_close_port2(ibmad_ports);
 		fprintf(stderr, "Cannot specify cache and direct route path\n");
 		exit(-1);
 	}
 
-	if (resolve_self(ibd_ca, ibd_ca_port, &self_portid, &port, &self_gid.raw) < 0) {
-		mad_rpc_close_port(ibmad_port);
+	if (resolve_self(ibmad_ports->gsi.ca_name, ibd_ca_port,
+			&self_portid, &port, &self_gid.raw) < 0) {
+		mad_rpc_close_port2(ibmad_ports);
 		IBEXIT("can't resolve self port %s", argv[0]);
 	}
 
@@ -1056,13 +1061,13 @@ int main(int argc, char **argv)
 	/* limit the scan the fabric around the target */
 	if (dr_path) {
 		if ((resolved =
-		     resolve_portid_str(ibd_ca, ibd_ca_port, &portid, dr_path,
+		     resolve_portid_str(ibmad_ports->gsi.ca_name, ibd_ca_port, &portid, dr_path,
 					IB_DEST_DRPATH, NULL, ibmad_port)) < 0)
 			IBWARN("Failed to resolve %s; attempting full scan",
 			       dr_path);
 	} else if (port_guid_str) {
 		if ((resolved =
-		     resolve_portid_str(ibd_ca, ibd_ca_port, &portid,
+		     resolve_portid_str(ibmad_ports->gsi.ca_name, ibd_ca_port, &portid,
 					port_guid_str, IB_DEST_GUID, ibd_sm_id,
 					       ibmad_port)) < 0)
 			IBWARN("Failed to resolve %s; attempting full scan",
@@ -1071,7 +1076,7 @@ int main(int argc, char **argv)
 			lid2sl_table[portid.lid] = portid.sl;
 	}
 
-	mad_rpc_close_port(ibmad_port);
+	mad_rpc_close_port2(ibmad_ports);
 
 	if (load_cache_file) {
 		if ((fabric = ibnd_load_fabric(load_cache_file, 0)) == NULL) {
@@ -1102,8 +1107,16 @@ int main(int argc, char **argv)
 	set_thresholds();
 
 	/* reopen the global ibmad_port */
-	ibmad_port = mad_rpc_open_port(ibd_ca, ibd_ca_port,
-				       mgmt_classes, 4);
+	ibmad_ports = mad_rpc_open_port2(ibd_ca, ibd_ca_port,
+				       mgmt_classes, 4, dr_path ? 1 : 0);
+	if (!ibmad_ports) {
+		ibnd_destroy_fabric(fabric);
+		close_node_name_map(node_name_map);
+		IBEXIT("Failed to reopen port: %s:%d\n",
+			ibd_ca, ibd_ca_port);
+	}
+
+	ibmad_port = ibmad_ports->gsi.port;
 	if (!ibmad_port) {
 		ibnd_destroy_fabric(fabric);
 		close_node_name_map(node_name_map);
@@ -1156,7 +1169,7 @@ int main(int argc, char **argv)
 		rc = 1;
 
 close_port:
-	mad_rpc_close_port(ibmad_port);
+	mad_rpc_close_port2(ibmad_ports);
 	ibnd_destroy_fabric(fabric);
 
 close_name_map:
