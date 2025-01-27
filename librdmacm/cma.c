@@ -2591,6 +2591,9 @@ static void ucma_process_addrinfo_resolved(struct cma_event *evt)
 {
 	struct rdma_addrinfo *rai;
 
+	if (evt->id_priv->resolved_ai) /* DNS */
+		return;
+
 	rai = ucma_query_ib_service(evt->id_priv);
 	if (!rai) {
 		evt->event.event = RDMA_CM_EVENT_ADDRINFO_ERROR;
@@ -2756,8 +2759,19 @@ retry:
 		memcpy(&evt->event.param.arg, resp.param.arg32,
 		       sizeof(evt->event.param.arg));
 		break;
-	case RDMA_CM_EVENT_INTERNAL:
+	case RDMA_CM_EVENT_INTERNAL: {
+		uint64_t resp_arg;
+
+		memcpy(&resp_arg, resp.param.arg32, sizeof(resp_arg));
+		if (resp_arg == RDMA_CM_EVENT_ADDRINFO_RESOLVED) {
+			evt->event.event = RDMA_CM_EVENT_ADDRINFO_RESOLVED;
+			ucma_process_addrinfo_resolved(evt);
+		} else {
+			return ERR(EBADE);
+		}
+
 		break;
+	}
 	default:
 		evt->id_priv = (void *) (uintptr_t) resp.uid;
 		evt->event.id = &evt->id_priv->id;
@@ -3144,17 +3158,45 @@ static int resolve_ai_sa(struct cma_id_private *id_priv, const char *service)
 	return ucma_complete(&id_priv->id);
 }
 
+static int resolve_ai_dns(struct cma_id_private *id_priv, const char *node,
+			  const char *service,
+			  const struct rdma_addrinfo *hints)
+{
+	int ret;
+
+	ret = rdma_getaddrinfo(node, service, hints, &id_priv->resolved_ai);
+	if (ret)
+		return ret;
+
+	ret = __rdma_write_cm_event(&id_priv->id, RDMA_CM_EVENT_INTERNAL, 0,
+				    (uint64_t)RDMA_CM_EVENT_ADDRINFO_RESOLVED);
+	if (ret) {
+		rdma_freeaddrinfo(id_priv->resolved_ai);
+		id_priv->resolved_ai = NULL;
+		return (ret >= 0) ? ERR(ENODATA) : -1;
+	}
+
+	return ucma_complete(&id_priv->id);
+}
+
 static int __rdma_resolve_addrinfo(struct cma_id_private *id_priv,
 				   const char *node, const char *service,
 				   const struct rdma_addrinfo *hints)
 {
+	if (!hints)
+		goto resolve_dns;
+
+	if ((hints->ai_flags & RAI_SA) && (hints->ai_flags & RAI_DNS))
+		return ENOTSUP;
+
 	if (hints->ai_flags & RAI_SA) {
 		if (node)
 			return ENOTSUP;
 		return resolve_ai_sa(id_priv, service);
 	}
 
-	return EINVAL;
+resolve_dns:
+	return resolve_ai_dns(id_priv, node, service, hints);
 }
 
 int rdma_resolve_addrinfo(struct rdma_cm_id *id, const char *node,
@@ -3164,7 +3206,7 @@ int rdma_resolve_addrinfo(struct rdma_cm_id *id, const char *node,
 	struct cma_id_private *id_priv;
 	int ret = 0;
 
-	if (!id || !hints)
+	if (!id)
 		return ERR(EINVAL);
 
 	id_priv = container_of(id, struct cma_id_private, id);
