@@ -444,13 +444,13 @@ static int rping_disconnect(struct rping_cb *cb, struct rdma_cm_id *id)
 
 static void rping_setup_wr(struct rping_cb *cb)
 {
-	cb->recv_sgl.addr = (uint64_t) (unsigned long) &cb->recv_buf;
+	cb->recv_sgl.addr = (uint64_t) (uintptr_t) &cb->recv_buf;
 	cb->recv_sgl.length = sizeof cb->recv_buf;
 	cb->recv_sgl.lkey = cb->recv_mr->lkey;
 	cb->rq_wr.sg_list = &cb->recv_sgl;
 	cb->rq_wr.num_sge = 1;
 
-	cb->send_sgl.addr = (uint64_t) (unsigned long) &cb->send_buf;
+	cb->send_sgl.addr = (uint64_t) (uintptr_t) &cb->send_buf;
 	cb->send_sgl.length = sizeof cb->send_buf;
 	cb->send_sgl.lkey = cb->send_mr->lkey;
 
@@ -459,7 +459,7 @@ static void rping_setup_wr(struct rping_cb *cb)
 	cb->sq_wr.sg_list = &cb->send_sgl;
 	cb->sq_wr.num_sge = 1;
 
-	cb->rdma_sgl.addr = (uint64_t) (unsigned long) cb->rdma_buf;
+	cb->rdma_sgl.addr = (uint64_t) (uintptr_t) cb->rdma_buf;
 	cb->rdma_sgl.lkey = cb->rdma_mr->lkey;
 	cb->rdma_sq_wr.send_flags = IBV_SEND_SIGNALED;
 	cb->rdma_sq_wr.sg_list = &cb->rdma_sgl;
@@ -716,7 +716,7 @@ static void rping_format_send(struct rping_cb *cb, char *buf, struct ibv_mr *mr)
 {
 	struct rping_rdma_info *info = &cb->send_buf;
 
-	info->buf = htobe64((uint64_t) (unsigned long) buf);
+	info->buf = htobe64((uint64_t) (uintptr_t) buf);
 	info->rkey = htobe32(mr->rkey);
 	info->size = htobe32(cb->size);
 
