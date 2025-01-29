@@ -1571,6 +1571,15 @@ static int umad_find_active(struct umad_ca_pair *ca_pair, const umad_ca_t *ca, b
 static int find_preferred_ports(struct umad_ca_pair *ca_pair, const umad_ca_t *ca, bool is_gsi, int portnum)
 {
 	if (portnum) {
+		//in case we have same device, use same port for smi/gsi
+		if (!strncmp(ca_pair->gsi_name, ca_pair->smi_name, UMAD_CA_NAME_LEN)) {
+			if (!umad_check_active(ca, portnum)) {
+				ca_pair->gsi_preferred_port = portnum;
+				ca_pair->smi_preferred_port = portnum;
+				return 0;
+			}
+			return 1;
+		}
 		uint32_t *port_to_set = is_gsi ?
 					&ca_pair->gsi_preferred_port :
 					&ca_pair->smi_preferred_port;
