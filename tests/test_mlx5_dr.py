@@ -93,6 +93,17 @@ def requires_geneve_fields_rx_support(func):
     return func_wrapper
 
 
+def requires_flow_counter_support(func):
+    def func_wrapper(instance):
+        nic_tbl_caps = u.query_nic_flow_table_caps(instance)
+        rx_counter_support = nic_tbl_caps.flow_table_properties_nic_receive.flow_counter
+        tx_counter_support = nic_tbl_caps.flow_table_properties_nic_transmit.flow_counter
+        if not (rx_counter_support and tx_counter_support):
+            raise unittest.SkipTest('NIC flow tables do not support counter action')
+        return func(instance)
+    return func_wrapper
+
+
 class Mlx5DrResources(RawResources):
     """
     Test various functionalities of the mlx5 direct rules class.
@@ -1368,6 +1379,7 @@ class Mlx5DrTest(Mlx5RDMATestCase):
         self.assertEqual(matched_packets_rx, self.iters, 'Reuse action or matcher failed on RX')
 
     @skip_unsupported
+    @requires_flow_counter_support
     def test_root_reuse_action_and_matcher(self):
         """
         Create root rules on TX and RX that use the same matcher and actions
