@@ -777,6 +777,19 @@ static unsigned int get_max(unsigned int num)
 	return (1 << r);
 }
 
+static uint8_t *get_port_info_for_cap_mask(ibnd_port_t *port)
+{
+	uint8_t *info = NULL;
+
+	if (port->node->type == IB_NODE_SWITCH) {
+		if (port->node->ports[0])
+			info = (uint8_t *)&port->node->ports[0]->info;
+	} else
+		info = (uint8_t *)&port->info;
+
+	return info;
+}
+
 void get_max_msg(char *width_msg, char *speed_msg, int msg_size, ibnd_port_t * port)
 {
 	char buf[64];
@@ -797,24 +810,14 @@ void get_max_msg(char *width_msg, char *speed_msg, int msg_size, ibnd_port_t * p
 			 mad_dump_val(IB_PORT_LINK_WIDTH_ACTIVE_F,
 				      buf, 64, &max_width));
 
-	if (port->node->type == IB_NODE_SWITCH) {
-		if (port->node->ports[0])
-			info = (uint8_t *)&port->node->ports[0]->info;
-	}
-	else
-		info = (uint8_t *)&port->info;
+	info = get_port_info_for_cap_mask(port);
 
 	if (info)
 		cap_mask = mad_get_field(info, 0, IB_PORT_CAPMASK_F);
 	else
 		cap_mask = 0;
 
-	info = NULL;
-	if (port->remoteport->node->type == IB_NODE_SWITCH) {
-		if (port->remoteport->node->ports[0])
-			info = (uint8_t *)&port->remoteport->node->ports[0]->info;
-	} else
-		info = (uint8_t *)&port->remoteport->info;
+	info = get_port_info_for_cap_mask(port->remoteport);
 
 	if (info)
 		rem_cap_mask = mad_get_field(info, 0, IB_PORT_CAPMASK_F);
@@ -845,15 +848,15 @@ check_fdr10_supp:
 	return;
 
 check_ext_speed:
-	espeed = ibnd_get_agg_linkspeedextsup(port->info, port->info);
-	e2speed = ibnd_get_agg_linkspeedextsup(port->remoteport->info,
+	espeed = ibnd_get_agg_linkspeedextsup(get_port_info_for_cap_mask(port), port->info);
+	e2speed = ibnd_get_agg_linkspeedextsup(get_port_info_for_cap_mask(port->remoteport),
 			port->remoteport->info);
 
 	if (!espeed || !e2speed)
 		goto check_fdr10_supp;
 
 	max_speed = get_max(espeed & e2speed);
-	espeed = ibnd_get_agg_linkspeedext(port->info, port->info);
+	espeed = ibnd_get_agg_linkspeedext(get_port_info_for_cap_mask(port), port->info);
 
 	if ((max_speed & espeed) == 0)
 		// we are not at the max supported extended speed
