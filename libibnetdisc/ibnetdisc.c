@@ -1024,7 +1024,7 @@ int ibnd_get_agg_linkspeedext_field(void *cap_info, void *info,
 		enum MAD_FIELDS efield, enum MAD_FIELDS e2field)
 {
 	int espeed = 0, e2speed = 0;
-	int cap_mask = mad_get_field(cap_info, 0, IB_PORT_CAPMASK_F);
+	int cap_mask =  cap_info ? mad_get_field(cap_info, 0, IB_PORT_CAPMASK_F) : 0;
 	int cap_mask2 = 0;
 
 	if (cap_mask & be32toh(IB_PORT_CAP_HAS_EXT_SPEEDS)) {
@@ -1035,7 +1035,7 @@ int ibnd_get_agg_linkspeedext_field(void *cap_info, void *info,
 				espeed = 0;
 
 		if (cap_mask & be32toh(IB_PORT_CAP_HAS_CAP_MASK2))
-			cap_mask2 = mad_get_field(cap_info, 0, IB_PORT_CAPMASK2_F);
+			cap_mask2 = cap_info ? mad_get_field(cap_info, 0, IB_PORT_CAPMASK2_F) : 0;
 
 		if (cap_mask2 & be16toh(IB_PORT_CAP2_IS_EXT_SPEEDS_2_SUPPORTED)) {
 			e2speed = (mad_get_field(info, 0, e2field) << 5);
