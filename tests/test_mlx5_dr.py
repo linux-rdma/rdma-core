@@ -142,7 +142,7 @@ class Mlx5DrResources(RawResources):
                                    f'and syndrome ({query_cap_out.syndrome})')
         bit_regs = query_cap_out.capability.flow_meter_reg_id
         if bit_regs == 0:
-            raise PyverbsRDMAError(f'Reg C is not supported)')
+            raise unittest.SkipTest('Reg C is not supported')
         return int(math.log2(bit_regs & -bit_regs))
 
 
