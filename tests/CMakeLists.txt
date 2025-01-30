@@ -40,6 +40,7 @@ rdma_python_test(tests
   test_mlx5_pp.py
   test_mlx5_query_port.py
   test_mlx5_raw_wqe.py
+  test_mlx5_rdma_ctrl.py
   test_mlx5_rdmacm.py
   test_mlx5_sched.py
   test_mlx5_timestamp.py
