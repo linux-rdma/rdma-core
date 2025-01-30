@@ -46,6 +46,11 @@ class DevxOps:
     MLX5_CMD_OP_ACCESS_REGISTER_PAOS = 0x5006
     MLX5_CMD_OP_ACCESS_REG = 0x805
     MLX5_CMD_OP_CREATE_MKEY = 0x200
+    MLX5_CMD_OP_CREATE_GENERAL_OBJECT = 0xa00
+
+
+class DevxGeneralObjTypes:
+    MLX5_OBJ_TYPE_RDMA_CTRL = 0x0053
 
 
 class ActionType:
@@ -2368,4 +2373,59 @@ class QueryCmdHcaNicFlowTableCapOut(PRMPacket):
         StrFixedLenField('reserved2', None, length=8),
         PadField(PacketField('capability', FlowTableNicCap(), FlowTableNicCap), 2048,
                  padwith=b"\x00"),
+    ]
+
+
+class RdmaCtrlObj(PRMPacket):
+    fields_desc = [
+        LongField('modify_field_select', 0),
+        StrFixedLenField('reserved1', None, length=6),
+        ShortField('other_vhca_id', 0),
+    ]
+
+
+class GeneralObjCreateParam(PRMPacket):
+    fields_desc = [
+        BitField('alias_object', 0, 1),
+        BitField('reserved1', 0, 2),
+        BitField('log_obj_range', 0, 5),
+        BitField('reserved2', 0, 24),
+    ]
+
+
+class GeneralObjInCmdHdr(PRMPacket):
+    fields_desc = [
+        ShortField('opcode', 0),
+        ShortField('uid', 0),
+        ShortField('vhca_tunnel_id', 0),
+        ShortField('obj_type', 0),
+        IntField('obj_id', 0),
+        ConditionalField(
+            PadField(PacketField('op_param_create', GeneralObjCreateParam(), GeneralObjCreateParam), 4, padwith=b"\x00"),
+            lambda pkt: pkt.opcode == DevxOps.MLX5_CMD_OP_CREATE_GENERAL_OBJECT)
+    ]
+
+
+class GeneralObjOutCmdHdr(PRMPacket):
+    fields_desc = [
+        ByteField('status', 0),
+        BitField('reserved1', 0, 24),
+        IntField('syndrome', 0),
+        IntField('obj_id', 0),
+        StrFixedLenField('reserved2', None, length=4),
+    ]
+
+
+class CreateGeneralObjIn(PRMPacket):
+    fields_desc = [
+        PacketField('general_obj_in_cmd_hdr', GeneralObjInCmdHdr(), GeneralObjInCmdHdr),
+        ConditionalField(
+            PadField(PacketField('obj_context', RdmaCtrlObj(), RdmaCtrlObj), 488, padwith=b"\x00"),
+            lambda pkt: pkt.general_obj_in_cmd_hdr.obj_type == DevxGeneralObjTypes.MLX5_OBJ_TYPE_RDMA_CTRL),
+    ]
+
+
+class CreateGeneralObjOut(PRMPacket):
+    fields_desc = [
+        PacketField('general_obj_out_cmd_hdr', GeneralObjOutCmdHdr(), GeneralObjOutCmdHdr),
     ]

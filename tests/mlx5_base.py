@@ -25,6 +25,7 @@ from pyverbs.qp import QPCap, QPInitAttrEx, QPAttr
 import pyverbs.providers.mlx5.mlx5_enums as dve
 from pyverbs.addr import AHAttr, GlobalRoute
 from pyverbs.cq import CqInitAttrEx
+from pyverbs.device import FdArr
 import pyverbs.mem_alloc as mem
 import pyverbs.dma_util as dma
 import pyverbs.device as d
@@ -1044,3 +1045,46 @@ class Mlx5RcResources(RCResources):
             if ex.error_code == errno.EOPNOTSUPP:
                 raise unittest.SkipTest('Create Mlx5DV CQ is not supported')
             raise ex
+
+
+class Mlx5PrivilegedRC(Mlx5RcResources):
+    def __init__(self, dev_name, ib_port, gid_index, msg_size=1024, **kwargs):
+        """
+        Initialize mlx5 DV privileged context resources based on Mlx5RcResources.
+        :param dev_name: Device name to be used
+        :param ib_port: IB port of the device to use
+        :param gid_index: Which GID index to use
+        :param msg_size: The resource msg size
+        :param kwargs: General arguments
+        """
+        self.open_fds = []
+        super().__init__(dev_name, ib_port, gid_index, msg_size=msg_size, **kwargs)
+
+    def create_context(self):
+        fds_paths = ['/dev/infiniband/mlx5_perm_ctrl_local',
+                     '/dev/infiniband/mlx5_perm_ctrl_other_vhca']
+        fd_array = []
+        try:
+            for file_path in fds_paths:
+                fd = open(file_path, 'rb')
+                self.open_fds.append(fd)
+                fd_array.append(fd.fileno())
+            self.fds = FdArr(arr=fd_array, count=len(fd_array))
+            attr = Mlx5DVContextAttr(flags=dve.MLX5DV_CONTEXT_FLAGS_DEVX,
+                                     comp_mask=dve.MLX5DV_CONTEXT_ATTR_MASK_FD_ARRAY,
+                                     fds=self.fds)
+            self.ctx = Mlx5Context(attr, self.dev_name)
+            self.close_fds()
+        except FileNotFoundError:
+            self.close_fds()
+            raise unittest.SkipTest(f'FDs file not found')
+        except PyverbsUserError as ex:
+            self.close_fds()
+            raise unittest.SkipTest(f'Could not open mlx5 context ({ex})')
+        except PyverbsRDMAError as ex:
+            self.close_fds()
+            raise unittest.SkipTest(f'Opening mlx5 DevX context is not supported ({ex})')
+
+    def close_fds(self):
+        for open_fd in self.open_fds:
+                open_fd.close()
