@@ -3,7 +3,7 @@
 
 from libc.stdint cimport uintptr_t, uint8_t, uint16_t, uint32_t, uint64_t
 from libc.string cimport memcpy, memset
-from libc.stdlib cimport calloc, free
+from libc.stdlib cimport calloc, free ,malloc
 from posix.mman cimport munmap
 import logging
 import weakref
@@ -24,7 +24,7 @@ from pyverbs.wr cimport copy_sg_array
 cimport pyverbs.libibverbs_enums as e
 from pyverbs.cq cimport CqInitAttrEx
 cimport pyverbs.libibverbs as v
-from pyverbs.device cimport DM
+from pyverbs.device cimport DM, FdArr
 from pyverbs.addr cimport AH
 from pyverbs.pd cimport PD
 
@@ -130,10 +130,13 @@ cdef class Mlx5DVContextAttr(PyverbsObject):
     Represent mlx5dv_context_attr struct. This class is used to open an mlx5
     device.
     """
-    def __init__(self, flags=0, comp_mask=0):
+    def __init__(self, flags=0, comp_mask=0, FdArr fds=None):
         super().__init__()
         self.attr.flags = flags
         self.attr.comp_mask = comp_mask
+        if fds is not None:
+            self.attr.fds = &fds.attr
+        self.fds = fds
 
     def __str__(self):
         print_format = '{:20}: {:<20}\n'

@@ -1265,3 +1265,38 @@ def translate_event_type(event_type):
         return types[event_type]
     except KeyError:
         return f'Unknown event_type ({event_type})'
+
+
+cdef class FdArr(PyverbsObject):
+    """
+    Represent ibv_fd_arr struct. This class is used a pointer to the file descriptor array
+    """
+    def __init__(self, arr=[], count=0):
+        super().__init__()
+        cdef int *dst
+        self.attr.arr = <int*>malloc(count * sizeof(int))
+        if self.attr.arr == NULL:
+            raise PyverbsRDMAErrno('Failed to malloc FD list')
+        dst = self.attr.arr
+        for i in range(count):
+            dst[i]= arr[i]
+        self.attr.count = count
+
+    def __dealloc__(self):
+        self.close()
+
+    cpdef close(self):
+        free(self.attr.arr)
+
+    def __str__(self):
+        print_format = '{:20}: {:<20}\n'
+        return print_format.format('Number of fd in arr', self.attr.count) +\
+               print_format.format('FDs in arr', [self.attr.arr[i] for i in range(self.attr.count)])
+
+    @property
+    def arr(self):
+        return [self.attr.arr[i] for i in range(self.attr.count)]
+
+    @property
+    def count(self):
+        return self.attr.count
