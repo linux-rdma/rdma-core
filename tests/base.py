@@ -520,6 +520,9 @@ class RDMACMBaseTest(RDMATestCase):
 
     @staticmethod
     def _rdmacm_exception_handler(passive, exception):
+        if isinstance(exception, PyverbsRDMAError):
+            if exception.error_code in [errno.EOPNOTSUPP, errno.EPROTONOSUPPORT]:
+                sys.exit(5)
         if isinstance(exception, unittest.case.SkipTest):
             sys.exit(5)
         side = 'passive' if passive else 'active'
