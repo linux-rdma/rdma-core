@@ -114,4 +114,5 @@ struct ib_connect_hdr {
 #define cma_dst_ip6 dst_addr[0]
 };
 
+int ucma_getaddrinfo_sa(const char *service, struct rdma_addrinfo **res);
 #endif /* CMA_H */

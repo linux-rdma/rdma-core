@@ -248,6 +248,13 @@ int rdma_getaddrinfo(const char *node, const char *service,
 	if (ret)
 		return ret;
 
+	if (hints && hints->ai_flags & RAI_SA) {
+		if (node || (hints->ai_flags & RAI_DNS))
+			return ERR(EOPNOTSUPP);
+
+		return ucma_getaddrinfo_sa(service, res);
+	}
+
 	rai = calloc(1, sizeof(*rai));
 	if (!rai)
 		return ERR(ENOMEM);
