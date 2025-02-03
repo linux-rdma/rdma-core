@@ -3251,3 +3251,122 @@ int rdma_query_addrinfo(struct rdma_cm_id *id, struct rdma_addrinfo **info)
 	pthread_mutex_unlock(&id_priv->mut);
 	return 0;
 }
+
+static int resolve_sa_on_gid(union ibv_gid *gid, struct rdma_event_channel *ech,
+			     const char *service, struct rdma_addrinfo **res)
+{
+	struct sockaddr_ib sib = {}, *psib;
+	struct cma_id_private *id_priv;
+	struct rdma_cm_id *cm_id;
+	struct rdma_addrinfo *ai;
+	struct rdma_cm_event *e;
+	int ret;
+
+	ret = rdma_create_id(ech, &cm_id, NULL, RDMA_PS_IB);
+	if (ret)
+		return ret;
+
+	sib.sib_family = AF_IB;
+	memcpy(&sib.sib_addr, gid, sizeof(sib.sib_addr));
+	ret = rdma_bind_addr(cm_id, (struct sockaddr *)&sib);
+	if (ret)
+		goto out;
+
+	id_priv = container_of(cm_id, struct cma_id_private, id);
+	ret = resolve_ai_sa(id_priv, service);
+	if (ret)
+		goto out;
+
+	ret = rdma_get_cm_event(ech, &e);
+	if (ret) {
+		rdma_ack_cm_event(e);
+		goto out;
+	}
+	if (e->event != RDMA_CM_EVENT_ADDRINFO_RESOLVED) {
+		rdma_ack_cm_event(e);
+		ret = ENOENT;
+		goto out;
+	}
+
+	rdma_ack_cm_event(e);
+
+	ai = id_priv->resolved_ai;
+	while (ai) {
+		psib = calloc(1, sizeof(*psib));
+		if (!psib) {
+			ret = errno;
+			goto out;
+		}
+
+		psib->sib_family = AF_IB;
+		memcpy(&psib->sib_addr, gid, sizeof(psib->sib_addr));
+		ucma_set_sid(RDMA_PS_IB, NULL, psib);
+		psib->sib_pkey =
+			((struct sockaddr_ib *)ai->ai_dst_addr)->sib_pkey;
+
+		ai->ai_src_addr = (struct sockaddr *)psib;
+		ai->ai_src_len = sizeof(*psib);
+		ai = ai->ai_next;
+	}
+
+	*res = id_priv->resolved_ai;
+	id_priv->resolved_ai = NULL;
+out:
+	rdma_destroy_id(cm_id);
+	return ret;
+}
+
+int ucma_getaddrinfo_sa(const char *service, struct rdma_addrinfo **res)
+{
+	struct ibv_device_attr dev_attr = {};
+	struct ibv_port_attr port_attr = {};
+	struct rdma_event_channel *ech;
+	struct ibv_context *ibctx;
+	int i, j, ret, found = 0;
+	union ibv_gid gid;
+
+	if (!service || !res)
+		return ERR(EINVAL);
+
+	ech = rdma_create_event_channel();
+	if (!ech)
+		return -1;
+
+	for (i = 0; dev_list[i] != NULL; i++) {
+		ibctx = ibv_open_device(dev_list[i]);
+		if (!ibctx)
+			continue;
+
+		ret = ibv_query_device(ibctx, &dev_attr);
+		if (ret)
+			goto next;
+
+		for (j = 0; j < dev_attr.phys_port_cnt; j++) {
+			ret = ibv_query_port(ibctx, j + 1, &port_attr);
+			if (ret)
+				continue;
+
+			if ((port_attr.link_layer != IBV_LINK_LAYER_INFINIBAND) ||
+			    (port_attr.state < IBV_PORT_ACTIVE))
+				continue;
+
+			ret = ibv_query_gid(ibctx, j + 1, 0, &gid);
+			if (ret)
+				continue;
+
+			ret = resolve_sa_on_gid(&gid, ech, service, res);
+			if (!ret) {
+				found = 1;
+				break;
+			}
+		}
+
+next:
+		ibv_close_device(ibctx);
+		if (found)
+			break;
+	}
+
+	rdma_destroy_event_channel(ech);
+	return found ? 0 : ERR(ENOENT);
+}
