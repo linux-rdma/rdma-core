@@ -158,6 +158,29 @@ int mana_dealloc_pd(struct ibv_pd *ibpd)
 	return 0;
 }
 
+struct ibv_mr *mana_reg_dmabuf_mr(struct ibv_pd *pd, uint64_t offset,
+				  size_t length, uint64_t iova, int fd,
+				  int access)
+{
+	struct verbs_mr *vmr;
+	int ret;
+
+	vmr = calloc(1, sizeof(*vmr));
+	if (!vmr)
+		return NULL;
+
+	ret = ibv_cmd_reg_dmabuf_mr(pd, offset, length, iova, fd, access, vmr, NULL);
+	if (ret) {
+		verbs_err(verbs_get_ctx(pd->context),
+			  "Failed to register dma-buf MR\n");
+		errno = ret;
+		free(vmr);
+		return NULL;
+	}
+
+	return &vmr->ibv_mr;
+}
+
 struct ibv_mr *mana_reg_mr(struct ibv_pd *pd, void *addr, size_t length,
 			   uint64_t hca_va, int access)
 {
@@ -236,6 +259,7 @@ static const struct verbs_context_ops mana_ctx_ops = {
 	.post_send = mana_post_send,
 	.query_device_ex = mana_query_device_ex,
 	.query_port = mana_query_port,
+	.reg_dmabuf_mr = mana_reg_dmabuf_mr,
 	.reg_mr = mana_reg_mr,
 	.req_notify_cq = mana_arm_cq,
 };
