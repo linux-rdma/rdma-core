@@ -198,6 +198,10 @@ mana_alloc_parent_domain(struct ibv_context *context,
 
 int mana_dealloc_pd(struct ibv_pd *pd);
 
+struct ibv_mr *mana_reg_dmabuf_mr(struct ibv_pd *pd, uint64_t offset,
+				  size_t length, uint64_t iova, int fd,
+				  int access);
+
 struct ibv_mr *mana_reg_mr(struct ibv_pd *pd, void *addr, size_t length,
 			   uint64_t hca_va, int access);
 
