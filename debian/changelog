@@ -1,3 +1,11 @@
+rdma-core (56.0-1) unstable; urgency=medium
+
+  * New upstream release.
+  * Update library symbols
+  * Update year in copyright
+
+ -- Benjamin Drung <bdrung@ubuntu.com>  Thu, 06 Feb 2025 20:12:10 +0100
+
 rdma-core (55.0-1) unstable; urgency=medium
 
   * New upstream release.
