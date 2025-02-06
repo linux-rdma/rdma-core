@@ -59,7 +59,7 @@ struct sa_query_result {
 };
 
 /* NOTE: umad_init must be called prior to sa_get_handle */
-struct sa_handle * sa_get_handle(void);
+struct sa_handle *sa_get_handle(char *ca_name);
 void sa_free_handle(struct sa_handle * h);
 
 int sa_query(struct sa_handle *h, uint8_t method,

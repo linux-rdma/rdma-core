@@ -510,12 +510,15 @@ static void parse_for_ud_qp(struct hns_roce_v2_cqe *cqe, struct ibv_wc *wc)
 }
 
 static void parse_cqe_for_srq(struct hns_roce_v2_cqe *cqe, struct ibv_wc *wc,
-			      struct hns_roce_srq *srq)
+			      struct hns_roce_srq *srq,
+			      struct hns_roce_qp *hr_qp)
 {
 	uint32_t wqe_idx;
 
 	if (hr_reg_read(cqe, CQE_CQE_INLINE))
 		handle_recv_cqe_inl_from_srq(cqe, srq);
+	else if (hr_qp->verbs_qp.qp.qp_type == IBV_QPT_UD)
+		parse_for_ud_qp(cqe, wc);
 
 	wqe_idx = hr_reg_read(cqe, CQE_WQE_IDX);
 	wc->wr_id = srq->wrid[wqe_idx & (srq->wqe_cnt - 1)];
@@ -531,13 +534,13 @@ static void parse_cqe_for_resp(struct hns_roce_v2_cqe *cqe, struct ibv_wc *wc,
 	wc->wr_id = wq->wrid[wq->tail & (wq->wqe_cnt - 1)];
 	++wq->tail;
 
-	if (hr_qp->verbs_qp.qp.qp_type == IBV_QPT_UD)
-		parse_for_ud_qp(cqe, wc);
-
 	if (hr_reg_read(cqe, CQE_CQE_INLINE))
 		handle_recv_cqe_inl_from_rq(cqe, hr_qp);
 	else if (hr_reg_read(cqe, CQE_RQ_INLINE))
 		handle_recv_rq_inl(cqe, hr_qp);
+	else if (hr_qp->verbs_qp.qp.qp_type == IBV_QPT_UD)
+		parse_for_ud_qp(cqe, wc);
+
 }
 
 static void parse_cqe_for_req(struct hns_roce_v2_cqe *cqe, struct ibv_wc *wc,
@@ -669,7 +672,7 @@ static int parse_cqe_for_cq(struct hns_roce_context *ctx, struct hns_roce_cq *cq
 			return V2_CQ_POLL_ERR;
 
 		if (srq)
-			parse_cqe_for_srq(cqe, wc, srq);
+			parse_cqe_for_srq(cqe, wc, srq, cur_qp);
 		else
 			parse_cqe_for_resp(cqe, wc, cur_qp);
 	}
@@ -2680,6 +2683,9 @@ static int fill_send_wr_ops(const struct ibv_qp_init_attr_ex *attr,
 		fill_send_wr_ops_ud(qp_ex);
 		break;
 	default:
+		verbs_err(verbs_get_ctx(qp_ex->qp_base.context),
+			  "QP type %d not supported for qp_ex send ops.\n",
+			  attr->qp_type);
 		return -EOPNOTSUPP;
 	}
 

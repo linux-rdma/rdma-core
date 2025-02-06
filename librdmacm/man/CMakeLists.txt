@@ -23,6 +23,7 @@ rdma_man_pages(
   rdma_establish.3.md
   rdma_event_str.3
   rdma_free_devices.3
+  rdma_freeaddrinfo.3.in.rst
   rdma_get_cm_event.3
   rdma_get_devices.3
   rdma_get_dst_port.3

@@ -60,6 +60,7 @@ static ibmad_gid_t mgid_ipoib = {
 };
 
 static struct ibmad_port *srcport;
+static struct ibmad_ports_pair *srcports;
 
 static uint64_t build_mcm_rec(uint8_t *data, ibmad_gid_t mgid,
 			      ibmad_gid_t port_gid)
@@ -367,7 +368,11 @@ int main(int argc, const char **argv)
 	if (argc > 1)
 		guid_file = argv[1];
 
-	srcport = mad_rpc_open_port(NULL, 0, mgmt_classes, 2);
+	srcports = mad_rpc_open_port2(NULL, 0, mgmt_classes, 2, 0);
+	if (!srcports)
+		err("Failed to open port");
+
+	srcport = srcports->gsi.port;
 	if (!srcport)
 		err("Failed to open port");
 
@@ -390,7 +395,7 @@ int main(int argc, const char **argv)
 
 	free(umad);
 	umad_unregister(port, agent);
-	umad_close_port(port);
+	mad_rpc_close_port2(srcports);
 	umad_done();
 
 	return 0;

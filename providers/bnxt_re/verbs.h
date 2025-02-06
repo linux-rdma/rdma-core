@@ -96,6 +96,8 @@ int bnxt_re_arm_cq(struct ibv_cq *ibvcq, int flags);
 
 struct ibv_qp *bnxt_re_create_qp(struct ibv_pd *ibvpd,
 				 struct ibv_qp_init_attr *attr);
+struct ibv_qp *bnxt_re_create_qp_ex(struct ibv_context *cntx,
+				    struct ibv_qp_init_attr_ex *attr);
 int bnxt_re_modify_qp(struct ibv_qp *ibvqp, struct ibv_qp_attr *attr,
 		      int ibv_qp_attr_mask);
 int bnxt_re_query_qp(struct ibv_qp *ibvqp, struct ibv_qp_attr *attr,

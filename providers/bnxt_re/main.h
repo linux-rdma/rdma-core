@@ -186,8 +186,27 @@ struct bnxt_re_joint_queue {
 	uint32_t last_idx;
 };
 
+/* WR API post send data */
+struct bnxt_re_wr_send_qp {
+	struct bnxt_re_bsqe     *cur_hdr;
+	struct bnxt_re_send     *cur_sqe;
+	uint32_t                cur_wqe_cnt;
+	uint32_t                cur_slot_cnt;
+	uint32_t                cur_swq_idx;
+	uint8_t                 cur_opcode;
+	bool                    cur_push_wqe;
+	unsigned int            cur_push_size;
+	int                     error;
+};
+
+#define STATIC_WQE_NUM_SLOTS	8
+#define SEND_SGE_MIN_SLOTS	3
+#define MSG_LEN_ADJ_TO_BYTES	15
+#define SLOTS_RSH_TO_NUM_WQE	4
+
 struct bnxt_re_qp {
-	struct ibv_qp ibvqp;
+	struct verbs_qp vqp;
+	struct ibv_qp *ibvqp;
 	struct bnxt_re_chip_ctx *cctx;
 	struct bnxt_re_context *cntx;
 	struct xorshift32_state rand;
@@ -204,6 +223,7 @@ struct bnxt_re_qp {
 	uint32_t tbl_indx;
 	uint32_t sq_psn;
 	uint32_t pending_db;
+	void *pbuf;
 	uint64_t wqe_cnt;
 	uint16_t mtu;
 	uint16_t qpst;
@@ -212,6 +232,7 @@ struct bnxt_re_qp {
 	uint16_t max_push_sz;
 	uint8_t qptyp;
 	struct bnxt_re_mem *mem;
+	struct bnxt_re_wr_send_qp wr_sq;
 };
 
 struct bnxt_re_mr {
@@ -324,7 +345,9 @@ static inline struct bnxt_re_cq *to_bnxt_re_cq(struct ibv_cq *ibvcq)
 
 static inline struct bnxt_re_qp *to_bnxt_re_qp(struct ibv_qp *ibvqp)
 {
-	return container_of(ibvqp, struct bnxt_re_qp, ibvqp);
+	struct verbs_qp *vqp = (struct verbs_qp *)ibvqp;
+
+	return container_of(vqp, struct bnxt_re_qp, vqp);
 }
 
 static inline struct bnxt_re_srq *to_bnxt_re_srq(struct ibv_srq *ibvsrq)

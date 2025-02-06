@@ -76,12 +76,16 @@ class DeviceTest(PyverbsAPITestCase):
         Test ibv_get_pkey_index()
         """
         source_pkey_index = 0
-        with d.Context(name=self.dev_name) as ctx:
-            pkey = u.get_pkey_from_kernel(device=self.dev_name, port=self.ib_port,
-                                          index=source_pkey_index)
-            queried_pkey_idx = ctx.get_pkey_index(port_num=self.ib_port, pkey=pkey)
-            self.assertEqual(queried_pkey_idx, source_pkey_index,
-                             f'Got index={queried_pkey_idx}\nExpected index={source_pkey_index}')
+        for dev in self.get_device_list():
+            with d.Context(name=dev.name.decode()) as ctx:
+                if dev.node_type == e.IBV_NODE_CA:
+                    pkey = u.get_pkey_from_kernel(device=dev.name.decode(),
+                                                  port=self.ib_port,
+                                                  index=source_pkey_index)
+                    queried_pkey_idx = ctx.get_pkey_index(port_num=self.ib_port,
+                                                          pkey=pkey)
+                    self.assertEqual(queried_pkey_idx, source_pkey_index,
+                                    f'Got index={queried_pkey_idx}\nExpected index={source_pkey_index}')
 
     def test_query_gid(self):
         """
@@ -97,21 +101,21 @@ class DeviceTest(PyverbsAPITestCase):
         """
         Test ibv_query_gid_table()
         """
-        devs = self.get_device_list()
-        with d.Context(name=devs[0].name.decode()) as ctx:
-            device_attr = ctx.query_device()
-            max_entries = 0
-            for port_num in range(1, device_attr.phys_port_cnt + 1):
-                port_attr = ctx.query_port(port_num)
-                max_entries += port_attr.gid_tbl_len
-            try:
-                if max_entries > 0:
-                    ctx.query_gid_table(max_entries)
-            except PyverbsRDMAError as ex:
-                if ex.error_code in [-errno.EOPNOTSUPP, -errno.EPROTONOSUPPORT]:
-                    raise unittest.SkipTest('ibv_query_gid_table is not'\
-                                            ' supported on this device')
-                raise ex
+        for dev in self.get_device_list():
+            with d.Context(name=dev.name.decode()) as ctx:
+                device_attr = ctx.query_device()
+                max_entries = 0
+                for port_num in range(1, device_attr.phys_port_cnt + 1):
+                    port_attr = ctx.query_port(port_num)
+                    max_entries += port_attr.gid_tbl_len
+                try:
+                    if max_entries > 0:
+                        ctx.query_gid_table(max_entries)
+                except PyverbsRDMAError as ex:
+                    if ex.error_code in [-errno.EOPNOTSUPP, -errno.EPROTONOSUPPORT]:
+                        raise unittest.SkipTest('ibv_query_gid_table is not'\
+                                                ' supported on this device')
+                    raise ex
 
     def test_query_gid_table_bad_flow(self):
         """
@@ -134,17 +138,17 @@ class DeviceTest(PyverbsAPITestCase):
         """
         Test ibv_query_gid_ex()
         """
-        devs = self.get_device_list()
-        with d.Context(name=devs[0].name.decode()) as ctx:
-            try:
-                gid_tbl_len = ctx.query_port(self.ib_port).gid_tbl_len
-                if gid_tbl_len > 0:
-                    ctx.query_gid_ex(port_num=self.ib_port, gid_index=0)
-            except PyverbsRDMAError as ex:
-                if ex.error_code in [errno.EOPNOTSUPP, errno.EPROTONOSUPPORT]:
-                    raise unittest.SkipTest('ibv_query_gid_ex is not'\
-                                            ' supported on this device')
-                raise ex
+        for dev in self.get_device_list():
+            with d.Context(name=dev.name.decode()) as ctx:
+                try:
+                    gid_tbl_len = ctx.query_port(self.ib_port).gid_tbl_len
+                    if gid_tbl_len > 0:
+                        ctx.query_gid_ex(port_num=self.ib_port, gid_index=0)
+                except PyverbsRDMAError as ex:
+                    if ex.error_code in [errno.EOPNOTSUPP, errno.EPROTONOSUPPORT]:
+                        raise unittest.SkipTest('ibv_query_gid_ex is not'\
+                                                ' supported on this device')
+                    raise ex
 
     def test_query_gid_ex_bad_flow(self):
         """

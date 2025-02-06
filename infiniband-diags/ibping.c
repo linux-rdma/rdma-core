@@ -44,6 +44,7 @@
 #include "ibdiag_common.h"
 
 static struct ibmad_port *srcport;
+static struct ibmad_ports_pair *srcports;
 
 static uint64_t time_stamp(void)
 {
@@ -216,7 +217,11 @@ int main(int argc, char **argv)
 	if (!argc && !server)
 		ibdiag_show_usage();
 
-	srcport = mad_rpc_open_port(ibd_ca, ibd_ca_port, mgmt_classes, 1);
+	srcports = mad_rpc_open_port2(ibd_ca, ibd_ca_port, mgmt_classes, 1, 0);
+	if (!srcports)
+		IBEXIT("Failed to open '%s' port '%d'", ibd_ca, ibd_ca_port);
+
+	srcport = srcports->gsi.port;
 	if (!srcport)
 		IBEXIT("Failed to open '%s' port '%d'", ibd_ca, ibd_ca_port);
 
@@ -236,7 +241,7 @@ int main(int argc, char **argv)
 		IBEXIT("can't register ping class %d on this port",
 			ping_class);
 
-	if (resolve_portid_str(ibd_ca, ibd_ca_port, &portid, argv[0],
+	if (resolve_portid_str(srcports->gsi.ca_name, ibd_ca_port, &portid, argv[0],
 			       ibd_dest_type, ibd_sm_id, srcport) < 0)
 		IBEXIT("can't resolve destination port %s", argv[0]);
 
@@ -265,7 +270,7 @@ int main(int argc, char **argv)
 
 	report(0);
 
-	mad_rpc_close_port(srcport);
+	mad_rpc_close_port2(srcports);
 
 	exit(-1);
 }

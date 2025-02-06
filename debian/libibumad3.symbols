@@ -4,6 +4,7 @@ libibumad.so.3 libibumad3 #MINVER#
  IBUMAD_1.1@IBUMAD_1.1 3.1.26
  IBUMAD_1.2@IBUMAD_1.2 3.2.30
  IBUMAD_1.3@IBUMAD_1.3 3.3.53
+ IBUMAD_1.4@IBUMAD_1.4 56
  umad_addr_dump@IBUMAD_1.0 1.3.9
  umad_attribute_str@IBUMAD_1.0 1.3.10.2
  umad_class_str@IBUMAD_1.0 1.3.10.2
@@ -44,3 +45,5 @@ libibumad.so.3 libibumad3 #MINVER#
  umad_sort_ca_device_list@IBUMAD_1.2 3.2.30
  umad_status@IBUMAD_1.0 1.3.9
  umad_unregister@IBUMAD_1.0 1.3.9
+ umad_get_smi_gsi_pairs@IBUMAD_1.4 56
+ umad_get_smi_gsi_pair_by_ca_name@IBUMAD_1.4 56
