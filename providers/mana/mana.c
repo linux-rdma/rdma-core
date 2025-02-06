@@ -318,7 +318,7 @@ static struct verbs_context *mana_alloc_context(struct ibv_device *ibdev,
 		return NULL;
 
 	ret = ibv_cmd_get_context(&context->ibv_ctx, &cmd, sizeof(cmd),
-				  &resp.ibv_resp, sizeof(resp));
+				  NULL, &resp.ibv_resp, sizeof(resp));
 	if (ret) {
 		verbs_err(&context->ibv_ctx, "Failed to get ucontext\n");
 		errno = ret;
