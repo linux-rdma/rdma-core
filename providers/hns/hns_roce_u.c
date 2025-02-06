@@ -206,7 +206,7 @@ static struct verbs_context *hns_roce_alloc_context(struct ibv_device *ibdev,
 	cmd.config |= HNS_ROCE_EXSGE_FLAGS | HNS_ROCE_RQ_INLINE_FLAGS |
 		      HNS_ROCE_CQE_INLINE_FLAGS;
 	if (ibv_cmd_get_context(&context->ibv_ctx, &cmd.ibv_cmd, sizeof(cmd),
-				&resp.ibv_resp, sizeof(resp)))
+				NULL, &resp.ibv_resp, sizeof(resp)))
 		goto err_ibv_cmd;
 
 	if (hns_roce_init_context_lock(context))

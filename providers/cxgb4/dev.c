@@ -124,7 +124,7 @@ static struct verbs_context *c4iw_alloc_context(struct ibv_device *ibdev,
 	resp.status_page_size = 0;
 	resp.reserved = 0;
 	if (ibv_cmd_get_context(&context->ibv_ctx, &cmd, sizeof cmd,
-				&resp.ibv_resp, sizeof resp))
+				NULL, &resp.ibv_resp, sizeof resp))
 		goto err_free;
 
 	if (resp.reserved)

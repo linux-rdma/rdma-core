@@ -746,7 +746,8 @@ static int mlx5_cmd_get_context(struct mlx5_context *context,
 	struct verbs_context *verbs_ctx = &context->ibv_ctx;
 
 	if (!ibv_cmd_get_context(verbs_ctx, &req->ibv_cmd,
-				 req_len, &resp->ibv_resp, resp_len))
+				 req_len, NULL, &resp->ibv_resp,
+				 resp_len))
 		return 0;
 
 	/* The ibv_cmd_get_context fails in older kernels when passing
@@ -770,13 +771,13 @@ static int mlx5_cmd_get_context(struct mlx5_context *context,
 	 */
 	if (!ibv_cmd_get_context(verbs_ctx, &req->ibv_cmd,
 				 offsetof(struct mlx5_alloc_ucontext, lib_caps),
-				 &resp->ibv_resp, resp_len))
+				 NULL, &resp->ibv_resp, resp_len))
 		return 0;
 
 	return ibv_cmd_get_context(verbs_ctx, &req->ibv_cmd,
 				   offsetof(struct mlx5_alloc_ucontext,
 					    max_cqe_version),
-				   &resp->ibv_resp, resp_len);
+				   NULL, &resp->ibv_resp, resp_len);
 }
 
 static int mlx5_map_internal_clock(struct mlx5_device *mdev,

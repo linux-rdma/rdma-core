@@ -507,6 +507,7 @@ struct ibv_context *verbs_open_device(struct ibv_device *device,
 				      void *private_data);
 int ibv_cmd_get_context(struct verbs_context *context,
 			struct ibv_get_context *cmd, size_t cmd_size,
+			struct ibv_fd_arr *fd_arr,
 			struct ib_uverbs_get_context_resp *resp, size_t resp_size);
 int ibv_cmd_query_context(struct ibv_context *ctx,
 			  struct ibv_command_buffer *driver);

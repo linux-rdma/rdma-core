@@ -70,7 +70,7 @@ static struct verbs_context *efa_alloc_context(struct ibv_device *vdev,
 		return NULL;
 
 	if (ibv_cmd_get_context(&ctx->ibvctx, &cmd.ibv_cmd, sizeof(cmd),
-				&resp.ibv_resp, sizeof(resp))) {
+				NULL, &resp.ibv_resp, sizeof(resp))) {
 		verbs_err(&ctx->ibvctx, "ibv_cmd_get_context failed\n");
 		goto err_free_ctx;
 	}
