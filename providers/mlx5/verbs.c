@@ -5416,7 +5416,8 @@ _mlx5dv_create_flow_matcher(struct ibv_context *context,
 	int ret;
 
 	if (!check_comp_mask(attr->comp_mask,
-			     MLX5DV_FLOW_MATCHER_MASK_FT_TYPE)) {
+			     MLX5DV_FLOW_MATCHER_MASK_FT_TYPE |
+			     MLX5DV_FLOW_MATCHER_MASK_IB_PORT)) {
 		errno = EOPNOTSUPP;
 		return NULL;
 	}
@@ -5428,6 +5429,20 @@ _mlx5dv_create_flow_matcher(struct ibv_context *context,
 	}
 
 	if (attr->type !=  IBV_FLOW_ATTR_NORMAL) {
+		errno = EOPNOTSUPP;
+		goto err;
+	}
+
+	if ((attr->ft_type == MLX5DV_FLOW_TABLE_TYPE_RDMA_TRANSPORT_RX ||
+	     attr->ft_type == MLX5DV_FLOW_TABLE_TYPE_RDMA_TRANSPORT_TX) &&
+	    !(attr->comp_mask & MLX5DV_FLOW_MATCHER_MASK_IB_PORT)) {
+		errno = EINVAL;
+		goto err;
+	}
+
+	if (attr->comp_mask & MLX5DV_FLOW_MATCHER_MASK_IB_PORT &&
+	    (attr->ft_type != MLX5DV_FLOW_TABLE_TYPE_RDMA_TRANSPORT_RX &&
+	     attr->ft_type != MLX5DV_FLOW_TABLE_TYPE_RDMA_TRANSPORT_TX)) {
 		errno = EOPNOTSUPP;
 		goto err;
 	}
@@ -5445,6 +5460,10 @@ _mlx5dv_create_flow_matcher(struct ibv_context *context,
 	if (attr->comp_mask & MLX5DV_FLOW_MATCHER_MASK_FT_TYPE)
 		fill_attr_const_in(cmd, MLX5_IB_ATTR_FLOW_MATCHER_FT_TYPE,
 				   attr->ft_type);
+	if (attr->comp_mask & MLX5DV_FLOW_MATCHER_MASK_IB_PORT)
+		fill_attr_in_uint32(cmd, MLX5_IB_ATTR_FLOW_MATCHER_IB_PORT,
+				    attr->ib_port);
+
 	if (attr->flags)
 		fill_attr_const_in(cmd, MLX5_IB_ATTR_FLOW_MATCHER_FLOW_FLAGS,
 				   attr->flags);

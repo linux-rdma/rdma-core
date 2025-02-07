@@ -736,6 +736,7 @@ struct mlx5dv_flow_match_parameters {
 
 enum mlx5dv_flow_matcher_attr_mask {
 	MLX5DV_FLOW_MATCHER_MASK_FT_TYPE = 1 << 0,
+	MLX5DV_FLOW_MATCHER_MASK_IB_PORT = 1 << 1,
 };
 
 struct mlx5dv_flow_matcher_attr {
@@ -746,6 +747,7 @@ struct mlx5dv_flow_matcher_attr {
 	struct mlx5dv_flow_match_parameters *match_mask;
 	uint64_t comp_mask; /* use mlx5dv_flow_matcher_attr_mask */
 	enum mlx5dv_flow_table_type ft_type;
+	uint32_t ib_port;
 };
 
 struct mlx5dv_flow_matcher;
