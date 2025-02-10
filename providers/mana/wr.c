@@ -106,12 +106,18 @@ static inline void gdma_write_sge(struct gdma_wqe *wqe, void *oob_sge,
 }
 
 static inline int
-gdma_post_rq_wqe(struct mana_gdma_queue *wq, struct ibv_sge *sgl,  void *oob,
+gdma_post_rq_wqe(struct mana_gdma_queue *wq, struct ibv_sge *sgl,  struct rdma_recv_oob *recv_oob,
 		 uint32_t num_sge, enum gdma_work_req_flags flags, struct gdma_wqe *wqe)
 {
-	uint32_t wqe_size = get_wqe_size(num_sge);
+	struct ibv_sge dummy = {1, 0, 0};
+	uint32_t wqe_size;
 	int ret;
 
+	if (num_sge == 0) {
+		num_sge = 1;
+		sgl = &dummy;
+	}
+	wqe_size = get_wqe_size(num_sge);
 	ret = gdma_get_current_wqe(wq, INLINE_OOB_SMALL_SIZE, wqe_size, wqe);
 	if (ret)
 		return ret;
@@ -119,8 +125,8 @@ gdma_post_rq_wqe(struct mana_gdma_queue *wq, struct ibv_sge *sgl,  void *oob,
 	wqe->gdma_oob->rx.num_sgl_entries = num_sge;
 	wqe->gdma_oob->rx.inline_client_oob_size = INLINE_OOB_SMALL_SIZE / sizeof(uint32_t);
 	wqe->gdma_oob->rx.check_sn = (flags & GDMA_WORK_REQ_CHECK_SN) != 0;
-	if (oob)
-		memcpy(wqe->client_oob, oob, INLINE_OOB_SMALL_SIZE);
+	if (recv_oob)
+		memcpy(wqe->client_oob, recv_oob, INLINE_OOB_SMALL_SIZE);
 
 	gdma_write_sge(wqe, NULL, sgl, num_sge);
 	gdma_advance_producer(wq, wqe->size_in_bu);
@@ -140,6 +146,13 @@ static int mana_ib_rc_post_recv(struct ibv_qp *ibqp, struct ibv_recv_wr *wr,
 	int ret = 0;
 
 	pthread_spin_lock(&qp->rq_lock);
+
+	if (unlikely(ibqp->state == IBV_QPS_RESET || ibqp->state == IBV_QPS_ERR)) {
+		verbs_err(verbs_get_ctx(ibqp->context), "Invalid QP state\n");
+		ret = EINVAL;
+		goto cleanup;
+	}
+
 	for (; wr; wr = wr->next) {
 		if (shadow_queue_full(&qp->shadow_rq)) {
 			verbs_err(&mc->ibv_ctx, "recv shadow queue full\n");
@@ -267,6 +280,7 @@ static inline int
 mana_ib_rc_post_send_request(struct mana_qp *qp, struct ibv_send_wr *wr,
 			     struct rc_sq_shadow_wqe *shadow_wqe)
 {
+	bool signaled = ((wr->send_flags & IBV_SEND_SIGNALED) != 0) || qp->sq_sig_all;
 	enum  gdma_work_req_flags flags = GDMA_WORK_REQ_NONE;
 	struct extra_large_wqe extra_wqe = {0};
 	struct rdma_send_oob send_oob = {0};
@@ -298,7 +312,7 @@ mana_ib_rc_post_send_request(struct mana_qp *qp, struct ibv_send_wr *wr,
 
 	send_oob.wqe_type = convert_wr_to_hw_opcode(wr->opcode);
 	send_oob.fence = (wr->send_flags & IBV_SEND_FENCE) != 0;
-	send_oob.signaled = (wr->send_flags & IBV_SEND_SIGNALED) != 0;
+	send_oob.signaled = signaled;
 	send_oob.solicited = (wr->send_flags & IBV_SEND_SOLICITED) != 0;
 	send_oob.psn = qp->rc_qp.sq_psn;
 	send_oob.ssn = qp->rc_qp.sq_ssn;
@@ -344,7 +358,7 @@ mana_ib_rc_post_send_request(struct mana_qp *qp, struct ibv_send_wr *wr,
 
 	shadow_wqe->header.wr_id = wr->wr_id;
 	shadow_wqe->header.opcode = convert_wr_to_wc(wr->opcode);
-	shadow_wqe->header.flags = (wr->send_flags & IBV_SEND_SIGNALED) ? 0 : MANA_NO_SIGNAL_WC;
+	shadow_wqe->header.flags = signaled ? 0 : MANA_NO_SIGNAL_WC;
 	shadow_wqe->header.posted_wqe_size_in_bu = gdma_wqe.size_in_bu;
 	shadow_wqe->header.unmasked_queue_offset = gdma_wqe.unmasked_wqe_index;
 	shadow_wqe->end_psn = PSN_DEC(qp->rc_qp.sq_psn);
@@ -364,8 +378,14 @@ static int mana_ib_rc_post_send(struct ibv_qp *ibqp, struct ibv_send_wr *wr,
 
 	pthread_spin_lock(&qp->sq_lock);
 
+	if (unlikely(ibqp->state != IBV_QPS_RTS)) {
+		verbs_err(verbs_get_ctx(ibqp->context), "Invalid QP state\n");
+		ret = EINVAL;
+		goto cleanup;
+	}
+
 	for (; wr; wr = wr->next) {
-		if ((wr->send_flags & IBV_SEND_SIGNALED) && shadow_queue_full(&qp->shadow_sq)) {
+		if (shadow_queue_full(&qp->shadow_sq)) {
 			verbs_err(verbs_get_ctx(ibqp->context), "shadow queue full\n");
 			ret = ENOMEM;
 			goto cleanup;
@@ -390,7 +410,8 @@ static int mana_ib_rc_post_send(struct ibv_qp *ibqp, struct ibv_send_wr *wr,
 		ring = true;
 
 		shadow_queue_advance_producer(&qp->shadow_sq);
-		mana_ib_update_shared_mem_right_offset(qp, shadow_wqe->header.unmasked_queue_offset);
+		mana_ib_update_shared_mem_right_offset(qp,
+						       shadow_wqe->header.unmasked_queue_offset);
 	}
 
 cleanup:

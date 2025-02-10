@@ -164,65 +164,127 @@ enum {
 	CQE_TYPE_RC_WRITE_IMM = 6,
 	CQE_TYPE_ARMED_CMPL = 7,
 	CQE_TYPE_LWR = 8,
-	CQE_TYPE_RC_FENCE = 9,
-	CQE_TYPE_MAX
+	CQE_TYPE_ERROR = 34,
 }; /* HW DATA */
 
-struct mana_rdma_cqe {
-	uint32_t cqe_type	: 8;
-	uint32_t vendor_error	: 8;
-	uint32_t reserved1	: 16;
-	union {
-		uint32_t data[GDMA_COMP_DATA_SIZE / sizeof(uint32_t) - 4];
-		struct {
-			uint32_t msg_len;
-			uint32_t psn	: 24;
-			uint32_t reserved	: 8;
-			uint32_t imm_data;
-			uint32_t rx_wqe_offset;
-		} rc_recv;
-		struct {
-			uint32_t sge_offset	: 5;
-			uint32_t rx_wqe_offset	: 27;
-			uint32_t sge_byte_offset;
-		} ud_send;
-		struct {
-			uint32_t msg_len;
-			uint32_t src_qpn	: 24;
-			uint32_t reserved	: 8;
-			uint32_t imm_data;
-			uint32_t rx_wqe_offset;
-		} ud_recv;
-
-		struct {
-			uint32_t reserved1;
-			uint32_t psn	: 24;
-			uint32_t reserved2	: 8;
-			uint32_t imm_data;
-			uint32_t rx_wqe_offset;
-		} rc_write_with_imm;
-		struct {
-			uint32_t msn	: 24;
-			uint32_t syndrome	: 8;
-			uint32_t psn	: 24;
-			uint32_t reserved	: 8;
-			uint32_t read_resp_psn	: 24;
-		} rc_armed_completion;
+union mana_rdma_cqe {
+	struct {
+		uint8_t cqe_type;
+		uint8_t data[GDMA_COMP_DATA_SIZE - 1];
 	};
-	uint32_t timestamp_hi;
-	uint32_t timestamp_lo;
-	uint32_t reserved3;
+	struct {
+		uint32_t cqe_type	: 8;
+		uint32_t reserved1	: 24;
+		uint32_t msg_len;
+		uint32_t psn		: 24;
+		uint32_t reserved2	: 8;
+		uint32_t imm_data;
+		uint32_t rx_wqe_offset;
+	} rc_recv;
+	struct {
+		uint32_t cqe_type	: 8;
+		uint32_t vendor_error	: 9;
+		uint32_t reserved1	: 15;
+		uint32_t sge_offset	: 5;
+		uint32_t tx_wqe_offset	: 27;
+	} ud_send;
+	struct {
+		uint32_t cqe_type	: 8;
+		uint32_t reserved1	: 24;
+		uint32_t msg_len;
+		uint32_t src_qpn	: 24;
+		uint32_t reserved2	: 8;
+		uint32_t imm_data;
+		uint32_t rx_wqe_offset;
+	} ud_recv;
+	struct {
+		uint32_t cqe_type	: 8;
+		uint32_t vendor_error	: 10;
+		uint32_t reserved1	: 14;
+		uint32_t msn		: 24;
+		uint32_t syndrome	: 8;
+		uint32_t psn		: 24;
+		uint32_t opcode		: 8;
+		uint32_t rsp_msn	: 24;
+		uint32_t reserved2	: 8;
+		uint32_t rsp_psn	: 24;
+		uint32_t reserved3	: 8;
+	} error;
+	struct {
+		uint32_t cqe_type	: 8;
+		uint32_t reserved1	: 24;
+		uint32_t msn		: 24;
+		uint32_t syndrome	: 8;
+		uint32_t psn		: 24;
+		uint32_t reserved2	: 8;
+	} rc_armed_completion;
 }; /* HW DATA */
+static_assert(sizeof(union mana_rdma_cqe) == GDMA_COMP_DATA_SIZE, "bad size");
 
 struct gdma_cqe {
-	union {
-		uint8_t data[GDMA_COMP_DATA_SIZE];
-		struct mana_rdma_cqe rdma_cqe;
-	};
+	union mana_rdma_cqe rdma_cqe;
 	uint32_t wqid	: 24;
 	uint32_t is_sq	: 1;
 	uint32_t reserved	: 4;
 	uint32_t owner_bits	: 3;
 }; /* HW DATA */
+
+enum mana_error_code {
+	VENDOR_ERR_OK					= 0x0,
+	VENDOR_ERR_RX_OP_REQ                            = 0x03,
+	VENDOR_ERR_RX_PKT_LEN                           = 0x05,
+	VENDOR_ERR_RX_ATB_RKEY_MISCONFIG_ERR            = 0x43,
+	VENDOR_ERR_RX_ATB_RKEY_ADDR_RIGHT               = 0x83,
+	VENDOR_ERR_RX_ATB_RKEY_ADDR_RANGE               = 0xc3,
+	VENDOR_ERR_RX_MSG_LEN_OVFL                      = 0x102,
+	VENDOR_ERR_RX_MISBEHAVING_CLIENT                = 0x108,
+	VENDOR_ERR_RX_MALFORMED_WQE                     = 0x109,
+	VENDOR_ERR_RX_CLIENT_ID                         = 0x10a,
+	VENDOR_ERR_RX_GFID                              = 0x10b,
+	VENDOR_ERR_RX_READRESP_LEN_MISMATCH             = 0x10f,
+	VENDOR_ERR_RX_PCIE                              = 0x10c,
+	VENDOR_ERR_RX_NO_AVAIL_WQE                      = 0x111,
+	VENDOR_ERR_RX_ATB_SGE_MISSCONFIG                = 0x143,
+	VENDOR_ERR_RX_ATB_WQE_MISCONFIG                 = 0x145,
+	VENDOR_ERR_RX_INVALID_REQ_NAK			= 0x161,
+	VENDOR_ERR_RX_REMOTE_ACCESS_NAK			= 0x162,
+	VENDOR_ERR_RX_REMOTE_OP_ERR_NAK			= 0x163,
+	VENDOR_ERR_RX_ATB_SGE_ADDR_RIGHT                = 0x183,
+	VENDOR_ERR_RX_ATB_WQE_ADDR_RIGHT                = 0x185,
+	VENDOR_ERR_RX_ATB_SGE_ADDR_RANGE                = 0x1c3,
+	VENDOR_ERR_RX_ATB_WQE_ADDR_RANGE                = 0x1c5,
+	VENDOR_ERR_RX_NOT_EMPTY_ON_DISABLE              = 0x1c7,
+	VENDOR_ERR_TX_GDMA_CORRUPTED_WQE                = 0x201,
+	VENDOR_ERR_TX_ATB_WQE_ACCESS_VIOLATION          = 0x202,
+	VENDOR_ERR_TX_ATB_WQE_ADDR_RANGE                = 0x203,
+	VENDOR_ERR_TX_ATB_WQE_CONFIG_ERR                = 0x204,
+	VENDOR_ERR_TX_PCIE_WQE                          = 0x205,
+	VENDOR_ERR_TX_ATB_MSG_ACCESS_VIOLATION          = 0x206,
+	VENDOR_ERR_TX_ATB_MSG_ADDR_RANGE                = 0x207,
+	VENDOR_ERR_TX_ATB_MSG_CONFIG_ERR                = 0x208,
+	VENDOR_ERR_TX_PCIE_MSG                          = 0x209,
+	VENDOR_ERR_TX_GDMA_INVALID_STATE                = 0x20a,
+	VENDOR_ERR_TX_MISBEHAVING_CLIENT                = 0x20b,
+	VENDOR_ERR_TX_RDMA_MALFORMED_WQE_SIZE           = 0x210,
+	VENDOR_ERR_TX_RDMA_MALFORMED_WQE_FIELD          = 0x211,
+	VENDOR_ERR_TX_RDMA_INVALID_STATE                = 0x212,
+	VENDOR_ERR_TX_RDMA_INVALID_NPT                  = 0x213,
+	VENDOR_ERR_TX_RDMA_INVALID_SGID                 = 0x214,
+	VENDOR_ERR_TX_RDMA_WQE_UNSUPPORTED              = 0x215,
+	VENDOR_ERR_TX_RDMA_WQE_LEN_ERR                  = 0x216,
+	VENDOR_ERR_TX_RDMA_MTU_ERR                      = 0x217,
+	VENDOR_ERR_TX_RDMA_VFID_MISMATCH                = 0x218,
+	VENDOR_ERR_TX_RDMA_ATB_CMD_MISS                 = 0x220,
+	VENDOR_ERR_TX_RDMA_ATB_CMD_IDX_ERROR            = 0x221,
+	VENDOR_ERR_TX_RDMA_ATB_CMD_TAG_MISMATCH_ERROR   = 0x222,
+	VENDOR_ERR_TX_RDMA_ATB_CMD_PDID_MISMATCH_ERROR  = 0x223,
+	VENDOR_ERR_TX_RDMA_ATB_CMD_AR_ERROR             = 0x224,
+	VENDOR_ERR_TX_RDMA_ATB_CMD_PT_OVF               = 0x225,
+	VENDOR_ERR_TX_RDMA_ATB_CMD_PT_LENGHT_MISMATCH   = 0x226,
+	VENDOR_ERR_TX_RDMA_ATB_CMD_ILLEGAL_CMD          = 0x227,
+	VENDOR_ERR_HW_MAX                               = 0x3ff,
+	/* SW vendor errors */
+	VENDOR_ERR_SW_FLUSHED				= 0xfff,
+};
 
 #endif //_GDMA_H_

@@ -113,7 +113,7 @@ mana_alloc_parent_domain(struct ibv_context *context,
 		verbs_err(
 			verbs_get_ctx(context),
 			"This driver supports IBV_PARENT_DOMAIN_INIT_ATTR_PD_CONTEXT only\n");
-		errno = EINVAL;
+		errno = EOPNOTSUPP;
 		return NULL;
 	}
 
@@ -156,6 +156,29 @@ int mana_dealloc_pd(struct ibv_pd *ibpd)
 	free(pd);
 
 	return 0;
+}
+
+struct ibv_mr *mana_reg_dmabuf_mr(struct ibv_pd *pd, uint64_t offset,
+				  size_t length, uint64_t iova, int fd,
+				  int access)
+{
+	struct verbs_mr *vmr;
+	int ret;
+
+	vmr = calloc(1, sizeof(*vmr));
+	if (!vmr)
+		return NULL;
+
+	ret = ibv_cmd_reg_dmabuf_mr(pd, offset, length, iova, fd, access, vmr, NULL);
+	if (ret) {
+		verbs_err(verbs_get_ctx(pd->context),
+			  "Failed to register dma-buf MR\n");
+		errno = ret;
+		free(vmr);
+		return NULL;
+	}
+
+	return &vmr->ibv_mr;
 }
 
 struct ibv_mr *mana_reg_mr(struct ibv_pd *pd, void *addr, size_t length,
@@ -204,8 +227,10 @@ static void mana_free_context(struct ibv_context *ibctx)
 	int i;
 
 	for (i = 0; i < MANA_QP_TABLE_SIZE; ++i) {
-		if (context->qp_table[i].refcnt)
-			free(context->qp_table[i].table);
+		if (context->qp_stable[i].refcnt)
+			free(context->qp_stable[i].table);
+		if (context->qp_rtable[i].refcnt)
+			free(context->qp_rtable[i].table);
 	}
 	pthread_mutex_destroy(&context->qp_table_mutex);
 
@@ -214,8 +239,27 @@ static void mana_free_context(struct ibv_context *ibctx)
 	free(context);
 }
 
+static void mana_async_event(struct ibv_context *context,
+			     struct ibv_async_event *event)
+{
+	struct ibv_qp *ibvqp;
+
+	switch (event->event_type) {
+	case IBV_EVENT_QP_FATAL:
+	case IBV_EVENT_QP_REQ_ERR:
+	case IBV_EVENT_QP_ACCESS_ERR:
+	case IBV_EVENT_PATH_MIG_ERR:
+		ibvqp = event->element.qp;
+		mana_qp_move_flush_err(ibvqp);
+		break;
+	default:
+		break;
+	}
+}
+
 static const struct verbs_context_ops mana_ctx_ops = {
 	.alloc_pd = mana_alloc_pd,
+	.async_event = mana_async_event,
 	.alloc_parent_domain = mana_alloc_parent_domain,
 	.create_cq = mana_create_cq,
 	.create_qp = mana_create_qp,
@@ -236,6 +280,7 @@ static const struct verbs_context_ops mana_ctx_ops = {
 	.post_send = mana_post_send,
 	.query_device_ex = mana_query_device_ex,
 	.query_port = mana_query_port,
+	.reg_dmabuf_mr = mana_reg_dmabuf_mr,
 	.reg_mr = mana_reg_mr,
 	.req_notify_cq = mana_arm_cq,
 };
@@ -283,8 +328,10 @@ static struct verbs_context *mana_alloc_context(struct ibv_device *ibdev,
 	verbs_set_ops(&context->ibv_ctx, &mana_ctx_ops);
 
 	pthread_mutex_init(&context->qp_table_mutex, NULL);
-	for (i = 0; i < MANA_QP_TABLE_SIZE; ++i)
-		context->qp_table[i].refcnt = 0;
+	for (i = 0; i < MANA_QP_TABLE_SIZE; ++i) {
+		context->qp_stable[i].refcnt = 0;
+		context->qp_rtable[i].refcnt = 0;
+	}
 
 	context->db_page = mmap(NULL, DOORBELL_PAGE_SIZE, PROT_WRITE,
 				MAP_SHARED, context->ibv_ctx.context.cmd_fd, 0);
