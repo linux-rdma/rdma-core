@@ -17,13 +17,13 @@
 
 struct shadow_wqe_header {
 	/* ibv_wc_opcode */
-	uint8_t opcode;
+	uint64_t opcode : 8;
 	/* ibv_wc_flags or MANA_NO_SIGNAL_WC */
-	uint8_t flags;
+	uint64_t flags : 8;
+	uint64_t posted_wqe_size_in_bu : 8;
 	/* ibv_wc_status */
-	uint8_t vendor_error_code;
-	uint8_t posted_wqe_size_in_bu;
-	uint32_t unmasked_queue_offset;
+	uint64_t vendor_error : 12;
+	uint64_t unmasked_queue_offset : 28;
 	uint64_t wr_id;
 };
 
@@ -43,6 +43,7 @@ struct shadow_queue {
 	uint64_t prod_idx;
 	uint64_t cons_idx;
 	uint64_t next_to_complete_idx;
+	uint64_t next_to_signal_idx;
 	uint32_t length;
 	uint32_t stride;
 	void *buffer;
@@ -53,6 +54,7 @@ static inline void reset_shadow_queue(struct shadow_queue *queue)
 	queue->prod_idx = 0;
 	queue->cons_idx = 0;
 	queue->next_to_complete_idx = 0;
+	queue->next_to_signal_idx = 0;
 }
 
 static inline int create_shadow_queue(struct shadow_queue *queue, uint32_t length, uint32_t stride)
@@ -146,6 +148,22 @@ shadow_queue_get_next_to_complete(struct shadow_queue *queue)
 static inline void shadow_queue_advance_next_to_complete(struct shadow_queue *queue)
 {
 	queue->next_to_complete_idx++;
+}
+
+static inline struct shadow_wqe_header *
+shadow_queue_get_next_to_signal(struct shadow_queue *queue)
+{
+	struct shadow_wqe_header *wqe = NULL;
+
+	queue->next_to_signal_idx = max(queue->next_to_signal_idx, queue->next_to_complete_idx);
+	while (queue->next_to_signal_idx < queue->prod_idx) {
+		wqe = shadow_queue_get_element(queue, queue->next_to_signal_idx);
+		queue->next_to_signal_idx++;
+		if (wqe->flags != MANA_NO_SIGNAL_WC)
+			return wqe;
+	}
+
+	return NULL;
 }
 
 #endif //_SHADOW_QUEUE_H_

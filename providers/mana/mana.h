@@ -71,12 +71,15 @@ static inline uint32_t get_large_wqe_size(uint32_t sge)
 	return align(wqe_size, GDMA_WQE_ALIGNMENT_UNIT_SIZE);
 }
 
+struct mana_table {
+	struct mana_qp **table;
+	int refcnt;
+};
+
 struct mana_context {
 	struct verbs_context ibv_ctx;
-	struct {
-		struct mana_qp **table;
-		int refcnt;
-	} qp_table[MANA_QP_TABLE_SIZE];
+	struct mana_table qp_rtable[MANA_QP_TABLE_SIZE];
+	struct mana_table qp_stable[MANA_QP_TABLE_SIZE];
 	pthread_mutex_t qp_table_mutex;
 
 	struct manadv_ctx_allocators extern_alloc;
@@ -110,10 +113,8 @@ struct mana_ib_raw_qp {
 
 struct mana_ib_rc_qp {
 	struct mana_gdma_queue queues[USER_RC_QUEUE_TYPE_MAX];
-
 	uint32_t sq_ssn;
 	uint32_t sq_psn;
-	uint32_t sq_highest_completed_psn;
 };
 
 struct mana_qp {
@@ -127,6 +128,7 @@ struct mana_qp {
 	};
 
 	enum ibv_mtu mtu;
+	int sq_sig_all;
 
 	struct shadow_queue shadow_rq;
 	struct shadow_queue shadow_sq;
@@ -156,7 +158,6 @@ struct mana_cq {
 	pthread_spinlock_t lock;
 	uint32_t head;
 	uint32_t last_armed_head;
-	uint32_t ready_wcs;
 	void *db_page;
 	/* list of qp's that use this cq for send completions */
 	struct list_head send_qp_list;
@@ -239,5 +240,7 @@ int mana_post_send(struct ibv_qp *ibqp, struct ibv_send_wr *wr,
 
 int mana_arm_cq(struct ibv_cq *ibcq, int solicited);
 
-struct mana_qp *mana_get_qp_from_rq(struct mana_context *ctx, uint32_t qpn);
+struct mana_qp *mana_get_qp(struct mana_context *ctx, uint32_t qpn, bool is_sq);
+
+void mana_qp_move_flush_err(struct ibv_qp *ibqp);
 #endif
