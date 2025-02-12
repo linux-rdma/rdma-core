@@ -574,7 +574,7 @@ int ipath_modify_srq(struct ibv_srq *ibsrq,
 	}
 	cmd.offset_addr = (uintptr_t) &offset;
 	ret = ibv_cmd_modify_srq(ibsrq, attr, attr_mask,
-				 &cmd.ibv_cmd, sizeof cmd);
+				 &cmd.ibv_cmd, sizeof(cmd.ibv_cmd));
 	if (ret) {
 		if (attr_mask & IBV_SRQ_MAX_WR)
 			pthread_spin_unlock(&srq->rq.lock);
