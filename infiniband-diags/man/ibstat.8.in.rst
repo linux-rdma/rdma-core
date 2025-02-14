@@ -66,6 +66,7 @@ EXAMPLES
 ========
 
 ::
+
         ibstat            # display status of all ports on all IB devices
         ibstat -l         # list all IB devices
         ibstat -p         # show port guids
