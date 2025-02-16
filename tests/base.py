@@ -705,6 +705,21 @@ class RoCETrafficResources(TrafficResources):
 
 
 class RCResources(RoCETrafficResources):
+    def __init__(self, dev_name, ib_port, gid_index,
+                 max_dest_rd_atomic=MAX_DEST_RD_ATOMIC, max_rd_atomic=MAX_RD_ATOMIC, **kwargs):
+        """
+        Initializes a TrafficResources object with the given values and creates
+        basic RDMA resources.
+        :param dev_name: Device name to be used
+        :param ib_port: IB port of the device to use
+        :param gid_index: Which GID index to use
+        :param max_dest_rd_atomic: Number of responder incoming rd_atomic operations that can
+                                   be handled
+        :param max_rd_atomic: Number of outstanding destination rd_atomic operations
+        """
+        self.max_dest_rd_atomic = max_dest_rd_atomic
+        self.max_rd_atomic = max_rd_atomic
+        super().__init__(dev_name, ib_port, gid_index, **kwargs)
 
     def to_rts(self):
         """
@@ -714,9 +729,9 @@ class RCResources(RoCETrafficResources):
         """
         attr = self.create_qp_attr()
         attr.path_mtu = PATH_MTU
-        attr.max_dest_rd_atomic = MAX_DEST_RD_ATOMIC
+        attr.max_dest_rd_atomic = self.max_dest_rd_atomic
         set_rnr_attributes(attr)
-        attr.max_rd_atomic = MAX_RD_ATOMIC
+        attr.max_rd_atomic = self.max_rd_atomic
         gr = GlobalRoute(dgid=self.ctx.query_gid(self.ib_port, self.gid_index),
                          sgid_index=self.gid_index)
         ah_attr = AHAttr(port_num=self.ib_port, is_global=1, gr=gr,

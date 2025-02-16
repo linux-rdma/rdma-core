@@ -95,8 +95,6 @@ cdef class RecvWR(PyverbsCM):
         """
         super().__init__()
         cdef v.ibv_sge *dst
-        if num_sge < 1 or sg is None:
-            raise PyverbsUserError('A WR needs at least one SGE')
         self.recv_wr.sg_list = <v.ibv_sge*>malloc(num_sge * sizeof(v.ibv_sge))
         if self.recv_wr.sg_list == NULL:
             raise PyverbsRDMAErrno('Failed to malloc SG buffer')

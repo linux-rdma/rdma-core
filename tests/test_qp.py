@@ -12,8 +12,8 @@ import errno
 import os
 
 from pyverbs.pyverbs_error import PyverbsRDMAError
-from pyverbs.qp import QPInitAttr, QPAttr, QP
-from tests.base import PyverbsAPITestCase
+from pyverbs.qp import QPAttr, QP
+from tests.base import PyverbsAPITestCase, RDMATestCase, RCResources
 import pyverbs.utils as pu
 import pyverbs.device as d
 import pyverbs.enums as e
@@ -364,6 +364,29 @@ class QPTest(PyverbsAPITestCase):
                 qa.qp_state = e.IBV_QPS_RESET
                 qp.modify(qa, e.IBV_QP_STATE)
                 assert qp.qp_state == e.IBV_QPS_RESET, 'Extended QP, QP state is not as expected'
+
+
+class RCQPTest(RDMATestCase):
+    """
+    Test various functionalities of the RC QP class.
+    """
+    def test_modify_rc_qp_rd_atomic(self):
+        """
+        This test verifies that the values of rd_atomic fields are
+        at least the requested value.
+        """
+        self.max_rd_atomic = 12
+        self.max_dest_rd_atomic = 12
+
+        self.create_players(RCResources, max_rd_atomic=self.max_rd_atomic,
+                            max_dest_rd_atomic=self.max_dest_rd_atomic)
+
+        qp_attr, _ = self.server.qp.query(e.IBV_QP_MAX_QP_RD_ATOMIC | e.IBV_QP_MAX_DEST_RD_ATOMIC)
+
+        self.assertGreaterEqual(qp_attr.max_rd_atomic, self.max_rd_atomic,
+                                'Max RD Atomic value is less than requested.')
+        self.assertGreaterEqual(qp_attr.max_dest_rd_atomic, self.max_dest_rd_atomic,
+                                'Max Dest RD Atomic is less than requested.')
 
 
 def get_qp_init_attr_ex(cq, pd, attr, attr_ex, qpt):
