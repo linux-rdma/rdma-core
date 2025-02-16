@@ -105,29 +105,16 @@ bool sync_resources_error(struct sync_resources *res)
 
 int sync_resources_init(struct sync_resources *res)
 {
-	int ret;
-
 	res->stop_threads = 0;
 	res->error = false;
 	__schedule_rescan(res, 0);
 	res->next_task = 0;
-	ret = pthread_mutex_init(&res->mutex, NULL);
-	if (ret < 0) {
-		pr_err("could not initialize mutex\n");
-		return ret;
-	}
+	pthread_mutex_init(&res->mutex, NULL);
 
 	res->retry_tasks_head = NULL;
-	ret = pthread_mutex_init(&res->retry_mutex, NULL);
-	if (ret < 0) {
-		pr_err("could not initialize mutex\n");
-		return ret;
-	}
-	ret = pthread_cond_init(&res->retry_cond, NULL);
-	if (ret < 0)
-		pr_err("could not initialize cond\n");
+	pthread_mutex_init(&res->retry_mutex, NULL);
 
-	return ret;
+	return pthread_cond_init(&res->retry_cond, NULL);
 }
 
 void sync_resources_cleanup(struct sync_resources *res)
