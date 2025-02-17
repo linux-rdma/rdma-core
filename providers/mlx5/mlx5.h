@@ -39,6 +39,7 @@
 #include <stdarg.h>
 #include <stdatomic.h>
 #include <util/compiler.h>
+#include <limits.h>
 
 #include <infiniband/driver.h>
 #include <util/udma_barrier.h>
@@ -363,7 +364,7 @@ struct mlx5_context {
 	int				stall_cycles;
 	struct mlx5_bf		       *bfs;
 	FILE			       *dbg_fp;
-	char				hostname[40];
+	char				hostname[HOST_NAME_MAX + 1];
 	struct mlx5_spinlock            hugetlb_lock;
 	struct list_head                hugetlb_list;
 	int				cqe_version;
