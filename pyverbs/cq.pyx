@@ -69,6 +69,10 @@ cdef class CompChannel(PyverbsCM):
         if isinstance(obj, CQ) or isinstance(obj, CQEX):
             self.cqs.add(obj)
 
+    @property
+    def fd(self):
+        return self.cc.fd
+
 
 cdef class CQ(PyverbsCM):
     """
