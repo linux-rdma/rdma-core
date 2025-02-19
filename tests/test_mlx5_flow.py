@@ -120,6 +120,43 @@ class Mlx5FlowResources(RawResources):
         super().create_qps()
 
 
+class Mlx5CounterFlowResources(Mlx5FlowResources):
+
+    def create_context(self):
+        mlx5dv_attr = Mlx5DVContextAttr()
+        try:
+            self.ctx = Mlx5Context(mlx5dv_attr, name=self.dev_name)
+        except PyverbsUserError as ex:
+            raise unittest.SkipTest(f'Could not open mlx5 context ({ex})')
+        except PyverbsRDMAError:
+            raise unittest.SkipTest('Opening mlx5 context is not supported')
+
+    @staticmethod
+    def create_counter(ctx):
+        """
+        Create flow counter.
+        :param ctx: The player context to create the counter on.
+        :return: The counter object and the flow counter ID .
+        """
+        from tests.mlx5_prm_structs import AllocFlowCounterIn, AllocFlowCounterOut
+        counter = Mlx5DevxObj(ctx, AllocFlowCounterIn(), len(AllocFlowCounterOut()))
+        flow_counter_id = AllocFlowCounterOut(counter.out_view).flow_counter_id
+        return counter, flow_counter_id
+
+    @staticmethod
+    def query_counter_packets(counter, flow_counter_id):
+        """
+        Query flow counter packets count.
+        :param counter: The counter for the query.
+        :param flow_counter_id: The flow counter ID for the query.
+        :return: Number of packets on this counter.
+        """
+        from tests.mlx5_prm_structs import QueryFlowCounterIn, QueryFlowCounterOut
+        query_in = QueryFlowCounterIn(flow_counter_id=flow_counter_id)
+        counter_out = QueryFlowCounterOut(counter.query(query_in, len(QueryFlowCounterOut())))
+        return counter_out.flow_statistics.packets
+
+
 class Mlx5RCFlowResources(Mlx5RcResources):
     def __init__(self, dev_name, ib_port, gid_index, is_privileged_ctx=False, **kwargs):
         """
@@ -355,6 +392,26 @@ class Mlx5MatcherTest(Mlx5RDMATestCase):
                                        qp=self.server.qp)
         self.server.flow = Mlx5Flow(matcher, value_param, [action_qp], 1)
         u.raw_traffic(self.client, self.server, self.iters)
+
+    @u.skip_unsupported
+    def test_counter_qp_flow(self):
+        """
+        Creates a matcher to match on outer source mac and a flow that forwards
+        packets to QP when matching on source mac.
+        """
+        self.create_players(Mlx5CounterFlowResources)
+        empty_bytes_arr = bytes(MAX_MATCH_PARAM_SIZE)
+        empty_value_param = Mlx5FlowMatchParameters(len(empty_bytes_arr), empty_bytes_arr)
+        matcher = self.server.create_matcher(empty_bytes_arr, u.MatchCriteriaEnable.NONE)
+        qp_attr = Mlx5FlowActionAttr(action_type=mlx5dv_flow_action_type.MLX5DV_FLOW_ACTION_DEST_IBV_QP,
+                                     qp=self.server.qp)
+        counter, flow_counter_id = self.server.create_counter(self.server.ctx)
+        ctr_attr = Mlx5FlowActionAttr(action_type=mlx5dv_flow_action_type.MLX5DV_FLOW_ACTION_COUNTERS_DEVX,
+                                      obj=counter)
+        self.server.flow = Mlx5Flow(matcher, empty_value_param, [ctr_attr, qp_attr], 2)
+        u.raw_traffic(self.client, self.server, self.iters)
+        sent_packets = self.server.query_counter_packets(counter, flow_counter_id)
+        self.assertEqual(sent_packets, self.iters, 'Counter of metadata missed some sent packets')
 
     @requires_reformat_support
     @u.requires_encap_disabled_if_eswitch_on
