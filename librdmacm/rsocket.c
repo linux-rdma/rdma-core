@@ -3798,9 +3798,9 @@ int rsetsockopt(int socket, int level, int optname,
 
 	if (!ret && opts) {
 		if (opt_on)
-			*opts |= (1 << optname);
+			*opts |= (1ULL << optname);
 		else
-			*opts &= ~(1 << optname);
+			*opts &= ~(1ULL << optname);
 	}
 
 	return ret;
