@@ -139,6 +139,7 @@ struct rping_cb {
 
 	enum test_state state;		/* used for cond/signalling */
 	sem_t sem;
+	sem_t accept_ready;		/* Ready for another conn req */
 
 	struct sockaddr_storage sin;
 	struct sockaddr_storage ssource;
@@ -184,6 +185,7 @@ static int rping_cma_event_handler(struct rdma_cm_id *cma_id,
 		break;
 
 	case RDMA_CM_EVENT_CONNECT_REQUEST:
+		sem_wait(&cb->accept_ready);
 		cb->state = CONNECT_REQUEST;
 		cb->child_cm_id = cma_id;
 		DEBUG_LOG("child cma %p\n", cb->child_cm_id);
@@ -959,6 +961,8 @@ static int rping_run_persistent_server(struct rping_cb *listening_cb)
 		if (!cb)
 			return -1;
 
+		sem_post(&listening_cb->accept_ready);
+
 		ret = pthread_create(&cb->persistent_server_thread, &attr, rping_persistent_server_thread, cb);
 		if (ret) {
 			perror("pthread_create");
@@ -1287,6 +1291,7 @@ int main(int argc, char *argv[])
 	cb->sin.ss_family = PF_INET;
 	cb->port = htobe16(7174);
 	sem_init(&cb->sem, 0, 0);
+	sem_init(&cb->accept_ready, 0, 1);
 
 	opterr = 0;
 	while ((op = getopt(argc, argv, "a:I:Pp:C:S:t:scvVdq")) != -1) {
