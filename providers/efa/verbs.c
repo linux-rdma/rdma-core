@@ -2451,7 +2451,7 @@ int efa_post_recv(struct ibv_qp *ibvqp, struct ibv_recv_wr *wr,
 			addr = wr->sg_list[i].addr;
 
 			/* Set RX buffer desc from SGE */
-			rx_buf.length = wr->sg_list[i].length;
+			rx_buf.length = min_t(uint32_t, wr->sg_list[i].length, UINT16_MAX);
 			EFA_SET(&rx_buf.lkey_ctrl, EFA_IO_RX_DESC_LKEY,
 				wr->sg_list[i].lkey);
 			rx_buf.buf_addr_lo = addr;
