@@ -1,3 +1,11 @@
+rdma-core (56.0-2) unstable; urgency=medium
+
+  * Cherry-pick upstream patches:
+    - providers/mana: fixes + error CQEs
+    - providers/mana: Add dma-buf support
+
+ -- Benjamin Drung <bdrung@ubuntu.com>  Mon, 24 Feb 2025 18:17:24 +0100
+
 rdma-core (56.0-1) unstable; urgency=medium
 
   * New upstream release.
