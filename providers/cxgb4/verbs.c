@@ -289,6 +289,7 @@ struct ibv_srq *c4iw_create_srq(struct ibv_pd *pd,
 	if (!srq)
 		goto err;
 
+	memset(&resp, 0, sizeof(resp));
 	ret = ibv_cmd_create_srq(pd, &srq->ibv_srq, attr, &cmd,
 			sizeof(cmd), &resp.ibv_resp, sizeof(resp));
 	if (ret)
@@ -428,6 +429,7 @@ static struct ibv_qp *create_qp_v0(struct ibv_pd *pd,
 	if (!qhp)
 		goto err1;
 
+	memset(&resp, 0, sizeof(resp));
 	ret = ibv_cmd_create_qp(pd, &qhp->ibv_qp, attr, &cmd,
 				sizeof cmd, &resp.ibv_resp, sizeof resp);
 	if (ret)
@@ -532,6 +534,7 @@ static struct ibv_qp *create_qp(struct ibv_pd *pd,
 	if (!qhp)
 		goto err1;
 
+	memset(&resp, 0, sizeof(resp));
 	ret = ibv_cmd_create_qp(pd, &qhp->ibv_qp, attr, &cmd,
 				sizeof cmd, &resp.ibv_resp, sizeof resp);
 	if (ret)
