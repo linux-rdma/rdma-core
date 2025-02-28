@@ -740,13 +740,15 @@ static int single_threaded_app(void)
 static int mlx5_cmd_get_context(struct mlx5_context *context,
 				struct mlx5_alloc_ucontext *req,
 				size_t req_len,
+				struct ibv_fd_arr *fds,
 				struct mlx5_alloc_ucontext_resp *resp,
 				size_t resp_len)
 {
 	struct verbs_context *verbs_ctx = &context->ibv_ctx;
 
 	if (!ibv_cmd_get_context(verbs_ctx, &req->ibv_cmd,
-				 req_len, &resp->ibv_resp, resp_len))
+				 req_len, fds, &resp->ibv_resp,
+				 resp_len))
 		return 0;
 
 	/* The ibv_cmd_get_context fails in older kernels when passing
@@ -770,13 +772,13 @@ static int mlx5_cmd_get_context(struct mlx5_context *context,
 	 */
 	if (!ibv_cmd_get_context(verbs_ctx, &req->ibv_cmd,
 				 offsetof(struct mlx5_alloc_ucontext, lib_caps),
-				 &resp->ibv_resp, resp_len))
+				 fds, &resp->ibv_resp, resp_len))
 		return 0;
 
 	return ibv_cmd_get_context(verbs_ctx, &req->ibv_cmd,
 				   offsetof(struct mlx5_alloc_ucontext,
 					    max_cqe_version),
-				   &resp->ibv_resp, resp_len);
+				   fds, &resp->ibv_resp, resp_len);
 }
 
 static int mlx5_map_internal_clock(struct mlx5_device *mdev,
@@ -2612,6 +2614,7 @@ static struct verbs_context *mlx5_alloc_context(struct ibv_device *ibdev,
 	struct mlx5_alloc_ucontext_resp resp = {};
 	struct mlx5dv_context_attr      *ctx_attr = private_data;
 	bool				always_devx = false;
+	struct ibv_fd_arr               *fds = NULL;
 	int ret;
 
 	context = mlx5_init_context(ibdev, cmd_fd);
@@ -2619,8 +2622,12 @@ static struct verbs_context *mlx5_alloc_context(struct ibv_device *ibdev,
 		return NULL;
 
 	if (ctx_attr && ctx_attr->comp_mask) {
-		errno = EINVAL;
-		goto err;
+		if (!check_comp_mask(ctx_attr->comp_mask,
+				     MLX5DV_CONTEXT_ATTR_MASK_FD_ARRAY)) {
+			errno = EINVAL;
+			goto err;
+		}
+		fds = ctx_attr->fds;
 	}
 
 	req.total_num_bfregs = context->tot_uuars;
@@ -2642,7 +2649,7 @@ static struct verbs_context *mlx5_alloc_context(struct ibv_device *ibdev,
 	}
 
 retry_open:
-	if (mlx5_cmd_get_context(context, &req, sizeof(req), &resp,
+	if (mlx5_cmd_get_context(context, &req, sizeof(req), fds, &resp,
 				 sizeof(resp))) {
 		if (always_devx) {
 			req.flags &= ~MLX5_IB_ALLOC_UCTX_DEVX;
