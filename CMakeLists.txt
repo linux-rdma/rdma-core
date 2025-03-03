@@ -394,6 +394,13 @@ if (NOT HAVE_LONG_LONG_U64)
   add_definitions("-D__SANE_USERSPACE_TYPES__")
 endif()
 
+# Check __SOCKADDR_ARG exist and is union
+RDMA_Check_C_Compiles(HAVE_SOCKADDR_ARG_AS_UNION "
+#define _GNU_SOURCE
+#include <sys/socket.h>
+ int main(int argc,const char *argv[]) {struct sockaddr addr;__SOCKADDR_ARG sa; sa.__sockaddr__ = (struct sockaddr *)&addr; (void)addr; (void)sa; return 0;}"
+)
+
 # glibc and kernel uapi headers can co-exist
 CHECK_C_SOURCE_COMPILES("
  #include <sys/socket.h>

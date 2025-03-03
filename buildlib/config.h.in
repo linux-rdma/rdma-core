@@ -50,6 +50,8 @@
 
 #cmakedefine HAVE_WORKING_IF_H 1
 
+#cmakedefine HAVE_SOCKADDR_ARG_AS_UNION 1
+
 // Operating mode for symbol versions
 #cmakedefine HAVE_FULL_SYMBOL_VERSIONS 1
 #cmakedefine HAVE_LIMITED_SYMBOL_VERSIONS 1
