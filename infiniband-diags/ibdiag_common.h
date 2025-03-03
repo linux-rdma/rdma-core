@@ -90,7 +90,7 @@ extern int ibdiag_process_opts(int argc, char *const argv[], void *context,
 			       const char *usage_examples[]);
 extern void ibdiag_show_usage(void);
 extern void ibexit(const char *fn, const char *msg, ...)
-	__attribute__((format(printf, 2, 3)));
+	__attribute__((format(printf, 2, 3))) __attribute__((noreturn));
 
 /* convert counter values to a float with a unit specifier returned (using
  * binary prefix)
