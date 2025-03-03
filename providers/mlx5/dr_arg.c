@@ -68,7 +68,7 @@ static int dr_arg_pool_alloc_objs(struct dr_arg_pool *pool)
 	}
 
 	for (i = 0; i < num_of_objects; i++) {
-		arg_obj = calloc(1, sizeof(struct dr_arg_pool));
+		arg_obj = calloc(1, sizeof(struct dr_arg_obj));
 		if (!arg_obj) {
 			errno = ENOMEM;
 			goto clean_arg_obj;
