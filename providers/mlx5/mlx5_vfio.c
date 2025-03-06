@@ -1040,12 +1040,15 @@ static int mlx5_vfio_get_iommu_info(struct mlx5_vfio_context *ctx)
 		goto end;
 
 	if (info->argsz > sizeof(*info)) {
-		info = realloc(info, info->argsz);
-		if (!info) {
+		struct vfio_iommu_type1_info *tmp;
+
+		tmp = realloc(info, info->argsz);
+		if (!tmp) {
 			errno = ENOMEM;
 			ret = -1;
 			goto end;
 		}
+		info = tmp;
 
 		ret = ioctl(ctx->container_fd, VFIO_IOMMU_GET_INFO, info);
 		if (ret)
