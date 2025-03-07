@@ -228,6 +228,11 @@ struct ibv_query_device_ex_input {
 	uint32_t		comp_mask;
 };
 
+enum ibv_odp_general_caps {
+	IBV_ODP_SUPPORT = 1 << 0,
+	IBV_ODP_SUPPORT_IMPLICIT = 1 << 1,
+};
+
 enum ibv_odp_transport_cap_bits {
 	IBV_ODP_SUPPORT_SEND     = 1 << 0,
 	IBV_ODP_SUPPORT_RECV     = 1 << 1,
@@ -235,6 +240,8 @@ enum ibv_odp_transport_cap_bits {
 	IBV_ODP_SUPPORT_READ     = 1 << 3,
 	IBV_ODP_SUPPORT_ATOMIC   = 1 << 4,
 	IBV_ODP_SUPPORT_SRQ_RECV = 1 << 5,
+	IBV_ODP_SUPPORT_FLUSH    = 1 << 6,
+	IBV_ODP_SUPPORT_ATOMIC_WRITE = 1 << 7,
 };
 
 struct ibv_odp_caps {
@@ -244,11 +251,6 @@ struct ibv_odp_caps {
 		uint32_t uc_odp_caps;
 		uint32_t ud_odp_caps;
 	} per_transport_caps;
-};
-
-enum ibv_odp_general_caps {
-	IBV_ODP_SUPPORT = 1 << 0,
-	IBV_ODP_SUPPORT_IMPLICIT = 1 << 1,
 };
 
 struct ibv_tso_caps {
