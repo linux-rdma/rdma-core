@@ -1439,6 +1439,16 @@ def requires_odp(qp_type, required_odp_caps):
     return outer
 
 
+def requires_root():
+    def outer(func):
+        def inner(instance):
+            if not is_root():
+                raise unittest.SkipTest('Must be run by root')
+            return func(instance)
+        return inner
+    return outer
+
+
 def requires_root_on_eth(port_num=1):
     def outer(func):
         def inner(instance):

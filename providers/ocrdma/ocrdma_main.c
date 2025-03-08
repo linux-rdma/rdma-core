@@ -124,7 +124,7 @@ static struct verbs_context *ocrdma_alloc_context(struct ibv_device *ibdev,
 
 	if (ibv_cmd_get_context(&ctx->ibv_ctx,
 				(struct ibv_get_context *)&cmd, sizeof cmd,
-				&resp.ibv_resp, sizeof(resp)))
+				NULL, &resp.ibv_resp, sizeof(resp)))
 		goto cmd_err;
 
 	verbs_set_ops(&ctx->ibv_ctx, &ocrdma_ctx_ops);

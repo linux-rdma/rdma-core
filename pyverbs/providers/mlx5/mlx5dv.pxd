@@ -7,6 +7,7 @@ from pyverbs.base cimport PyverbsObject, PyverbsCM
 cimport pyverbs.providers.mlx5.libmlx5 as dv
 from pyverbs.device cimport Context
 from pyverbs.qp cimport QP, QPEx
+cimport pyverbs.libibverbs as v
 from pyverbs.cq cimport CQEX
 
 
@@ -19,6 +20,7 @@ cdef class Mlx5Context(Context):
 
 cdef class Mlx5DVContextAttr(PyverbsObject):
     cdef dv.mlx5dv_context_attr attr
+    cdef object fds
 
 cdef class Mlx5DVContext(PyverbsObject):
     cdef dv.mlx5dv_context dv

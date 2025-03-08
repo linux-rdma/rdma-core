@@ -1870,7 +1870,7 @@ static struct verbs_context *rxe_alloc_context(struct ibv_device *ibdev,
 		return NULL;
 
 	if (ibv_cmd_get_context(&context->ibv_ctx, &cmd, sizeof(cmd),
-				&resp, sizeof(resp)))
+				NULL, &resp, sizeof(resp)))
 		goto out;
 
 	verbs_set_ops(&context->ibv_ctx, &rxe_ctx_ops);

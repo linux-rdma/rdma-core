@@ -31,8 +31,11 @@ cdef extern from 'infiniband/mlx5dv.h':
         MLX5_WQE_CTRL_FENCE
         MLX5_WQE_CTRL_INITIATOR_SMALL_FENCE
 
-    cpdef enum  mlx5dv_context_attr_flags:
+    cpdef enum mlx5dv_context_attr_flags:
         MLX5DV_CONTEXT_FLAGS_DEVX
+
+    cpdef enum mlx5dv_context_attr_comp_mask:
+        MLX5DV_CONTEXT_ATTR_MASK_FD_ARRAY
 
     cpdef enum mlx5dv_context_comp_mask:
         MLX5DV_CONTEXT_MASK_CQE_COMPRESION      = 1 << 0
