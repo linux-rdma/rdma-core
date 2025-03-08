@@ -50,7 +50,7 @@ int mlx4_query_device_ex(struct ibv_context *context,
 			 struct ibv_device_attr_ex *attr,
 			 size_t attr_size)
 {
-	struct mlx4_query_device_ex_resp resp;
+	struct mlx4_query_device_ex_resp resp = {};
 	size_t resp_size = sizeof(resp);
 	uint64_t raw_fw_ver;
 	unsigned sub_minor;
@@ -453,7 +453,7 @@ static int mlx4_cmd_create_cq_ex(struct ibv_context *context,
 				 struct mlx4_cq *cq)
 {
 	struct mlx4_create_cq_ex      cmd;
-	struct mlx4_create_cq_ex_resp resp;
+	struct mlx4_create_cq_ex_resp resp = {};
 	int ret;
 
 	cmd.buf_addr = (uintptr_t) cq->buf.buf;
@@ -639,8 +639,8 @@ int mlx4_resize_cq(struct ibv_cq *ibcq, int cqe)
 	old_cqe = ibcq->cqe;
 	cmd.buf_addr = (uintptr_t) buf.buf;
 
-	ret = ibv_cmd_resize_cq(ibcq, cqe - 1, &cmd.ibv_cmd, sizeof cmd,
-				&resp, sizeof resp);
+	ret = ibv_cmd_resize_cq(ibcq, cqe - 1, &cmd.ibv_cmd,
+				sizeof(cmd.ibv_cmd), &resp, sizeof(resp));
 	if (ret) {
 		mlx4_free_buf(to_mctx(ibcq->context), &buf);
 		goto out;
