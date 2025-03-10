@@ -356,7 +356,7 @@ struct ibv_srq *ocrdma_create_srq(struct ibv_pd *pd,
 	int status = 0;
 	struct ocrdma_srq *srq;
 	struct uocrdma_create_srq cmd;
-	struct uocrdma_create_srq_resp resp;
+	struct uocrdma_create_srq_resp resp = {};
 	void *map_addr;
 
 	srq = calloc(1, sizeof *srq);
@@ -466,7 +466,7 @@ struct ibv_qp *ocrdma_create_qp(struct ibv_pd *pd,
 {
 	int status = 0;
 	struct uocrdma_create_qp cmd;
-	struct uocrdma_create_qp_resp resp;
+	struct uocrdma_create_qp_resp resp = {};
 	struct ocrdma_qp *qp;
 	void *map_addr;
 #ifdef DPP_CQ_SUPPORT
