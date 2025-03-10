@@ -578,7 +578,7 @@ static struct ibv_srq *rxe_create_srq(struct ibv_pd *ibpd,
 	struct rxe_srq *srq;
 	struct ibv_srq *ibsrq;
 	struct ibv_create_srq cmd;
-	struct urxe_create_srq_resp resp;
+	struct urxe_create_srq_resp resp = {};
 	int ret;
 
 	srq = calloc(1, sizeof(*srq));
@@ -617,7 +617,7 @@ static struct ibv_srq *rxe_create_srq_ex(
 	struct rxe_srq *srq;
 	struct ibv_srq *ibsrq;
 	struct ibv_create_xsrq cmd;
-	struct urxe_create_srq_ex_resp resp;
+	struct urxe_create_srq_ex_resp resp = {};
 	int ret;
 
 	srq = calloc(1, sizeof(*srq));
