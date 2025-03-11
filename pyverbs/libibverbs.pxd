@@ -354,6 +354,10 @@ cdef extern from 'infiniband/verbs.h':
     cdef union qp_type:
         xrc             xrc
 
+    cdef struct ibv_fd_arr:
+        int        *arr
+        uint32_t    count
+
     cdef struct ibv_send_wr:
         unsigned long   wr_id
         ibv_send_wr     *next

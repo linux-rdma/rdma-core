@@ -1713,9 +1713,14 @@ enum mlx5dv_context_attr_flags {
 	MLX5DV_CONTEXT_FLAGS_DEVX = 1 << 0,
 };
 
+enum mlx5dv_context_attr_comp_mask {
+	MLX5DV_CONTEXT_ATTR_MASK_FD_ARRAY = 1 << 0,
+};
+
 struct mlx5dv_context_attr {
 	uint32_t flags; /* Use enum mlx5dv_context_attr_flags */
-	uint64_t comp_mask;
+	uint64_t comp_mask; /* Use enum mlx5dv_context_attr_comp_mask */
+	struct ibv_fd_arr *fds;
 };
 
 bool mlx5dv_is_supported(struct ibv_device *device);

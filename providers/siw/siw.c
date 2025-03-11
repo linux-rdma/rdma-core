@@ -856,7 +856,7 @@ static struct verbs_context *siw_alloc_context(struct ibv_device *base_dev,
 		return NULL;
 
 	if (ibv_cmd_get_context(&ctx->base_ctx, &cmd, sizeof(cmd),
-				&resp.ibv_resp, sizeof(resp))) {
+				NULL, &resp.ibv_resp, sizeof(resp))) {
 		verbs_uninit_context(&ctx->base_ctx);
 		free(ctx);
 

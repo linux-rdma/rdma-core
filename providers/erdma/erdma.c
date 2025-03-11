@@ -56,7 +56,7 @@ static struct verbs_context *erdma_alloc_context(struct ibv_device *device,
 		ctx->qp_table[i].refcnt = 0;
 
 	if (ibv_cmd_get_context(&ctx->ibv_ctx, &cmd, sizeof(cmd),
-				&resp.ibv_resp, sizeof(resp)))
+				NULL, &resp.ibv_resp, sizeof(resp)))
 		goto err_out;
 
 	verbs_set_ops(&ctx->ibv_ctx, &erdma_context_ops);

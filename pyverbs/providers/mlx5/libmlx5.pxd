@@ -17,6 +17,7 @@ cdef extern from 'infiniband/mlx5dv.h':
     cdef struct mlx5dv_context_attr:
         unsigned int    flags
         unsigned long   comp_mask
+        v.ibv_fd_arr    *fds
 
     cdef struct mlx5dv_cqe_comp_caps:
         unsigned int    max_num

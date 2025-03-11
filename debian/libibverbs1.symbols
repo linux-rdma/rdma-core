@@ -12,7 +12,7 @@ libibverbs.so.1 libibverbs1 #MINVER#
  IBVERBS_1.12@IBVERBS_1.12 34
  IBVERBS_1.13@IBVERBS_1.13 35
  IBVERBS_1.14@IBVERBS_1.14 36
- (symver)IBVERBS_PRIVATE_34 34
+ (symver)IBVERBS_PRIVATE_57 57
  _ibv_query_gid_ex@IBVERBS_1.11 32
  _ibv_query_gid_table@IBVERBS_1.11 32
  ibv_ack_async_event@IBVERBS_1.0 1.1.6
