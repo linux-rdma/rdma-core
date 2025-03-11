@@ -417,6 +417,8 @@ cdef extern from '<infiniband/verbs.h>':
         IBV_ODP_SUPPORT_READ
         IBV_ODP_SUPPORT_ATOMIC
         IBV_ODP_SUPPORT_SRQ_RECV
+        IBV_ODP_SUPPORT_FLUSH
+        IBV_ODP_SUPPORT_ATOMIC_WRITE
 
     cpdef enum ibv_device_cap_flags:
         IBV_DEVICE_RESIZE_MAX_WR
