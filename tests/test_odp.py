@@ -112,7 +112,6 @@ class OdpXRC(XRCResources):
                                   flags=MAP_ANONYMOUS_| MAP_PRIVATE_)
         self.mr = u.create_custom_mr(self, e.IBV_ACCESS_ON_DEMAND, user_addr=self.user_addr)
 
-
 class OdpTestCase(RDMATestCase):
     def setUp(self):
         super(OdpTestCase, self).setUp()
