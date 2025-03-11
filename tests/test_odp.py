@@ -112,6 +112,38 @@ class OdpXRC(XRCResources):
                                   flags=MAP_ANONYMOUS_| MAP_PRIVATE_)
         self.mr = u.create_custom_mr(self, e.IBV_ACCESS_ON_DEMAND, user_addr=self.user_addr)
 
+class OdpQpExRC(RCResources):
+    def __init__(self, dev_name, ib_port, gid_index, is_huge=False,
+                 request_user_addr=False, use_mr_prefetch=None, is_implicit=False,
+                 prefetch_advice=e._IBV_ADVISE_MR_ADVICE_PREFETCH_WRITE,
+                 msg_size=8, odp_caps=e.IBV_ODP_SUPPORT_SEND | e.IBV_ODP_SUPPORT_RECV,
+                 use_mixed_mr=False):
+
+        ''' For object descriptions, refer to OdpRC class '''
+        self.request_user_addr = request_user_addr
+        self.is_implicit = is_implicit
+        self.odp_caps = odp_caps
+        self.access = e.IBV_ACCESS_LOCAL_WRITE | e.IBV_ACCESS_ON_DEMAND | \
+            e.IBV_ACCESS_REMOTE_ATOMIC | e.IBV_ACCESS_REMOTE_READ | \
+            e.IBV_ACCESS_REMOTE_WRITE
+        self.user_addr = None
+        super(OdpQpExRC, self).__init__(dev_name=dev_name, ib_port=ib_port,
+                                         gid_index=gid_index)
+        self.msg_size = msg_size
+
+    def create_qps(self):
+        u.create_qp_ex(self, e.IBV_QPT_RC, e.IBV_QP_EX_WITH_ATOMIC_WRITE)
+
+    @u.requires_odp('rc', e.IBV_ODP_SUPPORT_SEND | e.IBV_ODP_SUPPORT_RECV |
+                    e.IBV_ODP_SUPPORT_ATOMIC_WRITE)
+    def create_mr(self):
+        access = self.access
+        if self.request_user_addr:
+            mmap_flags = MAP_ANONYMOUS_| MAP_PRIVATE_
+            length = self.msg_size
+            self.user_addr = mmap(length=length, flags=mmap_flags)
+        self.mr = MR(self.pd, self.msg_size, access, address=self.user_addr,
+                     implicit=self.is_implicit)
 
 class OdpTestCase(RDMATestCase):
     def setUp(self):
@@ -149,6 +181,14 @@ class OdpTestCase(RDMATestCase):
         self.create_players(OdpRC, request_user_addr=self.force_page_faults,
                             use_mixed_mr=True)
         u.traffic(**self.traffic_args)
+
+    def test_odp_qp_ex_rc_atomic_write(self):
+        super().create_players(OdpQpExRC, request_user_addr=self.force_page_faults,
+                               msg_size=8, odp_caps=e.IBV_ODP_SUPPORT_ATOMIC_WRITE)
+        self.client.msg_size = 8
+        self.server.msg_size = 8
+        u.rdma_traffic(**self.traffic_args,
+                       new_send=True, send_op=e.IBV_WR_ATOMIC_WRITE)
 
     def test_odp_rc_atomic_cmp_and_swp(self):
         self.create_players(OdpRC, request_user_addr=self.force_page_faults,
