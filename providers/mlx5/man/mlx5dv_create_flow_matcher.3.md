@@ -41,6 +41,7 @@ struct mlx5dv_flow_matcher_attr {
 	struct mlx5dv_flow_match_parameters *match_mask;
 	uint64_t comp_mask;
 	enum mlx5dv_flow_table_type ft_type;
+	uint32_t ib_port;
 };
 ```
 
@@ -80,6 +81,7 @@ struct mlx5dv_flow_match_parameters {
 
 *comp_mask*
 :	MLX5DV_FLOW_MATCHER_MASK_FT_TYPE for *ft_type*
+:	MLX5DV_FLOW_MATCHER_MASK_IB_PORT for *ib_port*
 
 ## *ft_type*
 Specified in which flow table type, the matcher will store the flow rules:
@@ -88,6 +90,13 @@ Specified in which flow table type, the matcher will store the flow rules:
 	MLX5DV_FLOW_TABLE_TYPE_FDB : Specified this matcher will store FDB rules.
 	MLX5DV_FLOW_TABLE_TYPE_RDMA_RX: Specified this matcher will store ingress RDMA flow rules.
 	MLX5DV_FLOW_TABLE_TYPE_RDMA_TX: Specified this matcher will store egress RDMA flow rules.
+	MLX5DV_FLOW_TABLE_TYPE_RDMA_TRANSPORT_RX: Specified this matcher will store RDMA transport domain flow rules.
+	MLX5DV_FLOW_TABLE_TYPE_RDMA_TRANSPORT_TX: Specified this matcher will store RDMA transport domain flow rules.
+
+## *ib_port*
+Specified to which vport attach the matcher, this is valid and required only when creating the steering RDMA transport domain flow table:
+	MLX5DV_FLOW_TABLE_TYPE_RDMA_TRANSPORT_RX
+	MLX5DV_FLOW_TABLE_TYPE_RDMA_TRANSPORT_TX
 
 # RETURN VALUE
 
