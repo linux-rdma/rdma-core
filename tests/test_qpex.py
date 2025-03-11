@@ -254,7 +254,7 @@ class QpExTestCase(RDMATestCase):
         u.traffic(**self.traffic_args,
                   new_send=True, send_op=e.IBV_WR_RDMA_WRITE_WITH_IMM)
 
-    def test_qp_ex_rc_rdma_write_zero_length(self):
+    def test_qp_ex_rc_rdma_write_zero_size(self):
         self.create_players(QpExRCRDMAWrite)
         self.client.msg_size = 0
         self.server.msg_size = 0

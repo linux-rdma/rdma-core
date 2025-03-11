@@ -151,7 +151,6 @@ class OdpTestCase(RDMATestCase):
         u.traffic(**self.traffic_args)
 
     def test_odp_rc_atomic_cmp_and_swp(self):
-        self.force_page_faults = False
         self.create_players(OdpRC, request_user_addr=self.force_page_faults,
                             msg_size=8, odp_caps=e.IBV_ODP_SUPPORT_ATOMIC)
         u.atomic_traffic(**self.traffic_args,
@@ -160,7 +159,6 @@ class OdpTestCase(RDMATestCase):
                          send_op=e.IBV_WR_ATOMIC_CMP_AND_SWP)
 
     def test_odp_rc_atomic_fetch_and_add(self):
-        self.force_page_faults = False
         self.create_players(OdpRC, request_user_addr=self.force_page_faults,
                             msg_size=8, odp_caps=e.IBV_ODP_SUPPORT_ATOMIC)
         u.atomic_traffic(**self.traffic_args,
