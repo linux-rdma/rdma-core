@@ -7,6 +7,7 @@ from tests.base import RDMATestCase
 from pyverbs.mr import MR
 import pyverbs.enums as e
 import tests.utils as u
+import unittest
 
 HUGE_PAGE_SIZE = 0x200000
 
@@ -131,19 +132,37 @@ class OdpQpExRC(RCResources):
                                          gid_index=gid_index)
         self.msg_size = msg_size
 
-    def create_qps(self):
-        u.create_qp_ex(self, e.IBV_QPT_RC, e.IBV_QP_EX_WITH_ATOMIC_WRITE)
+        if self.odp_caps & e.IBV_ODP_SUPPORT_FLUSH:
+            self.ptype = e.IBV_FLUSH_GLOBAL
+            self.level = e.IBV_FLUSH_RANGE
 
-    @u.requires_odp('rc', e.IBV_ODP_SUPPORT_SEND | e.IBV_ODP_SUPPORT_RECV |
-                    e.IBV_ODP_SUPPORT_ATOMIC_WRITE)
+    def create_qps(self):
+        if self.odp_caps & e.IBV_ODP_SUPPORT_ATOMIC_WRITE:
+            u.create_qp_ex(self, e.IBV_QPT_RC, e.IBV_QP_EX_WITH_ATOMIC_WRITE)
+        elif self.odp_caps & e.IBV_ODP_SUPPORT_FLUSH:
+            u.create_qp_ex(self, e.IBV_QPT_RC, e.IBV_QP_EX_WITH_FLUSH | e.IBV_QP_EX_WITH_RDMA_WRITE)
+        else:
+            raise unittest.SkipTest('There is no qpex test for the specified ODP caps.')
+
     def create_mr(self):
-        access = self.access
-        if self.request_user_addr:
-            mmap_flags = MAP_ANONYMOUS_| MAP_PRIVATE_
-            length = self.msg_size
-            self.user_addr = mmap(length=length, flags=mmap_flags)
-        self.mr = MR(self.pd, self.msg_size, access, address=self.user_addr,
-                     implicit=self.is_implicit)
+        u.odp_supported(self.ctx, 'rc', self.odp_caps)
+        if self.odp_caps & e.IBV_ODP_SUPPORT_ATOMIC_WRITE:
+            access = self.access
+            if self.request_user_addr:
+                mmap_flags = MAP_ANONYMOUS_| MAP_PRIVATE_
+                length = self.msg_size
+                self.user_addr = mmap(length=length, flags=mmap_flags)
+            self.mr = MR(self.pd, self.msg_size, access, address=self.user_addr,
+                         implicit=self.is_implicit)
+        elif self.odp_caps & e.IBV_ODP_SUPPORT_FLUSH:
+            try:
+                self.mr = u.create_custom_mr(self, e.IBV_ACCESS_FLUSH_GLOBAL | e.IBV_ACCESS_REMOTE_WRITE | e.IBV_ACCESS_ON_DEMAND)
+            except PyverbsRDMAError as ex:
+                if ex.error_code == errno.EINVAL:
+                    raise unittest.SkipTest('Create mr with IBV_ACCESS_FLUSH_GLOBAL access flag is not supported in kernel')
+                raise ex
+        else:
+            raise unittest.SkipTest('There is no qpex test for the specified ODP caps.')
 
 class OdpTestCase(RDMATestCase):
     def setUp(self):
@@ -189,6 +208,20 @@ class OdpTestCase(RDMATestCase):
         self.server.msg_size = 8
         u.rdma_traffic(**self.traffic_args,
                        new_send=True, send_op=e.IBV_WR_ATOMIC_WRITE)
+
+    def test_odp_qp_ex_rc_flush(self):
+        super().create_players(OdpQpExRC, request_user_addr=self.force_page_faults,
+                               odp_caps=e.IBV_ODP_SUPPORT_FLUSH)
+        wcs = u.flush_traffic(**self.traffic_args, new_send=True,
+                              send_op=e.IBV_WR_FLUSH)
+        if wcs[0].status != e.IBV_WC_SUCCESS:
+            raise PyverbsError(f'Unexpected {wc_status_to_str(wcs[0].status)}')
+
+        self.client.level = e.IBV_FLUSH_MR
+        wcs = u.flush_traffic(**self.traffic_args, new_send=True,
+                              send_op=e.IBV_WR_FLUSH)
+        if wcs[0].status != e.IBV_WC_SUCCESS:
+            raise PyverbsError(f'Unexpected {wc_status_to_str(wcs[0].status)}')
 
     def test_odp_rc_atomic_cmp_and_swp(self):
         self.create_players(OdpRC, request_user_addr=self.force_page_faults,
