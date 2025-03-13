@@ -1576,8 +1576,8 @@ static int hns_roce_u_v2_modify_qp(struct ibv_qp *qp, struct ibv_qp_attr *attr,
 	if (flag) {
 		if (!ret)
 			qp->state = IBV_QPS_ERR;
-		hns_roce_spin_unlock(&hr_qp->sq.hr_lock);
 		hns_roce_spin_unlock(&hr_qp->rq.hr_lock);
+		hns_roce_spin_unlock(&hr_qp->sq.hr_lock);
 	}
 
 	if (ret)
