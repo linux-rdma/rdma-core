@@ -417,7 +417,7 @@ static int verify_cq_create_attr(struct ibv_cq_init_attr_ex *attr,
 {
 	struct hns_roce_pad *pad = to_hr_pad(attr->parent_domain);
 
-	if (!attr->cqe || attr->cqe > context->max_cqe) {
+	if (!attr->cqe || attr->cqe > (uint32_t)context->max_cqe) {
 		verbs_err(&context->ibv_ctx, "unsupported cq depth %u.\n",
 			  attr->cqe);
 		return EINVAL;
@@ -984,7 +984,7 @@ static int check_hnsdv_qp_attr(struct hns_roce_context *ctx,
 		return 0;
 
 	if (!check_comp_mask(hns_attr->comp_mask, HNSDV_QP_SUP_COMP_MASK)) {
-		verbs_err(&ctx->ibv_ctx, "invalid hnsdv comp_mask 0x%x.\n",
+		verbs_err(&ctx->ibv_ctx, "invalid hnsdv comp_mask 0x%llx.\n",
 			  hns_attr->comp_mask);
 		return EINVAL;
 	}
@@ -1136,7 +1136,7 @@ static int alloc_recv_rinl_buf(uint32_t max_sge,
 			       struct hns_roce_rinl_buf *rinl_buf)
 {
 	unsigned int cnt;
-	int i;
+	unsigned int i;
 
 	cnt = rinl_buf->wqe_cnt;
 	rinl_buf->wqe_list = calloc(cnt, sizeof(struct hns_roce_rinl_wqe));
