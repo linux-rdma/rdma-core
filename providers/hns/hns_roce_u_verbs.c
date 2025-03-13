@@ -1291,6 +1291,16 @@ static unsigned int get_sge_num_from_max_inl_data(bool is_ud,
 	return inline_sge;
 }
 
+static uint32_t get_max_inline_data(struct hns_roce_context *ctx,
+				    struct ibv_qp_cap *cap)
+{
+	if (cap->max_inline_data)
+		return min_t(uint32_t, roundup_pow_of_two(cap->max_inline_data),
+			     ctx->max_inline_data);
+
+	return 0;
+}
+
 static void set_ext_sge_param(struct hns_roce_context *ctx,
 			      struct ibv_qp_init_attr_ex *attr,
 			      struct hns_roce_qp *qp, unsigned int wr_cnt)
@@ -1307,9 +1317,7 @@ static void set_ext_sge_param(struct hns_roce_context *ctx,
 							attr->cap.max_send_sge);
 
 	if (ctx->config & HNS_ROCE_RSP_EXSGE_FLAGS) {
-		attr->cap.max_inline_data = min_t(uint32_t, roundup_pow_of_two(
-						  attr->cap.max_inline_data),
-						  ctx->max_inline_data);
+		attr->cap.max_inline_data = get_max_inline_data(ctx, &attr->cap);
 
 		inline_ext_sge = max(ext_wqe_sge_cnt,
 				     get_sge_num_from_max_inl_data(is_ud,
