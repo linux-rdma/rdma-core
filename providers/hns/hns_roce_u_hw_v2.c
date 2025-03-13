@@ -173,7 +173,7 @@ static enum ibv_wc_status get_wc_status(uint8_t status)
 		{ HNS_ROCE_V2_CQE_XRC_VIOLATION_ERR, IBV_WC_REM_INV_RD_REQ_ERR },
 	};
 
-	for (int i = 0; i < ARRAY_SIZE(map); i++) {
+	for (unsigned int i = 0; i < ARRAY_SIZE(map); i++) {
 		if (status == map[i].cqe_status)
 			return map[i].wc_status;
 	}
@@ -896,7 +896,7 @@ static int fill_ext_sge_inl_data(struct hns_roce_qp *qp,
 	unsigned int sge_mask = qp->ex_sge.sge_cnt - 1;
 	void *dst_addr, *src_addr, *tail_bound_addr;
 	uint32_t src_len, tail_len;
-	int i;
+	uint32_t i;
 
 	if (sge_info->total_len > qp->sq.ext_sge_cnt * HNS_ROCE_SGE_SIZE)
 		return EINVAL;
@@ -966,7 +966,7 @@ static void fill_ud_inn_inl_data(const struct ibv_send_wr *wr,
 
 static bool check_inl_data_len(struct hns_roce_qp *qp, unsigned int len)
 {
-	int mtu = mtu_enum_to_int(qp->path_mtu);
+	unsigned int mtu = mtu_enum_to_int(qp->path_mtu);
 
 	return (len <= qp->max_inline_data && len <= mtu);
 }
@@ -1370,7 +1370,8 @@ static void fill_recv_sge_to_wqe(struct ibv_recv_wr *wr, void *wqe,
 				 unsigned int max_sge, bool rsv)
 {
 	struct hns_roce_v2_wqe_data_seg *dseg = wqe;
-	unsigned int i, cnt;
+	unsigned int cnt;
+	int i;
 
 	for (i = 0, cnt = 0; i < wr->num_sge; i++) {
 		/* Skip zero-length sge */
@@ -1398,7 +1399,7 @@ static void fill_recv_inl_buf(struct hns_roce_rinl_buf *rinl_buf,
 			      unsigned int wqe_idx, struct ibv_recv_wr *wr)
 {
 	struct ibv_sge *sge_list;
-	unsigned int i;
+	int i;
 
 	if (!rinl_buf->wqe_cnt)
 		return;
@@ -1707,7 +1708,7 @@ static int check_post_srq_valid(struct hns_roce_srq *srq,
 static int get_wqe_idx(struct hns_roce_srq *srq, unsigned int *wqe_idx)
 {
 	struct hns_roce_idx_que *idx_que = &srq->idx_que;
-	int bit_num;
+	unsigned int bit_num;
 	int i;
 
 	/* bitmap[i] is set zero if all bits are allocated */
@@ -2066,7 +2067,7 @@ static void set_sgl_rc(struct hns_roce_v2_wqe_data_seg *dseg,
 	unsigned int mask = qp->ex_sge.sge_cnt - 1;
 	unsigned int msg_len = 0;
 	unsigned int cnt = 0;
-	int i;
+	unsigned int i;
 
 	for (i = 0; i < num_sge; i++) {
 		if (!sge[i].length)
