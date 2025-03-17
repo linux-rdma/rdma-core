@@ -1,0 +1,56 @@
+From: Asaf Mazor <amazor@nvidia.com>
+Date: Mon, 17 Mar 2025 13:51:37 +0200
+Subject: libibumad: Fix iteration index for switches
+
+Updated start index from 1 to 0 in:
+ - count_ports_by_guid
+ - umad_get_smi_gsi_pairs
+ - umad_find_active
+
+This fix should add support for switches
+(In HCA port 0 will be null and skipped)
+
+Fixes: be54b52e94be ("libibumad: Add new API to support SMI/GSI seperation")
+Signed-off-by: Asaf Mazor <amazor@nvidia.com>
+Origin: upstream, https://github.com/linux-rdma/rdma-core/pull/1583
+---
+ libibumad/umad.c | 10 +++++-----
+ 1 file changed, 5 insertions(+), 5 deletions(-)
+
+diff --git a/libibumad/umad.c b/libibumad/umad.c
+index db3eb52..644d43d 100644
+--- a/libibumad/umad.c
++++ b/libibumad/umad.c
+@@ -1444,9 +1444,9 @@ static int count_ports_by_guid(char legacy_ca_names[][UMAD_CA_NAME_LEN], size_t
+ 		if (umad_get_ca(legacy_ca_names[c_idx], &curr_ca) < 0)
+ 			continue;
+ 
+-		size_t p_idx = 1;
++		size_t p_idx = 0;
+ 
+-		for (p_idx = 1; p_idx < (size_t)curr_ca.numports + 1; ++p_idx) {
++		for (p_idx = 0; p_idx < (size_t)curr_ca.numports + 1; ++p_idx) {
+ 			umad_port_t *p_port = curr_ca.ports[p_idx];
+ 			size_t count_idx = 0;
+ 
+@@ -1496,9 +1496,9 @@ int umad_get_smi_gsi_pairs(struct umad_ca_pair cas[], size_t max)
+ 		if (umad_get_ca(legacy_ca_names[c_idx], &curr_ca) < 0)
+ 			continue;
+ 
+-		size_t p_idx = 1;
++		size_t p_idx = 0;
+ 
+-		for (p_idx = 1; p_idx < (size_t)curr_ca.numports + 1; ++p_idx) {
++		for (p_idx = 0; p_idx < (size_t)curr_ca.numports + 1; ++p_idx) {
+ 			umad_port_t *p_port = curr_ca.ports[p_idx];
+ 			uint8_t guid_count = 0;
+ 
+@@ -1558,7 +1558,7 @@ static int umad_find_active(struct umad_ca_pair *ca_pair, const umad_ca_t *ca, b
+ 	if (!ca_pair)
+ 		return 1;
+ 
+-	for (i = 1; i < (size_t)ca->numports + 1; ++i) {
++	for (i = 0; i < (size_t)ca->numports + 1; ++i) {
+ 		if (!umad_check_active(ca, i)) {
+ 			*portnum_to_set = ca->ports[i]->portnum;
+ 			return 0;

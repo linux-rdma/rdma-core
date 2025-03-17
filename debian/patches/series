@@ -5,3 +5,4 @@ providers-mana-Fix-modify-RC-QPs-for-RTS-and-INIT-states.patch
 providers-mana-Implement-signal-all-for-RC-QPs.patch
 providers-mana-Process-Error-cqes.patch
 providers-mana-Add-dma-buf-support.patch
+libibumad-Fix-iteration-index-for-switches.patch
