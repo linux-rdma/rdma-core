@@ -1444,9 +1444,9 @@ static int count_ports_by_guid(char legacy_ca_names[][UMAD_CA_NAME_LEN], size_t 
 		if (umad_get_ca(legacy_ca_names[c_idx], &curr_ca) < 0)
 			continue;
 
-		size_t p_idx = 1;
+		size_t p_idx = 0;
 
-		for (p_idx = 1; p_idx < (size_t)curr_ca.numports + 1; ++p_idx) {
+		for (p_idx = 0; p_idx < (size_t)curr_ca.numports + 1; ++p_idx) {
 			umad_port_t *p_port = curr_ca.ports[p_idx];
 			size_t count_idx = 0;
 
@@ -1496,9 +1496,9 @@ int umad_get_smi_gsi_pairs(struct umad_ca_pair cas[], size_t max)
 		if (umad_get_ca(legacy_ca_names[c_idx], &curr_ca) < 0)
 			continue;
 
-		size_t p_idx = 1;
+		size_t p_idx = 0;
 
-		for (p_idx = 1; p_idx < (size_t)curr_ca.numports + 1; ++p_idx) {
+		for (p_idx = 0; p_idx < (size_t)curr_ca.numports + 1; ++p_idx) {
 			umad_port_t *p_port = curr_ca.ports[p_idx];
 			uint8_t guid_count = 0;
 
@@ -1558,7 +1558,7 @@ static int umad_find_active(struct umad_ca_pair *ca_pair, const umad_ca_t *ca, b
 	if (!ca_pair)
 		return 1;
 
-	for (i = 1; i < (size_t)ca->numports + 1; ++i) {
+	for (i = 0; i < (size_t)ca->numports + 1; ++i) {
 		if (!umad_check_active(ca, i)) {
 			*portnum_to_set = ca->ports[i]->portnum;
 			return 0;
