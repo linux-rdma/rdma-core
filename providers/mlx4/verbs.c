@@ -639,8 +639,8 @@ int mlx4_resize_cq(struct ibv_cq *ibcq, int cqe)
 	old_cqe = ibcq->cqe;
 	cmd.buf_addr = (uintptr_t) buf.buf;
 
-	ret = ibv_cmd_resize_cq(ibcq, cqe - 1, &cmd.ibv_cmd,
-				sizeof(cmd.ibv_cmd), &resp, sizeof(resp));
+	ret = ibv_cmd_resize_cq(ibcq, cqe - 1, &cmd.ibv_cmd, sizeof cmd,
+				&resp, sizeof resp);
 	if (ret) {
 		mlx4_free_buf(to_mctx(ibcq->context), &buf);
 		goto out;
