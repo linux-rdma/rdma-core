@@ -18,7 +18,7 @@ Build-Depends: cmake (>= 2.8.11),
                python3-docutils,
                valgrind [amd64 arm64 armhf i386 mips mips64el mipsel powerpc ppc64 ppc64el s390x]
 Rules-Requires-Root: no
-Standards-Version: 4.7.0
+Standards-Version: 4.7.2
 Vcs-Git: https://github.com/linux-rdma/rdma-core.git -b debian/unstable
 Vcs-Browser: https://github.com/linux-rdma/rdma-core
 Homepage: https://github.com/linux-rdma/rdma-core
