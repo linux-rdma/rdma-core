@@ -202,8 +202,8 @@ class Mlx5DrTest(Mlx5RDMATestCase):
         Creates a rule on RX domain that forwards packets that match on the provided parameters
         to the SW steering flow table and another rule on that table
         with provided actions.
-        :param mask_param: The FlowTableEntryMatchParam mask matcher value.
-        :param val_param: The FlowTableEntryMatchParam value matcher value.
+        :param mask_param: The FlowTableEntryMatchParamSW mask matcher value.
+        :param val_param: The FlowTableEntryMatchParamSW value matcher value.
         :param actions: List of actions to attach to the recv rule.
         :param match_criteria: the match criteria enable flag to match on
         :param domain: RX DR domain to use if provided, otherwise create default RX domain.
@@ -311,11 +311,11 @@ class Mlx5DrTest(Mlx5RDMATestCase):
 
     @staticmethod
     def create_dest_mac_params():
-        from tests.mlx5_prm_structs import FlowTableEntryMatchParam
+        from tests.mlx5_prm_structs import FlowTableEntryMatchParamSW
 
-        eth_match_mask = FlowTableEntryMatchParam()
+        eth_match_mask = FlowTableEntryMatchParamSW()
         eth_match_mask.outer_headers.dmac = PacketConsts.MAC_MASK
-        eth_match_value = FlowTableEntryMatchParam()
+        eth_match_value = FlowTableEntryMatchParamSW()
         eth_match_value.outer_headers.dmac = PacketConsts.DST_MAC
         mask_param = Mlx5FlowMatchParameters(len(eth_match_mask), eth_match_mask)
         value_param = Mlx5FlowMatchParameters(len(eth_match_value), eth_match_value)
@@ -368,11 +368,11 @@ class Mlx5DrTest(Mlx5RDMATestCase):
 
     @staticmethod
     def create_geneve_params():
-        from tests.mlx5_prm_structs import FlowTableEntryMatchParam
-        geneve_mask = FlowTableEntryMatchParam()
+        from tests.mlx5_prm_structs import FlowTableEntryMatchParamSW
+        geneve_mask = FlowTableEntryMatchParamSW()
         geneve_mask.misc_parameters.geneve_vni = 0xffffff
         geneve_mask.misc_parameters.geneve_oam = 1
-        geneve_value = FlowTableEntryMatchParam()
+        geneve_value = FlowTableEntryMatchParamSW()
         geneve_value.misc_parameters.geneve_vni = PacketConsts.GENEVE_VNI
         geneve_value.misc_parameters.geneve_oam = PacketConsts.GENEVE_OAM
         mask_param = Mlx5FlowMatchParameters(len(geneve_mask), geneve_mask)
@@ -391,12 +391,12 @@ class Mlx5DrTest(Mlx5RDMATestCase):
 
     @staticmethod
     def create_roce_bth_params():
-        from tests.mlx5_prm_structs import FlowTableEntryMatchParam
-        roce_mask = FlowTableEntryMatchParam()
+        from tests.mlx5_prm_structs import FlowTableEntryMatchParamSW
+        roce_mask = FlowTableEntryMatchParamSW()
         roce_mask.misc_parameters.bth_opcode = 0xff
         roce_mask.misc_parameters.bth_dst_qp = 0xffffff
         roce_mask.misc_parameters.bth_a = 0x1
-        roce_value = FlowTableEntryMatchParam()
+        roce_value = FlowTableEntryMatchParamSW()
         roce_value.misc_parameters.bth_opcode = PacketConsts.BTH_OPCODE
         roce_value.misc_parameters.bth_dst_qp = PacketConsts.BTH_DST_QP
         roce_value.misc_parameters.bth_a = PacketConsts.BTH_A
@@ -409,10 +409,10 @@ class Mlx5DrTest(Mlx5RDMATestCase):
         Create rule that forward all packets (by empty matcher) from src_tbl to
         dst_tbl.
         """
-        from tests.mlx5_prm_structs import FlowTableEntryMatchParam
+        from tests.mlx5_prm_structs import FlowTableEntryMatchParamSW
 
-        empty_param = Mlx5FlowMatchParameters(len(FlowTableEntryMatchParam()),
-                                              FlowTableEntryMatchParam())
+        empty_param = Mlx5FlowMatchParameters(len(FlowTableEntryMatchParamSW()),
+                                              FlowTableEntryMatchParamSW())
         matcher = DrMatcher(src_tbl, 0, u.MatchCriteriaEnable.NONE, empty_param)
         go_to_tbl_action = DrActionDestTable(dst_tbl)
         self.rules.append(DrRule(matcher, empty_param, [go_to_tbl_action]))
@@ -530,16 +530,16 @@ class Mlx5DrTest(Mlx5RDMATestCase):
             Match reg_c_0 and reg_c_1:
                 Rule: prio 0 - val REG_C_DATA. Action: Go To QP
         """
-        from tests.mlx5_prm_structs import FlowTableEntryMatchParam, FlowTableEntryMatchSetMisc2, \
+        from tests.mlx5_prm_structs import FlowTableEntryMatchParamSW, FlowTableEntryMatchSetMisc2, \
             SetActionIn, CopyActionIn
 
         self.create_players(Mlx5DrResources)
-        match_param = FlowTableEntryMatchParam()
+        match_param = FlowTableEntryMatchParamSW()
         empty_param = Mlx5FlowMatchParameters(len(match_param), match_param)
-        mask_metadata = FlowTableEntryMatchParam(misc_parameters_2=
+        mask_metadata = FlowTableEntryMatchParamSW(misc_parameters_2=
                 FlowTableEntryMatchSetMisc2(metadata_reg_c_0=0xffff, metadata_reg_c_1=0xffff))
         mask_param = Mlx5FlowMatchParameters(len(match_param), mask_metadata)
-        value_metadata = FlowTableEntryMatchParam(misc_parameters_2=
+        value_metadata = FlowTableEntryMatchParamSW(misc_parameters_2=
                 FlowTableEntryMatchSetMisc2(metadata_reg_c_0=REG_C_DATA,
                                             metadata_reg_c_1=REG_C_DATA))
         value_param = Mlx5FlowMatchParameters(len(match_param), value_metadata)
@@ -620,13 +620,13 @@ class Mlx5DrTest(Mlx5RDMATestCase):
         Creates RX domain, sets duplicate rule to be not allowed on that domain,
         try creating duplicate rule. Fail if creation succeeded.
         """
-        from tests.mlx5_prm_structs import FlowTableEntryMatchParam
+        from tests.mlx5_prm_structs import FlowTableEntryMatchParamSW
         self.server = Mlx5DrResources(**self.dev_info)
         domain_rx = DrDomain(self.server.ctx, dve.MLX5DV_DR_DOMAIN_TYPE_NIC_RX)
         domain_rx.allow_duplicate_rules(False)
         table = DrTable(domain_rx, 1)
-        empty_param = Mlx5FlowMatchParameters(len(FlowTableEntryMatchParam()),
-                                              FlowTableEntryMatchParam())
+        empty_param = Mlx5FlowMatchParameters(len(FlowTableEntryMatchParamSW()),
+                                              FlowTableEntryMatchParamSW())
         matcher = DrMatcher(table, 0, u.MatchCriteriaEnable.NONE, empty_param)
         self.qp_action = DrActionQp(self.server.qp)
         self.drop_action = DrActionDrop()
@@ -1051,7 +1051,7 @@ class Mlx5DrTest(Mlx5RDMATestCase):
         Creates matcher on TX to match on Geneve related fields with counter action,
         sends packets and verifies the matcher.
         """
-        from tests.mlx5_prm_structs import FlowTableEntryMatchParam
+        from tests.mlx5_prm_structs import FlowTableEntryMatchParamSW
         self.create_players(Mlx5DrResources)
         skip_if_has_geneve_tx_bug(self.client.ctx)
         geneve_mask, geneve_val = self.create_geneve_params()
@@ -1069,8 +1069,8 @@ class Mlx5DrTest(Mlx5RDMATestCase):
         # RX
         domain_rx = DrDomain(self.server.ctx, dve.MLX5DV_DR_DOMAIN_TYPE_NIC_RX)
         self.qp_action = DrActionQp(self.server.qp)
-        empty_param = Mlx5FlowMatchParameters(len(FlowTableEntryMatchParam()),
-                                              FlowTableEntryMatchParam())
+        empty_param = Mlx5FlowMatchParameters(len(FlowTableEntryMatchParamSW()),
+                                              FlowTableEntryMatchParamSW())
         self.create_rx_recv_rules_based_on_match_params\
             (empty_param, empty_param, [self.qp_action],
              match_criteria=u.MatchCriteriaEnable.NONE, domain=domain_rx)
@@ -1095,11 +1095,11 @@ class Mlx5DrTest(Mlx5RDMATestCase):
         to the matcher and validate the result.
         :param domain_flag: RX/TX Domain for the test.
         """
-        from tests.mlx5_prm_structs import FlowTableEntryMatchParam
+        from tests.mlx5_prm_structs import FlowTableEntryMatchParamSW
         self.create_players(Mlx5DrResources)
         roce_bth_mask, roce_bth_val = self.create_roce_bth_params()
-        empty_param = Mlx5FlowMatchParameters(len(FlowTableEntryMatchParam()),
-                                              FlowTableEntryMatchParam())
+        empty_param = Mlx5FlowMatchParameters(len(FlowTableEntryMatchParamSW()),
+                                              FlowTableEntryMatchParamSW())
         self.domain = DrDomain(self.server.ctx, domain_flag)
         root_table = DrTable(self.domain, 0)
         root_matcher = DrMatcher(root_table, 0, u.MatchCriteriaEnable.NONE, empty_param)
@@ -1247,21 +1247,21 @@ class Mlx5DrTest(Mlx5RDMATestCase):
         red counters to the meter rules to verify the packets split to different
         colors. Send minimal traffic to see that both counters increased.
         """
-        from tests.mlx5_prm_structs import FlowTableEntryMatchParam, FlowTableEntryMatchSetMisc2,\
+        from tests.mlx5_prm_structs import FlowTableEntryMatchParamSW, FlowTableEntryMatchSetMisc2,\
             FlowMeterParams
         self.create_players(Mlx5DrResources)
         # Common resources
-        matcher_len = len(FlowTableEntryMatchParam())
-        empty_param = Mlx5FlowMatchParameters(matcher_len, FlowTableEntryMatchParam())
+        matcher_len = len(FlowTableEntryMatchParamSW())
+        empty_param = Mlx5FlowMatchParameters(matcher_len, FlowTableEntryMatchParamSW())
         reg_c_idx = self.client.get_first_flow_meter_reg_id()
         reg_c_field = METADATA_C_FIELDS[reg_c_idx]
         meter_param = FlowMeterParams(valid=0x1, bucket_overflow=0x1, start_color=0x2,
                                       cir_mantissa=1, cir_exponent=6)  # 15.625MBps
-        reg_c_mask = Mlx5FlowMatchParameters(matcher_len, FlowTableEntryMatchParam(
+        reg_c_mask = Mlx5FlowMatchParameters(matcher_len, FlowTableEntryMatchParamSW(
             misc_parameters_2=FlowTableEntryMatchSetMisc2(**{reg_c_field: 0xffffffff})))
-        reg_c_green = Mlx5FlowMatchParameters(matcher_len, FlowTableEntryMatchParam(
+        reg_c_green = Mlx5FlowMatchParameters(matcher_len, FlowTableEntryMatchParamSW(
             misc_parameters_2=FlowTableEntryMatchSetMisc2(**{reg_c_field: FLOW_METER_GREEN})))
-        reg_c_red = Mlx5FlowMatchParameters(matcher_len, FlowTableEntryMatchParam(
+        reg_c_red = Mlx5FlowMatchParameters(matcher_len, FlowTableEntryMatchParamSW(
             misc_parameters_2=FlowTableEntryMatchSetMisc2(**{reg_c_field: FLOW_METER_RED})))
 
         self.client.domain = DrDomain(self.client.ctx, dve.MLX5DV_DR_DOMAIN_TYPE_NIC_TX)
@@ -1308,9 +1308,9 @@ class Mlx5DrTest(Mlx5RDMATestCase):
         :param dst_table: Destination table
         :return: DrActionDestTable used to move the packets from src_table to dst_table
         """
-        from tests.mlx5_prm_structs import FlowTableEntryMatchParam
-        empty_param = Mlx5FlowMatchParameters(len(FlowTableEntryMatchParam()),
-                                              FlowTableEntryMatchParam())
+        from tests.mlx5_prm_structs import FlowTableEntryMatchParamSW
+        empty_param = Mlx5FlowMatchParameters(len(FlowTableEntryMatchParamSW()),
+                                              FlowTableEntryMatchParamSW())
         matcher = DrMatcher(src_table, 0, u.MatchCriteriaEnable.NONE, empty_param)
         dest_table_action = DrActionDestTable(dst_table)
         self.rules.append(DrRule(matcher, empty_param, [dest_table_action]))
