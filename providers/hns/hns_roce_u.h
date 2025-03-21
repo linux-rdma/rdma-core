@@ -307,7 +307,7 @@ struct hns_roce_wq {
 	unsigned long			*wrid;
 	struct hns_roce_spinlock	hr_lock;
 	unsigned int			wqe_cnt;
-	int				max_post;
+	unsigned int			max_post;
 	unsigned int			head;
 	unsigned int			tail;
 	unsigned int			max_gs;
@@ -335,7 +335,7 @@ struct hns_roce_sge_ex {
 struct hns_roce_qp {
 	struct verbs_qp			verbs_qp;
 	struct hns_roce_buf		buf;
-	int				max_inline_data;
+	unsigned int			max_inline_data;
 	int				buf_size;
 	unsigned int			sq_signal_bits;
 	struct hns_roce_wq		sq;
