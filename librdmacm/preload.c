@@ -794,12 +794,21 @@ ssize_t recv(int socket, void *buf, size_t len, int flags)
 }
 
 ssize_t recvfrom(int socket, void *buf, size_t len, int flags,
+#if HAVE_SOCKADDR_ARG_AS_UNION
+		 __SOCKADDR_ARG src_addr, socklen_t *addrlen)
+#else
 		 struct sockaddr *src_addr, socklen_t *addrlen)
+#endif
 {
 	int fd;
 	return (fd_fork_get(socket, &fd) == fd_rsocket) ?
+#if HAVE_SOCKADDR_ARG_AS_UNION
+		rrecvfrom(fd, buf, len, flags, src_addr.__sockaddr__, addrlen) :
+		real.recvfrom(fd, buf, len, flags, src_addr.__sockaddr__, addrlen);
+#else
 		rrecvfrom(fd, buf, len, flags, src_addr, addrlen) :
 		real.recvfrom(fd, buf, len, flags, src_addr, addrlen);
+#endif
 }
 
 ssize_t recvmsg(int socket, struct msghdr *msg, int flags)
