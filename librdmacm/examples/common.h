@@ -113,6 +113,7 @@ int oob_root_setup(const char *src_addr, const char *port,
 int oob_leaf_setup(const char *dst_addr, const char *port, int *sock);
 int oob_syncup(int sock, char val);
 int oob_syncdown(struct oob_root *root, char val);
+int oob_gather(struct oob_root *root, void *data, size_t size_per_leaf);
 int oob_senddown(struct oob_root *root, void *data, size_t size);
 void oob_close_root(struct oob_root *root);
 

@@ -56,7 +56,7 @@ static struct rdma_event_channel *channel;
 static struct oob_root oob_root;
 static int oob_up = -1;
 static const char *oob_port = "7471";
-static char *dst_addr;
+static char *ctrl_addr;
 static char *src_addr;
 static int timeout = 2000;
 static int retries = 2;
@@ -120,6 +120,7 @@ struct conn {
 	struct work_item work;
 	struct rdma_cm_id *id;
 	int sock;
+	uint32_t peer_id;
 
 	struct ibv_qp *qp;
 	enum ibv_qp_state next_qps;
@@ -131,7 +132,10 @@ struct conn {
 
 static struct work_queue wq;
 
+static bool is_root;
+static enum peer_role role = role_connect;
 static uint32_t num_peers = 2;
+static uint32_t num_listeners;
 static struct peer_info *peers;
 
 static struct conn *conns;
@@ -151,11 +155,6 @@ static struct ibv_cq *cq;
 #define start_time(s)		do { times[s][0] = gettime_us(); } while (0)
 #define end_time(s)		do { times[s][1] = gettime_us(); } while (0)
 
-
-static inline bool is_client(void)
-{
-	return dst_addr != NULL;
-}
 
 static void show_perf(void)
 {
@@ -311,7 +310,7 @@ static void sock_client(void)
 	int ret;
 
 	printf("Client baseline socket setup\n");
-	ret = getaddrinfo(dst_addr, oob_port, NULL, &ai);
+	ret = getaddrinfo(ctrl_addr, oob_port, NULL, &ai);
 	if (ret) {
 		perror("getaddrinfo");
 		exit(EXIT_FAILURE);
@@ -484,7 +483,8 @@ static void resolve_addr(struct work_item *item)
 	c->retries = retries;
 	start_perf(c, STEP_RESOLVE_ADDR);
 	ret = rdma_resolve_addr(c->id, rai->ai_src_addr,
-				(struct sockaddr *) &peers[0].sa, timeout);
+				(struct sockaddr *) &peers[c->peer_id].sa,
+				timeout);
 	if (ret) {
 		perror("rdma_resolve_addr");
 		exit(EXIT_FAILURE);
@@ -619,12 +619,12 @@ static void cma_handler(struct rdma_cm_id *id, struct rdma_cm_event *event)
 		exit(EXIT_FAILURE);
 		break;
 	case RDMA_CM_EVENT_DISCONNECTED:
-		if (!is_client()) {
+		if (role == role_listen) {
 			/* To fix an issue where DREQs are not responded
 			 * to, the client completes its disconnect phase
 			 * as soon as it calls rdma_disconnect and does
 			 * not wait for a response from the server.  The
-			 * OOB sync handles that coordiation
+			 * OOB sync handles that coordination.
 			end_perf(c, STEP_DISCONNECT);
 			atomic_fetch_add(&completed[STEP_DISCONNECT], 1);
 		} else {
@@ -737,6 +737,98 @@ static void server_listen(struct rdma_cm_id **listen_id)
 	}
 }
 
+static int setup_oob(void)
+{
+
+	return is_root ?
+	       oob_root_setup(ctrl_addr, oob_port, &oob_root, num_peers - 1) :
+	       oob_leaf_setup(ctrl_addr, oob_port, &oob_up);
+}
+
+static void cleanup_oob(void)
+{
+	if (is_root)
+		oob_close_root(&oob_root);
+	else
+		close(oob_up);
+}
+
+static void do_sync(char val)
+{
+	if (is_root)
+		oob_syncdown(&oob_root, val);
+	else
+		oob_syncup(oob_up, val);
+}
+
+static void count_listeners(void)
+{
+	uint32_t i;
+
+	for (i = 0; i < num_peers; i++) {
+		if (peers[i].role == role_listen)
+			num_listeners++;
+	}
+
+	if (num_listeners == num_peers) {
+		printf("cannot have all listeners\n");
+		exit(EXIT_FAILURE);
+	}
+
+	if (!num_listeners) {
+		printf("need at least 1 listener\n");
+		exit(EXIT_FAILURE);
+	}
+}
+
+static void assign_listeners(void)
+{
+	uint32_t i, p = 0;
+
+	for (i = 0; i < num_conns; i++) {
+		while (peers[p].role != role_listen) {
+			if (++p >= num_peers)
+				p = 0;
+		}
+		conns[i].peer_id = p;
+		if (++p >= num_peers)
+			p = 0;
+	}
+}
+
+static int setup_mesh(void)
+{
+	int ret;
+
+	if (is_root) {
+		ret = oob_gather(&oob_root, peers + 1, sizeof(*peers));
+		if (ret)
+			return ret;
+
+		ret = oob_senddown(&oob_root, peers, sizeof(*peers) * num_peers);
+	} else {
+		ret = sock_senddata(oob_up, peers, sizeof(*peers));
+		if (ret)
+			return ret;
+
+		ret = sock_recvdata(oob_up, peers, sizeof(*peers) * num_peers);
+	}
+	if (ret)
+		return ret;
+
+	count_listeners();
+	if (role == role_connect)
+		num_conns = num_conns * num_listeners;
+	else
+		num_conns = num_conns * (num_peers - num_listeners);
+
+	conns = calloc(num_conns, sizeof *conns);
+	if (!conns)
+		return -ENOMEM;
+
+	return 0;
+}
+
 static void reset_test(void)
 {
 	int i;
@@ -747,13 +839,13 @@ static void reset_test(void)
 	memset(times, 0, sizeof times);
 	memset(conns, 0, sizeof(*conns) * num_conns);
 
+	if (role == role_connect)
+		assign_listeners();
+
 	for (i = 0; i < STEP_CNT; i++)
 		atomic_store(&completed[i], 0);
 
-	if (is_client())
-		oob_syncup(oob_up, 0);
-	else
-		oob_syncdown(&oob_root, 0);
+	do_sync(0);
 }
 
 static void server_connect(void)
@@ -763,12 +855,12 @@ static void server_connect(void)
 	while (atomic_load(&completed[STEP_CONNECT]) < num_conns)
 		sched_yield();
 
-	oob_syncdown(&oob_root, STEP_CONNECT);
+	do_sync(STEP_CONNECT);
 
 	while (atomic_load(&completed[STEP_DISCONNECT]) < num_conns)
 		sched_yield();
 
-	oob_syncdown(&oob_root, STEP_DISCONNECT);
+	do_sync(STEP_DISCONNECT);
 
 	destroy_qps();
 	destroy_ids();
@@ -783,20 +875,18 @@ static void client_connect(void)
 	start_time(STEP_FULL_CONNECT);
 	create_ids();
 
-	if (src_addr) {
-		printf("\tBinding addresses\n");
-		start_time(STEP_BIND);
-		for (i = 0; i < num_conns; i++) {
-			start_perf(&conns[i], STEP_BIND);
-			ret = rdma_bind_addr(conns[i].id, rai->ai_src_addr);
-			if (ret) {
-				perror("rdma_bind_addr");
-				exit(EXIT_FAILURE);
-			}
-			end_perf(&conns[i], STEP_BIND);
+	printf("\tBinding addresses\n");
+	start_time(STEP_BIND);
+	for (i = 0; i < num_conns; i++) {
+		start_perf(&conns[i], STEP_BIND);
+		ret = rdma_bind_addr(conns[i].id, rai->ai_src_addr);
+		if (ret) {
+			perror("rdma_bind_addr");
+			exit(EXIT_FAILURE);
 		}
-		end_time(STEP_BIND);
+		end_perf(&conns[i], STEP_BIND);
 	}
+	end_time(STEP_BIND);
 
 	printf("\tResolving addresses\n");
 	start_time(STEP_RESOLVE_ADDR);
@@ -846,7 +936,7 @@ static void client_connect(void)
 	end_time(STEP_CONNECT);
 	end_time(STEP_FULL_CONNECT);
 
-	oob_syncup(oob_up, STEP_CONNECT);
+	do_sync(STEP_CONNECT);
 
 	printf("\tDisconnecting\n");
 	start_time(STEP_DISCONNECT);
@@ -857,7 +947,7 @@ static void client_connect(void)
 		sched_yield();
 	end_time(STEP_DISCONNECT);
 
-	oob_syncup(oob_up, STEP_DISCONNECT);
+	do_sync(STEP_DISCONNECT);
 
 	/* Wait for event threads to exit before destroying resources */
 	printf("\tDestroying QPs\n");
@@ -871,17 +961,14 @@ static void run_client(void)
 	uint32_t save_num_conn;
 	int ret;
 
-	ret = oob_leaf_setup(dst_addr, oob_port, &oob_up);
-	if (ret)
-		exit(EXIT_FAILURE);
-
-	ret = sock_recvdata(oob_up, peers, sizeof(*peers));
+	peers[0].role = role_connect;
+	ret = setup_mesh();
 	if (ret)
 		exit(EXIT_FAILURE);
 
 	printf("Client warmup\n");
 	save_num_conn = num_conns;
-	num_conns = 1;
+	num_conns = num_listeners;
 	client_connect();
 	num_conns = save_num_conn;
 
@@ -902,8 +989,6 @@ static void run_client(void)
 		client_connect();
 		show_perf();
 	}
-
-	close(oob_up);
 }
 
 static void run_server(void)
@@ -912,22 +997,18 @@ static void run_server(void)
 	uint32_t save_num_conn;
 	int ret;
 
-	/* Make sure we're ready for RDMA prior to any OOB sync */
+	/* Configure RDMA prior to setting up the mesh */
 	server_listen(&listen_id);
 
-	ret = oob_root_setup(src_addr, oob_port, &oob_root, num_peers - 1);
-	if (ret)
-		exit(EXIT_FAILURE);
-
-	peers[0].sa = listen_id->route.addr.src_storage;
 	peers[0].role = role_listen;
-	ret = oob_senddown(&oob_root, peers, sizeof(*peers));
+	peers[0].sa = listen_id->route.addr.src_storage;
+	ret = setup_mesh();
 	if (ret)
 		exit(EXIT_FAILURE);
 
 	printf("Server warmup\n");
 	save_num_conn = num_conns;
-	num_conns = 1;
+	num_conns = num_peers - num_listeners;
 	server_connect();
 	num_conns = save_num_conn;
 
@@ -949,7 +1030,6 @@ static void run_server(void)
 		show_perf();
 	}
 
-	oob_close_root(&oob_root);
 	rdma_destroy_id(listen_id);
 }
 
@@ -959,15 +1039,19 @@ int main(int argc, char **argv)
 	bool socktest = false;
 	int op, ret;
 
-	hints.ai_port_space = RDMA_PS_TCP;
-	hints.ai_qp_type = IBV_QPT_RC;
-	while ((op = getopt(argc, argv, "b:c:m:n:P:p:q:r:Ss:t:")) != -1) {
+	while ((op = getopt(argc, argv, "b:C:c:Lm:n:P:p:q:Rr:Ss:t:")) != -1) {
 		switch (op) {
 		case 'b':
 			src_addr = optarg;
 			break;
+		case 'C':
+			ctrl_addr = optarg;
+			break;
 		case 'c':
 			num_conns = (uint32_t) atoi(optarg);
+			break;
+		case 'L':
+			role = role_listen;
 			break;
 		case 'm':
 			mimic_qp_delay = (uint32_t) atoi(optarg);
@@ -987,6 +1071,9 @@ int main(int argc, char **argv)
 		case 'q':
 			base_qpn = (uint32_t) atoi(optarg);
 			break;
+		case 'R':
+			is_root = true;
+			break;
 		case 'r':
 			retries = atoi(optarg);
 			break;
@@ -994,38 +1081,38 @@ int main(int argc, char **argv)
 			socktest = true;
 			atomic_store(&cur_qpn, 1);
 			break;
-		case 's':
-			dst_addr = optarg;
-			break;
 		case 't':
 			timeout = atoi(optarg);
 			break;
 		default:
 usage:
 			printf("usage: %s\n", argv[0]);
-			printf("\t[-b bind_address]\n");
-			printf("\t[-c num_conns] connections per peer\n");
+			printf("\t-b bind_address\n");
+			printf("\t-C controller_address\n");
+			printf("\t[-c num_conns] connections per listener\n");
+			printf("\t[-L] run as listening server\n");
 			printf("\t[-m mimic_qp_delay_us]\n");
 			printf("\t[-n num_threads]\n");
 			printf("\t[-P num_peers] total number of peers\n");
 			printf("\t[-p oob_port]\n");
 			printf("\t[-q base_qpn]\n");
+			printf("\t[-R] run as controller (test root)\n");
 			printf("\t[-r retries]\n");
-			printf("\t[-S] (run socket baseline test)\n");
-			printf("\t[-s server_address]\n");
+			printf("\t[-S] run socket baseline test, 2 peers only\n");
 			printf("\t[-t timeout_ms]\n");
 			exit(EXIT_FAILURE);
 		}
 	}
 
-	if (!is_client()) {
-		hints.ai_flags |= RAI_PASSIVE;
-		num_conns = num_conns * (num_peers - 1);
-	}
+	if (!src_addr || !ctrl_addr || (socktest && num_peers > 2))
+		goto usage;
 
-	ret = get_rdma_addr(src_addr, dst_addr, NULL, &hints, &rai);
+	hints.ai_port_space = RDMA_PS_TCP;
+	hints.ai_qp_type = IBV_QPT_RC;
+	hints.ai_flags = RAI_PASSIVE;
+	ret = rdma_getaddrinfo(src_addr, NULL, &hints, &rai);
 	if (ret) {
-		perror("get_rdma_addr");
+		perror("rdma_getaddrinfo");
 		exit(EXIT_FAILURE);
 	}
 
@@ -1041,21 +1128,19 @@ usage:
 		exit(EXIT_FAILURE);
 	}
 
-	conns = calloc(num_conns, sizeof *conns);
-	if (!conns) {
-		perror("calloc");
-		exit(EXIT_FAILURE);
-	}
-
-	peers = calloc(1, sizeof *peers);
+	peers = calloc(num_peers, sizeof *peers);
 	if (!peers)
 		exit(EXIT_FAILURE);
 
 	ret = wq_init(&wq, num_threads);
 	if (ret)
-		goto free;
+		exit(EXIT_FAILURE);
 
-	if (is_client()) {
+	ret = setup_oob();
+	if (ret)
+		exit(EXIT_FAILURE);
+
+	if (role == role_connect) {
 		if (socktest)
 			sock_client();
 		else
@@ -1067,8 +1152,8 @@ usage:
 			run_server();
 	}
 
+	cleanup_oob();
 	wq_cleanup(&wq);
-free:
 	free(peers);
 	free(conns);
 	rdma_destroy_event_channel(channel);

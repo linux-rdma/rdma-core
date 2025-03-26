@@ -346,6 +346,21 @@ int sock_senddata(int sock, void *data, size_t size)
 	return 0;
 }
 
+int oob_gather(struct oob_root *root, void *data, size_t size_per_leaf)
+{
+	int ret, i;
+
+	for (i = 0; i < root->cnt; i++) {
+		ret = sock_recvdata(root->sock[i],
+				    (char *) data + i * size_per_leaf,
+				    size_per_leaf);
+		if (ret)
+			return ret;
+	}
+
+	return 0;
+}
+
 int oob_senddown(struct oob_root *root, void *data, size_t size)
 {
 	int ret, i;
