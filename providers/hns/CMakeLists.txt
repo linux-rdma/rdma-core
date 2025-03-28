@@ -1,3 +1,10 @@
+if (ENABLE_LTTNG AND LTTNGUST_FOUND)
+  rdma_shared_provider(hns_trace libhns_trace.map
+    1 1.0.${PACKAGE_VERSION}
+    hns_roce_u_trace.c
+)
+endif()
+
 rdma_shared_provider(hns libhns.map
   1 1.0.${PACKAGE_VERSION}
   hns_roce_u.c
@@ -12,3 +19,8 @@ publish_headers(infiniband
 )
 
 rdma_pkg_config("hns" "libibverbs" "${CMAKE_THREAD_LIBS_INIT}")
+
+if (ENABLE_LTTNG AND LTTNGUST_FOUND)
+  target_include_directories(hns_trace PUBLIC ".")
+  target_link_libraries(hns_trace LINK_PRIVATE LTTng::UST)
+endif()
