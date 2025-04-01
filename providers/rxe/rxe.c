@@ -665,7 +665,7 @@ static int rxe_modify_srq(struct ibv_srq *ibsrq,
 
 	cmd.mmap_info_addr = (__u64)(uintptr_t) &mi;
 	rc = ibv_cmd_modify_srq(ibsrq, attr, attr_mask,
-				&cmd.ibv_cmd, sizeof(cmd.ibv_cmd));
+				&cmd.ibv_cmd, sizeof(cmd));
 	if (rc)
 		goto out;
 
