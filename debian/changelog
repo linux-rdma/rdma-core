@@ -1,3 +1,10 @@
+rdma-core (56.0-4) unstable; urgency=medium
+
+  * Cherry-pick upstream patch for providers/mana: improve synchronization
+    on the shadow queue (LP: #2105922)
+
+ -- Benjamin Drung <bdrung@ubuntu.com>  Wed, 02 Apr 2025 12:55:04 +0200
+
 rdma-core (56.0-3) unstable; urgency=medium
 
   * libibumad: Fix iteration index for switches (Closes: #1100343)
