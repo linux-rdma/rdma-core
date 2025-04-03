@@ -1,3 +1,9 @@
+rdma-core (55.1-1) unstable; urgency=low
+
+  * New upstream release.
+
+ -- Nicolas Morey <nmorey@suse.com>  Thu, 03 Apr 2025 08:44:30 +0200
+
 rdma-core (55.0-1) unstable; urgency=medium
 
   * New upstream release.
