@@ -53,7 +53,8 @@
 static struct rdma_addrinfo hints, *rai;
 static struct addrinfo *ai;
 static struct rdma_event_channel *channel;
-static int oob_sock = -1;
+static struct oob_root oob_root;
+static int oob_up = -1;
 static const char *port = "7471";
 static char *dst_addr;
 static char *src_addr;
@@ -731,9 +732,9 @@ static void reset_test(int iter)
 		atomic_store(&completed[i], 0);
 
 	if (is_client())
-		oob_sendrecv(oob_sock, 0);
+		oob_syncup(oob_up, 0);
 	else
-		oob_recvsend(oob_sock, 0);
+		oob_syncdown(&oob_root, 0);
 }
 
 static void server_connect(int iter)
@@ -743,12 +744,12 @@ static void server_connect(int iter)
 	while (atomic_load(&completed[STEP_CONNECT]) < iter)
 		sched_yield();
 
-	oob_recvsend(oob_sock, STEP_CONNECT);
+	oob_syncdown(&oob_root, STEP_CONNECT);
 
 	while (atomic_load(&completed[STEP_DISCONNECT]) < iter)
 		sched_yield();
 
-	oob_recvsend(oob_sock, STEP_DISCONNECT);
+	oob_syncdown(&oob_root, STEP_DISCONNECT);
 
 	destroy_qps(iter);
 	destroy_ids(iter);
@@ -825,7 +826,7 @@ static void client_connect(int iter)
 	end_time(STEP_CONNECT);
 	end_time(STEP_FULL_CONNECT);
 
-	oob_sendrecv(oob_sock, STEP_CONNECT);
+	oob_syncup(oob_up, STEP_CONNECT);
 
 	printf("\tDisconnecting\n");
 	start_time(STEP_DISCONNECT);
@@ -836,7 +837,7 @@ static void client_connect(int iter)
 		sched_yield();
 	end_time(STEP_DISCONNECT);
 
-	oob_sendrecv(oob_sock, STEP_DISCONNECT);
+	oob_syncup(oob_up, STEP_DISCONNECT);
 
 	/* Wait for event threads to exit before destroying resources */
 	printf("\tDestroying QPs\n");
@@ -849,7 +850,7 @@ static void run_client(int iter)
 {
 	int ret;
 
-	ret = oob_client_setup(dst_addr, port, &oob_sock);
+	ret = oob_leaf_setup(dst_addr, port, &oob_up);
 	if (ret)
 		exit(EXIT_FAILURE);
 
@@ -872,7 +873,7 @@ static void run_client(int iter)
 	client_connect(iter);
 	show_perf(iter);
 
-	close(oob_sock);
+	close(oob_up);
 }
 
 static void run_server(int iter)
@@ -883,7 +884,7 @@ static void run_server(int iter)
 	/* Make sure we're ready for RDMA prior to any OOB sync */
 	server_listen(&listen_id);
 
-	ret = oob_server_setup(src_addr, port, &oob_sock);
+	ret = oob_root_setup(src_addr, port, &oob_root, 1);
 	if (ret)
 		exit(EXIT_FAILURE);
 
@@ -907,7 +908,7 @@ static void run_server(int iter)
 	server_connect(iter);
 	show_perf(iter);
 
-	close(oob_sock);
+	oob_close_root(&oob_root);
 	rdma_destroy_id(listen_id);
 }
 
