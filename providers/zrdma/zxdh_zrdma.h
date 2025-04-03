@@ -62,6 +62,14 @@ struct zxdh_uvcontext {
 	struct zxdh_uvcontext_ops *cxt_ops;
 };
 
+struct zxdh_umr {
+	struct verbs_mr vmr;
+	uint32_t acc_flags;
+	uint8_t leaf_pbl_size;
+	uint8_t host_page_size;
+	uint64_t mr_pa_pble_index;
+};
+
 /* zxdh_verbs.c */
 int zxdh_uquery_device_ex(struct ibv_context *context,
 			  const struct ibv_query_device_ex_input *input,

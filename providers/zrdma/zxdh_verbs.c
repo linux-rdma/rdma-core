@@ -137,7 +137,31 @@ int zxdh_ufree_pd(struct ibv_pd *pd)
 struct ibv_mr *zxdh_ureg_mr(struct ibv_pd *pd, void *addr, size_t length,
 			    uint64_t hca_va, int access)
 {
-	return NULL;
+	struct zxdh_umr *umr;
+	struct zxdh_ureg_mr cmd;
+	struct zxdh_ureg_mr_resp resp = {};
+	int err;
+
+	umr = malloc(sizeof(*umr));
+	if (!umr)
+		return NULL;
+
+	cmd.reg_type = ZXDH_MEMREG_TYPE_MEM;
+	err = ibv_cmd_reg_mr(pd, addr, length, hca_va, access, &umr->vmr,
+			     &cmd.ibv_cmd, sizeof(cmd), &resp.ibv_resp,
+			     sizeof(resp));
+	if (err) {
+		free(umr);
+		errno = err;
+		return NULL;
+	}
+	umr->acc_flags = access;
+	umr->host_page_size = resp.host_page_size;
+	umr->leaf_pbl_size = resp.leaf_pbl_size;
+	umr->mr_pa_pble_index = resp.mr_pa_hig;
+	umr->mr_pa_pble_index = (umr->mr_pa_pble_index << 32) | resp.mr_pa_low;
+
+	return &umr->vmr.ibv_mr;
 }
 
 /*
@@ -152,7 +176,13 @@ struct ibv_mr *zxdh_ureg_mr(struct ibv_pd *pd, void *addr, size_t length,
 int zxdh_urereg_mr(struct verbs_mr *vmr, int flags, struct ibv_pd *pd,
 		   void *addr, size_t length, int access)
 {
-	return 0;
+	struct zxdh_urereg_mr cmd = {};
+	struct ib_uverbs_rereg_mr_resp resp;
+
+	cmd.reg_type = ZXDH_MEMREG_TYPE_MEM;
+	return ibv_cmd_rereg_mr(vmr, flags, addr, length, (uintptr_t)addr,
+				access, pd, &cmd.ibv_cmd, sizeof(cmd), &resp,
+				sizeof(resp));
 }
 
 /**
@@ -161,6 +191,14 @@ int zxdh_urereg_mr(struct verbs_mr *vmr, int flags, struct ibv_pd *pd,
  */
 int zxdh_udereg_mr(struct verbs_mr *vmr)
 {
+	int ret;
+
+	ret = ibv_cmd_dereg_mr(vmr);
+	if (ret)
+		return ret;
+
+	free(vmr);
+
 	return 0;
 }
 
@@ -171,7 +209,21 @@ int zxdh_udereg_mr(struct verbs_mr *vmr)
  */
 struct ibv_mw *zxdh_ualloc_mw(struct ibv_pd *pd, enum ibv_mw_type type)
 {
-	return NULL;
+	struct ibv_mw *mw;
+	struct ibv_alloc_mw cmd;
+	struct ib_uverbs_alloc_mw_resp resp;
+
+	mw = calloc(1, sizeof(*mw));
+	if (!mw)
+		return NULL;
+
+	if (ibv_cmd_alloc_mw(pd, type, mw, &cmd, sizeof(cmd), &resp,
+			     sizeof(resp))) {
+		free(mw);
+		return NULL;
+	}
+
+	return mw;
 }
 
 /**
@@ -183,7 +235,35 @@ struct ibv_mw *zxdh_ualloc_mw(struct ibv_pd *pd, enum ibv_mw_type type)
 int zxdh_ubind_mw(struct ibv_qp *qp, struct ibv_mw *mw,
 		  struct ibv_mw_bind *mw_bind)
 {
-	return 0;
+	struct ibv_mw_bind_info *bind_info = &mw_bind->bind_info;
+	struct verbs_mr *vmr = verbs_get_mr(bind_info->mr);
+	struct zxdh_umr *umr = container_of(vmr, struct zxdh_umr, vmr);
+	struct ibv_send_wr wr = {};
+	struct ibv_send_wr *bad_wr;
+	int err;
+
+	if (vmr->mr_type != IBV_MR_TYPE_MR)
+		return -ENOTSUP;
+
+	if (umr->acc_flags & IBV_ACCESS_ZERO_BASED)
+		return -EINVAL;
+
+	if (mw->type != IBV_MW_TYPE_1)
+		return -EINVAL;
+
+	wr.opcode = IBV_WR_BIND_MW;
+	wr.bind_mw.bind_info = mw_bind->bind_info;
+	wr.bind_mw.mw = mw;
+	wr.bind_mw.rkey = ibv_inc_rkey(mw->rkey);
+
+	wr.wr_id = mw_bind->wr_id;
+	wr.send_flags = mw_bind->send_flags;
+
+	err = zxdh_upost_send(qp, &wr, &bad_wr);
+	if (!err)
+		mw->rkey = wr.bind_mw.rkey;
+
+	return err;
 }
 
 /**
@@ -192,6 +272,13 @@ int zxdh_ubind_mw(struct ibv_qp *qp, struct ibv_mw *mw,
  */
 int zxdh_udealloc_mw(struct ibv_mw *mw)
 {
+	int ret;
+
+	ret = ibv_cmd_dealloc_mw(mw);
+	if (ret)
+		return ret;
+	free(mw);
+
 	return 0;
 }
 
