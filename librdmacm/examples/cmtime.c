@@ -921,22 +921,13 @@ int main(int argc, char **argv)
 
 	hints.ai_port_space = RDMA_PS_TCP;
 	hints.ai_qp_type = IBV_QPT_RC;
-	while ((op = getopt(argc, argv, "s:b:c:m:n:p:q:r:St:")) != -1) {
+	while ((op = getopt(argc, argv, "b:c:m:n:p:q:r:Ss:t:")) != -1) {
 		switch (op) {
-		case 's':
-			dst_addr = optarg;
-			break;
 		case 'b':
 			src_addr = optarg;
 			break;
 		case 'c':
 			iter = atoi(optarg);
-			break;
-		case 'p':
-			port = optarg;
-			break;
-		case 'q':
-			base_qpn = (uint32_t) atoi(optarg);
 			break;
 		case 'm':
 			mimic_qp_delay = (uint32_t) atoi(optarg);
@@ -945,6 +936,12 @@ int main(int argc, char **argv)
 		case 'n':
 			num_threads = (uint32_t) atoi(optarg);
 			break;
+		case 'p':
+			port = optarg;
+			break;
+		case 'q':
+			base_qpn = (uint32_t) atoi(optarg);
+			break;
 		case 'r':
 			retries = atoi(optarg);
 			break;
@@ -952,20 +949,23 @@ int main(int argc, char **argv)
 			socktest = true;
 			atomic_store(&cur_qpn, 1);
 			break;
+		case 's':
+			dst_addr = optarg;
+			break;
 		case 't':
 			timeout = atoi(optarg);
 			break;
 		default:
 			printf("usage: %s\n", argv[0]);
-			printf("\t[-S] (run socket baseline test)\n");
-			printf("\t[-s server_address]\n");
 			printf("\t[-b bind_address]\n");
 			printf("\t[-c connections]\n");
-			printf("\t[-p port_number]\n");
-			printf("\t[-q base_qpn]\n");
 			printf("\t[-m mimic_qp_delay_us]\n");
 			printf("\t[-n num_threads]\n");
+			printf("\t[-p port_number]\n");
+			printf("\t[-q base_qpn]\n");
 			printf("\t[-r retries]\n");
+			printf("\t[-S] (run socket baseline test)\n");
+			printf("\t[-s server_address]\n");
 			printf("\t[-t timeout_ms]\n");
 			exit(EXIT_FAILURE);
 		}
