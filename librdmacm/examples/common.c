@@ -316,6 +316,49 @@ int oob_syncup(int sock, char val)
 	return 0;
 }
 
+int sock_recvdata(int sock, void *data, size_t size)
+{
+	ssize_t ret, bytes;
+
+	bytes = 0;
+	do {
+		ret = recv(sock, (char *) data + bytes, size - bytes, 0);
+		if (ret <= 0)
+			return -errno;
+		bytes += ret;
+	} while (bytes < size);
+
+	return 0;
+}
+
+int sock_senddata(int sock, void *data, size_t size)
+{
+	ssize_t ret, bytes;
+
+	bytes = 0;
+	do {
+		ret = send(sock, (char *) data + bytes, size - bytes, 0);
+		if (ret < 0)
+			return -errno;
+		bytes += ret;
+	} while (bytes < size);
+
+	return 0;
+}
+
+int oob_senddown(struct oob_root *root, void *data, size_t size)
+{
+	int ret, i;
+
+	for (i = 0; i < root->cnt; i++) {
+		ret = sock_senddata(root->sock[i], data, size);
+		if (ret)
+			return ret;
+	}
+
+	return 0;
+}
+
 int oob_syncdown(struct oob_root *root, char val)
 {
 	ssize_t ret;
@@ -332,14 +375,8 @@ int oob_syncdown(struct oob_root *root, char val)
 			return -EINVAL;
 	}
 
-	c = val;
-	for (i = 0; i < root->cnt; i++) {
-		ret = send(root->sock[i], (void *) &c, sizeof(c), 0);
-		if (ret != sizeof(c))
-			return -errno;
-	}
-
-	return 0;
+	ret = oob_senddown(root, &val, sizeof(val));
+	return ret;
 }
 
 static void *wq_handler(void *arg);

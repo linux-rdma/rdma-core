@@ -105,11 +105,15 @@ struct oob_root {
 	int cnt;
 };
 
+int sock_recvdata(int sock, void *data, size_t size);
+int sock_senddata(int sock, void *data, size_t size);
+
 int oob_root_setup(const char *src_addr, const char *port,
 		   struct oob_root *root, int cnt);
 int oob_leaf_setup(const char *dst_addr, const char *port, int *sock);
 int oob_syncup(int sock, char val);
 int oob_syncdown(struct oob_root *root, char val);
+int oob_senddown(struct oob_root *root, void *data, size_t size);
 void oob_close_root(struct oob_root *root);
 
 void size_str(char *str, size_t ssize, long long size);

@@ -55,7 +55,7 @@ static struct addrinfo *ai;
 static struct rdma_event_channel *channel;
 static struct oob_root oob_root;
 static int oob_up = -1;
-static const char *port = "7471";
+static const char *oob_port = "7471";
 static char *dst_addr;
 static char *src_addr;
 static int timeout = 2000;
@@ -106,6 +106,16 @@ static const char *step_str[] = {
 	"destroy qp"
 };
 
+enum peer_role {
+	role_connect,
+	role_listen,
+};
+
+struct peer_info {
+	struct sockaddr_storage sa;
+	enum peer_role role;
+};
+
 struct conn {
 	struct work_item work;
 	struct rdma_cm_id *id;
@@ -122,6 +132,8 @@ struct conn {
 static struct work_queue wq;
 
 static uint32_t num_peers = 2;
+static struct peer_info *peers;
+
 static struct conn *conns;
 static int conn_index;
 static uint64_t times[STEP_CNT][2];
@@ -198,7 +210,7 @@ static void sock_listen(int *listen_sock, int backlog)
 	aih.ai_family = AF_INET;
 	aih.ai_socktype = SOCK_STREAM;
 	aih.ai_flags = AI_PASSIVE;
-	ret = getaddrinfo(src_addr, port, &aih, &ai);
+	ret = getaddrinfo(src_addr, oob_port, &aih, &ai);
 	if (ret) {
 		perror("getaddrinfo");
 		exit(EXIT_FAILURE);
@@ -299,7 +311,7 @@ static void sock_client(void)
 	int ret;
 
 	printf("Client baseline socket setup\n");
-	ret = getaddrinfo(dst_addr, port, NULL, &ai);
+	ret = getaddrinfo(dst_addr, oob_port, NULL, &ai);
 	if (ret) {
 		perror("getaddrinfo");
 		exit(EXIT_FAILURE);
@@ -472,7 +484,7 @@ static void resolve_addr(struct work_item *item)
 	c->retries = retries;
 	start_perf(c, STEP_RESOLVE_ADDR);
 	ret = rdma_resolve_addr(c->id, rai->ai_src_addr,
-				rai->ai_dst_addr, timeout);
+				(struct sockaddr *) &peers[0].sa, timeout);
 	if (ret) {
 		perror("rdma_resolve_addr");
 		exit(EXIT_FAILURE);
@@ -859,7 +871,11 @@ static void run_client(void)
 	uint32_t save_num_conn;
 	int ret;
 
-	ret = oob_leaf_setup(dst_addr, port, &oob_up);
+	ret = oob_leaf_setup(dst_addr, oob_port, &oob_up);
+	if (ret)
+		exit(EXIT_FAILURE);
+
+	ret = sock_recvdata(oob_up, peers, sizeof(*peers));
 	if (ret)
 		exit(EXIT_FAILURE);
 
@@ -899,7 +915,13 @@ static void run_server(void)
 	/* Make sure we're ready for RDMA prior to any OOB sync */
 	server_listen(&listen_id);
 
-	ret = oob_root_setup(src_addr, port, &oob_root, num_peers - 1);
+	ret = oob_root_setup(src_addr, oob_port, &oob_root, num_peers - 1);
+	if (ret)
+		exit(EXIT_FAILURE);
+
+	peers[0].sa = listen_id->route.addr.src_storage;
+	peers[0].role = role_listen;
+	ret = oob_senddown(&oob_root, peers, sizeof(*peers));
 	if (ret)
 		exit(EXIT_FAILURE);
 
@@ -960,7 +982,7 @@ int main(int argc, char **argv)
 				goto usage;
 			break;
 		case 'p':
-			port = optarg;
+			oob_port = optarg;
 			break;
 		case 'q':
 			base_qpn = (uint32_t) atoi(optarg);
@@ -986,7 +1008,7 @@ usage:
 			printf("\t[-m mimic_qp_delay_us]\n");
 			printf("\t[-n num_threads]\n");
 			printf("\t[-P num_peers] total number of peers\n");
-			printf("\t[-p port_number]\n");
+			printf("\t[-p oob_port]\n");
 			printf("\t[-q base_qpn]\n");
 			printf("\t[-r retries]\n");
 			printf("\t[-S] (run socket baseline test)\n");
@@ -1001,7 +1023,7 @@ usage:
 		num_conns = num_conns * (num_peers - 1);
 	}
 
-	ret = get_rdma_addr(src_addr, dst_addr, port, &hints, &rai);
+	ret = get_rdma_addr(src_addr, dst_addr, NULL, &hints, &rai);
 	if (ret) {
 		perror("get_rdma_addr");
 		exit(EXIT_FAILURE);
@@ -1025,6 +1047,10 @@ usage:
 		exit(EXIT_FAILURE);
 	}
 
+	peers = calloc(1, sizeof *peers);
+	if (!peers)
+		exit(EXIT_FAILURE);
+
 	ret = wq_init(&wq, num_threads);
 	if (ret)
 		goto free;
@@ -1043,6 +1069,7 @@ usage:
 
 	wq_cleanup(&wq);
 free:
+	free(peers);
 	free(conns);
 	rdma_destroy_event_channel(channel);
 	rdma_freeaddrinfo(rai);
