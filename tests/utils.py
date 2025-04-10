@@ -1449,6 +1449,17 @@ def requires_root():
     return outer
 
 
+def requires_no_sriov():
+    def outer(func):
+        def inner(instance):
+            path = '/sys/class/infiniband/{instance.dev_name}/device/sriov_totalvfs'
+            if os.path.isfile(path):
+                raise unittest.SkipTest('Virtual Functions are present on the device')
+            return func(instance)
+        return inner
+    return outer
+
+
 def requires_root_on_eth(port_num=1):
     def outer(func):
         def inner(instance):
