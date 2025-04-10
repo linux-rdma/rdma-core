@@ -9,9 +9,9 @@ set(PACKAGE_VERSION "11")
 For upstream releases this is a single integer showing the release
 ordering. We do not attempt to encode any 'ABI' information in this version.
 
-Branched stabled releases can append an additional counter eg `11.2`.
+Branched stabled releases can append an additional counter e.g. `11.2`.
 
-Unofficial releases should include a distributor tag, eg '11.vendor2'.
+Unofficial releases should include a distributor tag, e.g. '11.vendor2'.
 
 When the PACKAGE_VERSION is changed, the packaging files should be updated:
 
@@ -58,7 +58,7 @@ index 76ca7286..a19f9e01 100644
 
 # Shared Library Versions
 
-The shared libraries use the typical semantic versioning scheme, eg
+The shared libraries use the typical semantic versioning scheme, e.g.
 *libibumad* has a version like `3.1.11`.
 
 The version number is broken up into three fields:
@@ -168,6 +168,6 @@ index 642a715e..8def05c9 100644
 A distribution packaging system still must have the correct dependencies
 between libraries within rdma-core that may use these private symbols.
 
-For this reason the private symbols can only be used by provider libraries and
+For this reason, the private symbols can only be used by provider libraries and
 the distribution must ensure that a matched set of provider libraries and
 libibverbs are installed.

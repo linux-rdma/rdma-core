@@ -87,7 +87,7 @@ for review.
 
 - Send the rdma-core patches as a PR to GitHub and possibly the mailing list
 
-- Send the kernel pathces to linux-rdma@vger.kernel.org. Refer to the matching
+- Send the kernel patches to linux-rdma@vger.kernel.org. Refer to the matching
   GitHub PR in the cover letter by URL
 
 - The GitHub PR will be marked with a 'needs-kernel-patch' tag and will not

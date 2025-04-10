@@ -43,11 +43,11 @@ asynchronously to the rest of the systemd startup.
 
 Once an RDMA device is created by the kernel then udev will cause systemd to
 schedule ULP module loading services (e.g. rdma-load-modules@.service) specific
-to the plugged hardware. If sysinit.target has not yet been passed then these
+to the plugged hardware. If sysinit.target has not yet been passed, then these
 loaders will defer sysinit.target until they complete, otherwise this is a hot
 plug event and things will load asynchronously to the boot up process.
 
-Finally udev will cause systemd to start RDMA specific daemons like
+Finally, udev will cause systemd to start RDMA specific daemons like
 srp_daemon, rdma-ndd and iwpmd. These starts are linked to the detection of
 the first RDMA hardware, and the daemons internally handle hot plug events for
 other hardware.
@@ -154,7 +154,7 @@ The library provides general utility and udev rule to automatically perform
 stable IB device name assignments, so users will always see names based on
 topology/GUID information. Such naming scheme has big advantage that the
 names are fully automatic, fully predictable and they stay fixed even if
-hardware is added or removed (i.e. no reenumeration takes place) and that
+hardware is added or removed (i.e. no renumeration takes place) and that
 broken hardware can be replaced seamlessly.
 
 The name is combination of link type (Infiniband, RoCE, iWARP, OPA or USNIC)
@@ -166,7 +166,7 @@ directory.
  * NAME_KERNEL - don't change names and rely on kernel assignment. This
  will keep RDMA names as before. Example: "mlx5_0".
  * NAME_PCI - read PCI location and topology as a source for stable names,
- which won't change in any software event (reset, PCI probe e.t.c.).
+ which won't change in any software event (reset, PCI probe etc.).
  Example: "ibp0s12f4".
  * NAME_GUID - read node GUID information in similar manner to
  net MAC naming policy. Example "rocex525400c0fe123455".

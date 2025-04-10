@@ -415,11 +415,11 @@ srq_attr.cq = cq
 srq_attr.comp_mask = e.IBV_SRQ_INIT_ATTR_TYPE | e.IBV_SRQ_INIT_ATTR_PD | \
                      e.IBV_SRQ_INIT_ATTR_CQ | e.IBV_SRQ_INIT_ATTR_XRCD
 srq = SRQ(ctx, srq_attr)
-
+```
 
 ##### Open an mlx5 provider
 A provider is essentially a Context with driver-specific extra features. As
-such, it inherits from Context. In legcay flow Context iterates over the IB
+such, it inherits from Context. In legacy flow Context iterates over the IB
 devices and opens the one matches the name given by the user (name= argument).
 When provider attributes are also given (attr=), the Context will assign the
 relevant ib_device to its device member, so that the provider will be able to
