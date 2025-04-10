@@ -28,7 +28,7 @@ Using multiple interfaces
 
 		sysctl -w net.ipv4.conf.all.arp_ignore=2
 
-	Without this change, it's possible for linux to resopnd to ARP
+	Without this change, it's possible for linux to respond to ARP
 	requests on a different interface (IP address) than the IP
 	address carried in the ARP request.  This causes the RDMA stack
 	to incorrectly map the remote IP address to the wrong RDMA
