@@ -359,6 +359,42 @@ def get_qp_init_attr(cq, attr):
     return QPInitAttr(scq=cq, rcq=cq, cap=qp_cap, sq_sig_all=sig)
 
 
+def create_qp_ex(agr_obj, qp_type, send_flags):
+    if qp_type == e.IBV_QPT_XRC_SEND:
+        cap = QPCap(max_send_wr=agr_obj.num_msgs, max_recv_wr=0, max_recv_sge=0,
+                    max_send_sge=1)
+    else:
+        cap = QPCap(max_send_wr=agr_obj.num_msgs, max_recv_wr=agr_obj.num_msgs,
+                    max_recv_sge=1, max_send_sge=1)
+    qia = QPInitAttrEx(cap=cap, qp_type=qp_type, scq=agr_obj.cq,
+                       rcq=agr_obj.cq, pd=agr_obj.pd, send_ops_flags=send_flags,
+                       comp_mask=e.IBV_QP_INIT_ATTR_PD |
+                                 e.IBV_QP_INIT_ATTR_SEND_OPS_FLAGS)
+    qp_attr = QPAttr(port_num=agr_obj.ib_port)
+    if qp_type == e.IBV_QPT_UD:
+        qp_attr.qkey = agr_obj.UD_QKEY
+        qp_attr.pkey_index = agr_obj.UD_PKEY_INDEX
+    if qp_type == e.IBV_QPT_RC:
+        qp_attr.qp_access_flags = e.IBV_ACCESS_REMOTE_WRITE | \
+                                  e.IBV_ACCESS_REMOTE_READ | \
+                                  e.IBV_ACCESS_REMOTE_ATOMIC | \
+                                  e.IBV_ACCESS_FLUSH_GLOBAL | \
+                                  e.IBV_ACCESS_FLUSH_PERSISTENT
+    try:
+        # We don't have capability bits for this
+        qp = QPEx(agr_obj.ctx, qia, qp_attr)
+    except PyverbsRDMAError as ex:
+        if ex.error_code == errno.EOPNOTSUPP:
+            raise unittest.SkipTest('Extended QP is not supported on this device')
+        raise ex
+    if qp_type != e.IBV_QPT_XRC_SEND:
+        agr_obj.qps.append(qp)
+        agr_obj.qps_num.append(qp.qp_num)
+        agr_obj.psns.append(random.getrandbits(24))
+    else:
+        return qp
+
+
 def wc_status_to_str(status):
     try:
         return \
