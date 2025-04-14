@@ -47,6 +47,8 @@
 #include <ccan/container_of.h>
 #include <pthread.h>
 #include <rdma/rdma_cma.h>
+#include <ifaddrs.h>
+#include <arpa/inet.h>
 #include "common.h"
 
 
@@ -1033,15 +1035,75 @@ static void run_server(void)
 	rdma_destroy_id(listen_id);
 }
 
+static char *get_src_addr(char *ifa_name)
+{
+	struct ifaddrs *ifaddr, *ifa;
+	char ip[INET6_ADDRSTRLEN];
+
+	if (getifaddrs(&ifaddr) == -1) {
+		perror("getifaddrs");
+		exit(EXIT_FAILURE);
+	}
+
+	for (ifa = ifaddr; ifa != NULL; ifa = ifa->ifa_next) {
+		if (ifa->ifa_addr == NULL)
+			continue;
+
+		if (strcmp(ifa->ifa_name, ifa_name) != 0)
+			continue;
+
+		if (ifa->ifa_addr->sa_family == AF_INET) {
+			if (!inet_ntop(AF_INET,
+				       &(((struct sockaddr_in *)ifa->ifa_addr)
+						 ->sin_addr),
+				       ip, INET6_ADDRSTRLEN)) {
+				perror("inet_ntop_4");
+				exit(EXIT_FAILURE);
+			}
+			break;
+		}
+
+		if (ifa->ifa_addr->sa_family == AF_INET6) {
+			if (!inet_ntop(AF_INET6,
+				       &(((struct sockaddr_in6 *)ifa->ifa_addr)
+						 ->sin6_addr),
+				       ip, INET6_ADDRSTRLEN)) {
+				perror("inet_ntop_6");
+				exit(EXIT_FAILURE);
+			}
+			break;
+		}
+	}
+
+	if (!ifa) {
+		fprintf(stderr, "Failed to find IP address for interface: %s\n",
+			ifa_name);
+		exit(EXIT_FAILURE);
+	}
+
+	freeifaddrs(ifaddr);
+
+	printf("Picking source address %s for interface %s\n", ip, ifa_name);
+
+	return strdup(ip);
+}
+
 int main(int argc, char **argv)
 {
 	pthread_t event_thread;
 	bool socktest = false;
 	int op, ret;
 
-	while ((op = getopt(argc, argv, "b:C:c:Lm:n:P:p:q:Rr:Ss:t:")) != -1) {
+	while ((op = getopt(argc, argv, "B:b:C:c:Lm:n:P:p:q:Rr:Ss:t:")) != -1) {
 		switch (op) {
+		case 'B':
+			if (src_addr)
+				goto usage;
+			src_addr = get_src_addr(optarg);
+			break;
 		case 'b':
+			if (src_addr)
+				goto usage;
 			src_addr = optarg;
 			break;
 		case 'C':
@@ -1087,7 +1149,8 @@ int main(int argc, char **argv)
 		default:
 usage:
 			printf("usage: %s\n", argv[0]);
-			printf("\t-b bind_address\n");
+			printf("\t-B bind_interface (only one of -B or -b accepted)\n");
+			printf("\t-b bind_address (only one of -B or -b accepted)\n");
 			printf("\t-C controller_address\n");
 			printf("\t[-c num_conns] connections per listener\n");
 			printf("\t[-L] run as listening server\n");
