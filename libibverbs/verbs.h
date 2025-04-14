@@ -363,6 +363,8 @@ struct ibv_device_attr_ex {
 	struct ibv_pci_atomic_caps pci_atomic_caps;
 	uint32_t xrc_odp_caps;
 	uint32_t phys_port_cnt_ex;
+	uint32_t max_job_ids;
+	uint32_t max_addr_entries;
 };
 
 enum ibv_mtu {
@@ -1999,6 +2001,40 @@ struct ibv_flow_action_esp_attr {
 	uint32_t		comp_mask; /* Use enum ibv_flow_action_esp_mask */
 	uint32_t		esn;
 };
+
+struct ibv_job {
+	struct ibv_context *context;
+	void *user_context;
+	uint32_t handle;
+};
+
+struct ibv_job_attr {
+	uint32_t comp_mask;
+	unsigned int flags;
+	uint64_t id;
+	uint32_t max_addr_entries;
+	enum ibv_qp_type qp_type;
+	struct ibv_ah_attr ah_attr;
+};
+
+struct ibv_job *
+ibv_alloc_job(struct ibv_context *context, struct ibv_job_attr *attr,
+	      void *user_context);
+int ibv_close_job(struct ibv_job *job);
+
+int ibv_insert_addr(struct ibv_job *job, uint32_t qpn,
+		    struct ibv_ah_attr ah_attr,
+		    unsigned int addr_idx, unsigned int flags);
+int ibv_remove_addr(struct ibv_job *job, unsigned int addr_idx,
+		    unsigned int flags);
+int ibv_query_addr(struct ibv_job *job, unsigned int addr_idx,
+		   uint32_t *qpn, struct ibv_ah_attr *ah_attr,
+		   unsigned int flags);
+
+int ibv_export_job(struct ibv_job *job, int *fd);
+int ibv_import_job(struct ibv_context *context, int fd, struct ibv_job **job);
+
+int ibv_query_job(struct ibv_job *job, struct ibv_job_attr *attr);
 
 struct ibv_device;
 struct ibv_context;
