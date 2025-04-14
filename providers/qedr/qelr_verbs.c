@@ -700,7 +700,7 @@ static inline int qelr_configure_qp(struct qelr_devctx *cxt, struct qelr_qp *qp,
 				    struct ibv_qp_init_attr_ex *attrx,
 				    struct qelr_create_qp_resp *resp)
 {
-	int rc;
+	int rc = 0;
 
 	/* general */
 	pthread_spin_init(&qp->q_lock, PTHREAD_PROCESS_PRIVATE);

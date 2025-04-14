@@ -51,3 +51,5 @@ stages:
               title: rdma-core-$(rel_ver)
               isDraft: true
               addChangeLog: true
+              changeLogCompareToRelease: lastNonDraftReleaseByTag
+              changeLogCompareToReleaseTag: v56.*

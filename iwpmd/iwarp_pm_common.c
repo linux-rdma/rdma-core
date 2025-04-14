@@ -211,7 +211,8 @@ int create_netlink_socket(void)
 	sockaddr_union bind_addr;
 	struct sockaddr_nl *bind_nl;
 	int nl_sock;
-	__u32 rbuf_size, opt_len;
+	__u32 rbuf_size;
+	socklen_t opt_len;
 
 	/* create a socket */
 	nl_sock = socket(AF_NETLINK, SOCK_RAW, NETLINK_RDMA);
@@ -252,8 +253,16 @@ int create_netlink_socket(void)
                		}
 		}
 	}
-	getsockopt(nl_sock, SOL_SOCKET, SO_RCVBUF, &rbuf_size, &opt_len);
-	iwpm_debug(IWARP_PM_NETLINK_DBG, "create_netlink_socket: Setting a sock option (rbuf_size = %u).\n", rbuf_size);
+
+	opt_len = sizeof(rbuf_size);
+	if (getsockopt(nl_sock, SOL_SOCKET, SO_RCVBUF, &rbuf_size, &opt_len)) {
+		iwpm_debug(IWARP_PM_NETLINK_DBG,
+			   "create_netlink_socket: Setting a sock option (rbuf_size = %u).\n",
+			   rbuf_size);
+	} else {
+		syslog(LOG_WARNING, "create_netlink_socket: Failed to get socket option. %s.\n",
+			strerror(errno));
+	}
 
 create_nl_socket_exit:
 	return nl_sock;

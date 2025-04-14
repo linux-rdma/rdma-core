@@ -598,7 +598,7 @@ static inline void bnxt_re_copy_data_to_pb(struct bnxt_re_push_buffer *pbuf,
 	int indx;
 
 	for (indx = 0; indx < idx; indx++) {
-		dst = (uintptr_t *)(pbuf->pbuf + 2 * (indx + offset));
+		dst = (uintptr_t *)(pbuf->pbuf) + 2 * indx + offset;
 		src = (uintptr_t *)(pbuf->wqe[indx]);
 		mmio_write64(dst, *src);
 

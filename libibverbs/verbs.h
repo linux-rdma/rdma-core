@@ -2215,7 +2215,7 @@ static inline struct verbs_context *verbs_get_ctx(struct ibv_context *ctx)
 		return NULL;
 
 	/* open code container_of to not pollute the global namespace */
-	return (struct verbs_context *)(((uint8_t *)ctx) -
+	return (struct verbs_context *)(((uintptr_t)ctx) -
 					offsetof(struct verbs_context,
 						 context));
 }

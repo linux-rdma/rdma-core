@@ -79,7 +79,7 @@ endif()
 set(PACKAGE_NAME "RDMA")
 
 # See Documentation/versioning.md
-set(PACKAGE_VERSION "56.0")
+set(PACKAGE_VERSION "56.1")
 # When this is changed the values in these files need changing too:
 #   debian/control
 #   debian/libibverbs1.symbols
@@ -188,6 +188,9 @@ include(RDMA_DoFixup)
 include(publish_headers)
 include(rdma_functions)
 include(pyverbs_functions)
+
+check_c_compiler_flag("-Wcast-align=strict" HAVE_WCAST_ALIGN_STRICT)
+
 if (NO_MAN_PAGES)
   # define empty stub functions to omit man page processing
   function(rdma_man_pages)

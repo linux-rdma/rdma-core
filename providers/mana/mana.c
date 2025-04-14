@@ -113,7 +113,7 @@ mana_alloc_parent_domain(struct ibv_context *context,
 		verbs_err(
 			verbs_get_ctx(context),
 			"This driver supports IBV_PARENT_DOMAIN_INIT_ATTR_PD_CONTEXT only\n");
-		errno = EINVAL;
+		errno = EOPNOTSUPP;
 		return NULL;
 	}
 

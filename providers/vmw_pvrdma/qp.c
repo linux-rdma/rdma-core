@@ -108,7 +108,7 @@ struct ibv_srq *pvrdma_create_srq(struct ibv_pd *pd,
 {
 	struct pvrdma_device *dev = to_vdev(pd->context->device);
 	struct user_pvrdma_create_srq cmd;
-	struct user_pvrdma_create_srq_resp resp;
+	struct user_pvrdma_create_srq_resp resp = {};
 	struct pvrdma_srq *srq;
 	int ret;
 

@@ -180,12 +180,15 @@ struct mana_qp *mana_get_qp_from_rq(struct mana_context *ctx, uint32_t qid)
 static uint32_t get_queue_size(struct ibv_qp_init_attr *attr, enum user_queue_types type)
 {
 	uint32_t size = 0;
+	uint32_t sges = 0;
 
 	if (attr->qp_type == IBV_QPT_RC) {
 		switch (type) {
 		case USER_RC_SEND_QUEUE_REQUESTER:
-			/* For write with imm we need +1 */
-			size = attr->cap.max_send_wr * get_large_wqe_size(attr->cap.max_send_sge + 1);
+			/* WQE must have at least one SGE */
+			/* For write with imm we need one extra SGE */
+			sges = max(1U, attr->cap.max_send_sge) + 1;
+			size = attr->cap.max_send_wr * get_large_wqe_size(sges);
 			break;
 		case USER_RC_SEND_QUEUE_RESPONDER:
 			size = MANA_PAGE_SIZE;
@@ -194,7 +197,9 @@ static uint32_t get_queue_size(struct ibv_qp_init_attr *attr, enum user_queue_ty
 			size = MANA_PAGE_SIZE;
 			break;
 		case USER_RC_RECV_QUEUE_RESPONDER:
-			size = attr->cap.max_recv_wr * get_wqe_size(attr->cap.max_recv_sge);
+			/* WQE must have at least one SGE */
+			sges = max(1U, attr->cap.max_recv_sge);
+			size = attr->cap.max_recv_wr * get_wqe_size(sges);
 			break;
 		default:
 			return 0;
@@ -327,7 +332,7 @@ struct ibv_qp *mana_create_qp(struct ibv_pd *ibpd,
 	default:
 		verbs_err(verbs_get_ctx(ibpd->context),
 			  "QP type %u is not supported\n", attr->qp_type);
-		errno = EINVAL;
+		errno = EOPNOTSUPP;
 	}
 
 	return NULL;
@@ -342,22 +347,24 @@ static void mana_ib_modify_rc_qp(struct mana_qp *qp, struct ibv_qp_attr *attr, i
 
 	switch (attr->qp_state) {
 	case IBV_QPS_RESET:
-	case IBV_QPS_INIT:
 		for (i = 0; i < USER_RC_QUEUE_TYPE_MAX; ++i) {
 			qp->rc_qp.queues[i].prod_idx = 0;
 			qp->rc_qp.queues[i].cons_idx = 0;
 		}
 		mana_ib_reset_rb_shmem(qp);
 		reset_shadow_queue(&qp->shadow_rq);
+		reset_shadow_queue(&qp->shadow_sq);
+	case IBV_QPS_INIT:
 		break;
 	case IBV_QPS_RTR:
 		break;
 	case IBV_QPS_RTS:
-		reset_shadow_queue(&qp->shadow_sq);
-		qp->rc_qp.sq_ssn = 1;
-		qp->rc_qp.sq_psn = attr->sq_psn;
-		qp->rc_qp.sq_highest_completed_psn = PSN_DEC(attr->sq_psn);
-		gdma_arm_normal_cqe(&qp->rc_qp.queues[USER_RC_RECV_QUEUE_REQUESTER], attr->sq_psn);
+		if (attr_mask & IBV_QP_SQ_PSN) {
+			qp->rc_qp.sq_ssn = 1;
+			qp->rc_qp.sq_psn = attr->sq_psn;
+			qp->rc_qp.sq_highest_completed_psn = PSN_DEC(attr->sq_psn);
+			gdma_arm_normal_cqe(&qp->rc_qp.queues[USER_RC_RECV_QUEUE_REQUESTER], attr->sq_psn);
+		}
 		break;
 	default:
 		break;
@@ -533,7 +540,7 @@ struct ibv_qp *mana_create_qp_ex(struct ibv_context *context,
 	default:
 		verbs_err(verbs_get_ctx(context),
 			  "QP type %u is not supported\n", attr->qp_type);
-		errno = EINVAL;
+		errno = EOPNOTSUPP;
 	}
 
 	return NULL;

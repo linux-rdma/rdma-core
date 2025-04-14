@@ -3,6 +3,10 @@ add_library(ibverbs_tools STATIC
   pingpong.c
   )
 
+if(HAVE_WCAST_ALIGN_STRICT)
+    target_compile_options(ibverbs_tools PRIVATE "-Wcast-align=strict")
+endif()
+
 rdma_executable(ibv_asyncwatch asyncwatch.c)
 target_link_libraries(ibv_asyncwatch LINK_PRIVATE ibverbs)
 

@@ -112,7 +112,7 @@ static int pvrdma_init_context_shared(struct pvrdma_context *context,
 				      int cmd_fd)
 {
 	struct ibv_get_context cmd;
-	struct user_pvrdma_alloc_ucontext_resp resp;
+	struct user_pvrdma_alloc_ucontext_resp resp = {};
 
 	context->ibv_ctx.context.cmd_fd = cmd_fd;
 	if (ibv_cmd_get_context(&context->ibv_ctx, &cmd, sizeof(cmd),

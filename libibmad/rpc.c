@@ -522,21 +522,21 @@ struct ibmad_ports_pair *mad_rpc_open_port2(char *dev_name, int dev_port,
 	smi = malloc(sizeof(*smi));
 	if (!smi) {
 		errno = ENOMEM;
-		return NULL;
+		goto smi_error;
 	}
 	memset(smi, 0, sizeof(*smi));
 
 	gsi = malloc(sizeof(*gsi));
 	if (!gsi) {
 		errno = ENOMEM;
-		return NULL;
+		goto gsi_error;
 	}
 	memset(gsi, 0, sizeof(*gsi));
 
 	ports_pair = malloc(sizeof(*ports_pair));
 	if (!ports_pair) {
 		errno = ENOMEM;
-		return NULL;
+		goto ports_pair_error;
 	}
 	memset(ports_pair, 0, sizeof(*ports_pair));
 	ports_pair->smi.port = smi;
@@ -546,10 +546,7 @@ struct ibmad_ports_pair *mad_rpc_open_port2(char *dev_name, int dev_port,
 		IBWARN("can't open UMAD port (%s:%d)", dev_name, dev_port);
 		if (!errno)
 			errno = EIO;
-		free(smi);
-		free(gsi);
-		free(ports_pair);
-		return NULL;
+		goto get_smi_error;
 	}
 
 	memset(ports_pair->smi.port->class_agents, 0xff, sizeof ports_pair->smi.port->class_agents);
@@ -565,16 +562,23 @@ struct ibmad_ports_pair *mad_rpc_open_port2(char *dev_name, int dev_port,
 			IBWARN("client_register for mgmt %d failed", mgmt);
 			if (!errno)
 				errno = EINVAL;
-			umad_close_port(ports_pair->smi.port->port_id);
-			umad_close_port(ports_pair->gsi.port->port_id);
-			free(ports_pair->smi.port);
-			free(ports_pair->gsi.port);
-			free(ports_pair);
-			return NULL;
+			goto mad_reg_error;
 		}
 	}
 
 	return ports_pair;
+
+ mad_reg_error:
+	umad_close_port(ports_pair->smi.port->port_id);
+	umad_close_port(ports_pair->gsi.port->port_id);
+ get_smi_error:
+	free(ports_pair);
+ ports_pair_error:
+	free(gsi);
+ gsi_error:
+	free(smi);
+ smi_error:
+	return NULL;
 }
 
 void mad_rpc_close_port2(struct ibmad_ports_pair *srcport)
