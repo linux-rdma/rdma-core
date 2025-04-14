@@ -1,3 +1,10 @@
+rdma-core (56.1-1) unstable; urgency=medium
+
+  * New upstream bug-fix release
+  * Drop patches applied upstream
+
+ -- Benjamin Drung <bdrung@ubuntu.com>  Mon, 14 Apr 2025 12:41:06 +0200
+
 rdma-core (56.0-4) unstable; urgency=medium
 
   * Cherry-pick upstream patch for providers/mana: improve synchronization
