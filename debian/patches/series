@@ -1,9 +1,4 @@
-providers-mana-Fix-return-value-on-unsupported-QP-type.patch
-providers-mana-fix-WRs-with-zero-sges.patch
-providers-mana-Fix-return-values-on-unsupported-parent-do.patch
-providers-mana-Fix-modify-RC-QPs-for-RTS-and-INIT-states.patch
 providers-mana-Implement-signal-all-for-RC-QPs.patch
 providers-mana-Process-Error-cqes.patch
 providers-mana-Add-dma-buf-support.patch
-libibumad-Fix-iteration-index-for-switches.patch
 providers-mana-improve-synchronization-on-the-shadow-queu.patch
