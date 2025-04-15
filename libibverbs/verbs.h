@@ -365,6 +365,7 @@ struct ibv_device_attr_ex {
 	uint32_t phys_port_cnt_ex;
 	uint32_t max_job_ids;
 	uint32_t max_addr_entries;
+	uint32_t max_jkeys_per_pd;
 };
 
 enum ibv_mtu {
@@ -2035,6 +2036,17 @@ int ibv_export_job(struct ibv_job *job, int *fd);
 int ibv_import_job(struct ibv_context *context, int fd, struct ibv_job **job);
 
 int ibv_query_job(struct ibv_job *job, struct ibv_job_attr *attr);
+
+struct ibv_job_key {
+	struct ibv_pd *pd;
+	uint32_t handle;
+	uint32_t jkey;
+};
+
+struct ibv_job_key *
+ibv_create_jkey(struct ibv_pd *pd, struct ibv_job *job, unsigned int flags);
+int ibv_destroy_jkey(struct ibv_job_key *job_key);
+
 
 struct ibv_device;
 struct ibv_context;
