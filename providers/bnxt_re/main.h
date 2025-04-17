@@ -45,6 +45,8 @@
 #include <endian.h>
 #include <pthread.h>
 #include <sys/param.h>
+#include <stdio.h>
+#include <stdarg.h>
 
 #include <util/mmio.h>
 #include <util/util.h>
@@ -270,6 +272,7 @@ struct bnxt_re_context {
 	uint32_t wc_handle;
 	void *dbr_page;
 	void *bar_map;
+	FILE	*dbg_fp;
 };
 
 struct bnxt_re_pacing_data {
@@ -320,6 +323,45 @@ int bnxt_re_notify_drv(struct ibv_context *ibvctx);
 int bnxt_re_get_toggle_mem(struct ibv_context *ibvctx,
 			   struct bnxt_re_mmap_info *minfo,
 			   uint32_t *page_handle);
+
+extern uint32_t bnxt_debug_mask;
+enum {
+	BNXT_DUMP_DV			= 1 << 0,
+};
+
+#define LEN_50		50
+#define bnxt_trace_dv(cntx, fmt, ...)		\
+{							\
+	if (bnxt_debug_mask & BNXT_DUMP_DV)		\
+		bnxt_err(cntx, fmt, ##__VA_ARGS__);	\
+}
+
+static inline void bnxt_err(struct bnxt_re_context *cntx, const char *fmt, ...)
+	__attribute__((format(printf, 2, 3)));
+
+static inline void bnxt_err(struct bnxt_re_context *cntx, const char *fmt, ...)
+{
+	FILE *fp = cntx ? cntx->dbg_fp : stderr;
+	char prefix[LEN_50] = {};
+	char timestamp[LEN_50];
+	struct tm *timeinfo;
+	time_t rawtime;
+	va_list args;
+
+	time(&rawtime);
+	timeinfo = localtime(&rawtime);
+
+	strftime(timestamp, LEN_50, "%b %d %X", timeinfo);
+	sprintf(prefix, " %s: ", "libbnxt_re");
+
+	if (!fp)
+		return;
+	va_start(args, fmt);
+	fprintf(fp, "%s", timestamp);
+	fprintf(fp, "%s", prefix);
+	vfprintf(fp, fmt, args);
+	va_end(args);
+}
 
 /* pointer conversion functions*/
 static inline struct bnxt_re_dev *to_bnxt_re_dev(struct ibv_device *ibvdev)
