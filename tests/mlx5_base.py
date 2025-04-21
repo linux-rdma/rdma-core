@@ -1047,6 +1047,35 @@ class Mlx5RcResources(RCResources):
             raise ex
 
 
+def create_privileged_context(agr_obj):
+    """
+    Creates a mlx5 privileged context.
+    :param agr_obj: Aggregation object which contains all resources necessary.
+    """
+    fds_paths = ['/dev/infiniband/mlx5_perm_ctrl_local',
+                     '/dev/infiniband/mlx5_perm_ctrl_other_vhca']
+    open_fds = []
+    try:
+        for file_path in fds_paths:
+            fd = open(file_path, 'rb')
+            open_fds.append(fd)
+        agr_obj.fds = FdArr(arr=[fd.fileno() for fd in open_fds], count=len(open_fds))
+        attr = Mlx5DVContextAttr(flags=dve.MLX5DV_CONTEXT_FLAGS_DEVX,
+                                    comp_mask=dve.MLX5DV_CONTEXT_ATTR_MASK_FD_ARRAY,
+                                    fds=agr_obj.fds)
+        agr_obj.ctx = Mlx5Context(attr, agr_obj.dev_name)
+        for fd in open_fds: fd.close()
+    except FileNotFoundError:
+        for fd in open_fds: fd.close()
+        raise unittest.SkipTest(f'FDs file not found')
+    except PyverbsUserError as ex:
+        for fd in open_fds: fd.close()
+        raise unittest.SkipTest(f'Could not open mlx5 context ({ex})')
+    except PyverbsRDMAError as ex:
+        for fd in open_fds: fd.close()
+        raise unittest.SkipTest(f'Opening mlx5 DevX context is not supported ({ex})')
+
+
 class Mlx5PrivilegedRC(Mlx5RcResources):
     def __init__(self, dev_name, ib_port, gid_index, msg_size=1024, **kwargs):
         """
@@ -1061,29 +1090,7 @@ class Mlx5PrivilegedRC(Mlx5RcResources):
         super().__init__(dev_name, ib_port, gid_index, msg_size=msg_size, **kwargs)
 
     def create_context(self):
-        fds_paths = ['/dev/infiniband/mlx5_perm_ctrl_local',
-                     '/dev/infiniband/mlx5_perm_ctrl_other_vhca']
-        fd_array = []
-        try:
-            for file_path in fds_paths:
-                fd = open(file_path, 'rb')
-                self.open_fds.append(fd)
-                fd_array.append(fd.fileno())
-            self.fds = FdArr(arr=fd_array, count=len(fd_array))
-            attr = Mlx5DVContextAttr(flags=dve.MLX5DV_CONTEXT_FLAGS_DEVX,
-                                     comp_mask=dve.MLX5DV_CONTEXT_ATTR_MASK_FD_ARRAY,
-                                     fds=self.fds)
-            self.ctx = Mlx5Context(attr, self.dev_name)
-            self.close_fds()
-        except FileNotFoundError:
-            self.close_fds()
-            raise unittest.SkipTest(f'FDs file not found')
-        except PyverbsUserError as ex:
-            self.close_fds()
-            raise unittest.SkipTest(f'Could not open mlx5 context ({ex})')
-        except PyverbsRDMAError as ex:
-            self.close_fds()
-            raise unittest.SkipTest(f'Opening mlx5 DevX context is not supported ({ex})')
+        return create_privileged_context(self)
 
     def close_fds(self):
         for open_fd in self.open_fds:

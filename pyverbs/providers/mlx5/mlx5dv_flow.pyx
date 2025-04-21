@@ -6,7 +6,7 @@ from libc.string cimport memcpy
 
 from pyverbs.pyverbs_error import PyverbsRDMAError, PyverbsError, \
     PyverbsUserError
-from pyverbs.device cimport Context
+from pyverbs.providers.mlx5.mlx5dv cimport Mlx5DevxObj
 from pyverbs.base import PyverbsRDMAErrno
 from pyverbs.base cimport close_weakrefs
 from pyverbs.device cimport Context
@@ -53,7 +53,7 @@ cdef class Mlx5FlowMatchParameters(PyverbsObject):
 cdef class Mlx5FlowMatcherAttr(PyverbsObject):
     def __init__(self, Mlx5FlowMatchParameters match_mask,
                  attr_type=v.IBV_FLOW_ATTR_NORMAL, flags=0, priority=0,
-                 match_criteria_enable=0, comp_mask=0, ft_type=0):
+                 match_criteria_enable=0, comp_mask=0, ft_type=0, ib_port=0):
         """
         Initialize a Mlx5FlowMatcherAttr object over an underlying
         mlx5dv_flow_matcher_attr C object that defines matcher's attributes.
@@ -73,8 +73,8 @@ cdef class Mlx5FlowMatcherAttr(PyverbsObject):
                                        Bit 3: misc_parameters_2
                                        Bit 4: misc_parameters_3
                                        Bit 5: misc_parameters_4
-        :param comp_mask: MLX5DV_FLOW_MATCHER_MASK_FT_TYPE for ft_type (the
-                           only option that is currently supported)
+        :param comp_mask: MLX5DV_FLOW_MATCHER_MASK_FT_TYPE for ft_type,
+                          MLX5DV_FLOW_MATCHER_MASK_IB_PORT for ib_port.
         :param ft_type: Specified in which flow table type, the matcher will
                          store the flow rules: MLX5DV_FLOW_TABLE_TYPE_NIC_RX:
                          Specified this matcher will store ingress flow rules.
@@ -87,6 +87,7 @@ cdef class Mlx5FlowMatcherAttr(PyverbsObject):
                                                           rules.
                          MLX5DV_FLOW_TABLE_TYPE_RDMA_TX - matcher will store
                                                           egress RDMA flow rules.
+        :param ib_port: Specifies to which vport to attach the matcher.
         """
         super().__init__()
         self.attr.type = attr_type
@@ -96,6 +97,7 @@ cdef class Mlx5FlowMatcherAttr(PyverbsObject):
         self.attr.match_mask = match_mask.params
         self.attr.comp_mask = comp_mask
         self.attr.ft_type = ft_type
+        self.attr.ib_port = ib_port
 
 
 cdef class Mlx5FlowMatcher(PyverbsObject):
@@ -166,7 +168,7 @@ cdef class Mlx5PacketReformatFlowAction(FlowAction):
 
 cdef class Mlx5FlowActionAttr(PyverbsObject):
     def __init__(self, action_type=None, QP qp=None,
-                 FlowAction flow_action=None):
+                 FlowAction flow_action=None, Mlx5DevxObj obj=None):
         """
         Initialize a Mlx5FlowActionAttr object over an underlying
         mlx5dv_flow_action_attr C object that defines actions attributes for
@@ -174,6 +176,7 @@ cdef class Mlx5FlowActionAttr(PyverbsObject):
         :param action_type: Type of the action
         :param qp: A QP target for go to QP action
         :param flow_action: An action to perform for the flow
+        :param obj: DEVX object
         """
         super().__init__()
         if action_type:
@@ -184,6 +187,8 @@ cdef class Mlx5FlowActionAttr(PyverbsObject):
         elif action_type == dv.MLX5DV_FLOW_ACTION_IBV_FLOW_ACTION:
             self.attr.action = flow_action.action
             self.action = flow_action
+        elif action_type == dv.MLX5DV_FLOW_ACTION_DEST_DEVX:
+            self.attr.obj = obj.obj
         elif action_type:
             raise PyverbsUserError(f'Unsupported action type: {action_type}.')
 
@@ -250,7 +255,8 @@ cdef class Mlx5Flow(Flow):
             if (<Mlx5FlowActionAttr>attr).attr.type == dv.MLX5DV_FLOW_ACTION_DEST_IBV_QP:
                 (<QP>(attr.qp)).add_ref(self)
                 self.qp = (<Mlx5FlowActionAttr>attr).qp
-            elif (<Mlx5FlowActionAttr>attr).attr.type not in [dv.MLX5DV_FLOW_ACTION_IBV_FLOW_ACTION]:
+            elif (<Mlx5FlowActionAttr>attr).attr.type not in \
+                [dv.MLX5DV_FLOW_ACTION_IBV_FLOW_ACTION, dv.MLX5DV_FLOW_ACTION_DEST_DEVX]:
                raise PyverbsUserError(f'Unsupported action type: '
                                       f'{<Mlx5FlowActionAttr>attr).attr.type}.')
             memcpy(tmp_addr, &(<Mlx5FlowActionAttr>attr).attr,

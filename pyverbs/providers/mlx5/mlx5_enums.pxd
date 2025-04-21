@@ -295,6 +295,10 @@ cdef extern from 'infiniband/mlx5dv.h':
     cpdef enum:
         MLX5DV_UMEM_MASK_DMABUF
 
+    cpdef enum mlx5dv_flow_matcher_attr_mask:
+        MLX5DV_FLOW_MATCHER_MASK_FT_TYPE
+        MLX5DV_FLOW_MATCHER_MASK_IB_PORT
+
     cdef unsigned long long MLX5DV_RES_TYPE_QP
     cdef unsigned long long MLX5DV_RES_TYPE_RWQ
     cdef unsigned long long MLX5DV_RES_TYPE_DBR
@@ -320,6 +324,8 @@ cdef extern from 'infiniband/mlx5_api.h':
     cdef int MLX5DV_FLOW_TABLE_TYPE_NIC_RX
     cdef int MLX5DV_FLOW_TABLE_TYPE_NIC_TX
     cdef int MLX5DV_FLOW_TABLE_TYPE_FDB
+    cdef int MLX5DV_FLOW_TABLE_TYPE_RDMA_TRANSPORT_RX
+    cdef int MLX5DV_FLOW_TABLE_TYPE_RDMA_TRANSPORT_TX
 
     cdef int MLX5DV_FLOW_ACTION_PACKET_REFORMAT_TYPE_L2_TUNNEL_TO_L2
     cdef int MLX5DV_FLOW_ACTION_PACKET_REFORMAT_TYPE_L2_TO_L2_TUNNEL

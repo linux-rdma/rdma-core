@@ -149,6 +149,7 @@ cdef extern from 'infiniband/mlx5dv.h':
         mlx5dv_flow_match_parameters *match_mask;
         uint64_t                     comp_mask;
         mlx5_ib_uapi_flow_table_type ft_type;
+        uint32_t                     ib_port;
 
     cdef struct mlx5dv_flow_matcher
 
