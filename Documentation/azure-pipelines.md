@@ -90,11 +90,11 @@ the secret data.
 
 However, since fetching the containers requires a security token it means PR
 cannot get the container, and are basically entirely useless. The only option
-Azure Pipeliens has is to inject *all* security tokens, including the GitHub
+Azure Pipelines has is to inject *all* security tokens, including the GitHub
 token, which is madness.
 
 The compromise is that when a non-team member user proposes a Pull Request a
-team member must reivew it and add "/azp run" to the comments to ack that the
+team member must review it and add "/azp run" to the comments to ack that the
 PR content is not hostile.
 
 See
