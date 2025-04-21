@@ -158,7 +158,7 @@ static inline void mmio_write8(void *addr, uint8_t value)
 }
 static inline uint8_t mmio_read8(const void *addr)
 {
-	return atomic_load_explicit((_Atomic(uint32_t) *)addr,
+	return atomic_load_explicit((_Atomic(uint8_t) *)addr,
 				    memory_order_relaxed);
 }
 #endif /* __s390x__ */
