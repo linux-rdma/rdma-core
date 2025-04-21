@@ -24,6 +24,9 @@ with tempfile.TemporaryDirectory() as dfn:
         sys.exit(0)
 
     ckp = os.path.join(dfn, "checkpatch.pl")
+    opener = urllib.request.build_opener()
+    opener.addheaders = [('User-agent', 'rdma-core/1.x (linux-rdma@vger.kernel.org)')]
+    urllib.request.install_opener(opener)
     urllib.request.urlretrieve(
         "https://git.kernel.org/pub/scm/linux/kernel/git/torvalds/linux.git/plain/scripts/checkpatch.pl",
         ckp)
