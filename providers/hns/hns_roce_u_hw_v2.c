@@ -38,6 +38,7 @@
 #include "hns_roce_u.h"
 #include "hns_roce_u_db.h"
 #include "hns_roce_u_hw_v2.h"
+#include "hns_roce_u_trace.h"
 
 #define HR_IBV_OPC_MAP(ib_key, hr_key) \
 		[IBV_WR_ ## ib_key] = HNS_ROCE_WQE_OP_ ## hr_key
@@ -680,6 +681,80 @@ static int parse_cqe_for_cq(struct hns_roce_context *ctx, struct hns_roce_cq *cq
 	return 0;
 }
 
+#ifdef LTTNG_ENABLED
+static uint8_t read_wc_sl(struct hns_roce_qp *hr_qp,
+				   struct hns_roce_v2_cqe *cqe,
+				   struct ibv_wc *wc)
+{
+	return hr_qp->verbs_qp.qp.qp_type == IBV_QPT_UD &&
+		hr_reg_read(cqe, CQE_S_R) == CQE_FOR_RQ ?
+		wc->sl : UINT8_MAX;
+}
+
+static uint32_t read_wc_rqpn(struct hns_roce_qp *hr_qp,
+				      struct hns_roce_v2_cqe *cqe,
+				      struct ibv_wc *wc)
+{
+	return hr_qp->verbs_qp.qp.qp_type == IBV_QPT_UD &&
+		hr_reg_read(cqe, CQE_S_R) == CQE_FOR_RQ ?
+		wc->src_qp : UINT32_MAX;
+}
+
+static uint32_t read_wc_byte_len(struct hns_roce_v2_cqe *cqe,
+					  struct ibv_wc *wc)
+{
+	if (hr_reg_read(cqe, CQE_S_R) == CQE_FOR_RQ)
+		return wc->byte_len;
+
+	switch (hr_reg_read(cqe, CQE_OPCODE)) {
+	case HNS_ROCE_SQ_OP_RDMA_READ:
+	case HNS_ROCE_SQ_OP_ATOMIC_COMP_AND_SWAP:
+	case HNS_ROCE_SQ_OP_ATOMIC_FETCH_AND_ADD:
+	case HNS_ROCE_SQ_OP_ATOMIC_MASK_COMP_AND_SWAP:
+	case HNS_ROCE_SQ_OP_ATOMIC_MASK_FETCH_AND_ADD:
+		return wc->byte_len;
+	default:
+		return UINT32_MAX;
+	}
+}
+
+static uint8_t trace_wc_read_sl(struct ibv_cq_ex *cq_ex)
+{
+	return cq_ex->read_sl ? cq_ex->read_sl(cq_ex) : UINT8_MAX;
+}
+
+static uint32_t trace_wc_read_qp_num(struct ibv_cq_ex *cq_ex)
+{
+	return cq_ex->read_qp_num ?
+	cq_ex->read_qp_num(cq_ex) : UINT32_MAX;
+}
+
+static uint32_t trace_wc_read_src_qp(struct ibv_cq_ex *cq_ex)
+{
+	return cq_ex->read_src_qp ?
+	cq_ex->read_src_qp(cq_ex) : UINT32_MAX;
+}
+
+static uint32_t trace_wc_read_byte_len(struct ibv_cq_ex *cq_ex)
+{
+	return cq_ex->read_byte_len ?
+	cq_ex->read_byte_len(cq_ex) : UINT32_MAX;
+}
+
+static uint32_t get_send_wr_rqpn(struct ibv_send_wr *wr,
+				 uint8_t qp_type)
+{
+	return qp_type == IBV_QPT_UD ? wr->wr.ud.remote_qpn : UINT32_MAX;
+}
+
+static uint8_t get_send_wr_tclass(struct ibv_send_wr *wr,
+				  uint8_t qp_type)
+{
+	return qp_type == IBV_QPT_UD ?
+		to_hr_ah(wr->wr.ud.ah)->av.tclass : UINT8_MAX;
+}
+#endif
+
 static int hns_roce_poll_one(struct hns_roce_context *ctx,
 			     struct hns_roce_qp **cur_qp, struct hns_roce_cq *cq,
 			     struct ibv_wc *wc)
@@ -716,8 +791,27 @@ static int hns_roce_poll_one(struct hns_roce_context *ctx,
 		wc->status = wc_status;
 		wc->vendor_err = hr_reg_read(cqe, CQE_SUB_STATUS);
 		wc->qp_num = qpn;
+
+		rdma_tracepoint(rdma_core_hns, poll_cq,
+				cq->verbs_cq.cq.context->device->name,
+				wc->wr_id, wc_status, wc->opcode,
+				wc->wc_flags, wc->vendor_err,
+				read_wc_sl(*cur_qp, cqe, wc),
+				wc->qp_num, read_wc_rqpn(*cur_qp, cqe, wc),
+				read_wc_byte_len(cqe, wc));
 	} else {
 		cq->verbs_cq.cq_ex.status = wc_status;
+
+		rdma_tracepoint(rdma_core_hns, poll_cq,
+				cq->verbs_cq.cq.context->device->name,
+				cq->verbs_cq.cq_ex.wr_id, wc_status,
+				ibv_wc_read_opcode(&cq->verbs_cq.cq_ex),
+				ibv_wc_read_wc_flags(&cq->verbs_cq.cq_ex),
+				ibv_wc_read_vendor_err(&cq->verbs_cq.cq_ex),
+				trace_wc_read_sl(&cq->verbs_cq.cq_ex),
+				trace_wc_read_qp_num(&cq->verbs_cq.cq_ex),
+				trace_wc_read_src_qp(&cq->verbs_cq.cq_ex),
+				trace_wc_read_byte_len(&cq->verbs_cq.cq_ex));
 	}
 
 	if (status == HNS_ROCE_V2_CQE_SUCCESS ||
@@ -1328,6 +1422,14 @@ int hns_roce_u_v2_post_send(struct ibv_qp *ibvqp, struct ibv_send_wr *wr,
 			*bad_wr = wr;
 			goto out;
 		}
+
+		rdma_tracepoint(rdma_core_hns, post_send,
+				ibvqp->context->device->name, wr->wr_id,
+				sge_info.valid_num, ibvqp->qp_num,
+				get_send_wr_rqpn(wr, ibvqp->qp_type),
+				wr->send_flags, sge_info.total_len,
+				wr->opcode, qp->sl,
+				get_send_wr_tclass(wr, ibvqp->qp_type));
 	}
 
 out:
@@ -1457,6 +1559,10 @@ static int hns_roce_u_v2_post_recv(struct ibv_qp *ibvqp, struct ibv_recv_wr *wr,
 		wqe_idx = (qp->rq.head + nreq) & (qp->rq.wqe_cnt - 1);
 		fill_rq_wqe(qp, wr, wqe_idx, max_sge);
 		qp->rq.wrid[wqe_idx] = wr->wr_id;
+
+		rdma_tracepoint(rdma_core_hns, post_recv,
+				ibvqp->context->device->name, wr->wr_id,
+				wr->num_sge, ibvqp->qp_num, 0);
 	}
 
 out:
@@ -1794,6 +1900,10 @@ static int hns_roce_u_v2_post_srq_recv(struct ibv_srq *ib_srq,
 		fill_wqe_idx(srq, wqe_idx);
 
 		srq->wrid[wqe_idx] = wr->wr_id;
+
+		rdma_tracepoint(rdma_core_hns, post_recv,
+				ib_srq->context->device->name, wr->wr_id,
+				wr->num_sge, srq->srqn, 1);
 	}
 
 	if (nreq) {
@@ -2062,6 +2172,12 @@ static void wr_set_sge_rc(struct ibv_qp_ex *ibv_qp, uint32_t lkey,
 	wqe->msg_len = htole32(length);
 	hr_reg_write(wqe, RCWQE_LEN0, length);
 	hr_reg_write(wqe, RCWQE_SGE_NUM, !!length);
+
+	rdma_tracepoint(rdma_core_hns, post_send,
+			ibv_qp->qp_base.context->device->name, ibv_qp->wr_id,
+			!!length, ibv_qp->qp_base.qp_num, UINT32_MAX,
+			ibv_qp->wr_flags, length,
+			hr_reg_read(wqe, RCWQE_OPCODE), qp->sl, UINT8_MAX);
 }
 
 static void set_sgl_rc(struct hns_roce_v2_wqe_data_seg *dseg,
@@ -2126,6 +2242,12 @@ static void wr_set_sge_list_rc(struct ibv_qp_ex *ibv_qp, size_t num_sge,
 
 	wqe->msg_len = htole32(qp->sge_info.total_len);
 	hr_reg_write(wqe, RCWQE_SGE_NUM, qp->sge_info.valid_num);
+
+	rdma_tracepoint(rdma_core_hns, post_send,
+			ibv_qp->qp_base.context->device->name, ibv_qp->wr_id,
+			qp->sge_info.valid_num, ibv_qp->qp_base.qp_num,
+			UINT32_MAX, ibv_qp->wr_flags, qp->sge_info.total_len,
+			opcode, qp->sl, UINT8_MAX);
 }
 
 static void wr_send_rc(struct ibv_qp_ex *ibv_qp)
@@ -2300,6 +2422,14 @@ static void set_inline_data_list_rc(struct hns_roce_qp *qp,
 
 		hr_reg_write(wqe, RCWQE_SGE_NUM, qp->sge_info.valid_num);
 	}
+
+	rdma_tracepoint(rdma_core_hns, post_send,
+			qp->verbs_qp.qp.context->device->name,
+			qp->verbs_qp.qp_ex.wr_id,
+			hr_reg_read(wqe, RCWQE_SGE_NUM),
+			qp->verbs_qp.qp.qp_num, UINT32_MAX,
+			qp->verbs_qp.qp_ex.wr_flags, msg_len,
+			hr_reg_read(wqe, RCWQE_OPCODE), qp->sl, UINT8_MAX);
 }
 
 static void wr_set_inline_data_rc(struct ibv_qp_ex *ibv_qp, void *addr,
@@ -2432,6 +2562,13 @@ static void wr_set_sge_ud(struct ibv_qp_ex *ibv_qp, uint32_t lkey,
 	dseg->len = htole32(length);
 
 	qp->sge_info.start_idx++;
+
+	rdma_tracepoint(rdma_core_hns, post_send,
+			ibv_qp->qp_base.context->device->name, ibv_qp->wr_id,
+			1, ibv_qp->qp_base.qp_num,
+			hr_reg_read(wqe, UDWQE_DQPN), ibv_qp->wr_flags,
+			length, hr_reg_read(wqe, UDWQE_OPCODE),
+			qp->sl, hr_reg_read(wqe, UDWQE_TCLASS));
 }
 
 static void wr_set_sge_list_ud(struct ibv_qp_ex *ibv_qp, size_t num_sge,
@@ -2470,6 +2607,13 @@ static void wr_set_sge_list_ud(struct ibv_qp_ex *ibv_qp, size_t num_sge,
 	hr_reg_write(wqe, UDWQE_SGE_NUM, cnt);
 
 	qp->sge_info.start_idx += cnt;
+
+	rdma_tracepoint(rdma_core_hns, post_send,
+			ibv_qp->qp_base.context->device->name, ibv_qp->wr_id,
+			cnt, ibv_qp->qp_base.qp_num,
+			hr_reg_read(wqe, UDWQE_DQPN), ibv_qp->wr_flags,
+			msg_len, hr_reg_read(wqe, UDWQE_OPCODE),
+			qp->sl, hr_reg_read(wqe, UDWQE_TCLASS));
 }
 
 static void set_inline_data_list_ud(struct hns_roce_qp *qp,
@@ -2518,6 +2662,15 @@ static void set_inline_data_list_ud(struct hns_roce_qp *qp,
 
 		hr_reg_write(wqe, UDWQE_SGE_NUM, qp->sge_info.valid_num);
 	}
+
+	rdma_tracepoint(rdma_core_hns, post_send,
+			qp->verbs_qp.qp.context->device->name,
+			qp->verbs_qp.qp_ex.wr_id,
+			hr_reg_read(wqe, UDWQE_SGE_NUM),
+			qp->verbs_qp.qp.qp_num, hr_reg_read(wqe, UDWQE_DQPN),
+			qp->verbs_qp.qp_ex.wr_flags, msg_len,
+			hr_reg_read(wqe, UDWQE_OPCODE), qp->sl,
+			hr_reg_read(wqe, UDWQE_TCLASS));
 }
 
 static void wr_set_inline_data_ud(struct ibv_qp_ex *ibv_qp, void *addr,
