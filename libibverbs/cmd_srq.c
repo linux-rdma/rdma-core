@@ -63,6 +63,7 @@ static int ibv_icmd_create_srq(struct ibv_pd *pd, struct verbs_srq *vsrq,
 	struct verbs_xrcd *vxrcd = NULL;
 	enum ibv_srq_type srq_type;
 
+	srq->pd = pd;
 	srq->context = pd->context;
 	pthread_mutex_init(&srq->mutex, NULL);
 	pthread_cond_init(&srq->cond, NULL);
