@@ -849,16 +849,20 @@ static struct ibv_srq *create_srq(struct ibv_context *context,
 	if (pad)
 		atomic_fetch_add(&pad->pd.refcount, 1);
 
-	if (hns_roce_srq_spinlock_init(srq, init_attr))
+	ret = hns_roce_srq_spinlock_init(srq, init_attr);
+	if (ret)
 		goto err_free_srq;
 
 	set_srq_param(context, srq, init_attr);
-	if (alloc_srq_buf(srq))
+	ret = alloc_srq_buf(srq);
+	if (ret)
 		goto err_destroy_lock;
 
 	srq->rdb = hns_roce_alloc_db(hr_ctx, HNS_ROCE_SRQ_TYPE_DB);
-	if (!srq->rdb)
+	if (!srq->rdb) {
+		ret = ENOMEM;
 		goto err_srq_buf;
+	}
 
 	ret = exec_srq_create_cmd(context, srq, init_attr);
 	if (ret)
