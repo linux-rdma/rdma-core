@@ -213,14 +213,18 @@ struct ibv_pd *hns_roce_u_alloc_pad(struct ibv_context *context,
 	return &pad->pd.ibv_pd;
 }
 
-static void hns_roce_free_pad(struct hns_roce_pad *pad)
+static int hns_roce_free_pad(struct hns_roce_pad *pad)
 {
+	if (atomic_load(&pad->pd.refcount) > 1)
+		return EBUSY;
+
 	atomic_fetch_sub(&pad->pd.protection_domain->refcount, 1);
 
 	if (pad->td)
 		atomic_fetch_sub(&pad->td->refcount, 1);
 
 	free(pad);
+	return 0;
 }
 
 static int hns_roce_free_pd(struct hns_roce_pd *pd)
@@ -243,10 +247,8 @@ int hns_roce_u_dealloc_pd(struct ibv_pd *ibv_pd)
 	struct hns_roce_pad *pad = to_hr_pad(ibv_pd);
 	struct hns_roce_pd *pd = to_hr_pd(ibv_pd);
 
-	if (pad) {
-		hns_roce_free_pad(pad);
-		return 0;
-	}
+	if (pad)
+		return hns_roce_free_pad(pad);
 
 	return hns_roce_free_pd(pd);
 }
