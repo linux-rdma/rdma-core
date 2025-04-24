@@ -177,6 +177,7 @@ err:
 struct ibv_pd *hns_roce_u_alloc_pad(struct ibv_context *context,
 				    struct ibv_parent_domain_init_attr *attr)
 {
+	struct hns_roce_pd *protection_domain;
 	struct hns_roce_pad *pad;
 
 	if (ibv_check_alloc_parent_domain(attr))
@@ -193,12 +194,16 @@ struct ibv_pd *hns_roce_u_alloc_pad(struct ibv_context *context,
 		return NULL;
 	}
 
+	protection_domain = to_hr_pd(attr->pd);
 	if (attr->td) {
 		pad->td = to_hr_td(attr->td);
 		atomic_fetch_add(&pad->td->refcount, 1);
+		verbs_debug(verbs_get_ctx(context),
+			    "set PAD(0x%x) to lock-free mode.\n",
+			    protection_domain->pdn);
 	}
 
-	pad->pd.protection_domain = to_hr_pd(attr->pd);
+	pad->pd.protection_domain = protection_domain;
 	atomic_fetch_add(&pad->pd.protection_domain->refcount, 1);
 
 	atomic_init(&pad->pd.refcount, 1);
