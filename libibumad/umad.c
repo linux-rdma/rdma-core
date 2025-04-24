@@ -1502,7 +1502,7 @@ int umad_get_smi_gsi_pairs(struct umad_ca_pair cas[], size_t max)
 			umad_port_t *p_port = curr_ca.ports[p_idx];
 			uint8_t guid_count = 0;
 
-			if (!p_port)
+			if (!p_port || !p_port->port_guid)
 				continue;
 
 			guid_count = get_port_guid_count(curr_ca.ports[p_idx]->port_guid,
