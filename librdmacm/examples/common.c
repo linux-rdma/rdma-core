@@ -211,25 +211,20 @@ void oob_close_root(struct oob_root *root)
 	free(root->sock);
 }
 
-int oob_root_setup(const char *src_addr, const char *port,
-		   struct oob_root *root, int cnt)
+int oob_try_bind(const char *src_addr, const char *port)
 {
 	struct addrinfo hint = {}, *ai;
 	int listen_sock;
 	int optval = 1;
-	int i, ret;
-
-	ret = oob_init_root(root, cnt);
-	if (ret)
-		return ret;
+	int ret;
 
 	hint.ai_flags = AI_PASSIVE;
 	hint.ai_family = AF_INET;
 	hint.ai_socktype = SOCK_STREAM;
 	ret = getaddrinfo(src_addr, port, &hint, &ai);
 	if (ret) {
-		printf("getaddrinfo error: %s\n", gai_strerror(ret));
-		goto oob_close;
+		fprintf(stderr, "getaddrinfo error: %s\n", gai_strerror(ret));
+		return ret;
 	}
 
 	listen_sock = socket(ai->ai_family, ai->ai_socktype, 0);
@@ -241,9 +236,28 @@ int oob_root_setup(const char *src_addr, const char *port,
 	setsockopt(listen_sock, SOL_SOCKET, SO_REUSEADDR, &optval, sizeof(optval));
 	ret = bind(listen_sock, ai->ai_addr, ai->ai_addrlen);
 	if (ret) {
-		ret = -errno;
-		goto close;
+		ret = errno == EADDRNOTAVAIL || errno == EADDRINUSE ? 0 : -errno;
+		if (ret)
+			fprintf(stderr, "unexpected bind error: %s (%d)\n",
+				strerror(errno), errno);
+		close(listen_sock);
+		goto free;
 	}
+
+	ret = listen_sock;
+free:
+	freeaddrinfo(ai);
+	return ret;
+}
+
+int oob_root_setup(int listen_sock, struct oob_root *root, int cnt)
+{
+	int optval = 1;
+	int i, ret;
+
+	ret = oob_init_root(root, cnt);
+	if (ret)
+		goto close;
 
 	ret = listen(listen_sock, 1);
 	if (ret) {
@@ -263,9 +277,6 @@ int oob_root_setup(const char *src_addr, const char *port,
 
 close:
 	close(listen_sock);
-free:
-	freeaddrinfo(ai);
-oob_close:
 	if (ret)
 		oob_close_root(root);
 	return ret;

@@ -741,10 +741,21 @@ static void server_listen(struct rdma_cm_id **listen_id)
 
 static int setup_oob(void)
 {
+	int listen_sock;
 
-	return is_root ?
-	       oob_root_setup(ctrl_addr, oob_port, &oob_root, num_peers - 1) :
-	       oob_leaf_setup(ctrl_addr, oob_port, &oob_up);
+	listen_sock = oob_try_bind(ctrl_addr, oob_port);
+	if (listen_sock < 0) {
+		perror("oob_try_bind");
+		exit(EXIT_FAILURE);
+	}
+
+	if (listen_sock > 0) {
+		is_root = true;
+		printf("Running as OOB root\n");
+		return oob_root_setup(listen_sock, &oob_root, num_peers - 1);
+	}
+
+	return oob_leaf_setup(ctrl_addr, oob_port, &oob_up);
 }
 
 static void cleanup_oob(void)
@@ -1094,7 +1105,7 @@ int main(int argc, char **argv)
 	bool socktest = false;
 	int op, ret;
 
-	while ((op = getopt(argc, argv, "B:b:C:c:Lm:n:P:p:q:Rr:Ss:t:")) != -1) {
+	while ((op = getopt(argc, argv, "B:b:C:c:Lm:n:P:p:q:r:Ss:t:")) != -1) {
 		switch (op) {
 		case 'B':
 			if (src_addr)
@@ -1133,9 +1144,6 @@ int main(int argc, char **argv)
 		case 'q':
 			base_qpn = (uint32_t) atoi(optarg);
 			break;
-		case 'R':
-			is_root = true;
-			break;
 		case 'r':
 			retries = atoi(optarg);
 			break;
@@ -1159,7 +1167,6 @@ usage:
 			printf("\t[-P num_peers] total number of peers\n");
 			printf("\t[-p oob_port]\n");
 			printf("\t[-q base_qpn]\n");
-			printf("\t[-R] run as controller (test root)\n");
 			printf("\t[-r retries]\n");
 			printf("\t[-S] run socket baseline test, 2 peers only\n");
 			printf("\t[-t timeout_ms]\n");
