@@ -177,6 +177,7 @@ err:
 struct ibv_pd *hns_roce_u_alloc_pad(struct ibv_context *context,
 				    struct ibv_parent_domain_init_attr *attr)
 {
+	struct hns_roce_pd *protection_domain;
 	struct hns_roce_pad *pad;
 
 	if (ibv_check_alloc_parent_domain(attr))
@@ -193,12 +194,16 @@ struct ibv_pd *hns_roce_u_alloc_pad(struct ibv_context *context,
 		return NULL;
 	}
 
+	protection_domain = to_hr_pd(attr->pd);
 	if (attr->td) {
 		pad->td = to_hr_td(attr->td);
 		atomic_fetch_add(&pad->td->refcount, 1);
+		verbs_debug(verbs_get_ctx(context),
+			    "set PAD(0x%x) to lock-free mode.\n",
+			    protection_domain->pdn);
 	}
 
-	pad->pd.protection_domain = to_hr_pd(attr->pd);
+	pad->pd.protection_domain = protection_domain;
 	atomic_fetch_add(&pad->pd.protection_domain->refcount, 1);
 
 	atomic_init(&pad->pd.refcount, 1);
@@ -208,14 +213,18 @@ struct ibv_pd *hns_roce_u_alloc_pad(struct ibv_context *context,
 	return &pad->pd.ibv_pd;
 }
 
-static void hns_roce_free_pad(struct hns_roce_pad *pad)
+static int hns_roce_free_pad(struct hns_roce_pad *pad)
 {
+	if (atomic_load(&pad->pd.refcount) > 1)
+		return EBUSY;
+
 	atomic_fetch_sub(&pad->pd.protection_domain->refcount, 1);
 
 	if (pad->td)
 		atomic_fetch_sub(&pad->td->refcount, 1);
 
 	free(pad);
+	return 0;
 }
 
 static int hns_roce_free_pd(struct hns_roce_pd *pd)
@@ -238,10 +247,8 @@ int hns_roce_u_dealloc_pd(struct ibv_pd *ibv_pd)
 	struct hns_roce_pad *pad = to_hr_pad(ibv_pd);
 	struct hns_roce_pd *pd = to_hr_pd(ibv_pd);
 
-	if (pad) {
-		hns_roce_free_pad(pad);
-		return 0;
-	}
+	if (pad)
+		return hns_roce_free_pad(pad);
 
 	return hns_roce_free_pd(pd);
 }
@@ -435,12 +442,9 @@ static int verify_cq_create_attr(struct ibv_cq_init_attr_ex *attr,
 		return EOPNOTSUPP;
 	}
 
-	if (attr->comp_mask & IBV_CQ_INIT_ATTR_MASK_PD) {
-		if (!pad) {
-			verbs_err(&context->ibv_ctx, "failed to check the pad of cq.\n");
-			return EINVAL;
-		}
-		atomic_fetch_add(&pad->pd.refcount, 1);
+	if (attr->comp_mask & IBV_CQ_INIT_ATTR_MASK_PD && !pad) {
+		verbs_err(&context->ibv_ctx, "failed to check the pad of cq.\n");
+		return EINVAL;
 	}
 
 	attr->cqe = max_t(uint32_t, HNS_ROCE_MIN_CQE_NUM,
@@ -510,6 +514,7 @@ static int exec_cq_create_cmd(struct ibv_context *context,
 static struct ibv_cq_ex *create_cq(struct ibv_context *context,
 			 struct ibv_cq_init_attr_ex *attr)
 {
+	struct hns_roce_pad *pad = to_hr_pad(attr->parent_domain);
 	struct hns_roce_context *hr_ctx = to_hr_ctx(context);
 	struct hns_roce_cq *cq;
 	int ret;
@@ -524,8 +529,10 @@ static struct ibv_cq_ex *create_cq(struct ibv_context *context,
 		goto err;
 	}
 
-	if (attr->comp_mask & IBV_CQ_INIT_ATTR_MASK_PD)
+	if (attr->comp_mask & IBV_CQ_INIT_ATTR_MASK_PD) {
 		cq->parent_domain = attr->parent_domain;
+		atomic_fetch_add(&pad->pd.refcount, 1);
+	}
 
 	ret = hns_roce_cq_spinlock_init(cq, attr);
 	if (ret)
@@ -559,6 +566,8 @@ err_db:
 err_buf:
 	hns_roce_spinlock_destroy(&cq->hr_lock);
 err_lock:
+	if (attr->comp_mask & IBV_CQ_INIT_ATTR_MASK_PD)
+		atomic_fetch_sub(&pad->pd.refcount, 1);
 	free(cq);
 err:
 	if (ret < 0)
@@ -849,16 +858,20 @@ static struct ibv_srq *create_srq(struct ibv_context *context,
 	if (pad)
 		atomic_fetch_add(&pad->pd.refcount, 1);
 
-	if (hns_roce_srq_spinlock_init(srq, init_attr))
+	ret = hns_roce_srq_spinlock_init(srq, init_attr);
+	if (ret)
 		goto err_free_srq;
 
 	set_srq_param(context, srq, init_attr);
-	if (alloc_srq_buf(srq))
+	ret = alloc_srq_buf(srq);
+	if (ret)
 		goto err_destroy_lock;
 
 	srq->rdb = hns_roce_alloc_db(hr_ctx, HNS_ROCE_SRQ_TYPE_DB);
-	if (!srq->rdb)
+	if (!srq->rdb) {
+		ret = ENOMEM;
 		goto err_srq_buf;
+	}
 
 	ret = exec_srq_create_cmd(context, srq, init_attr);
 	if (ret)
@@ -887,6 +900,8 @@ err_destroy_lock:
 	hns_roce_spinlock_destroy(&srq->hr_lock);
 
 err_free_srq:
+	if (pad)
+		atomic_fetch_sub(&pad->pd.refcount, 1);
 	free(srq);
 
 err:
@@ -1638,6 +1653,8 @@ err_cmd:
 err_buf:
 	hns_roce_qp_spinlock_destroy(qp);
 err_spinlock:
+	if (pad)
+		atomic_fetch_sub(&pad->pd.refcount, 1);
 	free(qp);
 err:
 	if (ret < 0)
