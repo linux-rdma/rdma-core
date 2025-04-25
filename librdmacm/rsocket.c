@@ -2641,7 +2641,7 @@ static int rs_send_iomaps(struct rsocket *rs, int flags)
 	struct rs_iomap_mr *iomr;
 	struct ibv_sge sge;
 	struct rs_iomap iom;
-	int ret;
+	int ret = 0;
 
 	fastlock_acquire(&rs->map_lock);
 	while (!dlist_empty(&rs->iomap_queue)) {
