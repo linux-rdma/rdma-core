@@ -107,7 +107,7 @@ struct rping_rdma_info {
  * Control block struct.
  */
 struct rping_cb {
-	int server;			/* 0 iff client */
+	int server;			/* 0 if client */
 	pthread_t cqthread;
 	pthread_t persistent_server_thread;
 	struct ibv_comp_channel *channel;
