@@ -104,7 +104,7 @@ int sa_query(struct sa_handle * h, uint8_t method,
 		    struct sa_query_result *result)
 {
 	ib_rpc_t rpc;
-	void *umad, *mad;
+	void *umad, *mad, *new_umad;
 	int ret, offset, len = 256;
 
 	memset(&rpc, 0, sizeof(rpc));
@@ -139,7 +139,13 @@ recv_mad:
 	ret = umad_recv(h->fd, umad, &len, ibd_timeout);
 	if (ret < 0) {
 		if (errno == ENOSPC) {
-			umad = realloc(umad, umad_size() + len);
+			new_umad = realloc(umad, umad_size() + len);
+			if (!new_umad) {
+				IBWARN("Failed to reallocate memory for umad: %s\n", strerror(errno));
+				free(umad);
+				return (-ret);
+			}
+			umad = new_umad;
 			goto recv_mad;
 		}
 		IBWARN("umad_recv failed: attr 0x%x: %s\n", attr,
