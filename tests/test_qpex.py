@@ -12,51 +12,14 @@ import pyverbs.enums as e
 from tests.base import UDResources, RCResources, RDMATestCase, XRCResources
 import tests.utils as u
 
-
-def create_qp_ex(agr_obj, qp_type, send_flags):
-    if qp_type == e.IBV_QPT_XRC_SEND:
-        cap = QPCap(max_send_wr=agr_obj.num_msgs, max_recv_wr=0, max_recv_sge=0,
-                    max_send_sge=1)
-    else:
-        cap = QPCap(max_send_wr=agr_obj.num_msgs, max_recv_wr=agr_obj.num_msgs,
-                    max_recv_sge=1, max_send_sge=1)
-    qia = QPInitAttrEx(cap=cap, qp_type=qp_type, scq=agr_obj.cq,
-                       rcq=agr_obj.cq, pd=agr_obj.pd, send_ops_flags=send_flags,
-                       comp_mask=e.IBV_QP_INIT_ATTR_PD |
-                                 e.IBV_QP_INIT_ATTR_SEND_OPS_FLAGS)
-    qp_attr = QPAttr(port_num=agr_obj.ib_port)
-    if qp_type == e.IBV_QPT_UD:
-        qp_attr.qkey = agr_obj.UD_QKEY
-        qp_attr.pkey_index = agr_obj.UD_PKEY_INDEX
-    if qp_type == e.IBV_QPT_RC:
-        qp_attr.qp_access_flags = e.IBV_ACCESS_REMOTE_WRITE | \
-                                  e.IBV_ACCESS_REMOTE_READ | \
-                                  e.IBV_ACCESS_REMOTE_ATOMIC | \
-                                  e.IBV_ACCESS_FLUSH_GLOBAL | \
-                                  e.IBV_ACCESS_FLUSH_PERSISTENT
-    try:
-        # We don't have capability bits for this
-        qp = QPEx(agr_obj.ctx, qia, qp_attr)
-    except PyverbsRDMAError as ex:
-        if ex.error_code == errno.EOPNOTSUPP:
-            raise unittest.SkipTest('Extended QP is not supported on this device')
-        raise ex
-    if qp_type != e.IBV_QPT_XRC_SEND:
-        agr_obj.qps.append(qp)
-        agr_obj.qps_num.append(qp.qp_num)
-        agr_obj.psns.append(random.getrandbits(24))
-    else:
-        return qp
-
-
 class QpExUDSend(UDResources):
     def create_qps(self):
-        create_qp_ex(self, e.IBV_QPT_UD, e.IBV_QP_EX_WITH_SEND)
+        u.create_qp_ex(self, e.IBV_QPT_UD, e.IBV_QP_EX_WITH_SEND)
 
 
 class QpExRCSend(RCResources):
     def create_qps(self):
-        create_qp_ex(self, e.IBV_QPT_RC, e.IBV_QP_EX_WITH_SEND)
+        u.create_qp_ex(self, e.IBV_QPT_RC, e.IBV_QP_EX_WITH_SEND)
 
 
 class QpExXRCSend(XRCResources):
@@ -72,7 +35,7 @@ class QpExXRCSend(XRCResources):
             recv_qp = QP(self.ctx, attr_ex, qp_attr)
             self.rqp_lst.append(recv_qp)
 
-            send_qp = create_qp_ex(self, e.IBV_QPT_XRC_SEND, e.IBV_QP_EX_WITH_SEND)
+            send_qp = u.create_qp_ex(self, e.IBV_QPT_XRC_SEND, e.IBV_QP_EX_WITH_SEND)
             self.sqp_lst.append(send_qp)
             self.qps_num.append((recv_qp.qp_num, send_qp.qp_num))
             self.psns.append(random.getrandbits(24))
@@ -80,12 +43,12 @@ class QpExXRCSend(XRCResources):
 
 class QpExUDSendImm(UDResources):
     def create_qps(self):
-        create_qp_ex(self, e.IBV_QPT_UD, e.IBV_QP_EX_WITH_SEND_WITH_IMM)
+        u.create_qp_ex(self, e.IBV_QPT_UD, e.IBV_QP_EX_WITH_SEND_WITH_IMM)
 
 
 class QpExRCSendImm(RCResources):
     def create_qps(self):
-        create_qp_ex(self, e.IBV_QPT_RC, e.IBV_QP_EX_WITH_SEND_WITH_IMM)
+        u.create_qp_ex(self, e.IBV_QPT_RC, e.IBV_QP_EX_WITH_SEND_WITH_IMM)
 
 
 class QpExXRCSendImm(XRCResources):
@@ -101,7 +64,7 @@ class QpExXRCSendImm(XRCResources):
             recv_qp = QP(self.ctx, attr_ex, qp_attr)
             self.rqp_lst.append(recv_qp)
 
-            send_qp = create_qp_ex(self, e.IBV_QPT_XRC_SEND,
+            send_qp = u.create_qp_ex(self, e.IBV_QPT_XRC_SEND,
                                    e.IBV_QP_EX_WITH_SEND_WITH_IMM)
             self.sqp_lst.append(send_qp)
             self.qps_num.append((recv_qp.qp_num, send_qp.qp_num))
@@ -112,7 +75,7 @@ class QpExRCFlush(RCResources):
     ptype = e.IBV_FLUSH_GLOBAL
     level = e.IBV_FLUSH_RANGE
     def create_qps(self):
-        create_qp_ex(self, e.IBV_QPT_RC, e.IBV_QP_EX_WITH_FLUSH | e.IBV_QP_EX_WITH_RDMA_WRITE)
+        u.create_qp_ex(self, e.IBV_QPT_RC, e.IBV_QP_EX_WITH_FLUSH | e.IBV_QP_EX_WITH_RDMA_WRITE)
 
     def create_mr(self):
         try:
@@ -125,7 +88,7 @@ class QpExRCFlush(RCResources):
 
 class QpExRCAtomicWrite(RCResources):
     def create_qps(self):
-        create_qp_ex(self, e.IBV_QPT_RC, e.IBV_QP_EX_WITH_ATOMIC_WRITE)
+        u.create_qp_ex(self, e.IBV_QPT_RC, e.IBV_QP_EX_WITH_ATOMIC_WRITE)
 
     def create_mr(self):
         self.mr = u.create_custom_mr(self, e.IBV_ACCESS_REMOTE_WRITE)
@@ -133,7 +96,7 @@ class QpExRCAtomicWrite(RCResources):
 
 class QpExRCRDMAWrite(RCResources):
     def create_qps(self):
-        create_qp_ex(self, e.IBV_QPT_RC, e.IBV_QP_EX_WITH_RDMA_WRITE)
+        u.create_qp_ex(self, e.IBV_QPT_RC, e.IBV_QP_EX_WITH_RDMA_WRITE)
 
     def create_mr(self):
         self.mr = u.create_custom_mr(self, e.IBV_ACCESS_REMOTE_WRITE)
@@ -141,7 +104,7 @@ class QpExRCRDMAWrite(RCResources):
 
 class QpExRCRDMAWriteImm(RCResources):
     def create_qps(self):
-        create_qp_ex(self, e.IBV_QPT_RC,
+        u.create_qp_ex(self, e.IBV_QPT_RC,
                                e.IBV_QP_EX_WITH_RDMA_WRITE_WITH_IMM)
 
     def create_mr(self):
@@ -150,7 +113,7 @@ class QpExRCRDMAWriteImm(RCResources):
 
 class QpExRCRDMARead(RCResources):
     def create_qps(self):
-        create_qp_ex(self, e.IBV_QPT_RC, e.IBV_QP_EX_WITH_RDMA_READ)
+        u.create_qp_ex(self, e.IBV_QPT_RC, e.IBV_QP_EX_WITH_RDMA_READ)
 
     def create_mr(self):
         self.mr = u.create_custom_mr(self, e.IBV_ACCESS_REMOTE_READ)
@@ -158,21 +121,21 @@ class QpExRCRDMARead(RCResources):
 
 class QpExRCAtomicCmpSwp(RCResources):
     def create_qps(self):
-        create_qp_ex(self, e.IBV_QPT_RC,
+        u.create_qp_ex(self, e.IBV_QPT_RC,
                                e.IBV_QP_EX_WITH_ATOMIC_CMP_AND_SWP)
         self.mr = u.create_custom_mr(self, e.IBV_ACCESS_REMOTE_ATOMIC)
 
 
 class QpExRCAtomicFetchAdd(RCResources):
     def create_qps(self):
-        create_qp_ex(self, e.IBV_QPT_RC,
+        u.create_qp_ex(self, e.IBV_QPT_RC,
                                e.IBV_QP_EX_WITH_ATOMIC_FETCH_AND_ADD)
         self.mr = u.create_custom_mr(self, e.IBV_ACCESS_REMOTE_ATOMIC)
 
 
 class QpExRCBindMw(RCResources):
     def create_qps(self):
-        create_qp_ex(self, e.IBV_QPT_RC, e.IBV_QP_EX_WITH_RDMA_WRITE |
+        u.create_qp_ex(self, e.IBV_QPT_RC, e.IBV_QP_EX_WITH_RDMA_WRITE |
                      e.IBV_QP_EX_WITH_BIND_MW)
 
     def create_mr(self):

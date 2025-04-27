@@ -567,7 +567,9 @@ cdef class ODPCaps(PyverbsObject):
              e.IBV_ODP_SUPPORT_WRITE: 'IBV_ODP_SUPPORT_WRITE',
              e.IBV_ODP_SUPPORT_READ: 'IBV_ODP_SUPPORT_READ',
              e.IBV_ODP_SUPPORT_ATOMIC: 'IBV_ODP_SUPPORT_ATOMIC',
-             e.IBV_ODP_SUPPORT_SRQ_RECV: 'IBV_ODP_SUPPORT_SRQ_RECV'}
+             e.IBV_ODP_SUPPORT_SRQ_RECV: 'IBV_ODP_SUPPORT_SRQ_RECV',
+             e.IBV_ODP_SUPPORT_FLUSH: 'IBV_ODP_SUPPORT_FLUSH',
+             e.IBV_ODP_SUPPORT_ATOMIC_WRITE: 'IBV_ODP_SUPPORT_ATOMIC_WRITE'}
 
         print_format = '{}: {}\n'
         return print_format.format('ODP General caps', str_from_flags(self.general_caps, general_caps)) +\
