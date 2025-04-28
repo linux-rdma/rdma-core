@@ -2342,13 +2342,13 @@ int ibv_close_device(struct ibv_context *context);
 struct ibv_context *ibv_import_device(int cmd_fd);
 
 /**
- * ibv_import_pd - Import a protetion domain
+ * ibv_import_pd - Import a protection domain
  */
 struct ibv_pd *ibv_import_pd(struct ibv_context *context,
 			     uint32_t pd_handle);
 
 /**
- * ibv_unimport_pd - Unimport a protetion domain
+ * ibv_unimport_pd - Unimport a protection domain
  */
 void ibv_unimport_pd(struct ibv_pd *pd);
 
