@@ -115,27 +115,33 @@ static void read_config_file(const char *path)
 
 static void read_config(void)
 {
+	const char *verbs_config_dir;
 	DIR *conf_dir;
 	struct dirent *dent;
 	char *path;
 
-	conf_dir = opendir(IBV_CONFIG_DIR);
+	verbs_config_dir = getenv("VERBS_CONFIG_DIR");
+	if (!verbs_config_dir) {
+		verbs_config_dir = IBV_CONFIG_DIR;
+	}
+
+	conf_dir = opendir(verbs_config_dir);
 	if (!conf_dir) {
 		fprintf(stderr,
 			PFX "Warning: couldn't open config directory '%s'.\n",
-			IBV_CONFIG_DIR);
+			verbs_config_dir);
 		return;
 	}
 
 	while ((dent = readdir(conf_dir))) {
 		struct stat buf;
 
-		if (asprintf(&path, "%s/%s", IBV_CONFIG_DIR, dent->d_name) <
+		if (asprintf(&path, "%s/%s", verbs_config_dir, dent->d_name) <
 		    0) {
 			fprintf(stderr,
 				PFX
 				"Warning: couldn't read config file %s/%s.\n",
-				IBV_CONFIG_DIR, dent->d_name);
+				verbs_config_dir, dent->d_name);
 			goto out;
 		}
 
