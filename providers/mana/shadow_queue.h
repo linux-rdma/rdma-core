@@ -60,31 +60,9 @@ static inline void reset_shadow_queue(struct shadow_queue *queue)
 	queue->next_to_signal_idx = 0;
 }
 
-static inline int create_shadow_queue(struct shadow_queue *queue, uint32_t length, uint32_t stride)
-{
-	length = roundup_pow_of_two(length);
-	stride = align(stride, 8);
+int create_shadow_queue(struct shadow_queue *queue, uint32_t length, uint32_t stride);
 
-	void *buffer = mmap(NULL, stride * length, PROT_READ | PROT_WRITE,
-			MAP_PRIVATE | MAP_ANONYMOUS, -1, 0);
-
-	if (buffer == MAP_FAILED)
-		return -1;
-
-	queue->length = length;
-	queue->stride = stride;
-	reset_shadow_queue(queue);
-	queue->buffer = buffer;
-	return 0;
-}
-
-static inline void destroy_shadow_queue(struct shadow_queue *queue)
-{
-	if (queue->buffer) {
-		munmap(queue->buffer, queue->stride * queue->length);
-		queue->buffer = NULL;
-	}
-}
+void destroy_shadow_queue(struct shadow_queue *queue);
 
 static inline _atomic_t *producer(struct shadow_queue *queue)
 {

@@ -352,7 +352,7 @@ free_rb:
 	mana_ib_deinit_rb_shmem(qp);
 destroy_queues:
 	while (i-- > 0)
-		munmap(qp->rc_qp.queues[i].buffer, qp->rc_qp.queues[i].size);
+		mana_dealloc_mem(qp->rc_qp.queues[i].buffer, qp->rc_qp.queues[i].size);
 	destroy_shadow_queue(&qp->shadow_rq);
 destroy_shadow_sq:
 	destroy_shadow_queue(&qp->shadow_sq);
@@ -482,7 +482,7 @@ int mana_destroy_qp(struct ibv_qp *ibqp)
 		destroy_shadow_queue(&qp->shadow_rq);
 		mana_ib_deinit_rb_shmem(qp);
 		for (i = 0; i < USER_RC_QUEUE_TYPE_MAX; ++i)
-			munmap(qp->rc_qp.queues[i].buffer, qp->rc_qp.queues[i].size);
+			mana_dealloc_mem(qp->rc_qp.queues[i].buffer, qp->rc_qp.queues[i].size);
 		break;
 	default:
 		verbs_err(verbs_get_ctx(ibqp->context),
