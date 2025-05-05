@@ -9,7 +9,7 @@ from tests.base_rdmacm import AsyncCMResources, SyncCMResources
 from pyverbs.cmid import CMEvent, AddrInfo, JoinMCAttrEx
 from pyverbs.pyverbs_error import PyverbsError, PyverbsRDMAError
 from pyverbs.librdmacm_enums import rdma_port_space, rdma_cm_event_type, rdma_cm_mc_join_flags, \
-    rdma_cm_join_mc_attr_mask, RDMA_OPTION_ID, RDMA_OPTION_ID_ACK_TIMEOUT
+    rdma_cm_join_mc_attr_mask, RDMA_OPTION_ID, RDMA_OPTION_ID_ACK_TIMEOUT, RAI_PASSIVE
 from pyverbs.addr import AH
 from pyverbs.libibverbs_enums import ibv_send_flags, ibv_qp_type, ibv_qp_attr_mask
 import abc
@@ -247,6 +247,20 @@ class CMConnection(abc.ABC):
     def disconnect(self):
         pass
 
+    def get_and_update_addrinfo(self, passive, ip_addr):
+        """
+        Get and set address information for RDMA connection.
+        :param passive: If True, get address info for passive side
+        :param ip_addr: IP address to use for resolution
+        """
+        if passive:
+            self.cm_res.ai.get_addrinfo(src=ip_addr, src_service=self.cm_res.port,
+                                        flags=RAI_PASSIVE,
+                                        port_space=self.cm_res.port_space)
+        else:
+            self.cm_res.ai.get_addrinfo(src=ip_addr, dst=ip_addr, dst_service=self.cm_res.port,
+                                        port_space=self.cm_res.port_space)
+
 
 class CMAsyncConnection(CMConnection):
     """
@@ -275,12 +289,17 @@ class CMAsyncConnection(CMConnection):
         self.reject_conn = reject_conn
 
     def create_cm_res(self, ip_addr, passive, **kwargs):
-        self.cm_res = AsyncCMResources(addr=ip_addr, passive=passive, **kwargs)
+        self.cm_res = AsyncCMResources(passive=passive, **kwargs)
         if passive:
             self.cm_res.create_cmid()
         else:
             for i in range(self.num_conns):
                 self.cm_res.create_cmid(i)
+
+        if kwargs.get('use_resolve_addrinfo'):
+            self.resolve_and_update_addrinfo(passive, ip_addr)
+        else:
+            self.get_and_update_addrinfo(passive, ip_addr)
 
     def join_to_multicast(self, mc_addr=None, src_addr=None, extended=False):
         """
@@ -432,6 +451,25 @@ class CMAsyncConnection(CMConnection):
             if ex.error_code != errno.EOPNOTSUPP:
                 raise ex
 
+    def resolve_and_update_addrinfo(self, passive, ip_addr):
+        """
+        Resolve and query and update the address information for the CMID.
+        :param passive: If True, resolve as passive side
+        :param ip_addr: IP address to resolve
+        """
+        if passive:
+            self.cm_res.cmid.resolve_addrinfo(
+                node=ip_addr, service=self.cm_res.port,
+                port_space=self.cm_res.port_space,
+                flags=RAI_PASSIVE)
+        else:
+            self.cm_res.cmid.resolve_addrinfo(
+                node=ip_addr, service=self.cm_res.port,
+                port_space=self.cm_res.port_space)
+        self.event_handler(expected_event=rdma_cm_event_type.RDMA_CM_EVENT_ADDRINFO_RESOLVED)
+        self.cm_res.ai = self.cm_res.cmid.query_addrinfo()
+
+
 class CMSyncConnection(CMConnection):
     """
     Implement RDMACM connection management for synchronous CMIDs. It includes
@@ -452,7 +490,13 @@ class CMSyncConnection(CMConnection):
         self.create_cm_res(ip_addr, passive=passive, **kwargs)
 
     def create_cm_res(self, ip_addr, passive, **kwargs):
-        self.cm_res = SyncCMResources(addr=ip_addr, passive=passive, **kwargs)
+        self.cm_res = SyncCMResources(passive=passive, **kwargs)
+        if self.cm_res.passive:
+            self.cm_res.ai = AddrInfo(src=ip_addr, src_service=self.cm_res.port,
+                                      port_space=self.cm_res.port_space, flags=RAI_PASSIVE)
+        else:
+            self.cm_res.ai = AddrInfo(src=ip_addr, dst=ip_addr, dst_service=self.cm_res.port,
+                                      port_space=self.cm_res.port_space)
         self.cm_res.create_cmid()
 
     def establish_connection(self):
