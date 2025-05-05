@@ -277,6 +277,13 @@ cdef extern from 'infiniband/mlx5dv.h':
     cdef struct mlx5dv_devx_umem:
         uint32_t umem_id;
 
+    cdef struct mlx5dv_devx_cmd_comp:
+        int fd
+
+    cdef struct mlx5dv_devx_async_cmd_hdr:
+        uint64_t    wr_id
+        uint8_t     *out_data
+
     cdef struct mlx5dv_devx_umem_in:
         void        *addr
         size_t      size
@@ -568,6 +575,13 @@ cdef extern from 'infiniband/mlx5dv.h':
                                             size_t inlen, void *out, size_t outlen)
     int mlx5dv_devx_obj_query(mlx5dv_devx_obj *obj, const void *in_,
                               size_t inlen, void *out, size_t outlen)
+    int mlx5dv_devx_obj_query_async(mlx5dv_devx_obj *obj, const void *in_,
+                                    size_t inlen, size_t outlen, uint64_t wr_id,
+                                    mlx5dv_devx_cmd_comp *cmd_comp)
+    mlx5dv_devx_cmd_comp *mlx5dv_devx_create_cmd_comp(v.ibv_context *context)
+    void mlx5dv_devx_destroy_cmd_comp(mlx5dv_devx_cmd_comp *cmd_comp)
+    int mlx5dv_devx_get_async_cmd_comp(mlx5dv_devx_cmd_comp *cmd_comp,
+                                       mlx5dv_devx_async_cmd_hdr *cmd_resp, size_t cmd_resp_len)
     int mlx5dv_devx_obj_modify(mlx5dv_devx_obj *obj, const void *in_,
                                size_t inlen, void *out, size_t outlen)
     int mlx5dv_devx_obj_destroy(mlx5dv_devx_obj *obj)
