@@ -1831,6 +1831,32 @@ static void efa_set_common_ctrl_flags(struct efa_io_tx_meta_desc *desc,
 	EFA_SET(&desc->ctrl2, EFA_IO_TX_META_DESC_COMP_REQ, 1);
 }
 
+#ifdef LTTNG_ENABLED
+static uint32_t efa_get_wqe_length(struct efa_io_tx_wqe *tx_wqe)
+{
+	enum efa_io_send_op_type op_type;
+	uint32_t length = 0;
+	size_t i;
+
+	op_type = EFA_GET(&tx_wqe->meta.ctrl1, EFA_IO_TX_META_DESC_OP_TYPE);
+	switch (op_type) {
+	case EFA_IO_SEND:
+		if (EFA_GET(&tx_wqe->meta.ctrl1, EFA_IO_TX_META_DESC_INLINE_MSG))
+			return tx_wqe->meta.length;
+
+		for (i = 0; i < tx_wqe->meta.length; i++)
+			length += tx_wqe->data.sgl[i].length;
+
+		return length;
+	case EFA_IO_RDMA_READ:
+	case EFA_IO_RDMA_WRITE:
+		return tx_wqe->data.rdma_req.remote_mem.length;
+	}
+
+	return 0;
+}
+#endif
+
 static int efa_post_send_validate(struct efa_qp *qp,
 				  unsigned int wr_flags)
 {
@@ -1974,7 +2000,8 @@ int efa_post_send(struct ibv_qp *ibvqp, struct ibv_send_wr *wr,
 			mmio_wc_start();
 		}
 		rdma_tracepoint(rdma_core_efa, post_send, qp->dev->name, wr->wr_id,
-				EFA_IO_SEND, ibvqp->qp_num, meta_desc->dest_qp_num, ah->efa_ah);
+				EFA_IO_SEND, ibvqp->qp_num, meta_desc->dest_qp_num,
+				ah->efa_ah, efa_get_wqe_length(&tx_wqe));
 		wr = wr->next;
 	}
 
@@ -2256,7 +2283,7 @@ static void efa_send_wr_set_addr(struct ibv_qp_ex *ibvqpx,
 
 	rdma_tracepoint(rdma_core_efa, post_send, qp->dev->name, ibvqpx->wr_id,
 			EFA_GET(&tx_wqe->meta.ctrl1, EFA_IO_TX_META_DESC_OP_TYPE),
-			ibvqpx->qp_base.qp_num, remote_qpn, ah->efa_ah);
+			ibvqpx->qp_base.qp_num, remote_qpn, ah->efa_ah, efa_get_wqe_length(tx_wqe));
 }
 
 static void efa_send_wr_start(struct ibv_qp_ex *ibvqpx)

@@ -1,6 +1,6 @@
 /* SPDX-License-Identifier: GPL-2.0 OR BSD-2-Clause */
 /*
- * Copyright 2023-2024 Amazon.com, Inc. or its affiliates. All rights reserved.
+ * Copyright 2023-2025 Amazon.com, Inc. or its affiliates. All rights reserved.
  */
 
 #if defined(LTTNG_ENABLED)
@@ -55,7 +55,8 @@ LTTNG_UST_TRACEPOINT_EVENT(
 		uint8_t, op_type,
 		uint32_t, src_qp_num,
 		uint32_t, dst_qp_num,
-		uint16_t, ah_num
+		uint16_t, ah_num,
+		uint32_t, length
 	),
 
 	/* Output event fields */
@@ -66,6 +67,7 @@ LTTNG_UST_TRACEPOINT_EVENT(
 		lttng_ust_field_integer(uint32_t, src_qp_num, src_qp_num)
 		lttng_ust_field_integer(uint32_t, dst_qp_num, dst_qp_num)
 		lttng_ust_field_integer(uint16_t, ah_num, ah_num)
+		lttng_ust_field_integer(uint32_t, length, length)
 	)
 )
 
