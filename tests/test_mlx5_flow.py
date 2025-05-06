@@ -184,16 +184,17 @@ class Mlx5RCFlowResources(Mlx5RcResources):
                 obj.close()
 
     def create_matcher(self, mask, match_criteria_enable, flags=0,
-                       ft_type=MLX5DV_FLOW_TABLE_TYPE_NIC_RX_, ib_port=1):
+                       ft_type=MLX5DV_FLOW_TABLE_TYPE_NIC_RX_, ib_port=1, priority=0):
         """
         Creates a matcher from a provided mask.
         :param mask: The mask to match on (in bytes)
         :param match_criteria_enable: Bitmask representing which of the
                                       headers and parameters in match_criteria
                                       are used
-        :param flags: Flow matcher flags
-        :param ft_type: Flow table type
+        :param flags: Flow matcher flags.
+        :param ft_type: Flow table type.
         :param ib_port: Specify its corresponding port.
+        :param priority: Priority value for the matcher.
         :return: Resulting matcher
         """
         try:
@@ -210,7 +211,7 @@ class Mlx5RCFlowResources(Mlx5RcResources):
             attr = Mlx5FlowMatcherAttr(match_mask=flow_match_param,
                                        match_criteria_enable=match_criteria_enable,
                                        flags=flags, ft_type=ft_type, comp_mask=comp_mask,
-                                       ib_port=ib_port)
+                                       ib_port=ib_port, priority=priority)
             matcher = Mlx5FlowMatcher(self.ctx, attr)
         except PyverbsRDMAError as ex:
             if ex.error_code in [errno.EOPNOTSUPP, errno.EPROTONOSUPPORT]:
@@ -308,9 +309,9 @@ class Mlx5MatcherTest(Mlx5RDMATestCase):
         self.res.create_matcher(smac_mask, u.MatchCriteriaEnable.OUTER)
 
     def generic_test_mlx5_flow_table(self, flow_table_type_mapping, action, ib_port=1,
-                                     traffic=False):
+                                     traffic=False, priority=0):
         """
-        This function performs the following steps:
+        This function performs the following steps on the server side:
         1. Creates a DEVX flow table with the specified table type.
         2. Creates a flow group in the DEVX flow table.
         3. Inserts a flow table entry (FTE) into the flow table group.
@@ -322,6 +323,7 @@ class Mlx5MatcherTest(Mlx5RDMATestCase):
         :param action: Specifies the action to be performed on the matched packets.
         :param ib_port: The port for flow matching.
         :param traffic: Boolean flag indicating whether RDMA traffic should run.
+        :param priority: Priority value for the matcher.
         """
         empty_mask = bytes(MAX_MATCH_PARAM_SIZE)
 
@@ -329,7 +331,8 @@ class Mlx5MatcherTest(Mlx5RDMATestCase):
             devx_table_obj, table_id = self.server.create_devx_flow_table(table_type,
                                                                           level=TABLE_LEVEL)
             matcher = self.server.create_matcher(empty_mask, u.MatchCriteriaEnable.NONE,
-                                                 ft_type=ft_type, ib_port=ib_port)
+                                                 ft_type=ft_type, ib_port=ib_port,
+                                                 priority=priority)
             self.server.store_for_cleanup_stage(matcher)
             group_id = self.server.create_devx_flow_group(table_id, table_type)
             self.server.create_devx_flow_entry(table_id, group_id, action, table_type)
@@ -365,6 +368,21 @@ class Mlx5MatcherTest(Mlx5RDMATestCase):
         Creates a devx table object with the RDMA transport domain,
         Verifies that the traffic passes successfully.
         """
+        self.rdma_transport_domain_test(priority=0)
+
+    @u.skip_unsupported
+    @requires_root()
+    def test_priority_rdma_transport_domain_traffic(self):
+        """
+        Creates a devx table object with the RDMA transport domain with priority,
+        Verifies that the traffic passes successfully.
+        """
+        self.rdma_transport_domain_test(priority=1)
+
+    def rdma_transport_domain_test(self, priority):
+        """
+        :param priority: Priority value for the flow table matcher.
+        """
         self.client = Mlx5RcResources(**self.dev_info)
         self.server = Mlx5RCFlowResources(is_privileged_ctx=True, **self.dev_info)
         self.pre_run()
@@ -373,7 +391,7 @@ class Mlx5MatcherTest(Mlx5RDMATestCase):
             MLX5DV_FLOW_TABLE_TYPE_RDMA_TRANSPORT_RX_: RDMA_TRANSPORT_RX,
             MLX5DV_FLOW_TABLE_TYPE_RDMA_TRANSPORT_TX_: RDMA_TRANSPORT_TX}
         self.generic_test_mlx5_flow_table(flow_table_type_mapping, action=ALLOW_ACTION, ib_port=1,
-                                          traffic=True)
+                                          traffic=True, priority=priority)
 
     @u.skip_unsupported
     def test_smac_matcher_to_qp_flow(self):
