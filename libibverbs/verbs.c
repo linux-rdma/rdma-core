@@ -695,9 +695,9 @@ LATEST_SYMVER_FUNC(ibv_query_qp, 1_1, "IBVERBS_1.1",
 int ibv_query_qp_data_in_order(struct ibv_qp *qp, enum ibv_wr_opcode op,
 			       uint32_t flags)
 {
-#if !defined(__i386__) && !defined(__x86_64__)
-	/* Currently this API is only supported for x86 architectures since most
-	 * non-x86 platforms are known to be OOO and need to do a per-platform study.
+#if !defined(__i386__) && !defined(__x86_64__) && !defined(__aarch64__)
+	/* Currently this API is limited to some CPU architectures since other
+	 * platforms might be OOO and need to do a per-platform study.
 	 */
 	return 0;
 #else
