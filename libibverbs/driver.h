@@ -316,6 +316,8 @@ struct verbs_context_ops {
 			 uint32_t num_sges);
 	struct ibv_dm *(*alloc_dm)(struct ibv_context *context,
 				   struct ibv_alloc_dm_attr *attr);
+	struct ibv_dmah *(*alloc_dmah)(struct ibv_context *context,
+				       struct ibv_dmah_init_attr *attr);
 	struct ibv_mw *(*alloc_mw)(struct ibv_pd *pd, enum ibv_mw_type type);
 	struct ibv_mr *(*alloc_null_mr)(struct ibv_pd *pd);
 	struct ibv_pd *(*alloc_parent_domain)(
@@ -363,6 +365,7 @@ struct verbs_context_ops {
 		struct ibv_srq_init_attr_ex *srq_init_attr_ex);
 	struct ibv_wq *(*create_wq)(struct ibv_context *context,
 				    struct ibv_wq_init_attr *wq_init_attr);
+	int (*dealloc_dmah)(struct ibv_dmah *dmah);
 	int (*dealloc_mw)(struct ibv_mw *mw);
 	int (*dealloc_pd)(struct ibv_pd *pd);
 	int (*dealloc_td)(struct ibv_td *td);

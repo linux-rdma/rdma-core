@@ -395,6 +395,23 @@ void ibv_unimport_dm(struct ibv_dm *dm)
 	get_ops(dm->context)->unimport_dm(dm);
 }
 
+/**
+ * ibv_alloc_dmah - Allocate a dma handle
+ */
+struct ibv_dmah *ibv_alloc_dmah(struct ibv_context *context,
+				struct ibv_dmah_init_attr *attr)
+{
+	return get_ops(context)->alloc_dmah(context, attr);
+}
+
+/**
+ * ibv_dealloc_dmah - Free a dma handle
+ */
+int ibv_dealloc_dmah(struct ibv_dmah *dmah)
+{
+	return get_ops(dmah->context)->dealloc_dmah(dmah);
+}
+
 struct ibv_mr *ibv_reg_dmabuf_mr(struct ibv_pd *pd, uint64_t offset,
 				 size_t length, uint64_t iova, int fd,
 				 int access)
