@@ -430,6 +430,40 @@ struct ibv_mr *ibv_reg_dmabuf_mr(struct ibv_pd *pd, uint64_t offset,
 	return mr;
 }
 
+struct ibv_mr *ibv_reg_mr_ex(struct ibv_pd *pd, struct ibv_reg_mr_in *in)
+{
+	struct verbs_device *device = verbs_get_device(pd->context->device);
+	struct ibv_mr *mr;
+	int in_access = in->access;
+	bool need_fork = !((in->access & IBV_ACCESS_ON_DEMAND) ||
+			   (in->comp_mask & IBV_REG_MR_MASK_FD));
+
+	if (need_fork && ibv_dontfork_range(in->addr, in->length))
+		return NULL;
+
+	if (!(device->core_support & IB_UVERBS_CORE_SUPPORT_OPTIONAL_MR_ACCESS))
+		in->access &= ~IBV_ACCESS_OPTIONAL_RANGE;
+
+	mr = get_ops(pd->context)->reg_mr_ex(pd, in);
+	if (mr) {
+		mr->context = pd->context;
+		mr->length = in->length;
+		mr->pd = pd;
+		if (in->comp_mask & IBV_REG_MR_MASK_ADDR)
+			mr->addr = in->addr;
+		else
+			/* Follows ibv_reg_dmabuf_mr logic */
+			mr->addr = (void *)(uintptr_t)in->fd_offset;
+	} else {
+		if (need_fork)
+			ibv_dofork_range(in->addr, in->length);
+	}
+
+	/* restore the input access flags */
+	in->access = in_access;
+	return mr;
+}
+
 LATEST_SYMVER_FUNC(ibv_rereg_mr, 1_1, "IBVERBS_1.1",
 		   int,
 		   struct ibv_mr *mr, int flags,

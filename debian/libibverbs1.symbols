@@ -111,6 +111,7 @@ libibverbs.so.1 libibverbs1 #MINVER#
  ibv_reg_dmabuf_mr@IBVERBS_1.12 34
  ibv_reg_mr@IBVERBS_1.0 1.1.6
  ibv_reg_mr@IBVERBS_1.1 1.1.6
+ ibv_reg_mr_ex@IBVERBS_1.15 37
  ibv_reg_mr_iova@IBVERBS_1.7 25
  ibv_reg_mr_iova2@IBVERBS_1.8 28
  ibv_register_driver@IBVERBS_1.1 1.1.6

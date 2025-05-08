@@ -118,6 +118,7 @@ rdma_alias_man_pages(
   ibv_rate_to_mbps.3 mbps_to_ibv_rate.3
   ibv_rate_to_mult.3 mult_to_ibv_rate.3
   ibv_reg_mr.3 ibv_dereg_mr.3
+  ibv_reg_mr.3 ibv_reg_mr_ex.3
   ibv_wr_post.3 ibv_wr_abort.3
   ibv_wr_post.3 ibv_wr_complete.3
   ibv_wr_post.3 ibv_wr_start.3

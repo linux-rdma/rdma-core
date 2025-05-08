@@ -168,6 +168,7 @@ IBVERBS_1.15 {
 	global:
 		ibv_alloc_dmah;
 		ibv_dealloc_dmah;
+		ibv_reg_mr_ex;
 } IBVERBS_1.14;
 
 /* If any symbols in this stanza change ABI then the entire staza gets a new symbol
@@ -239,6 +240,7 @@ IBVERBS_PRIVATE_@IBVERBS_PABI_VERSION@ {
 		ibv_cmd_reg_dm_mr;
 		ibv_cmd_reg_dmabuf_mr;
 		ibv_cmd_reg_mr;
+		ibv_cmd_reg_mr_ex;
 		ibv_cmd_req_notify_cq;
 		ibv_cmd_rereg_mr;
 		ibv_cmd_resize_cq;

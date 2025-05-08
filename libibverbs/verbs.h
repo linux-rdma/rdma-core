@@ -681,6 +681,25 @@ struct ibv_mr {
 	uint32_t		rkey;
 };
 
+enum  ibv_reg_mr_in_mask {
+	IBV_REG_MR_MASK_IOVA = 1 << 0,
+	IBV_REG_MR_MASK_ADDR = 1 << 1,
+	IBV_REG_MR_MASK_FD = 1 << 2,
+	IBV_REG_MR_MASK_FD_OFFSET = 1 << 3,
+	IBV_REG_MR_MASK_DMAH = 1 << 4,
+};
+
+struct ibv_reg_mr_in {
+	size_t length;
+	int access;
+	uint64_t comp_mask; /* Use enum ibv_reg_mr_in_mask */
+	uint64_t iova;
+	void *addr;
+	int fd;
+	uint64_t fd_offset;
+	struct ibv_dmah *dmah;
+};
+
 enum ibv_mw_type {
 	IBV_MW_TYPE_1			= 1,
 	IBV_MW_TYPE_2			= 2
@@ -2162,6 +2181,7 @@ struct ibv_values_ex {
 
 struct verbs_context {
 	/*  "grows up" - new fields go here */
+	struct ibv_mr *(*reg_mr_ex)(struct ibv_pd *pd, struct ibv_reg_mr_in *in);
 	int (*dealloc_dmah)(struct ibv_dmah *dmah);
 	struct ibv_dmah *(*alloc_dmah)(struct ibv_context *context,
 				       struct ibv_dmah_init_attr *attr);
@@ -2656,6 +2676,8 @@ __ibv_reg_mr_iova(struct ibv_pd *pd, void *addr, size_t length, uint64_t iova,
  */
 struct ibv_mr *ibv_reg_dmabuf_mr(struct ibv_pd *pd, uint64_t offset, size_t length,
 				 uint64_t iova, int fd, int access);
+
+struct ibv_mr *ibv_reg_mr_ex(struct ibv_pd *pd, struct ibv_reg_mr_in *in);
 
 enum ibv_rereg_mr_err_code {
 	/* Old MR is valid, invalid input */

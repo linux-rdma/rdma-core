@@ -3,7 +3,7 @@
 .\"
 .TH IBV_REG_MR 3 2006-10-31 libibverbs "Libibverbs Programmer's Manual"
 .SH "NAME"
-ibv_reg_mr, ibv_reg_mr_iova, ibv_reg_dmabuf_mr, ibv_dereg_mr \- register or deregister a memory region (MR)
+ibv_reg_mr, ibv_reg_mr_iova, ibv_reg_dmabuf_mr, ibv_reg_mr_ex, ibv_dereg_mr \- register or deregister a memory region (MR)
 .SH "SYNOPSIS"
 .nf
 .B #include <infiniband/verbs.h>
@@ -18,6 +18,8 @@ ibv_reg_mr, ibv_reg_mr_iova, ibv_reg_dmabuf_mr, ibv_dereg_mr \- register or dere
 .BI "struct ibv_mr *ibv_reg_dmabuf_mr(struct ibv_pd " "*pd" ", uint64_t " "offset" ,
 .BI "                                 size_t " "length" ", uint64_t " "iova" ,
 .BI "                                 int " "fd" ", int " "access" );
+.sp
+.BI "struct ibv_mr *ibv_reg_mr_ex(struct ibv_pd " "*pd" ", struct ibv_reg_mr_in " in" );
 .sp
 .BI "int ibv_dereg_mr(struct ibv_mr " "*mr" );
 .fi
@@ -119,11 +121,21 @@ The argument
 describes the desired memory protection attributes; it is similar to the ibv_reg_mr case except that only the following flags are supported:
 .B IBV_ACCESS_LOCAL_WRITE, IBV_ACCESS_REMOTE_WRITE, IBV_ACCESS_REMOTE_READ, IBV_ACCESS_REMOTE_ATOMIC, IBV_ACCESS_RELAXED_ORDERING.
 .PP
+.B ibv_reg_mr_ex()
+ibv_reg_mr_ex is a an API that enables all the variants of the other ibv_reg_mr_xxx() that desecibed in that man page.
+It has the
+.I in->comp_mask
+field to let application mark which fields are applicable.
+In addition, it includes the
+.I in->dmah
+which can be used to include an ibv_dmah object that will be used for that MR.
+The other fields on the input pointer have the same meaning as of the fields that described in that man page for the other verbs.
+.PP
 .B ibv_dereg_mr()
 deregisters the MR
 .I mr\fR.
 .SH "RETURN VALUE"
-.B ibv_reg_mr() / ibv_reg_mr_iova() / ibv_reg_dmabuf_mr()
+.B ibv_reg_mr() / ibv_reg_mr_iova() / ibv_reg_dmabuf_mr() / ibv_reg_mr_ex()
 returns a pointer to the registered MR, or NULL if the request fails.
 The local key (\fBL_Key\fR) field
 .B lkey
@@ -140,6 +152,8 @@ returns 0 on success, or the value of errno on failure (which indicates the fail
 .SH "NOTES"
 .B ibv_dereg_mr()
 fails if any memory window is still bound to this MR.
+.B ibv_dereg_mr_ex()
+One among in->fd and in->addr is required, both can't come together.
 .SH "SEE ALSO"
 .BR ibv_alloc_pd (3),
 .BR ibv_post_send (3),
