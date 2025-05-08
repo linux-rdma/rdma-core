@@ -21,6 +21,7 @@ struct irdma_uk_attrs {
 	__u32 max_hw_wq_quanta;
 	__u32 min_hw_cq_size;
 	__u32 max_hw_cq_size;
+	__u32 max_hw_srq_quanta;
 	__u16 max_hw_sq_chunk;
 	__u16 min_hw_wq_size;
 	__u8 hw_rev;
