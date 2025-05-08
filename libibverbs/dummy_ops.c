@@ -461,6 +461,12 @@ static struct ibv_mr *reg_mr(struct ibv_pd *pd, void *addr, size_t length,
 	return NULL;
 }
 
+static struct ibv_mr *reg_mr_ex(struct ibv_pd *pd, struct ibv_reg_mr_in *in)
+{
+	errno = EOPNOTSUPP;
+	return NULL;
+}
+
 static struct ibv_mr *reg_dmabuf_mr(struct ibv_pd *pd, uint64_t offset,
 				    size_t length, uint64_t iova,
 				    int fd, int access)
@@ -586,6 +592,7 @@ const struct verbs_context_ops verbs_dummy_ops = {
 	reg_dm_mr,
 	reg_dmabuf_mr,
 	reg_mr,
+	reg_mr_ex,
 	req_notify_cq,
 	rereg_mr,
 	resize_cq,
@@ -713,6 +720,7 @@ void verbs_set_ops(struct verbs_context *vctx,
 	SET_OP(vctx, reg_dm_mr);
 	SET_PRIV_OP_IC(vctx, reg_dmabuf_mr);
 	SET_PRIV_OP(ctx, reg_mr);
+	SET_OP(vctx, reg_mr_ex);
 	SET_OP(ctx, req_notify_cq);
 	SET_PRIV_OP(ctx, rereg_mr);
 	SET_PRIV_OP(ctx, resize_cq);
