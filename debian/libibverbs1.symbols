@@ -12,6 +12,7 @@ libibverbs.so.1 libibverbs1 #MINVER#
  IBVERBS_1.12@IBVERBS_1.12 34
  IBVERBS_1.13@IBVERBS_1.13 35
  IBVERBS_1.14@IBVERBS_1.14 36
+ IBVERBS_1.15@IBVERBS_1.15 37
  (symver)IBVERBS_PRIVATE_57 57
  _ibv_query_gid_ex@IBVERBS_1.11 32
  _ibv_query_gid_table@IBVERBS_1.11 32
@@ -19,6 +20,7 @@ libibverbs.so.1 libibverbs1 #MINVER#
  ibv_ack_async_event@IBVERBS_1.1 1.1.6
  ibv_ack_cq_events@IBVERBS_1.0 1.1.6
  ibv_ack_cq_events@IBVERBS_1.1 1.1.6
+ ibv_alloc_dmah@IBVERBS_1.15 37
  ibv_alloc_pd@IBVERBS_1.0 1.1.6
  ibv_alloc_pd@IBVERBS_1.1 1.1.6
  ibv_attach_mcast@IBVERBS_1.0 1.1.6
@@ -39,6 +41,7 @@ libibverbs.so.1 libibverbs1 #MINVER#
  ibv_create_qp@IBVERBS_1.1 1.1.6
  ibv_create_srq@IBVERBS_1.0 1.1.6
  ibv_create_srq@IBVERBS_1.1 1.1.6
+ ibv_dealloc_dmah@IBVERBS_1.15 37
  ibv_dealloc_pd@IBVERBS_1.0 1.1.6
  ibv_dealloc_pd@IBVERBS_1.1 1.1.6
  ibv_dereg_mr@IBVERBS_1.0 1.1.6

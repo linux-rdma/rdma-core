@@ -50,6 +50,13 @@ static struct ibv_dm *alloc_dm(struct ibv_context *context,
 	return NULL;
 }
 
+static struct ibv_dmah *alloc_dmah(struct ibv_context *context,
+				   struct ibv_dmah_init_attr *attr)
+{
+	errno = EOPNOTSUPP;
+	return NULL;
+}
+
 static struct ibv_mw *alloc_mw(struct ibv_pd *pd, enum ibv_mw_type type)
 {
 	errno = EOPNOTSUPP;
@@ -200,6 +207,11 @@ static struct ibv_wq *create_wq(struct ibv_context *context,
 {
 	errno = EOPNOTSUPP;
 	return NULL;
+}
+
+static int dealloc_dmah(struct ibv_dmah *st)
+{
+	return EOPNOTSUPP;
 }
 
 static int dealloc_mw(struct ibv_mw *mw)
@@ -505,6 +517,7 @@ static void unimport_pd(struct ibv_pd *pd)
 const struct verbs_context_ops verbs_dummy_ops = {
 	advise_mr,
 	alloc_dm,
+	alloc_dmah,
 	alloc_mw,
 	alloc_null_mr,
 	alloc_parent_domain,
@@ -528,6 +541,7 @@ const struct verbs_context_ops verbs_dummy_ops = {
 	create_srq,
 	create_srq_ex,
 	create_wq,
+	dealloc_dmah,
 	dealloc_mw,
 	dealloc_pd,
 	dealloc_td,
@@ -630,6 +644,7 @@ void verbs_set_ops(struct verbs_context *vctx,
 
 	SET_OP(vctx, advise_mr);
 	SET_OP(vctx, alloc_dm);
+	SET_OP(vctx, alloc_dmah);
 	SET_OP(ctx, alloc_mw);
 	SET_OP(vctx, alloc_null_mr);
 	SET_PRIV_OP(ctx, alloc_pd);
@@ -653,6 +668,7 @@ void verbs_set_ops(struct verbs_context *vctx,
 	SET_PRIV_OP(ctx, create_srq);
 	SET_OP(vctx, create_srq_ex);
 	SET_OP(vctx, create_wq);
+	SET_OP(vctx, dealloc_dmah);
 	SET_OP(ctx, dealloc_mw);
 	SET_PRIV_OP(ctx, dealloc_pd);
 	SET_OP(vctx, dealloc_td);

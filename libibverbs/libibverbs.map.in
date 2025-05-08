@@ -164,6 +164,12 @@ IBVERBS_1.14 {
 		ibv_query_qp_data_in_order;
 } IBVERBS_1.13;
 
+IBVERBS_1.15 {
+	global:
+		ibv_alloc_dmah;
+		ibv_dealloc_dmah;
+} IBVERBS_1.14;
+
 /* If any symbols in this stanza change ABI then the entire staza gets a new symbol
    version. See the top level CMakeLists.txt for this setting. */
 

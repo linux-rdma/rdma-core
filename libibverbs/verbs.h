@@ -631,6 +631,10 @@ struct ibv_mw_bind_info {
 	unsigned int	 mw_access_flags; /* use ibv_access_flags */
 };
 
+struct ibv_dmah {
+	struct ibv_context *context;
+};
+
 struct ibv_pd {
 	struct ibv_context     *context;
 	uint32_t		handle;
@@ -2105,6 +2109,24 @@ struct ibv_parent_domain_init_attr {
 	void *pd_context;
 };
 
+enum ibv_tph_mem_type {
+	IBV_TPH_MEM_TYPE_VM, /* volatile memory */
+	IBV_TPH_MEM_TYPE_PM, /* persistent memory */
+};
+
+enum  ibv_dmah_init_attr_mask {
+	IBV_DMAH_INIT_ATTR_MASK_CPU_ID = 1 << 0,
+	IBV_DMAH_INIT_ATTR_MASK_PH = 1 << 1,
+	IBV_DMAH_INIT_ATTR_MASK_TPH_MEM_TYPE = 1 << 2,
+};
+
+struct ibv_dmah_init_attr {
+	uint32_t comp_mask;
+	uint32_t cpu_id;
+	uint8_t ph;
+	uint8_t tph_mem_type; /* From enum ibv_tph_mem_type */
+};
+
 struct ibv_counters_init_attr {
 	uint32_t	comp_mask;
 };
@@ -2140,6 +2162,9 @@ struct ibv_values_ex {
 
 struct verbs_context {
 	/*  "grows up" - new fields go here */
+	int (*dealloc_dmah)(struct ibv_dmah *dmah);
+	struct ibv_dmah *(*alloc_dmah)(struct ibv_context *context,
+				       struct ibv_dmah_init_attr *attr);
 	int (*query_port)(struct ibv_context *context, uint8_t port_num,
 			  struct ibv_port_attr *port_attr,
 			  size_t port_attr_len);
@@ -3133,6 +3158,17 @@ ibv_alloc_parent_domain(struct ibv_context *context,
 
 	return vctx->alloc_parent_domain(context, attr);
 }
+
+/**
+ * ibv_alloc_dmah - Allocate a dma handle
+ */
+struct ibv_dmah *ibv_alloc_dmah(struct ibv_context *context,
+				struct ibv_dmah_init_attr *attr);
+
+/**
+ * ibv_dealloc_dmah - Free a dma handle
+ */
+int ibv_dealloc_dmah(struct ibv_dmah *dmah);
 
 /**
  * ibv_query_rt_values_ex - Get current real time @values of a device.

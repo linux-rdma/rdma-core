@@ -1,6 +1,7 @@
 rdma_man_pages(
   ibv_advise_mr.3.md
   ibv_alloc_dm.3
+  ibv_alloc_dmah.3.md
   ibv_alloc_mw.3
   ibv_alloc_null_mr.3.md
   ibv_alloc_parent_domain.3
@@ -87,6 +88,7 @@ rdma_alias_man_pages(
   ibv_alloc_dm.3 ibv_reg_dm_mr.3
   ibv_alloc_dm.3 ibv_memcpy_to_dm.3
   ibv_alloc_dm.3 ibv_memcpy_from_dm.3
+  ibv_alloc_dmah.3 ibv_dealloc_dmah.3
   ibv_alloc_mw.3 ibv_dealloc_mw.3
   ibv_alloc_pd.3 ibv_dealloc_pd.3
   ibv_alloc_td.3 ibv_dealloc_td.3
