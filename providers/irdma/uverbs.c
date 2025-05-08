@@ -323,6 +323,174 @@ static void irdma_free_hw_buf(void *buf, size_t size)
 }
 
 /**
+ * irdma_uquery_srq - query srq
+ * @ibsrq: ib srq structure
+ * @attr: srq attributes to fill in
+ */
+int irdma_uquery_srq(struct ibv_srq *ibsrq, struct ibv_srq_attr *attr)
+{
+	struct ibv_query_srq cmd;
+
+	return ibv_cmd_query_srq(ibsrq, attr, &cmd, sizeof(cmd));
+}
+
+/**
+ * irdma_umodify_srq - modify srq
+ * @ibsrq: ib srq structure
+ * @attr: srq attributes to use
+ * @attr_mask: mask of the attributes
+ */
+int irdma_umodify_srq(struct ibv_srq *ibsrq,
+		      struct ibv_srq_attr *attr,
+		      int attr_mask)
+{
+	struct ibv_modify_srq cmd;
+
+	return ibv_cmd_modify_srq(ibsrq, attr, attr_mask, &cmd, sizeof(cmd));
+}
+
+/**
+ * irdma_udestroy_srq - destroy srq
+ * @ibsrq: ib srq structure
+ */
+int irdma_udestroy_srq(struct ibv_srq *ibsrq)
+{
+	struct irdma_usrq *iwusrq;
+	struct verbs_srq *vsrq;
+	int ret;
+
+	vsrq = container_of(ibsrq, struct verbs_srq, srq);
+	iwusrq = container_of(vsrq, struct irdma_usrq, v_srq);
+
+	ret = pthread_spin_destroy(&iwusrq->lock);
+	if (ret)
+		goto err;
+
+	ret = ibv_cmd_destroy_srq(ibsrq);
+	if (ret)
+		return ret;
+
+	ibv_cmd_dereg_mr(&iwusrq->vmr);
+	irdma_free_hw_buf(iwusrq->srq.srq_base, iwusrq->buf_size);
+	free(iwusrq);
+	return 0;
+err:
+	return ret;
+}
+
+/**
+ * irdma_ucreate_srq - create srq on user app
+ * @pd: pd for the qp
+ * @initattr: attributes of the srq to be created
+ */
+struct ibv_srq *irdma_ucreate_srq(struct ibv_pd *pd,
+				  struct ibv_srq_init_attr *initattr)
+{
+	struct ib_uverbs_reg_mr_resp reg_mr_resp = {};
+	struct irdma_srq_uk_init_info info = {};
+	struct irdma_ucreate_srq_resp resp = {};
+	struct irdma_ureg_mr reg_mr_cmd = {};
+	struct irdma_ucreate_srq cmd = {};
+	struct irdma_uk_attrs *uk_attrs;
+	struct irdma_uvcontext *iwvctx;
+	struct irdma_usrq *iwusrq;
+	struct ibv_srq_attr *attr;
+	size_t total_size;
+	size_t size;
+	__u32 depth;
+	__u8 shift;
+	int ret;
+
+	iwvctx = container_of(pd->context, struct irdma_uvcontext, ibv_ctx.context);
+	uk_attrs = &iwvctx->uk_attrs;
+	attr = &initattr->attr;
+
+	if (attr->max_sge > uk_attrs->max_hw_wq_frags ||
+	    attr->max_wr > uk_attrs->max_hw_srq_quanta) {
+		errno = EINVAL;
+		return NULL;
+	}
+
+	irdma_get_wqe_shift(uk_attrs, attr->max_sge, 0, &shift);
+
+	ret = irdma_get_srqdepth(uk_attrs, attr->max_wr, shift, &depth);
+	if (ret) {
+		errno = ret;
+		return NULL;
+	}
+
+	iwusrq = calloc(1, sizeof(*iwusrq));
+	if (!iwusrq)
+		return NULL;
+
+	ret = pthread_spin_init(&iwusrq->lock, PTHREAD_PROCESS_PRIVATE);
+	if (ret)
+		goto err_lock;
+
+	info.uk_attrs = uk_attrs;
+	info.max_srq_frag_cnt = attr->max_sge;
+
+	size = roundup(depth * IRDMA_QP_WQE_MIN_SIZE, IRDMA_HW_PAGE_SIZE);
+	total_size = size + IRDMA_DB_SHADOW_AREA_SIZE;
+	iwusrq->buf_size = total_size;
+	info.srq = irdma_calloc_hw_buf(total_size);
+
+	if (!info.srq) {
+		ret = ENOMEM;
+		goto err_sges;
+	}
+
+	memset(info.srq, 0, total_size);
+	reg_mr_cmd.reg_type = IRDMA_MEMREG_TYPE_SRQ;
+	reg_mr_cmd.rq_pages = size >> IRDMA_HW_PAGE_SHIFT;
+
+	ret = ibv_cmd_reg_mr(pd, info.srq, total_size,
+			     (uintptr_t)info.srq, IBV_ACCESS_LOCAL_WRITE,
+			     &iwusrq->vmr, &reg_mr_cmd.ibv_cmd,
+			     sizeof(reg_mr_cmd), &reg_mr_resp,
+			     sizeof(reg_mr_resp));
+	if (ret)
+		goto err_cmd_reg;
+
+	iwusrq->vmr.ibv_mr.pd = pd;
+	info.shadow_area = (__le64 *)((__u8 *)info.srq + size);
+
+	cmd.user_srq_buf = (__u64)((uintptr_t)info.srq);
+	cmd.user_shadow_area = (__u64)((uintptr_t)info.shadow_area);
+	ret = ibv_cmd_create_srq(pd, &iwusrq->v_srq.srq, initattr, &cmd.ibv_cmd,
+				 sizeof(cmd), &resp.ibv_resp, sizeof(resp));
+	if (ret)
+		goto err_create_srq;
+
+	info.uk_attrs = uk_attrs;
+	info.max_srq_frag_cnt = attr->max_sge;
+	info.srq_id = resp.srq_id;
+	info.srq_size = resp.srq_size;
+
+	ret = irdma_uk_srq_init(&iwusrq->srq, &info);
+	if (ret)
+		goto err_srq_init;
+
+	attr->max_wr = (depth - IRDMA_RQ_RSVD) >> shift;
+
+	return &iwusrq->v_srq.srq;
+
+err_srq_init:
+	ibv_cmd_destroy_srq(&iwusrq->v_srq.srq);
+err_create_srq:
+	ibv_cmd_dereg_mr(&iwusrq->vmr);
+err_cmd_reg:
+	irdma_free_hw_buf(info.srq, total_size);
+err_sges:
+	pthread_spin_destroy(&iwusrq->lock);
+err_lock:
+	free(iwusrq);
+
+	errno = ret;
+	return NULL;
+}
+
+/**
  * get_cq_size - returns actual cqe needed by HW
  * @ncqe: minimum cqes requested by application
  * @hw_rev: HW generation
@@ -1394,6 +1562,17 @@ struct ibv_qp *irdma_ucreate_qp(struct ibv_pd *pd,
 			      ibv_ctx.context);
 	uk_attrs = &iwvctx->uk_attrs;
 
+	if (attr->srq) {
+		struct irdma_usrq *iwusrq;
+		struct verbs_srq *vsrq;
+
+		vsrq = container_of(attr->srq, struct verbs_srq, srq);
+		iwusrq = container_of(vsrq, struct irdma_usrq, v_srq);
+		attr->cap.max_recv_sge = uk_attrs->max_hw_wq_frags;
+		attr->cap.max_recv_wr = 1;
+		info.srq_uk = &iwusrq->srq;
+	}
+
 	if (attr->cap.max_send_sge > uk_attrs->max_hw_wq_frags ||
 	    attr->cap.max_recv_sge > uk_attrs->max_hw_wq_frags ||
 	    attr->cap.max_send_wr > uk_attrs->max_hw_wq_quanta ||
@@ -1839,6 +2018,51 @@ int irdma_upost_send(struct ibv_qp *ib_qp, struct ibv_send_wr *ib_wr,
 }
 
 /**
+ * irdma_upost_srq - post receive wr for user application
+ * @ib_wr: work request for receive
+ * @bad_wr: bad wr caused an error
+ */
+int irdma_upost_srq(struct ibv_srq *ibsrq, struct ibv_recv_wr *ib_wr,
+		    struct ibv_recv_wr **bad_wr)
+{
+	struct irdma_post_rq_info post_recv = {};
+	struct irdma_usrq *iwusrq;
+	struct irdma_srq_uk *srq;
+	struct verbs_srq *vsrq;
+	int err;
+
+	vsrq = container_of(ibsrq, struct verbs_srq, srq);
+	iwusrq = container_of(vsrq, struct irdma_usrq, v_srq);
+	srq = &iwusrq->srq;
+
+	err = pthread_spin_lock(&iwusrq->lock);
+	if (err)
+		return err;
+
+	while (ib_wr) {
+		if (ib_wr->num_sge > srq->max_srq_frag_cnt) {
+			*bad_wr = ib_wr;
+			err = EINVAL;
+			goto error;
+		}
+		post_recv.num_sges = ib_wr->num_sge;
+		post_recv.wr_id = ib_wr->wr_id;
+		post_recv.sg_list = ib_wr->sg_list;
+		err = irdma_uk_srq_post_receive(srq, &post_recv);
+		if (err) {
+			*bad_wr = ib_wr;
+			goto error;
+		}
+
+		ib_wr = ib_wr->next;
+	}
+error:
+	pthread_spin_unlock(&iwusrq->lock);
+
+	return err;
+}
+
+/**
  * irdma_post_recv - post receive wr for user application
  * @ib_wr: work request for receive
  * @bad_wr: bad wr caused an error
@@ -1852,6 +2076,10 @@ int irdma_upost_recv(struct ibv_qp *ib_qp, struct ibv_recv_wr *ib_wr,
 	int err;
 
 	iwuqp = container_of(ib_qp, struct irdma_uqp, ibv_qp);
+	if (iwuqp->qp.srq_uk) {
+		*bad_wr = ib_wr;
+		return EINVAL;
+	}
 
 	err = pthread_spin_lock(&iwuqp->lock);
 	if (err)

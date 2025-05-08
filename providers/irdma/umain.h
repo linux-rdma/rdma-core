@@ -68,6 +68,14 @@ struct irdma_cq_buf {
 	size_t buf_size;
 };
 
+struct irdma_usrq {
+	struct verbs_srq v_srq;
+	struct verbs_mr vmr;
+	pthread_spinlock_t lock;
+	struct irdma_srq_uk srq;
+	size_t buf_size;
+};
+
 struct irdma_ucq {
 	struct verbs_cq verbs_cq;
 	struct verbs_mr vmr;
@@ -159,6 +167,14 @@ int irdma_uattach_mcast(struct ibv_qp *qp, const union ibv_gid *gid,
 			uint16_t lid);
 int irdma_udetach_mcast(struct ibv_qp *qp, const union ibv_gid *gid,
 			uint16_t lid);
+struct ibv_srq *irdma_ucreate_srq(struct ibv_pd *pd,
+				  struct ibv_srq_init_attr *initattr);
+int irdma_udestroy_srq(struct ibv_srq *ibsrq);
+int irdma_uquery_srq(struct ibv_srq *ibsrq, struct ibv_srq_attr *attr);
+int irdma_umodify_srq(struct ibv_srq *ibsrq, struct ibv_srq_attr *attr,
+		      int attr_mask);
+int irdma_upost_srq(struct ibv_srq *ib_srq, struct ibv_recv_wr *ib_wr,
+		    struct ibv_recv_wr **bad_wr);
 void irdma_async_event(struct ibv_context *context,
 		       struct ibv_async_event *event);
 void irdma_set_hw_attrs(struct irdma_hw_attrs *attrs);
