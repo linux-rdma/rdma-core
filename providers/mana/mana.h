@@ -157,7 +157,7 @@ struct mana_cq {
 
 	pthread_spinlock_t lock;
 	uint32_t head;
-	uint32_t last_armed_head;
+	uint32_t poll_credit;
 	void *db_page;
 	/* list of qp's that use this cq for send completions */
 	struct list_head send_qp_list;

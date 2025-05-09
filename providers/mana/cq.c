@@ -67,7 +67,7 @@ struct ibv_cq *mana_create_cq(struct ibv_context *context, int cqe,
 	else
 		cq->cqe = cqe; // to preserve old behaviour for DPDK
 	cq->head = INITIALIZED_OWNER_BIT(ilog32(cq->cqe) - 1);
-	cq->last_armed_head = cq->head - 1;
+	cq->poll_credit = (cq->cqe << (GDMA_CQE_OWNER_BITS - 1)) - 1;
 
 	cmd_drv = &cmd.drv_payload;
 	cmd_drv->buf_addr = (uintptr_t)cq->buf;
@@ -141,7 +141,10 @@ int mana_arm_cq(struct ibv_cq *ibcq, int solicited)
 	if (cq->cqid == UINT32_MAX)
 		return -EINVAL;
 
-	gdma_ring_cq_doorbell(cq);
+	pthread_spin_lock(&cq->lock);
+	gdma_ring_cq_doorbell(cq, CQ_ARM_BIT);
+	pthread_spin_unlock(&cq->lock);
+
 	return 0;
 }
 
@@ -494,6 +497,11 @@ int mana_poll_cq(struct ibv_cq *ibcq, int nwc, struct ibv_wc *wc)
 		}
 		if (ret == 0)
 			break;
+
+		cq->poll_credit--;
+		if (cq->poll_credit == 0)
+			gdma_ring_cq_doorbell(cq, CQ_UNARM_BIT);
+
 		mana_handle_cqe(ctx, &gdma_cqe);
 	}
 
