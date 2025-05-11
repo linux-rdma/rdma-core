@@ -182,6 +182,7 @@ IBVERBS_PRIVATE_@IBVERBS_PABI_VERSION@ {
 		execute_ioctl;
 		ibv_cmd_advise_mr;
 		ibv_cmd_alloc_dm;
+		ibv_cmd_alloc_dmah;
 		ibv_cmd_alloc_mw;
 		ibv_cmd_alloc_pd;
 		ibv_cmd_attach_mcast;
@@ -214,6 +215,7 @@ IBVERBS_PRIVATE_@IBVERBS_PABI_VERSION@ {
 		ibv_cmd_destroy_wq;
 		ibv_cmd_detach_mcast;
 		ibv_cmd_free_dm;
+		ibv_cmd_free_dmah;
 		ibv_cmd_get_context;
 		ibv_cmd_modify_cq;
 		ibv_cmd_modify_flow_action_esp;
