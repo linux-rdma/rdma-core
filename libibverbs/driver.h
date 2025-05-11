@@ -189,6 +189,11 @@ struct verbs_dm {
 	uint32_t		handle;
 };
 
+struct verbs_dmah {
+	struct ibv_dmah dmah;
+	uint32_t handle;
+};
+
 enum {
 	VERBS_MATCH_SENTINEL = 0,
 	VERBS_MATCH_PCI = 1,
@@ -707,6 +712,9 @@ int ibv_cmd_alloc_dm(struct ibv_context *ctx,
 		     struct verbs_dm *dm,
 		     struct ibv_command_buffer *link);
 int ibv_cmd_free_dm(struct verbs_dm *dm);
+int ibv_cmd_alloc_dmah(struct ibv_context *ctx, struct verbs_dmah *st,
+		       struct ibv_dmah_init_attr *attr);
+int ibv_cmd_free_dmah(struct verbs_dmah *dmah);
 int ibv_cmd_reg_dm_mr(struct ibv_pd *pd, struct verbs_dm *dm,
 		      uint64_t offset, size_t length,
 		      unsigned int access, struct verbs_mr *vmr,
