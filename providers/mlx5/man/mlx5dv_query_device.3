@@ -87,6 +87,7 @@ enum mlx5dv_context_flags {
  * If CQ was created with IBV_WC_EX_WITH_COMPLETION_TIMESTAMP_WALLCLOCK, CQEs timestamp will be in real time format.
  */
  MLX5DV_CONTEXT_FLAGS_REAL_TIME_TS = (1 << 7),
+ MLX5DV_CONTEXT_FLAGS_BLUEFLAME = (1 << 8), /* Indicates if BlueFlame is supported by the device */
 .in -8
 };
 
