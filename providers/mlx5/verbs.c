@@ -651,6 +651,25 @@ struct ibv_mr *mlx5_reg_mr(struct ibv_pd *pd, void *addr, size_t length,
 	return &mr->vmr.ibv_mr;
 }
 
+struct ibv_mr *mlx5_reg_mr_ex(struct ibv_pd *pd, struct ibv_reg_mr_in *in)
+{
+	struct mlx5_mr *mr;
+	int ret;
+
+	mr = calloc(1, sizeof(*mr));
+	if (!mr)
+		return NULL;
+
+	ret = ibv_cmd_reg_mr_ex(pd, &mr->vmr, in);
+	if (ret) {
+		free(mr);
+		return NULL;
+	}
+	mr->alloc_flags = in->access;
+
+	return &mr->vmr.ibv_mr;
+}
+
 struct ibv_mr *mlx5_reg_dmabuf_mr(struct ibv_pd *pd, uint64_t offset, size_t length,
 				  uint64_t iova, int fd, int acc)
 {
