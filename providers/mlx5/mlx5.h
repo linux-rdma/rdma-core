@@ -1276,6 +1276,9 @@ int mlx5_dealloc_td(struct ibv_td *td);
 struct ibv_pd *mlx5_alloc_parent_domain(struct ibv_context *context,
 					struct ibv_parent_domain_init_attr *attr);
 
+struct ibv_dmah *mlx5_alloc_dmah(struct ibv_context *context,
+				 struct ibv_dmah_init_attr *attr);
+int mlx5_dealloc_dmah(struct ibv_dmah *dmah);
 
 void *mlx5_mmap(struct mlx5_uar_info *uar, int index,
 		int cmd_fd, int page_size, int uar_type);

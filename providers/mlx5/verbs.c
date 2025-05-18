@@ -2984,6 +2984,73 @@ int mlx5_query_qp(struct ibv_qp *ibqp, struct ibv_qp_attr *attr,
 }
 
 enum {
+	ALLOC_DMAH_SUPPORTED_COMP_MASK = IBV_DMAH_INIT_ATTR_MASK_CPU_ID |
+					 IBV_DMAH_INIT_ATTR_MASK_PH |
+					 IBV_DMAH_INIT_ATTR_MASK_TPH_MEM_TYPE,
+};
+
+enum {
+	ALLOC_DMAH_ST_COMP_MASK = IBV_DMAH_INIT_ATTR_MASK_CPU_ID |
+				  IBV_DMAH_INIT_ATTR_MASK_TPH_MEM_TYPE,
+};
+
+struct ibv_dmah *
+mlx5_alloc_dmah(struct ibv_context *context, struct ibv_dmah_init_attr *attr)
+{
+	struct verbs_dmah *dmah;
+	int ret;
+
+	if (!check_comp_mask(attr->comp_mask,
+			     ALLOC_DMAH_SUPPORTED_COMP_MASK)) {
+		errno = EOPNOTSUPP;
+		return NULL;
+	}
+
+	if (!(attr->comp_mask & IBV_DMAH_INIT_ATTR_MASK_PH)) {
+		/* PH is a must */
+		errno = EINVAL;
+		return NULL;
+	}
+
+	/* ST is optional; however, partial data for it is not allowed */
+	if (attr->comp_mask & ALLOC_DMAH_ST_COMP_MASK) {
+		if ((attr->comp_mask & ALLOC_DMAH_ST_COMP_MASK) != ALLOC_DMAH_ST_COMP_MASK) {
+			errno = EINVAL;
+			return NULL;
+		}
+	}
+
+	dmah = calloc(1, sizeof(*dmah));
+	if (!dmah) {
+		errno = ENOMEM;
+		return NULL;
+	}
+
+	ret = ibv_cmd_alloc_dmah(context, dmah, attr);
+	if (ret)
+		goto err;
+
+	return &dmah->dmah;
+
+err:
+	free(dmah);
+	return NULL;
+}
+
+int mlx5_dealloc_dmah(struct ibv_dmah *dmah)
+{
+	struct verbs_dmah *vdmah = verbs_get_dmah(dmah);
+	int ret;
+
+	ret = ibv_cmd_free_dmah(vdmah);
+	if (ret)
+		return ret;
+
+	free(vdmah);
+	return 0;
+}
+
+enum {
 	MLX5_MODIFY_QP_EX_ATTR_MASK = IBV_QP_RATE_LIMIT,
 };
 

@@ -194,6 +194,11 @@ struct verbs_dmah {
 	uint32_t handle;
 };
 
+static inline struct verbs_dmah *verbs_get_dmah(struct ibv_dmah *dmah)
+{
+	return container_of(dmah, struct verbs_dmah, dmah);
+}
+
 enum {
 	VERBS_MATCH_SENTINEL = 0,
 	VERBS_MATCH_PCI = 1,
