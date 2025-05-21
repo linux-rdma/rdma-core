@@ -27,6 +27,7 @@ publish_internal_headers(rdma
   rdma/siw-abi.h
   rdma/vmw_pvrdma-abi.h
   rdma/zxdh-abi.h
+  rdma/zxdh_user_ioctl_verbs.h
   )
 
 publish_internal_headers(rdma/hfi
