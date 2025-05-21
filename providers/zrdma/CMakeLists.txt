@@ -1,8 +1,18 @@
 set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -Werror")
 rdma_shared_provider(zrdma libzrdma.map
 	1 1.1.${PACKAGE_VERSION}
+  zxdh_hw.c
   zxdh_zrdma.c
   zxdh_verbs.c
+  private_verbs_cmd.c
 )
+include_directories(${NL_INCLUDE_DIRS})
+
+publish_headers(infiniband
+  zxdh_dv.h
+  zxdh_devids.h
+)
+
+target_link_libraries(zrdma PRIVATE nl-3)
 
 rdma_pkg_config("zrdma" "libibverbs" "${CMAKE_THREAD_LIBS_INIT}")
