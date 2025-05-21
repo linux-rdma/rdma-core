@@ -52,6 +52,44 @@
 #include "zxdh_verbs.h"
 
 uint32_t zxdh_debug_mask;
+
+static const unsigned int zxdh_roce_mtu[] = {
+	[IBV_MTU_256] = 256,   [IBV_MTU_512] = 512,   [IBV_MTU_1024] = 1024,
+	[IBV_MTU_2048] = 2048, [IBV_MTU_4096] = 4096,
+};
+
+static inline unsigned int mtu_enum_to_int(enum ibv_mtu mtu)
+{
+	return zxdh_roce_mtu[mtu];
+}
+
+/**
+ * zxdh_get_inline_data - get inline_multi_sge data
+ * @inline_data: uint8_t*
+ * @ib_wr: work request ptr
+ * @len: sge total length
+ */
+static int zxdh_get_inline_data(uint8_t *inline_data, struct ibv_send_wr *ib_wr,
+				__u32 *len)
+{
+	int num = 0;
+	int offset = 0;
+
+	while (num < ib_wr->num_sge) {
+		*len += ib_wr->sg_list[num].length;
+		if (*len > ZXDH_MAX_INLINE_DATA_SIZE) {
+			printf("err:inline bytes over max inline length\n");
+			return -EINVAL;
+		}
+		memcpy(inline_data + offset,
+		       (void *)(uintptr_t)ib_wr->sg_list[num].addr,
+		       ib_wr->sg_list[num].length);
+		offset += ib_wr->sg_list[num].length;
+		num++;
+	}
+	return 0;
+}
+
 /**
  * zxdh_uquery_device_ex - query device attributes including extended properties
  * @context: user context for the device
@@ -1273,13 +1311,359 @@ void zxdh_munmap(void *map)
 }
 
 /**
+ * zxdh_destroy_vmapped_qp - destroy resources for qp
+ * @iwuqp: qp struct for resources
+ */
+static int zxdh_destroy_vmapped_qp(struct zxdh_uqp *iwuqp)
+{
+	int ret;
+
+	ret = ibv_cmd_destroy_qp(&iwuqp->vqp.qp);
+	if (ret)
+		return ret;
+
+	ibv_cmd_dereg_mr(&iwuqp->vmr);
+
+	return 0;
+}
+
+/**
+ * zxdh_vmapped_qp - create resources for qp
+ * @iwuqp: qp struct for resources
+ * @pd: pd for the qp
+ * @attr: attributes of qp passed
+ * @resp: response back from create qp
+ * @sqdepth: depth of sq
+ * @rqdepth: depth of rq
+ * @info: info for initializing user level qp
+ * @abi_ver: abi version of the create qp command
+ */
+static int zxdh_vmapped_qp(struct zxdh_uqp *iwuqp, struct ibv_pd *pd,
+			   struct ibv_qp_init_attr *attr, int sqdepth,
+			   int rqdepth, struct zxdh_qp_init_info *info,
+			   bool legacy_mode)
+{
+	struct zxdh_ucreate_qp cmd = {};
+	size_t sqsize, rqsize, totalqpsize;
+	struct zxdh_ucreate_qp_resp resp = {};
+	struct zxdh_ureg_mr reg_mr_cmd = {};
+	struct ib_uverbs_reg_mr_resp reg_mr_resp = {};
+	int ret;
+
+	rqsize = 0;
+	sqsize = roundup(sqdepth * ZXDH_QP_SQE_MIN_SIZE, ZXDH_HW_PAGE_SIZE);
+	if (iwuqp->is_srq == false) {
+		rqsize = roundup(rqdepth * ZXDH_QP_RQE_MIN_SIZE,
+				 ZXDH_HW_PAGE_SIZE);
+		totalqpsize = rqsize + sqsize + ZXDH_DB_SHADOW_AREA_SIZE;
+	} else {
+		totalqpsize = sqsize + ZXDH_DB_SHADOW_AREA_SIZE;
+	}
+	info->sq = zxdh_alloc_hw_buf(totalqpsize);
+	iwuqp->buf_size = totalqpsize;
+
+	if (!info->sq)
+		return -ENOMEM;
+
+	memset(info->sq, 0, totalqpsize);
+	if (iwuqp->is_srq == false) {
+		info->rq = (struct zxdh_qp_rq_quanta *)&info
+				   ->sq[sqsize / ZXDH_QP_SQE_MIN_SIZE];
+		info->shadow_area =
+			info->rq[rqsize / ZXDH_QP_RQE_MIN_SIZE].elem;
+		reg_mr_cmd.rq_pages = rqsize >> ZXDH_HW_PAGE_SHIFT;
+	} else {
+		info->shadow_area =
+			(__le64 *)&info->sq[sqsize / ZXDH_QP_SQE_MIN_SIZE];
+	}
+	reg_mr_cmd.reg_type = ZXDH_MEMREG_TYPE_QP;
+	reg_mr_cmd.sq_pages = sqsize >> ZXDH_HW_PAGE_SHIFT;
+
+	ret = ibv_cmd_reg_mr(pd, info->sq, totalqpsize, (uintptr_t)info->sq,
+			     IBV_ACCESS_LOCAL_WRITE, &iwuqp->vmr,
+			     &reg_mr_cmd.ibv_cmd, sizeof(reg_mr_cmd),
+			     &reg_mr_resp, sizeof(reg_mr_resp));
+	if (ret)
+		goto err_dereg_mr;
+
+	cmd.user_wqe_bufs = (__u64)((uintptr_t)info->sq);
+	cmd.user_compl_ctx = (__u64)(uintptr_t)&iwuqp->qp;
+	ret = ibv_cmd_create_qp(pd, &iwuqp->vqp.qp, attr, &cmd.ibv_cmd,
+				sizeof(cmd), &resp.ibv_resp,
+				sizeof(struct zxdh_ucreate_qp_resp));
+	if (ret)
+		goto err_qp;
+
+	info->sq_size = resp.actual_sq_size;
+	info->rq_size = resp.actual_rq_size;
+	info->qp_caps = resp.qp_caps;
+	info->qp_id = resp.qp_id;
+	iwuqp->zxdh_drv_opt = resp.zxdh_drv_opt;
+	iwuqp->vqp.qp.qp_num = resp.qp_id;
+
+	iwuqp->send_cq =
+		container_of(attr->send_cq, struct zxdh_ucq, verbs_cq.cq);
+	iwuqp->recv_cq =
+		container_of(attr->recv_cq, struct zxdh_ucq, verbs_cq.cq);
+	iwuqp->send_cq->uqp = iwuqp;
+	iwuqp->recv_cq->uqp = iwuqp;
+
+	return 0;
+err_qp:
+	ibv_cmd_dereg_mr(&iwuqp->vmr);
+err_dereg_mr:
+	zxdh_free_hw_buf(info->sq, iwuqp->buf_size);
+	return ret;
+}
+
+static void zxdh_wr_local_inv(struct ibv_qp_ex *ibqp, uint32_t invalidate_rkey)
+{
+	struct zxdh_uqp *qp = container_of(ibqp, struct zxdh_uqp, vqp.qp_ex);
+	struct ibv_send_wr wr = {};
+	struct ibv_send_wr *bad_wr = NULL;
+
+	wr.opcode = IBV_WR_LOCAL_INV;
+	wr.invalidate_rkey = invalidate_rkey;
+
+	zxdh_upost_send(&qp->vqp.qp, &wr, &bad_wr);
+}
+
+static void zxdh_send_wr_send_inv(struct ibv_qp_ex *ibqp,
+				  uint32_t invalidate_rkey)
+{
+	struct zxdh_uqp *qp = container_of(ibqp, struct zxdh_uqp, vqp.qp_ex);
+	struct ibv_send_wr wr = {};
+	struct ibv_send_wr *bad_wr = NULL;
+
+	wr.opcode = IBV_WR_SEND_WITH_INV;
+	wr.invalidate_rkey = invalidate_rkey;
+
+	zxdh_upost_send(&qp->vqp.qp, &wr, &bad_wr);
+}
+
+static void zxdh_wr_bind_mw(struct ibv_qp_ex *ibqp, struct ibv_mw *ibmw,
+			    uint32_t rkey, const struct ibv_mw_bind_info *info)
+{
+	struct zxdh_uqp *qp = container_of(ibqp, struct zxdh_uqp, vqp.qp_ex);
+	struct ibv_send_wr wr = {};
+	struct ibv_send_wr *bad_wr = NULL;
+
+	if (ibmw->type != IBV_MW_TYPE_2)
+		return;
+
+	wr.opcode = IBV_WR_BIND_MW;
+	wr.bind_mw.bind_info = *info;
+	wr.bind_mw.mw = ibmw;
+	wr.bind_mw.rkey = rkey;
+
+	zxdh_upost_send(&qp->vqp.qp, &wr, &bad_wr);
+}
+
+static struct ibv_qp *create_qp(struct ibv_context *ibv_ctx,
+				struct ibv_qp_init_attr_ex *attr_ex)
+{
+	struct zxdh_qp_init_info info = {};
+	struct zxdh_dev_attrs *dev_attrs;
+	struct zxdh_uvcontext *iwvctx;
+	struct zxdh_uqp *iwuqp;
+	struct zxdh_usrq *iwusrq;
+	struct ibv_pd *pd = attr_ex->pd;
+	struct ibv_qp_init_attr *attr;
+	__u32 sqdepth, rqdepth;
+	__u8 sqshift, rqshift;
+	int status;
+
+	attr = calloc(1, sizeof(*attr));
+	if (!attr)
+		return NULL;
+
+	memcpy(attr, attr_ex, sizeof(*attr));
+
+	if (attr->qp_type != IBV_QPT_RC && attr->qp_type != IBV_QPT_UD) {
+		errno = EOPNOTSUPP;
+		free(attr);
+		return NULL;
+	}
+
+	iwvctx = container_of(ibv_ctx, struct zxdh_uvcontext, ibv_ctx.context);
+	dev_attrs = &iwvctx->dev_attrs;
+
+	if (attr->cap.max_send_sge > dev_attrs->max_hw_wq_frags ||
+	    attr->cap.max_recv_sge > dev_attrs->max_hw_wq_frags) {
+		errno = EINVAL;
+		free(attr);
+		return NULL;
+	}
+
+	if (attr->cap.max_inline_data > dev_attrs->max_hw_inline) {
+		zxdh_dbg(ZXDH_DBG_QP, "max_inline_data over max_hw_inline\n");
+		attr->cap.max_inline_data = dev_attrs->max_hw_inline;
+	}
+
+	zxdh_get_sq_wqe_shift(attr->cap.max_send_sge,
+			      attr->cap.max_inline_data, &sqshift);
+	status = zxdh_get_sqdepth(dev_attrs, attr->cap.max_send_wr, sqshift,
+				  &sqdepth);
+	if (status) {
+		errno = EINVAL;
+		free(attr);
+		return NULL;
+	}
+
+	zxdh_get_rq_wqe_shift(attr->cap.max_recv_sge, &rqshift);
+	status = zxdh_get_rqdepth(dev_attrs, attr->cap.max_recv_wr, rqshift,
+				  &rqdepth);
+	if (status) {
+		errno = EINVAL;
+		free(attr);
+		return NULL;
+	}
+
+	iwuqp = memalign(1024, sizeof(*iwuqp));
+	if (!iwuqp) {
+		free(attr);
+		return NULL;
+	}
+
+	memset(iwuqp, 0, sizeof(*iwuqp));
+
+	if (attr_ex->comp_mask & IBV_QP_INIT_ATTR_SEND_OPS_FLAGS) {
+		if (attr_ex->send_ops_flags & ~IBV_QP_EX_WITH_BIND_MW) {
+			errno = EOPNOTSUPP;
+			free(iwuqp);
+			free(attr);
+			return NULL;
+		}
+
+		iwuqp->vqp.comp_mask |= VERBS_QP_EX;
+		if (attr_ex->send_ops_flags & IBV_QP_EX_WITH_BIND_MW)
+			iwuqp->vqp.qp_ex.wr_bind_mw = zxdh_wr_bind_mw;
+
+		if (attr_ex->send_ops_flags & IBV_QP_EX_WITH_SEND_WITH_INV)
+			iwuqp->vqp.qp_ex.wr_send_inv = zxdh_send_wr_send_inv;
+
+		if (attr_ex->send_ops_flags & IBV_QP_EX_WITH_LOCAL_INV)
+			iwuqp->vqp.qp_ex.wr_local_inv = zxdh_wr_local_inv;
+	}
+
+	if (pthread_spin_init(&iwuqp->lock, PTHREAD_PROCESS_PRIVATE))
+		goto err_free_qp;
+
+	info.sq_size = sqdepth >> sqshift;
+	info.rq_size = rqdepth >> rqshift;
+	attr->cap.max_send_wr = info.sq_size;
+	attr->cap.max_recv_wr = info.rq_size;
+
+	info.dev_attrs = dev_attrs;
+	info.max_sq_frag_cnt = attr->cap.max_send_sge;
+	info.max_rq_frag_cnt = attr->cap.max_recv_sge;
+
+	if (attr->srq != NULL) {
+		iwuqp->is_srq = true;
+		iwusrq = container_of(attr->srq, struct zxdh_usrq, ibv_srq);
+		iwuqp->srq = iwusrq;
+		iwuqp->qp.is_srq = true;
+	}
+
+	if (iwuqp->is_srq == false) {
+		iwuqp->recv_sges = calloc(attr->cap.max_recv_sge,
+					  sizeof(*iwuqp->recv_sges));
+		if (!iwuqp->recv_sges)
+			goto err_destroy_lock;
+	}
+
+	info.wqe_alloc_db =
+		(__u32 *)((__u8 *)iwvctx->sq_db + ZXDH_DB_SQ_OFFSET);
+	info.abi_ver = iwvctx->abi_ver;
+	info.legacy_mode = iwvctx->legacy_mode;
+	info.sq_wrtrk_array = calloc(sqdepth, sizeof(*info.sq_wrtrk_array));
+	if (!info.sq_wrtrk_array)
+		goto err_free_rsges;
+
+	if (iwuqp->is_srq == false) {
+		info.rq_wrid_array =
+			calloc(info.rq_size, sizeof(*info.rq_wrid_array));
+		if (!info.rq_wrid_array)
+			goto err_free_sq_wrtrk;
+	}
+
+	iwuqp->sq_sig_all = attr->sq_sig_all;
+	iwuqp->qp_type = attr->qp_type;
+	if (attr->qp_type == IBV_QPT_UD)
+		info.type = ZXDH_QP_TYPE_ROCE_UD;
+	else
+		info.type = ZXDH_QP_TYPE_ROCE_RC;
+	status = zxdh_vmapped_qp(iwuqp, pd, attr, sqdepth, rqdepth, &info,
+				 iwvctx->legacy_mode);
+	if (status) {
+		errno = status;
+		goto err_free_rq_wrid;
+	}
+
+	iwuqp->qp.back_qp = iwuqp;
+	iwuqp->qp.lock = &iwuqp->lock;
+	info.max_sq_frag_cnt = attr->cap.max_send_sge;
+	info.max_rq_frag_cnt = attr->cap.max_recv_sge;
+	info.max_inline_data = attr->cap.max_inline_data;
+	if (info.type == ZXDH_QP_TYPE_ROCE_RC) {
+		iwuqp->qp.split_sg_list =
+			calloc(2 * dev_attrs->max_hw_read_sges,
+			       sizeof(*iwuqp->qp.split_sg_list));
+		if (!iwuqp->qp.split_sg_list)
+			goto err_free_vmap_qp;
+	}
+	status = zxdh_qp_init(&iwuqp->qp, &info);
+	if (status) {
+		errno = EINVAL;
+		goto err_free_sg_list;
+	}
+	iwuqp->qp.mtu = mtu_enum_to_int(IBV_MTU_1024);
+	attr->cap.max_send_wr = (sqdepth - ZXDH_SQ_RSVD) >> sqshift;
+	attr->cap.max_recv_wr = (rqdepth - ZXDH_RQ_RSVD) >> rqshift;
+	memcpy(attr_ex, attr, sizeof(*attr));
+	free(attr);
+	return &iwuqp->vqp.qp;
+
+err_free_sg_list:
+	if (iwuqp->qp.split_sg_list)
+		free(iwuqp->qp.split_sg_list);
+err_free_vmap_qp:
+	zxdh_destroy_vmapped_qp(iwuqp);
+	zxdh_free_hw_buf(info.sq, iwuqp->buf_size);
+err_free_rq_wrid:
+	free(info.rq_wrid_array);
+err_free_sq_wrtrk:
+	free(info.sq_wrtrk_array);
+err_free_rsges:
+	free(iwuqp->recv_sges);
+err_destroy_lock:
+	pthread_spin_destroy(&iwuqp->lock);
+err_free_qp:
+	free(iwuqp);
+	free(attr);
+
+	return NULL;
+}
+
+/**
  * zxdh_ucreate_qp - create qp on user app
  * @pd: pd for the qp
  * @attr: attributes of the qp to be created (sizes, sge, cq)
  */
 struct ibv_qp *zxdh_ucreate_qp(struct ibv_pd *pd, struct ibv_qp_init_attr *attr)
 {
-	return NULL;
+	struct ibv_qp_init_attr_ex attrx = {};
+	struct ibv_qp *qp;
+
+	memcpy(&attrx, attr, sizeof(*attr));
+	attrx.comp_mask = IBV_QP_INIT_ATTR_PD;
+	attrx.pd = pd;
+
+	qp = create_qp(pd->context, &attrx);
+	if (qp)
+		memcpy(attr, &attrx, sizeof(*attr));
+
+	return qp;
 }
 
 /**
@@ -1290,7 +1674,7 @@ struct ibv_qp *zxdh_ucreate_qp(struct ibv_pd *pd, struct ibv_qp_init_attr *attr)
 struct ibv_qp *zxdh_ucreate_qp_ex(struct ibv_context *context,
 				  struct ibv_qp_init_attr_ex *attr)
 {
-	return NULL;
+	return create_qp(context, attr);
 }
 
 /**
@@ -1303,7 +1687,42 @@ struct ibv_qp *zxdh_ucreate_qp_ex(struct ibv_context *context,
 int zxdh_uquery_qp(struct ibv_qp *qp, struct ibv_qp_attr *attr, int attr_mask,
 		   struct ibv_qp_init_attr *init_attr)
 {
-	return 0;
+	struct ibv_query_qp cmd;
+
+	return ibv_cmd_query_qp(qp, attr, attr_mask, init_attr, &cmd,
+				sizeof(cmd));
+}
+
+/**
+ * zxdh_clean_cqes - clean cq entries for qp
+ * @qp: qp for which completions are cleaned
+ * @iwcq: cq to be cleaned
+ */
+static void zxdh_clean_cqes(struct zxdh_qp *qp, struct zxdh_ucq *iwucq)
+{
+	struct zxdh_cq *ukcq = &iwucq->cq;
+	int ret;
+
+	ret = pthread_spin_lock(&iwucq->lock);
+	if (ret)
+		return;
+
+	zxdh_clean_cq(qp, ukcq);
+	pthread_spin_unlock(&iwucq->lock);
+}
+
+static void zxdh_init_qp_indices(struct zxdh_qp *qp)
+{
+	__u32 sq_ring_size;
+
+	sq_ring_size = ZXDH_RING_SIZE(qp->sq_ring);
+	ZXDH_RING_INIT(qp->sq_ring, sq_ring_size);
+	ZXDH_RING_INIT(qp->initial_ring, sq_ring_size);
+	qp->swqe_polarity = 0;
+	qp->swqe_polarity_deferred = 1;
+	qp->rwqe_polarity = 0;
+	qp->rwqe_signature = 0;
+	ZXDH_RING_INIT(qp->rq_ring, qp->rq_size);
 }
 
 /**
@@ -1314,7 +1733,62 @@ int zxdh_uquery_qp(struct ibv_qp *qp, struct ibv_qp_attr *attr, int attr_mask,
  */
 int zxdh_umodify_qp(struct ibv_qp *qp, struct ibv_qp_attr *attr, int attr_mask)
 {
-	return 0;
+	struct zxdh_uqp *iwuqp;
+	struct zxdh_umodify_qp_resp resp = {};
+	struct ibv_modify_qp cmd = {};
+	struct zxdh_umodify_qp cmd_ex = {};
+	int ret;
+	__u16 mtu = 0;
+
+	iwuqp = container_of(qp, struct zxdh_uqp, vqp.qp);
+	if (attr_mask & IBV_QP_STATE || attr_mask & IBV_QP_RATE_LIMIT) {
+		ret = ibv_cmd_modify_qp_ex(qp, attr, attr_mask, &cmd_ex.ibv_cmd,
+					   sizeof(cmd_ex), &resp.ibv_resp,
+					   sizeof(resp));
+	} else {
+		ret = ibv_cmd_modify_qp(qp, attr, attr_mask, &cmd, sizeof(cmd));
+	}
+
+	if (!ret &&
+		(attr_mask & IBV_QP_STATE) &&
+		attr->qp_state == IBV_QPS_RESET) {
+		if (iwuqp->send_cq)
+			zxdh_clean_cqes(&iwuqp->qp, iwuqp->send_cq);
+
+		if (iwuqp->recv_cq && iwuqp->recv_cq != iwuqp->send_cq)
+			zxdh_clean_cqes(&iwuqp->qp, iwuqp->recv_cq);
+		zxdh_init_qp_indices(&iwuqp->qp);
+	}
+
+	if (!ret && (attr_mask & IBV_QP_PATH_MTU) &&
+	    qp->qp_type == IBV_QPT_RC) {
+		mtu = mtu_enum_to_int(attr->path_mtu);
+		if (mtu == 0)
+			return -EINVAL;
+		iwuqp->qp.mtu = mtu;
+	}
+	if (!ret && (attr_mask & IBV_QP_SQ_PSN) && qp->qp_type == IBV_QPT_RC) {
+		iwuqp->qp.next_psn = attr->sq_psn;
+		iwuqp->qp.cqe_last_ack_qsn = attr->sq_psn - 1;
+		iwuqp->qp.qp_last_ack_qsn = attr->sq_psn - 1;
+		iwuqp->qp.cqe_retry_cnt = 0;
+		iwuqp->qp.qp_reset_cnt = 0;
+	}
+	return ret;
+}
+
+static void zxdh_issue_flush(struct ibv_qp *qp, bool sq_flush, bool rq_flush)
+{
+	struct ib_uverbs_ex_modify_qp_resp resp = {};
+	struct zxdh_umodify_qp cmd_ex = {};
+	struct ibv_qp_attr attr = {};
+
+	attr.qp_state = IBV_QPS_ERR;
+	cmd_ex.sq_flush = sq_flush;
+	cmd_ex.rq_flush = rq_flush;
+
+	ibv_cmd_modify_qp_ex(qp, &attr, IBV_QP_STATE, &cmd_ex.ibv_cmd,
+			     sizeof(cmd_ex), &resp, sizeof(resp));
 }
 
 /**
@@ -1323,7 +1797,75 @@ int zxdh_umodify_qp(struct ibv_qp *qp, struct ibv_qp_attr *attr, int attr_mask)
  */
 int zxdh_udestroy_qp(struct ibv_qp *qp)
 {
+	struct zxdh_uqp *iwuqp;
+	int ret;
+
+	iwuqp = container_of(qp, struct zxdh_uqp, vqp.qp);
+	ret = pthread_spin_destroy(&iwuqp->lock);
+	if (ret)
+		goto err;
+
+	iwuqp->qp.destroy_pending = true;
+
+	ret = zxdh_destroy_vmapped_qp(iwuqp);
+	if (ret)
+		goto err;
+
+	/* Clean any pending completions from the cq(s) */
+	if (iwuqp->send_cq)
+		zxdh_clean_cqes(&iwuqp->qp, iwuqp->send_cq);
+
+	if (iwuqp->recv_cq && iwuqp->recv_cq != iwuqp->send_cq)
+		zxdh_clean_cqes(&iwuqp->qp, iwuqp->recv_cq);
+
+	if (iwuqp->qp.sq_wrtrk_array)
+		free(iwuqp->qp.sq_wrtrk_array);
+	if (iwuqp->qp.rq_wrid_array)
+		free(iwuqp->qp.rq_wrid_array);
+	if (iwuqp->qp.split_sg_list)
+		free(iwuqp->qp.split_sg_list);
+
+	zxdh_free_hw_buf(iwuqp->qp.sq_base, iwuqp->buf_size);
+	free(iwuqp->recv_sges);
+	free(iwuqp);
 	return 0;
+
+err:
+	return ret;
+}
+
+/**
+ * zxdh_copy_sg_list - copy sg list for qp
+ * @sg_list: copied into sg_list
+ * @sgl: copy from sgl
+ * @num_sges: count of sg entries
+ * @max_sges: count of max supported sg entries
+ */
+static void zxdh_copy_sg_list(struct zxdh_sge *sg_list, struct ibv_sge *sgl,
+			      int num_sges)
+{
+	int i;
+
+	for (i = 0; i < num_sges; i++) {
+		sg_list[i].tag_off = sgl[i].addr;
+		sg_list[i].len = sgl[i].length;
+		sg_list[i].stag = sgl[i].lkey;
+	}
+}
+
+/**
+ * calc_type2_mw_stag - calculate type 2 MW stag
+ * @rkey: desired rkey of the MW
+ * @mw_rkey: type2 memory window rkey
+ *
+ * compute type2 memory window stag by taking lower 8 bits
+ * of the desired rkey and leaving 24 bits if mw->rkey unchanged
+ */
+static inline __u32 calc_type2_mw_stag(__u32 rkey, __u32 mw_rkey)
+{
+	const __u32 mask = 0xff;
+
+	return (rkey & mask) | (mw_rkey & ~mask);
 }
 
 /**
@@ -1335,7 +1877,573 @@ int zxdh_udestroy_qp(struct ibv_qp *qp)
 int zxdh_upost_send(struct ibv_qp *ib_qp, struct ibv_send_wr *ib_wr,
 		    struct ibv_send_wr **bad_wr)
 {
-	return 0;
+	struct zxdh_post_sq_info info;
+	struct zxdh_uvcontext *iwvctx;
+	struct zxdh_dev_attrs *dev_attrs;
+	enum zxdh_status_code ret = 0;
+	struct zxdh_uqp *iwuqp;
+	bool reflush = false;
+	int err = 0;
+	struct verbs_mr *vmr = NULL;
+	struct zxdh_umr *umr = NULL;
+	__u64 mr_va = 0, mw_va = 0, value_dffer = 0, mw_pa_pble_index = 0;
+	__u16 mr_offset = 0;
+
+	iwuqp = container_of(ib_qp, struct zxdh_uqp, vqp.qp);
+	iwvctx = container_of(ib_qp->context, struct zxdh_uvcontext,
+			      ibv_ctx.context);
+	dev_attrs = &iwvctx->dev_attrs;
+
+	err = pthread_spin_lock(&iwuqp->lock);
+	if (err)
+		return err;
+
+	if (!ZXDH_RING_MORE_WORK(iwuqp->qp.sq_ring) &&
+	    ib_qp->state == IBV_QPS_ERR)
+		reflush = true;
+	while (ib_wr) {
+		memset(&info, 0, sizeof(info));
+		info.wr_id = (__u64)(ib_wr->wr_id);
+		if ((ib_wr->send_flags & IBV_SEND_SIGNALED) ||
+		    iwuqp->sq_sig_all)
+			info.signaled = true;
+		if (ib_wr->send_flags & IBV_SEND_FENCE)
+			info.read_fence = true;
+
+		switch (ib_wr->opcode) {
+		case IBV_WR_SEND_WITH_IMM:
+			if (iwuqp->qp.qp_caps & ZXDH_SEND_WITH_IMM) {
+				info.imm_data_valid = true;
+				info.imm_data = ntohl(ib_wr->imm_data);
+			} else {
+				err = EINVAL;
+				break;
+			}
+			SWITCH_FALLTHROUGH;
+		case IBV_WR_SEND:
+		case IBV_WR_SEND_WITH_INV:
+			if (ib_wr->send_flags & IBV_SEND_SOLICITED)
+				info.solicited = 1;
+
+			if (ib_wr->opcode == IBV_WR_SEND) {
+				if (ib_qp->qp_type == IBV_QPT_UD)
+					info.op_type = ZXDH_OP_TYPE_UD_SEND;
+				else
+					info.op_type = ZXDH_OP_TYPE_SEND;
+			} else if (ib_wr->opcode == IBV_WR_SEND_WITH_IMM) {
+				if (ib_qp->qp_type == IBV_QPT_UD)
+					info.op_type =
+						ZXDH_OP_TYPE_UD_SEND_WITH_IMM;
+				else
+					info.op_type =
+						ZXDH_OP_TYPE_SEND_WITH_IMM;
+			} else {
+				info.op_type = ZXDH_OP_TYPE_SEND_INV;
+				info.stag_to_inv = ib_wr->invalidate_rkey;
+			}
+
+			if ((ib_wr->send_flags & IBV_SEND_INLINE) &&
+			    (ib_wr->num_sge != 0)) {
+				ret = zxdh_get_inline_data(
+					iwuqp->inline_data, ib_wr,
+					&info.op.inline_rdma_send.len);
+				if (ret) {
+					printf("err:zxdh_get_inline_data fail\n");
+					pthread_spin_unlock(&iwuqp->lock);
+					return -EINVAL;
+				}
+				info.op.inline_rdma_send.data =
+					iwuqp->inline_data;
+				if (ib_qp->qp_type == IBV_QPT_UD) {
+					struct zxdh_uah *ah =
+						container_of(ib_wr->wr.ud.ah,
+							     struct zxdh_uah,
+							     ibv_ah);
+					info.op.inline_rdma_send.ah_id =
+						ah->ah_id;
+					info.op.inline_rdma_send.qkey =
+						ib_wr->wr.ud.remote_qkey;
+					info.op.inline_rdma_send.dest_qp =
+						ib_wr->wr.ud.remote_qpn;
+					ret = zxdh_ud_inline_send(
+						&iwuqp->qp, &info, false);
+				} else {
+					ret = zxdh_rc_inline_send(
+						&iwuqp->qp, &info, false);
+				}
+			} else {
+				info.op.send.num_sges = ib_wr->num_sge;
+				info.op.send.sg_list =
+					(struct zxdh_sge *)ib_wr->sg_list;
+				if (ib_qp->qp_type == IBV_QPT_UD) {
+					struct zxdh_uah *ah =
+						container_of(ib_wr->wr.ud.ah,
+							     struct zxdh_uah,
+							     ibv_ah);
+
+					info.op.inline_rdma_send.ah_id =
+						ah->ah_id;
+					info.op.inline_rdma_send.qkey =
+						ib_wr->wr.ud.remote_qkey;
+					info.op.inline_rdma_send.dest_qp =
+						ib_wr->wr.ud.remote_qpn;
+					ret = zxdh_ud_send(&iwuqp->qp, &info,
+							      false);
+				} else {
+					ret = zxdh_rc_send(&iwuqp->qp, &info,
+							      false);
+				}
+			}
+			if (ret)
+				err = (ret == ZXDH_ERR_QP_TOOMANY_WRS_POSTED) ?
+					      ENOMEM :
+					      EINVAL;
+			break;
+		case IBV_WR_RDMA_WRITE_WITH_IMM:
+			if (iwuqp->qp.qp_caps & ZXDH_WRITE_WITH_IMM) {
+				info.imm_data_valid = true;
+				info.imm_data = ntohl(ib_wr->imm_data);
+			} else {
+				err = -EINVAL;
+				break;
+			}
+			SWITCH_FALLTHROUGH;
+		case IBV_WR_RDMA_WRITE:
+			if (ib_wr->send_flags & IBV_SEND_SOLICITED)
+				info.solicited = 1;
+
+			if (ib_wr->opcode == IBV_WR_RDMA_WRITE)
+				info.op_type = ZXDH_OP_TYPE_WRITE;
+			else
+				info.op_type = ZXDH_OP_TYPE_WRITE_WITH_IMM;
+
+			if ((ib_wr->send_flags & IBV_SEND_INLINE) &&
+			    (ib_wr->num_sge != 0)) {
+				ret = zxdh_get_inline_data(
+					iwuqp->inline_data, ib_wr,
+					&info.op.inline_rdma_write.len);
+				if (ret) {
+					printf("err:zxdh_get_inline_data fail\n");
+					pthread_spin_unlock(&iwuqp->lock);
+					return -EINVAL;
+				}
+				info.op.inline_rdma_write.data =
+					iwuqp->inline_data;
+				info.op.inline_rdma_write.rem_addr.tag_off =
+					ib_wr->wr.rdma.remote_addr;
+				info.op.inline_rdma_write.rem_addr.stag =
+					ib_wr->wr.rdma.rkey;
+				ret = zxdh_inline_rdma_write(&iwuqp->qp,
+								&info, false);
+			} else {
+				info.op.rdma_write.lo_sg_list =
+					(void *)ib_wr->sg_list;
+				info.op.rdma_write.num_lo_sges = ib_wr->num_sge;
+				info.op.rdma_write.rem_addr.tag_off =
+					ib_wr->wr.rdma.remote_addr;
+				info.op.rdma_write.rem_addr.stag =
+					ib_wr->wr.rdma.rkey;
+				ret = zxdh_rdma_write(&iwuqp->qp, &info,
+							 false);
+			}
+			if (ret)
+				err = (ret == ZXDH_ERR_QP_TOOMANY_WRS_POSTED) ?
+					      ENOMEM :
+					      EINVAL;
+			break;
+		case IBV_WR_RDMA_READ:
+			if (ib_wr->num_sge > dev_attrs->max_hw_read_sges) {
+				err = EINVAL;
+				break;
+			}
+			info.op_type = ZXDH_OP_TYPE_READ;
+			info.op.rdma_read.rem_addr.tag_off =
+				ib_wr->wr.rdma.remote_addr;
+			info.op.rdma_read.rem_addr.stag = ib_wr->wr.rdma.rkey;
+
+			info.op.rdma_read.lo_sg_list = (void *)ib_wr->sg_list;
+			info.op.rdma_read.num_lo_sges = ib_wr->num_sge;
+			ret = zxdh_rdma_read(&iwuqp->qp, &info, false,
+						false);
+			if (ret)
+				err = (ret == ZXDH_ERR_QP_TOOMANY_WRS_POSTED) ?
+					      ENOMEM :
+					      EINVAL;
+			break;
+		case IBV_WR_BIND_MW:
+			vmr = verbs_get_mr(ib_wr->bind_mw.bind_info.mr);
+			umr = container_of(vmr, struct zxdh_umr, vmr);
+			mr_va = (uintptr_t)ib_wr->bind_mw.bind_info.mr->addr;
+			mw_va = ib_wr->bind_mw.bind_info.addr;
+			mr_offset = 0;
+			value_dffer = 0;
+			mw_pa_pble_index = 0;
+
+			if (ib_qp->qp_type != IBV_QPT_RC) {
+				err = EINVAL;
+				break;
+			}
+			info.op_type = ZXDH_OP_TYPE_BIND_MW;
+			info.op.bind_window.mr_stag =
+				ib_wr->bind_mw.bind_info.mr->rkey;
+
+			if (ib_wr->bind_mw.mw->type == IBV_MW_TYPE_1) {
+				info.op.bind_window.mem_window_type_1 = true;
+				info.op.bind_window.mw_stag =
+					ib_wr->bind_mw.rkey;
+			} else {
+				info.op.bind_window.mem_window_type_1 = false;
+				info.op.bind_window.mw_stag =
+					calc_type2_mw_stag(
+						ib_wr->bind_mw.rkey,
+						ib_wr->bind_mw.mw->rkey);
+				ib_wr->bind_mw.mw->rkey =
+					info.op.bind_window.mw_stag;
+			}
+
+			if (ib_wr->bind_mw.bind_info.mw_access_flags &
+			    IBV_ACCESS_ZERO_BASED) {
+				info.op.bind_window.addressing_type =
+					ZXDH_ADDR_TYPE_ZERO_BASED;
+				if (ib_wr->bind_mw.mw->type == IBV_MW_TYPE_1) {
+					err = EINVAL;
+					break;
+				}
+
+				info.op.bind_window.addressing_type =
+					ZXDH_ADDR_TYPE_ZERO_BASED;
+				info.op.bind_window.host_page_size =
+					umr->host_page_size;
+				if (umr->host_page_size == ZXDH_PAGE_SIZE_4K) {
+					mr_offset = mr_va & 0x0fff;
+					value_dffer = mw_va - mr_va;
+					if (umr->leaf_pbl_size == 3) {
+						mw_pa_pble_index =
+							(mr_offset +
+							 value_dffer) /
+							(4096 * 512);
+						info.op.bind_window
+							.mw_pa_pble_index =
+							umr->mr_pa_pble_index +
+							mw_pa_pble_index;
+						mw_pa_pble_index =
+							((mr_offset +
+							  value_dffer) /
+							 4096) %
+							512;
+
+						info.op.bind_window
+							.root_leaf_offset =
+							(__u16)mw_pa_pble_index;
+						info.op.bind_window.va =
+							(void *)(uintptr_t)(mw_va &
+									    0x0fff);
+						info.op.bind_window
+							.leaf_pbl_size = 3;
+
+					} else if (umr->leaf_pbl_size == 1) {
+						mw_pa_pble_index =
+							(mr_offset +
+							 value_dffer) /
+							4096;
+						info.op.bind_window
+							.mw_pa_pble_index =
+							umr->mr_pa_pble_index +
+							mw_pa_pble_index;
+						info.op.bind_window
+							.leaf_pbl_size = 1;
+						info.op.bind_window.va =
+							(void *)(uintptr_t)(mw_va &
+									    0x0fff);
+						info.op.bind_window
+							.root_leaf_offset = 0;
+					} else {
+						mw_pa_pble_index =
+							umr->mr_pa_pble_index +
+							mr_offset + value_dffer;
+						info.op.bind_window.va =
+							(void *)(uintptr_t)(mw_va &
+									    0x0fff);
+						info.op.bind_window
+							.mw_pa_pble_index =
+							mw_pa_pble_index;
+						info.op.bind_window
+							.leaf_pbl_size = 0;
+						info.op.bind_window
+							.root_leaf_offset = 0;
+					}
+
+				} else if (umr->host_page_size ==
+					   ZXDH_PAGE_SIZE_2M) {
+					mr_offset = mr_va & 0x1FFFFF;
+					value_dffer = mw_va - mr_va;
+					if (umr->leaf_pbl_size == 3) {
+						mw_pa_pble_index =
+							(mr_offset +
+							 value_dffer) /
+							((4096 * 512) * 512);
+						info.op.bind_window
+							.mw_pa_pble_index =
+							umr->mr_pa_pble_index +
+							mw_pa_pble_index;
+						mw_pa_pble_index =
+							((mr_offset +
+							  value_dffer) /
+							 (4096 * 512)) %
+							512;
+
+						info.op.bind_window
+							.root_leaf_offset =
+							(__u16)mw_pa_pble_index;
+						info.op.bind_window.va =
+							(void *)(uintptr_t)(mw_va &
+									    0x1FFFFF);
+						info.op.bind_window
+							.leaf_pbl_size = 3;
+
+					} else if (umr->leaf_pbl_size == 1) {
+						mw_pa_pble_index =
+							(mr_offset +
+							 value_dffer) /
+							(4096 * 512);
+						info.op.bind_window
+							.mw_pa_pble_index =
+							umr->mr_pa_pble_index +
+							mw_pa_pble_index;
+						info.op.bind_window
+							.leaf_pbl_size = 1;
+						info.op.bind_window.va =
+							(void *)(uintptr_t)(mw_va &
+									    0x1FFFFF);
+						info.op.bind_window
+							.root_leaf_offset = 0;
+					} else {
+						mw_pa_pble_index =
+							umr->mr_pa_pble_index +
+							mr_offset + value_dffer;
+						info.op.bind_window.va =
+							(void *)(uintptr_t)(mw_va &
+									    0x1FFFFF);
+						info.op.bind_window
+							.mw_pa_pble_index =
+							mw_pa_pble_index;
+						info.op.bind_window
+							.leaf_pbl_size = 0;
+						info.op.bind_window
+							.root_leaf_offset = 0;
+					}
+				} else if (umr->host_page_size ==
+					   ZXDH_PAGE_SIZE_1G) {
+					mr_offset = mr_va & 0x3FFFFFFF;
+					value_dffer = mw_va - mr_va;
+					if (umr->leaf_pbl_size == 1) {
+						mw_pa_pble_index =
+							(mr_offset +
+							 value_dffer) /
+							(1024 * 1024 * 1024);
+						info.op.bind_window
+							.mw_pa_pble_index =
+							umr->mr_pa_pble_index +
+							mw_pa_pble_index;
+						info.op.bind_window
+							.leaf_pbl_size = 1;
+						info.op.bind_window.va =
+							(void *)(uintptr_t)(mw_va &
+									    0x3FFFFFFF);
+						info.op.bind_window
+							.root_leaf_offset = 0;
+					} else if (umr->leaf_pbl_size == 0) {
+						mw_pa_pble_index =
+							umr->mr_pa_pble_index +
+							mr_offset + value_dffer;
+						info.op.bind_window.va =
+							(void *)(uintptr_t)(mw_va &
+									    0x3FFFFFFF);
+						info.op.bind_window
+							.mw_pa_pble_index =
+							mw_pa_pble_index;
+						info.op.bind_window
+							.leaf_pbl_size = 0;
+						info.op.bind_window
+							.root_leaf_offset = 0;
+					}
+				}
+
+			} else {
+				info.op.bind_window.addressing_type =
+					ZXDH_ADDR_TYPE_VA_BASED;
+				info.op.bind_window.va =
+					(void *)(uintptr_t)
+						ib_wr->bind_mw.bind_info.addr;
+				info.op.bind_window.host_page_size =
+					umr->host_page_size;
+
+				if (umr->host_page_size == ZXDH_PAGE_SIZE_4K) {
+					mr_offset = mr_va & 0x0fff;
+					value_dffer = mw_va - mr_va;
+					if (umr->leaf_pbl_size == 3) {
+						mw_pa_pble_index =
+							(mr_offset +
+							 value_dffer) /
+							(4096 * 512);
+						info.op.bind_window
+							.mw_pa_pble_index =
+							umr->mr_pa_pble_index +
+							mw_pa_pble_index;
+						mw_pa_pble_index =
+							((mr_offset +
+							  value_dffer) /
+							 4096) %
+							512;
+						info.op.bind_window
+							.root_leaf_offset =
+							(__u16)mw_pa_pble_index;
+						info.op.bind_window
+							.leaf_pbl_size = 3;
+					} else if (umr->leaf_pbl_size == 1) {
+						info.op.bind_window
+							.mw_pa_pble_index =
+							umr->mr_pa_pble_index +
+							((mr_offset +
+							  value_dffer) /
+							 4096);
+						info.op.bind_window
+							.leaf_pbl_size = 1;
+						info.op.bind_window
+							.root_leaf_offset = 0;
+					} else {
+						info.op.bind_window
+							.leaf_pbl_size = 0;
+						info.op.bind_window
+							.mw_pa_pble_index =
+							umr->mr_pa_pble_index +
+							(mr_va & 0x0fff) +
+							(mw_va - mr_va);
+						info.op.bind_window
+							.root_leaf_offset = 0;
+					}
+				} else if (umr->host_page_size ==
+					   ZXDH_PAGE_SIZE_2M) {
+					mr_offset = mr_va & 0x1FFFFF;
+					value_dffer = mw_va - mr_va;
+					if (umr->leaf_pbl_size == 3) {
+						mw_pa_pble_index =
+							(mr_offset +
+							 value_dffer) /
+							((4096 * 512) * 512);
+						info.op.bind_window
+							.mw_pa_pble_index =
+							umr->mr_pa_pble_index +
+							mw_pa_pble_index;
+						mw_pa_pble_index =
+							((mr_offset +
+							  value_dffer) /
+							 (4096 * 512)) %
+							512;
+						info.op.bind_window
+							.root_leaf_offset =
+							(__u16)mw_pa_pble_index;
+						info.op.bind_window
+							.leaf_pbl_size = 3;
+					} else if (umr->leaf_pbl_size == 1) {
+						info.op.bind_window
+							.mw_pa_pble_index =
+							umr->mr_pa_pble_index +
+							((mr_offset +
+							  value_dffer) /
+							 (4096 * 512));
+						info.op.bind_window
+							.leaf_pbl_size = 1;
+						info.op.bind_window
+							.root_leaf_offset = 0;
+					} else {
+						info.op.bind_window
+							.leaf_pbl_size = 0;
+						info.op.bind_window
+							.mw_pa_pble_index =
+							umr->mr_pa_pble_index +
+							(mr_va & 0x1FFFFF) +
+							(mw_va - mr_va);
+						info.op.bind_window
+							.root_leaf_offset = 0;
+					}
+				} else if (umr->host_page_size ==
+					   ZXDH_PAGE_SIZE_1G) {
+					mr_offset = mr_va & 0x3FFFFFFF;
+					value_dffer = mw_va - mr_va;
+					if (umr->leaf_pbl_size == 1) {
+						info.op.bind_window
+							.mw_pa_pble_index =
+							umr->mr_pa_pble_index +
+							((mr_offset +
+							  value_dffer) /
+							 (1024 * 1024 * 1024));
+						info.op.bind_window
+							.leaf_pbl_size = 1;
+						info.op.bind_window
+							.root_leaf_offset = 0;
+					} else if (umr->leaf_pbl_size == 0) {
+						info.op.bind_window
+							.leaf_pbl_size = 0;
+						info.op.bind_window
+							.mw_pa_pble_index =
+							umr->mr_pa_pble_index +
+							(mr_va & 0x3FFFFFFF) +
+							(mw_va - mr_va);
+						info.op.bind_window
+							.root_leaf_offset = 0;
+					}
+				}
+			}
+
+			info.op.bind_window.bind_len =
+				ib_wr->bind_mw.bind_info.length;
+			info.op.bind_window.ena_reads =
+				(ib_wr->bind_mw.bind_info.mw_access_flags &
+				 IBV_ACCESS_REMOTE_READ) ?
+					1 :
+					0;
+			info.op.bind_window.ena_writes =
+				(ib_wr->bind_mw.bind_info.mw_access_flags &
+				 IBV_ACCESS_REMOTE_WRITE) ?
+					1 :
+					0;
+
+			ret = zxdh_mw_bind(&iwuqp->qp, &info, false);
+			if (ret)
+				err = ENOMEM;
+
+			break;
+		case IBV_WR_LOCAL_INV:
+			info.op_type = ZXDH_OP_TYPE_LOCAL_INV;
+			info.op.inv_local_stag.target_stag =
+				ib_wr->invalidate_rkey;
+			ret = zxdh_stag_local_invalidate(&iwuqp->qp, &info,
+							    true);
+			if (ret)
+				err = ENOMEM;
+			break;
+		default:
+			/* error */
+			err = EINVAL;
+			break;
+		}
+		if (err)
+			break;
+
+		ib_wr = ib_wr->next;
+	}
+
+	if (err)
+		*bad_wr = ib_wr;
+
+	zxdh_qp_post_wr(&iwuqp->qp);
+	if (reflush)
+		zxdh_issue_flush(ib_qp, 1, 0);
+
+	pthread_spin_unlock(&iwuqp->lock);
+
+	return err;
 }
 
 /**
@@ -1346,7 +2454,58 @@ int zxdh_upost_send(struct ibv_qp *ib_qp, struct ibv_send_wr *ib_wr,
 int zxdh_upost_recv(struct ibv_qp *ib_qp, struct ibv_recv_wr *ib_wr,
 		    struct ibv_recv_wr **bad_wr)
 {
-	return 0;
+	struct zxdh_post_rq_info post_recv = {};
+	enum zxdh_status_code ret = 0;
+	struct zxdh_sge *sg_list;
+	struct zxdh_uqp *iwuqp;
+	bool reflush = false;
+	int err = 0;
+
+	iwuqp = container_of(ib_qp, struct zxdh_uqp, vqp.qp);
+	sg_list = iwuqp->recv_sges;
+
+	if (unlikely(ib_qp->state == IBV_QPS_RESET || ib_qp->srq)) {
+		*bad_wr = ib_wr;
+		printf("err:post recv at reset or using srq\n");
+		return -EINVAL;
+	}
+
+	err = pthread_spin_lock(&iwuqp->lock);
+	if (err)
+		return err;
+
+	if (unlikely(!ZXDH_RING_MORE_WORK(iwuqp->qp.rq_ring)) &&
+	    ib_qp->state == IBV_QPS_ERR)
+		reflush = true;
+
+	while (ib_wr) {
+		if (unlikely(ib_wr->num_sge > iwuqp->qp.max_rq_frag_cnt)) {
+			*bad_wr = ib_wr;
+			err = EINVAL;
+			goto error;
+		}
+		post_recv.num_sges = ib_wr->num_sge;
+		post_recv.wr_id = ib_wr->wr_id;
+		zxdh_copy_sg_list(sg_list, ib_wr->sg_list, ib_wr->num_sge);
+		post_recv.sg_list = sg_list;
+		ret = zxdh_post_receive(&iwuqp->qp, &post_recv);
+		if (unlikely(ret)) {
+			err = (ret == ZXDH_ERR_QP_TOOMANY_WRS_POSTED) ? ENOMEM :
+									EINVAL;
+			*bad_wr = ib_wr;
+			goto error;
+		}
+
+		if (reflush)
+			zxdh_issue_flush(ib_qp, 0, 1);
+
+		ib_wr = ib_wr->next;
+	}
+error:
+	zxdh_qp_set_shadow_area(&iwuqp->qp);
+	pthread_spin_unlock(&iwuqp->lock);
+
+	return err;
 }
 
 /**
@@ -1356,7 +2515,34 @@ int zxdh_upost_recv(struct ibv_qp *ib_qp, struct ibv_recv_wr *ib_wr,
  */
 struct ibv_ah *zxdh_ucreate_ah(struct ibv_pd *ibpd, struct ibv_ah_attr *attr)
 {
-	return NULL;
+	struct zxdh_uah *ah;
+	union ibv_gid sgid;
+	struct zxdh_ucreate_ah_resp resp;
+	int err;
+
+	memset(&resp, 0, sizeof(resp));
+	err = ibv_query_gid(ibpd->context, attr->port_num, attr->grh.sgid_index,
+			    &sgid);
+	if (err) {
+		errno = err;
+		return NULL;
+	}
+
+	ah = calloc(1, sizeof(*ah));
+	if (!ah)
+		return NULL;
+
+	err = ibv_cmd_create_ah(ibpd, &ah->ibv_ah, attr, &resp.ibv_resp,
+				sizeof(resp));
+	if (err) {
+		free(ah);
+		errno = err;
+		return NULL;
+	}
+
+	ah->ah_id = resp.ah_id;
+
+	return &ah->ibv_ah;
 }
 
 /**
@@ -1365,6 +2551,17 @@ struct ibv_ah *zxdh_ucreate_ah(struct ibv_pd *ibpd, struct ibv_ah_attr *attr)
  */
 int zxdh_udestroy_ah(struct ibv_ah *ibah)
 {
+	struct zxdh_uah *ah;
+	int ret;
+
+	ah = container_of(ibah, struct zxdh_uah, ibv_ah);
+
+	ret = ibv_cmd_destroy_ah(ibah);
+	if (ret)
+		return ret;
+
+	free(ah);
+
 	return 0;
 }
 

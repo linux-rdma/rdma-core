@@ -80,6 +80,12 @@ struct zxdh_udevice {
 	struct verbs_device ibv_dev;
 };
 
+struct zxdh_uah {
+	struct ibv_ah ibv_ah;
+	uint32_t ah_id;
+	struct ibv_global_route grh;
+};
+
 struct zxdh_upd {
 	struct ibv_pd ibv_pd;
 	uint32_t pd_id;
@@ -93,6 +99,8 @@ struct zxdh_uvcontext {
 	void *sq_db;
 	void *cq_db;
 	int abi_ver;
+	bool legacy_mode;
+	uint8_t zxdh_write_imm_split_switch;
 	struct zxdh_uvcontext_ops *cxt_ops;
 };
 

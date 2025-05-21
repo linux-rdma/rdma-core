@@ -291,6 +291,7 @@ enum zxdh_rdmarx_err {
 
 struct zxdh_qp;
 struct zxdh_cq;
+struct zxdh_qp_init_info;
 struct zxdh_cq_init_info;
 
 struct zxdh_sge {
@@ -420,16 +421,31 @@ struct zxdh_cq_poll_info {
 	__u8 imm_valid : 1;
 };
 
+enum zxdh_status_code zxdh_inline_rdma_write(struct zxdh_qp *qp,
+					     struct zxdh_post_sq_info *info,
+					     bool post_sq);
+enum zxdh_status_code zxdh_rc_inline_send(struct zxdh_qp *qp,
+					  struct zxdh_post_sq_info *info,
+					  bool post_sq);
+enum zxdh_status_code zxdh_ud_inline_send(struct zxdh_qp *qp,
+					  struct zxdh_post_sq_info *info,
+					  bool post_sq);
 enum zxdh_status_code
 zxdh_mw_bind(struct zxdh_qp *qp, struct zxdh_post_sq_info *info, bool post_sq);
 enum zxdh_status_code zxdh_post_nop(struct zxdh_qp *qp, __u64 wr_id,
 				    bool signaled, bool post_sq);
+enum zxdh_status_code zxdh_post_receive(struct zxdh_qp *qp,
+					struct zxdh_post_rq_info *info);
+void zxdh_qp_post_wr(struct zxdh_qp *qp);
+void zxdh_qp_set_shadow_area(struct zxdh_qp *qp);
 enum zxdh_status_code zxdh_rdma_read(struct zxdh_qp *qp,
 				     struct zxdh_post_sq_info *info,
 				     bool inv_stag, bool post_sq);
 enum zxdh_status_code zxdh_rdma_write(struct zxdh_qp *qp,
 				      struct zxdh_post_sq_info *info,
 				      bool post_sq);
+enum zxdh_status_code
+zxdh_rc_send(struct zxdh_qp *qp, struct zxdh_post_sq_info *info, bool post_sq);
 enum zxdh_status_code
 zxdh_ud_send(struct zxdh_qp *qp, struct zxdh_post_sq_info *info, bool post_sq);
 enum zxdh_status_code zxdh_stag_local_invalidate(struct zxdh_qp *qp,
@@ -456,6 +472,8 @@ void zxdh_cq_resize(struct zxdh_cq *cq, void *cq_base, int size);
 void zxdh_cq_set_resized_cnt(struct zxdh_cq *qp, __u16 cnt);
 enum zxdh_status_code zxdh_cq_init(struct zxdh_cq *cq,
 				   struct zxdh_cq_init_info *info);
+enum zxdh_status_code zxdh_qp_init(struct zxdh_qp *qp,
+				   struct zxdh_qp_init_info *info);
 struct zxdh_sq_wr_trk_info {
 	__u64 wrid;
 	__u32 wr_len;
@@ -633,30 +651,37 @@ struct zxdh_cq_init_info {
 	__u8 cqe_size;
 };
 
-struct zxdh_srq_init_info {
-	struct zxdh_srq_wqe *srq_base;
-	struct zxdh_dev_attrs *dev_attrs;
-	__le16 *srq_list_base;
-	__le64 *srq_db_base;
-	__u64 *srq_wrid_array;
-	__u32 srq_id;
-	__u32 srq_caps;
-	__u32 srq_size;
-	__u32 log2_srq_size;
-	__u32 srq_list_size;
-	__u32 srq_db_size;
-	__u32 max_srq_frag_cnt;
-	__u32 srq_limit;
-};
-
 struct zxdh_srq_wqe {
 	__le64 elem[ZXDH_SRQE_SIZE];
 };
 
-int zxdh_cq_round_up(__u32 wqdepth);
+__le64 *zxdh_qp_get_next_send_wqe(struct zxdh_qp *qp, __u32 *wqe_idx,
+				  __u16 quanta, __u32 total_size,
+				  struct zxdh_post_sq_info *info);
+__le64 *zxdh_qp_get_next_recv_wqe(struct zxdh_qp *qp, __u32 *wqe_idx);
 void zxdh_clean_cq(void *q, struct zxdh_cq *cq);
 enum zxdh_status_code zxdh_nop(struct zxdh_qp *qp, __u64 wr_id, bool signaled,
 			       bool post_sq);
+enum zxdh_status_code zxdh_fragcnt_to_wqesize_rq(__u32 frag_cnt,
+						 __u16 *wqe_size);
+void zxdh_get_sq_wqe_shift(__u32 sge, __u32 inline_data, __u8 *shift);
+
+void zxdh_get_rq_wqe_shift(__u32 sge, __u8 *shift);
+enum zxdh_status_code zxdh_get_sqdepth(struct zxdh_dev_attrs *dev_attrs,
+				       __u32 sq_size, __u8 shift,
+				       __u32 *wqdepth);
+enum zxdh_status_code zxdh_get_rqdepth(struct zxdh_dev_attrs *dev_attrs,
+				       __u32 rq_size, __u8 shift,
+				       __u32 *wqdepth);
+int zxdh_qp_round_up(__u32 wqdepth);
+int zxdh_cq_round_up(__u32 wqdepth);
+void zxdh_qp_push_wqe(struct zxdh_qp *qp, __le64 *wqe, __u16 quanta,
+		      __u32 wqe_idx, bool post_sq);
+
+void zxdh_get_srq_wqe_shift(struct zxdh_dev_attrs *dev_attrs, __u32 sge,
+			    __u8 *shift);
+int zxdh_get_srqdepth(__u32 max_hw_srq_quanta, __u32 srq_size, __u8 shift,
+		      __u32 *srqdepth);
 __le64 *zxdh_get_srq_wqe(struct zxdh_srq *srq, int wqe_index);
 void zxdh_free_srq_wqe(struct zxdh_srq *srq, int wqe_index);
 #endif /* __ZXDH_VERBS_H__ */
