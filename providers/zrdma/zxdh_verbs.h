@@ -651,6 +651,36 @@ struct zxdh_cq_init_info {
 	__u8 cqe_size;
 };
 
+struct zxdh_srq_init_info {
+	struct zxdh_srq_wqe *srq_base;
+	struct zxdh_dev_attrs *dev_attrs;
+	__le16 *srq_list_base;
+	__le64 *srq_db_base;
+	__u64 *srq_wrid_array;
+	__u32 srq_id;
+	__u32 srq_caps;
+	__u32 srq_size;
+	__u32 log2_srq_size;
+	__u32 srq_list_size;
+	__u32 srq_db_size;
+	__u32 max_srq_frag_cnt;
+	__u32 srq_limit;
+};
+
+
+struct zxdh_wqe_srq_next_sge {
+	__le16 next_wqe_index;
+	__le16 signature;
+	__u8 valid_sge_num;
+	__u8 rsvd[11];
+};
+
+struct zxdh_srq_sge {
+	__le64 addr;
+	__le32 length;
+	__le32 lkey;
+};
+
 struct zxdh_srq_wqe {
 	__le64 elem[ZXDH_SRQE_SIZE];
 };
@@ -677,11 +707,14 @@ int zxdh_qp_round_up(__u32 wqdepth);
 int zxdh_cq_round_up(__u32 wqdepth);
 void zxdh_qp_push_wqe(struct zxdh_qp *qp, __le64 *wqe, __u16 quanta,
 		      __u32 wqe_idx, bool post_sq);
-
 void zxdh_get_srq_wqe_shift(struct zxdh_dev_attrs *dev_attrs, __u32 sge,
 			    __u8 *shift);
 int zxdh_get_srqdepth(__u32 max_hw_srq_quanta, __u32 srq_size, __u8 shift,
 		      __u32 *srqdepth);
 __le64 *zxdh_get_srq_wqe(struct zxdh_srq *srq, int wqe_index);
+__le16 *zxdh_get_srq_list_wqe(struct zxdh_srq *srq, __u16 *idx);
+
+enum zxdh_status_code zxdh_srq_init(struct zxdh_srq *srq,
+				    struct zxdh_srq_init_info *info);
 void zxdh_free_srq_wqe(struct zxdh_srq *srq, int wqe_index);
 #endif /* __ZXDH_VERBS_H__ */

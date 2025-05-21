@@ -2419,6 +2419,54 @@ void zxdh_clean_cq(void *q, struct zxdh_cq *cq)
 	} while (true);
 }
 
+/**
+ * zxdh_get_srq_wqe_shift - get shift count for maximum srq wqe size
+ * @dev_attrs: srq HW attributes
+ * @sge: Maximum Scatter Gather Elements wqe
+ * @shift: Returns the shift needed based on sge
+ *
+ * Shift can be used to left shift the srq wqe size based on number of SGEs.
+ * For 1 SGE, shift = 1 (wqe size of 2*16 bytes).
+ * For 2 or 3 SGEs, shift = 2 (wqe size of 4*16 bytes).
+ * For 4-7 SGE's Shift of 3.
+ *  For 8-15 SGE's Shift of 4 otherwise (wqe size of 512 bytes).
+ */
+void zxdh_get_srq_wqe_shift(struct zxdh_dev_attrs *dev_attrs, __u32 sge,
+			    __u8 *shift)
+{
+	*shift = 0; //16bytes RQE, need to confirm configuration
+	if (sge < 2)
+		*shift = 1;
+	else if (sge < 4)
+		*shift = 2;
+	else if (sge < 8)
+		*shift = 3;
+	else if (sge < 16)
+		*shift = 4;
+	else
+		*shift = 5;
+}
+
+/*
+ * zxdh_get_srqdepth - get SRQ depth (quanta)
+ * @max_hw_rq_quanta: HW SRQ size limit
+ * @srq_size: SRQ size
+ * @shift: shift which determines size of WQE
+ * @srqdepth: depth of SRQ
+ */
+int zxdh_get_srqdepth(__u32 max_hw_srq_quanta, __u32 srq_size, __u8 shift,
+		      __u32 *srqdepth)
+{
+	*srqdepth = zxdh_qp_round_up((srq_size << shift) + ZXDH_SRQ_RSVD);
+
+	if (*srqdepth < (ZXDH_QP_SW_MIN_WQSIZE << shift))
+		*srqdepth = ZXDH_QP_SW_MIN_WQSIZE << shift;
+	else if ((*srqdepth >> shift) > max_hw_srq_quanta)
+		return ZXDH_ERR_INVALID_SIZE;
+
+	return 0;
+}
+
 __le64 *zxdh_get_srq_wqe(struct zxdh_srq *srq, int wqe_index)
 {
 	__le64 *wqe;
@@ -2427,6 +2475,73 @@ __le64 *zxdh_get_srq_wqe(struct zxdh_srq *srq, int wqe_index)
 	return wqe;
 }
 
+__le16 *zxdh_get_srq_list_wqe(struct zxdh_srq *srq, __u16 *idx)
+{
+	__le16 *wqe;
+	__u16 wqe_idx;
+
+	wqe_idx = srq->srq_list_ring.tail;
+	srq->srq_list_ring.tail++;
+	srq->srq_list_ring.tail %= srq->srq_list_ring.size;
+	*idx = srq->srq_list_ring.tail;
+
+	if (!(*idx))
+		srq->srq_list_polarity = !srq->srq_list_polarity;
+
+	wqe = &srq->srq_list_base[wqe_idx];
+
+	return wqe;
+}
+
+/**
+ * zxdh_srq_init - initialize srq
+ * @srq: hw srq (user and kernel)
+ * @info: srq initialization info
+ *
+ * initializes the vars used in both user and kernel mode.
+ * size of the wqe depends on numbers of max. fragements
+ * allowed. Then size of wqe * the number of wqes should be the
+ * amount of memory allocated for srq.
+ */
+enum zxdh_status_code zxdh_srq_init(struct zxdh_srq *srq,
+				    struct zxdh_srq_init_info *info)
+{
+	__u32 srq_ring_size;
+	__u8 srqshift;
+
+	srq->dev_attrs = info->dev_attrs;
+	if (info->max_srq_frag_cnt > srq->dev_attrs->max_hw_wq_frags)
+		return -ZXDH_ERR_INVALID_FRAG_COUNT;
+	zxdh_get_srq_wqe_shift(srq->dev_attrs, info->max_srq_frag_cnt,
+			       &srqshift);
+	srq->srq_base = info->srq_base;
+	srq->srq_list_base = info->srq_list_base;
+	srq->srq_db_base = info->srq_db_base;
+	srq->srq_wrid_array = info->srq_wrid_array;
+	srq->srq_id = info->srq_id;
+	srq->srq_size = info->srq_size;
+	srq->log2_srq_size = info->log2_srq_size;
+	srq->srq_list_size = info->srq_list_size;
+	srq->max_srq_frag_cnt = info->max_srq_frag_cnt;
+	srq_ring_size = srq->srq_size;
+	srq->srq_wqe_size = srqshift;
+	srq->srq_wqe_size_multiplier = 1 << srqshift;
+	ZXDH_RING_INIT(srq->srq_ring, srq_ring_size);
+	ZXDH_RING_INIT(srq->srq_list_ring, srq->srq_list_size);
+	srq->srq_ring.tail = srq->srq_size - 1;
+	srq->srq_list_polarity = 1;
+	zxdh_dbg(ZXDH_DBG_SRQ, "%s srq_wqe_size_multiplier:%d  srqshift:%d\n",
+		 __func__, srq->srq_wqe_size_multiplier, srqshift);
+	zxdh_dbg(
+		ZXDH_DBG_SRQ,
+		"%s srq->srq_id:%d srq_base:0x%p srq_list_base:0x%p srq_db_base:0x%p\n",
+		__func__, srq->srq_id, srq->srq_base, srq->srq_list_base,
+		srq->srq_db_base);
+	zxdh_dbg(ZXDH_DBG_SRQ,
+		 "%s srq->srq_id:%d srq_ring_size:%d srq->srq_list_size:%d\n",
+		 __func__, srq->srq_id, srq_ring_size, srq->srq_list_size);
+	return 0;
+}
 
 void zxdh_free_srq_wqe(struct zxdh_srq *srq, int wqe_index)
 {

@@ -2687,6 +2687,239 @@ err_buf:
 	return ret;
 }
 
+static void zxdh_srq_wqe_init(struct zxdh_usrq *iwusrq)
+{
+	uint32_t i;
+	struct zxdh_srq *srq;
+	__le64 *wqe;
+	__u64 hdr;
+
+	srq = &iwusrq->srq;
+
+	for (i = srq->srq_ring.head; i < srq->srq_ring.tail; i++) {
+		wqe = zxdh_get_srq_wqe(srq, i);
+
+		hdr = FIELD_PREP(ZXDHQPSRQ_NEXT_WQE_INDEX, (uint32_t)(i + 1));
+
+		udma_to_device_barrier(); /* make sure WQE is populated before valid bit is set */
+		set_64bit_val(wqe, 0, hdr);
+	}
+}
+
+static size_t zxdh_get_srq_queue_size(int srqdepth)
+{
+	return roundup(srqdepth * ZXDH_SRQ_WQE_MIN_SIZE, ZXDH_HW_PAGE_SIZE);
+}
+
+static size_t zxdh_get_srq_list_size(size_t srq_size)
+{
+	return roundup(srq_size * sizeof(__u16), ZXDH_HW_PAGE_SIZE);
+}
+
+static size_t zxdh_get_srq_db_size(void)
+{
+	return 8 * sizeof(char);
+}
+
+static size_t zxdh_get_total_srq_size(struct zxdh_usrq *iwusrq, int srqdepth,
+				      size_t srq_size)
+{
+	size_t total_srq_queue_size;
+	size_t total_srq_list_size;
+	size_t total_srq_db_size;
+	size_t total_srq_size;
+
+	total_srq_queue_size = zxdh_get_srq_queue_size(srqdepth);
+	iwusrq->buf_size = total_srq_queue_size;
+	total_srq_list_size = zxdh_get_srq_list_size(srq_size);
+	iwusrq->list_buf_size = total_srq_list_size;
+	total_srq_db_size = zxdh_get_srq_db_size();
+	iwusrq->db_buf_size = total_srq_db_size;
+	total_srq_size =
+		total_srq_queue_size + total_srq_list_size + total_srq_db_size;
+	iwusrq->total_buf_size = total_srq_size;
+	zxdh_dbg(
+		ZXDH_DBG_SRQ,
+		"%s total_srq_queue_size:%zu total_srq_list_size:%zu total_srq_db_size:%zu srqdepth:%d\n",
+		__func__, total_srq_queue_size, total_srq_list_size,
+		total_srq_db_size, srqdepth);
+
+	return total_srq_size;
+}
+
+static int zxdh_alloc_srq_buf(struct zxdh_usrq *iwusrq,
+			      struct zxdh_srq_init_info *info,
+			      size_t total_srq_size)
+{
+	info->srq_base = zxdh_alloc_hw_buf(total_srq_size);
+	if (!info->srq_base)
+		return -ENOMEM;
+	memset(info->srq_base, 0, total_srq_size);
+	info->srq_list_base =
+		(__le16 *)&info
+			->srq_base[iwusrq->buf_size / ZXDH_SRQ_WQE_MIN_SIZE];
+	info->srq_db_base =
+		(__le64 *)&info->srq_list_base[iwusrq->list_buf_size /
+					       (sizeof(__u16))];
+	*(__le64 *)info->srq_db_base = (__le64)htole64((uint64_t)ZXDH_SRQ_DB_INIT_VALUE);
+	zxdh_dbg(ZXDH_DBG_SRQ,
+		 "%s srq_base:0x%p srq_list_base:0x%p srq_db_base:0x%p\n",
+		 __func__, info->srq_base, info->srq_list_base,
+		 info->srq_db_base);
+	return 0;
+}
+
+static int zxdh_reg_srq_mr(struct ibv_pd *pd,
+			   struct zxdh_srq_init_info *info,
+			   size_t total_srq_size, uint16_t srq_pages,
+			   uint16_t srq_list_pages, struct zxdh_usrq *iwusrq)
+{
+	struct zxdh_ureg_mr reg_mr_cmd = {};
+	struct ib_uverbs_reg_mr_resp reg_mr_resp = {};
+	int ret;
+
+	reg_mr_cmd.reg_type = ZXDH_MEMREG_TYPE_SRQ;
+	reg_mr_cmd.srq_pages = srq_pages;
+	reg_mr_cmd.srq_list_pages = srq_list_pages;
+	ret = ibv_cmd_reg_mr(pd, info->srq_base, total_srq_size,
+			     (uintptr_t)info->srq_base, IBV_ACCESS_LOCAL_WRITE,
+			     &iwusrq->vmr, &reg_mr_cmd.ibv_cmd,
+			     sizeof(reg_mr_cmd), &reg_mr_resp,
+			     sizeof(reg_mr_resp));
+	if (ret)
+		return ret;
+
+	return 0;
+}
+
+static int create_srq(struct ibv_pd *pd, struct zxdh_usrq *iwusrq,
+		      struct ibv_srq_init_attr *attr,
+		      struct zxdh_srq_init_info *info)
+{
+	struct zxdh_ucreate_srq cmd = {};
+	struct zxdh_ucreate_srq_resp resp = {};
+	int ret;
+
+	cmd.user_wqe_bufs = (__u64)((uintptr_t)info->srq_base);
+	cmd.user_compl_ctx = (__u64)(uintptr_t)&iwusrq->srq;
+	cmd.user_wqe_list = (__u64)((uintptr_t)info->srq_list_base);
+	cmd.user_wqe_db = (__u64)((uintptr_t)info->srq_db_base);
+	ret = ibv_cmd_create_srq(pd, &iwusrq->ibv_srq, attr, &cmd.ibv_cmd,
+				 sizeof(cmd), &resp.ibv_resp,
+				 sizeof(struct zxdh_ucreate_srq_resp));
+	if (ret)
+		return ret;
+
+	iwusrq->srq_id = resp.srq_id;
+	info->srq_id = resp.srq_id;
+	info->srq_size = resp.actual_srq_size;
+	info->srq_list_size = resp.actual_srq_list_size;
+	zxdh_dbg(
+		ZXDH_DBG_SRQ,
+		"%s info->srq_id:%d info->srq_size:%d info->srq_list_size:%d\n",
+		__func__, info->srq_id, info->srq_size, info->srq_list_size);
+
+	return 0;
+}
+
+/**
+ * zxdh_vmapped_srq - create resources for srq
+ * @iwusrq: srq struct for resources
+ * @pd: pd for the srq
+ * @attr: attributes of srq passed
+ * @resp: response back from create srq
+ * @srqdepth: depth of sq
+ * @info: info for initializing user level srq
+ */
+static int zxdh_vmapped_srq(struct zxdh_usrq *iwusrq, struct ibv_pd *pd,
+			    struct ibv_srq_init_attr *attr, int srqdepth,
+			    struct zxdh_srq_init_info *info)
+{
+	size_t total_srq_size;
+	size_t srq_pages = 0;
+	size_t srq_list_pages = 0;
+	int ret;
+
+	total_srq_size =
+		zxdh_get_total_srq_size(iwusrq, srqdepth, info->srq_size);
+	srq_pages = iwusrq->buf_size >> ZXDH_HW_PAGE_SHIFT;
+	srq_list_pages = iwusrq->list_buf_size >> ZXDH_HW_PAGE_SHIFT;
+	ret = zxdh_alloc_srq_buf(iwusrq, info, total_srq_size);
+	if (ret)
+		return -ENOMEM;
+	zxdh_dbg(ZXDH_DBG_SRQ, "%s srq_pages:%zu srq_list_pages:%zu\n",
+		 __func__, srq_pages, srq_list_pages);
+
+	ret = zxdh_reg_srq_mr(pd, info, total_srq_size, srq_pages,
+			      srq_list_pages, iwusrq);
+	zxdh_dbg(ZXDH_DBG_SRQ, "%s %d ret:%d\n", __func__, __LINE__, ret);
+	if (ret) {
+		errno = ret;
+		goto err_dereg_srq_mr;
+	}
+	ret = create_srq(pd, iwusrq, attr, info);
+	zxdh_dbg(ZXDH_DBG_SRQ, "%s %d ret:%d\n", __func__, __LINE__, ret);
+	if (ret)
+		goto err_srq;
+
+	return 0;
+err_srq:
+	ibv_cmd_dereg_mr(&iwusrq->vmr);
+err_dereg_srq_mr:
+	zxdh_free_hw_buf(info->srq_base, total_srq_size);
+
+	return ret;
+}
+
+/**
+ * zxdh_destroy_vmapped_srq - destroy resources for srq
+ * @iwusrq: srq struct for resources
+ */
+static int zxdh_destroy_vmapped_srq(struct zxdh_usrq *iwusrq)
+{
+	int ret;
+
+	ret = ibv_cmd_destroy_srq(&iwusrq->ibv_srq);
+	if (ret)
+		return ret;
+
+	ibv_cmd_dereg_mr(&iwusrq->vmr);
+	return 0;
+}
+
+static int zxdh_check_srq_init_attr(struct ibv_srq_init_attr *srq_init_attr,
+				    struct zxdh_dev_attrs *dev_attrs)
+{
+	if ((srq_init_attr->attr.srq_limit > srq_init_attr->attr.max_wr) ||
+	    (srq_init_attr->attr.max_sge > dev_attrs->max_hw_wq_frags) ||
+	    (srq_init_attr->attr.max_wr > dev_attrs->max_hw_srq_wr)) {
+		return 1;
+	}
+	return 0;
+}
+
+static int zxdh_init_iwusrq(struct zxdh_usrq *iwusrq,
+			    struct ibv_srq_init_attr *srq_init_attr,
+			    __u32 srqdepth, __u8 srqshift,
+			    struct zxdh_srq_init_info *info,
+			    struct zxdh_dev_attrs *dev_attrs)
+{
+	info->srq_size = srqdepth >> srqshift;
+	iwusrq->max_wr = info->srq_size;
+	iwusrq->max_sge = srq_init_attr->attr.max_sge;
+	iwusrq->srq_limit = srq_init_attr->attr.srq_limit;
+
+	srq_init_attr->attr.max_wr = info->srq_size;
+	info->dev_attrs = dev_attrs;
+	info->max_srq_frag_cnt = srq_init_attr->attr.max_sge;
+	info->srq_wrid_array =
+		calloc(info->srq_size, sizeof(*info->srq_wrid_array));
+	if (info->srq_wrid_array == NULL)
+		return 1;
+
+	return 0;
+}
+
 /**
  * zxdh_ucreate_srq - create srq on user app
  * @pd: pd for the srq
@@ -2695,6 +2928,90 @@ err_buf:
 struct ibv_srq *zxdh_ucreate_srq(struct ibv_pd *pd,
 				 struct ibv_srq_init_attr *srq_init_attr)
 {
+	struct zxdh_srq_init_info info = {};
+	struct zxdh_dev_attrs *dev_attrs;
+	struct zxdh_uvcontext *iwvctx;
+	__u32 srqdepth;
+	__u8 srqshift;
+	int status;
+	int ret;
+	struct zxdh_usrq *iwusrq;
+
+	iwvctx = container_of(pd->context, struct zxdh_uvcontext,
+			      ibv_ctx.context);
+	dev_attrs = &iwvctx->dev_attrs;
+
+	if ((zxdh_check_srq_init_attr(srq_init_attr, dev_attrs)) != 0) {
+		zxdh_dbg(ZXDH_DBG_SRQ, "zxdh_check_srq_init_attr failed\n");
+		errno = EINVAL;
+		return NULL;
+	}
+
+	/* get shift count for maximum wqe size */
+	zxdh_get_srq_wqe_shift(dev_attrs, srq_init_attr->attr.max_sge,
+			       &srqshift);
+
+	/* get RQ/SRQ depth (quanta)，minimum number of units in srq */
+	status = zxdh_get_srqdepth(dev_attrs->max_hw_srq_quanta,
+				   srq_init_attr->attr.max_wr, srqshift,
+				   &srqdepth);
+	zxdh_dbg(
+		ZXDH_DBG_SRQ,
+		"%s %d status:%d srqshift:%d srqdepth:%d dev_attrs->max_hw_srq_quanta:%d srq_init_attr->attr.max_wr:%d\n",
+		__func__, __LINE__, status, srqshift, srqdepth,
+		dev_attrs->max_hw_srq_quanta, srq_init_attr->attr.max_wr);
+	if (status != 0) {
+		zxdh_dbg(ZXDH_DBG_SRQ, "zxdh_get_srqdepth failed\n");
+		errno = EINVAL;
+		return NULL;
+	}
+	iwusrq = memalign(1024, sizeof(*iwusrq));
+	if (!iwusrq)
+		return NULL;
+	memset(iwusrq, 0, sizeof(*iwusrq));
+	if (pthread_spin_init(&iwusrq->lock, PTHREAD_PROCESS_PRIVATE) != 0)
+		goto err_free_srq;
+
+	if (zxdh_init_iwusrq(iwusrq, srq_init_attr, srqdepth, srqshift, &info,
+			     dev_attrs)) {
+		zxdh_dbg(ZXDH_DBG_SRQ, "calloc srq_wrid_array failed\n");
+		goto err_srq_wrid_array;
+	}
+	status = zxdh_vmapped_srq(iwusrq, pd, srq_init_attr, srqdepth, &info);
+	zxdh_dbg(ZXDH_DBG_SRQ, "%s %d status:%d\n", __func__, __LINE__, status);
+	if (status) {
+		zxdh_dbg(ZXDH_DBG_SRQ, "zxdh_vmapped_srq failed\n");
+		errno = status;
+		goto err_vmapped_srq;
+	}
+
+	status = zxdh_srq_init(&iwusrq->srq, &info);
+	zxdh_dbg(ZXDH_DBG_SRQ, "%s %d status:%d\n", __func__, __LINE__, status);
+	if (status) {
+		zxdh_dbg(ZXDH_DBG_SRQ, "zxdh_srq_init failed\n");
+		errno = EINVAL;
+		goto err_free_srq_init;
+	}
+	zxdh_srq_wqe_init(iwusrq);
+
+	srq_init_attr->attr.max_wr = (srqdepth - ZXDH_SRQ_RSVD) >> srqshift;
+
+	zxdh_dbg(ZXDH_DBG_SRQ, "%s iwusrq->srq_id:%d info.srq_size:%d\n",
+		 __func__, iwusrq->srq_id, info.srq_size);
+	return &iwusrq->ibv_srq;
+
+err_free_srq_init:
+	zxdh_destroy_vmapped_srq(iwusrq);
+	zxdh_free_hw_buf(info.srq_base, iwusrq->total_buf_size);
+err_vmapped_srq:
+	free(info.srq_wrid_array);
+err_srq_wrid_array:
+	ret = pthread_spin_destroy(&iwusrq->lock);
+	if (ret)
+		errno = EINVAL;
+err_free_srq:
+	free(iwusrq);
+	zxdh_dbg(ZXDH_DBG_SRQ, "%s %d\n", __func__, __LINE__);
 	return NULL;
 }
 
@@ -2704,7 +3021,27 @@ struct ibv_srq *zxdh_ucreate_srq(struct ibv_pd *pd,
  */
 int zxdh_udestroy_srq(struct ibv_srq *srq)
 {
+	struct zxdh_usrq *iwusrq;
+	int ret;
+
+	iwusrq = container_of(srq, struct zxdh_usrq, ibv_srq);
+	ret = pthread_spin_destroy(&iwusrq->lock);
+	if (ret)
+		goto err;
+
+	ret = zxdh_destroy_vmapped_srq(iwusrq);
+	if (ret)
+		goto err;
+	zxdh_dbg(ZXDH_DBG_SRQ, "%s iwusrq->srq_id:%d\n", __func__,
+		 iwusrq->srq_id);
+	zxdh_free_hw_buf(iwusrq->srq.srq_base, iwusrq->total_buf_size);
+	free(iwusrq->srq.srq_wrid_array);
+	free(iwusrq);
+
 	return 0;
+
+err:
+	return ret;
 }
 
 /**
@@ -2714,7 +3051,18 @@ int zxdh_udestroy_srq(struct ibv_srq *srq)
 int zxdh_umodify_srq(struct ibv_srq *srq, struct ibv_srq_attr *srq_attr,
 		     int srq_attr_mask)
 {
-	return 0;
+	struct ibv_modify_srq cmd;
+	struct zxdh_usrq *iwusrq;
+	int ret;
+
+	iwusrq = container_of(srq, struct zxdh_usrq, ibv_srq);
+	ret = ibv_cmd_modify_srq(srq, srq_attr, srq_attr_mask, &cmd,
+				 sizeof(cmd));
+	if (ret == 0)
+		iwusrq->srq_limit = srq_attr->srq_limit;
+	zxdh_dbg(ZXDH_DBG_SRQ, "%s iwusrq->srq_id:%d srq_attr->srq_limit:%d\n",
+		 __func__, iwusrq->srq_id, srq_attr->srq_limit);
+	return ret;
 }
 
 /**
@@ -2724,7 +3072,91 @@ int zxdh_umodify_srq(struct ibv_srq *srq, struct ibv_srq_attr *srq_attr,
  */
 int zxdh_uquery_srq(struct ibv_srq *srq, struct ibv_srq_attr *srq_attr)
 {
+	struct ibv_query_srq cmd;
+
+	return ibv_cmd_query_srq(srq, srq_attr, &cmd, sizeof(cmd));
+}
+
+static int zxdh_check_srq_valid(struct ibv_recv_wr *recv_wr,
+				struct zxdh_usrq *iwusrq,
+				struct zxdh_srq *srq)
+{
+	if (unlikely(recv_wr->num_sge > iwusrq->max_sge))
+		return -EINVAL;
+
+	if (unlikely(srq->srq_ring.head == srq->srq_ring.tail))
+		return -ENOMEM;
+
 	return 0;
+}
+
+static void zxdh_fill_srq_wqe(struct zxdh_usrq *iwusrq,
+			      struct zxdh_srq *srq, __le64 *wqe_64,
+			      struct ibv_recv_wr *recv_wr)
+{
+	__u32 byte_off;
+	int i;
+
+	for (i = 0, byte_off = ZXDH_SRQ_FRAG_BYTESIZE;
+	     i < recv_wr->num_sge &&
+	     byte_off + ZXDH_SRQ_FRAG_BYTESIZE < UINT32_MAX;
+	     i++) {
+		set_64bit_val(wqe_64, byte_off, recv_wr->sg_list[i].addr);
+		set_64bit_val(wqe_64, byte_off + 8,
+			      FIELD_PREP(ZXDHQPSRQ_FRAG_LEN,
+					 recv_wr->sg_list[i].length) |
+				      FIELD_PREP(ZXDHQPSRQ_FRAG_STAG,
+						 recv_wr->sg_list[i].lkey));
+		byte_off += ZXDH_SRQ_FRAG_BYTESIZE;
+	}
+
+	if ((recv_wr->num_sge < iwusrq->max_sge) || (recv_wr->num_sge == 0)) {
+		set_64bit_val(wqe_64, byte_off, 0);
+		set_64bit_val(wqe_64, byte_off + 8,
+			      FIELD_PREP(ZXDHQPSRQ_FRAG_LEN, 0) |
+				      FIELD_PREP(ZXDHQPSRQ_FRAG_STAG,
+						 ZXDH_SRQ_INVALID_LKEY));
+	}
+
+	set_64bit_val(wqe_64, 8, ((uint64_t)iwusrq->srq_id) << 32);
+
+	__u64 hdr = FIELD_PREP(ZXDHQPSRQ_RSV, 0) |
+		    FIELD_PREP(ZXDHQPSRQ_VALID_SGE_NUM, recv_wr->num_sge) |
+		    FIELD_PREP(ZXDHQPSRQ_SIGNATURE, 0) |
+		    FIELD_PREP(ZXDHQPSRQ_NEXT_WQE_INDEX, srq->srq_ring.head);
+
+	udma_to_device_barrier(); /* make sure WQE is populated before valid bit is set */
+	set_64bit_val(wqe_64, 0, hdr);
+
+	zxdh_dbg(ZXDH_DBG_SRQ, "%s wqe_64[0]:0x%llx\n", __func__, wqe_64[0]);
+	zxdh_dbg(ZXDH_DBG_SRQ, "%s wqe_64[1]:0x%llx\n", __func__, wqe_64[1]);
+	zxdh_dbg(ZXDH_DBG_SRQ, "%s wqe_64[2]:0x%llx\n", __func__, wqe_64[2]);
+	zxdh_dbg(ZXDH_DBG_SRQ, "%s wqe_64[3]:0x%llx\n", __func__, wqe_64[3]);
+	zxdh_dbg(ZXDH_DBG_SRQ, "%s wqe_64[4]:0x%llx\n", __func__, wqe_64[4]);
+	zxdh_dbg(ZXDH_DBG_SRQ, "%s wqe_64[5]:0x%llx\n", __func__, wqe_64[5]);
+}
+
+static void zxdh_get_wqe_index(struct zxdh_srq *srq, __le16 *wqe_16,
+			       __u16 *buf, __u16 nreq, __u16 *idx)
+{
+	int i;
+
+	for (i = 0; i < nreq; i++) {
+		wqe_16 = zxdh_get_srq_list_wqe(srq, idx);
+		udma_to_device_barrier(); /* make sure WQE is populated before valid bit is set */
+		set_16bit_val(wqe_16, 0, buf[i]);
+	}
+}
+
+static void zxdh_update_srq_db_base(struct zxdh_usrq *iwusrq, __u16 idx)
+{
+	__u64 hdr = FIELD_PREP(ZXDH_SRQ_PARITY_SIGN,
+			       iwusrq->srq.srq_list_polarity) |
+		    FIELD_PREP(ZXDH_SRQ_SW_SRQ_HEAD, idx);
+
+	udma_to_device_barrier(); /* make sure WQE is populated before valid bit is set */
+	set_64bit_val(iwusrq->srq.srq_db_base, 0, hdr);
+	zxdh_dbg(ZXDH_DBG_SRQ, "%s srq_db_base(hdr):0x%llx\n", __func__, hdr);
 }
 
 /**
@@ -2736,7 +3168,57 @@ int zxdh_uquery_srq(struct ibv_srq *srq, struct ibv_srq_attr *srq_attr)
 int zxdh_upost_srq_recv(struct ibv_srq *srq, struct ibv_recv_wr *recv_wr,
 			struct ibv_recv_wr **bad_recv_wr)
 {
-	return 0;
+	struct zxdh_usrq *iwusrq;
+	struct zxdh_srq *hw_srq;
+	__le16 *wqe_16 = NULL;
+	__le64 *wqe_64 = NULL;
+	__u64 temp_val;
+	int err = 0;
+	int nreq;
+	__u16 *buf;
+	size_t buf_size;
+	__u16 idx = 0;
+
+	iwusrq = container_of(srq, struct zxdh_usrq, ibv_srq);
+	hw_srq = &iwusrq->srq;
+	pthread_spin_lock(&iwusrq->lock);
+	buf_size = iwusrq->max_wr * sizeof(__u16);
+	buf = malloc(buf_size);
+	if (buf == NULL) {
+		zxdh_dbg(ZXDH_DBG_SRQ, "malloc buf_size failed\n");
+		err = -ENOMEM;
+		goto out;
+	}
+
+	for (nreq = 0; recv_wr; nreq++, recv_wr = recv_wr->next) {
+		err = zxdh_check_srq_valid(recv_wr, iwusrq, hw_srq);
+		if (err)
+			break;
+
+		iwusrq->srq.srq_wrid_array[hw_srq->srq_ring.head] =
+			recv_wr->wr_id;
+		buf[nreq] = hw_srq->srq_ring.head;
+		wqe_64 = zxdh_get_srq_wqe(hw_srq, hw_srq->srq_ring.head);
+		get_64bit_val(wqe_64, 0, &temp_val);
+		hw_srq->srq_ring.head =
+			(__u16)FIELD_GET(ZXDHQPSRQ_NEXT_WQE_INDEX, temp_val);
+		zxdh_fill_srq_wqe(iwusrq, hw_srq, wqe_64, recv_wr);
+	}
+
+	zxdh_dbg(ZXDH_DBG_SRQ, "%s nreq:%d err:%d iwusrq->srq_id:%d\n",
+		 __func__, nreq, err, iwusrq->srq_id);
+
+	if (err == 0) {
+		zxdh_get_wqe_index(hw_srq, wqe_16, buf, nreq, &idx);
+		zxdh_update_srq_db_base(iwusrq, idx);
+	}
+out:
+	pthread_spin_unlock(&iwusrq->lock);
+	if (err)
+		*bad_recv_wr = recv_wr;
+	if (buf)
+		free(buf);
+	return err;
 }
 
 /**
@@ -2746,6 +3228,11 @@ int zxdh_upost_srq_recv(struct ibv_srq *srq, struct ibv_recv_wr *recv_wr,
  */
 int zxdh_uget_srq_num(struct ibv_srq *srq, uint32_t *srq_num)
 {
+	struct zxdh_usrq *iwusrq;
+
+	iwusrq = container_of(srq, struct zxdh_usrq, ibv_srq);
+
+	*srq_num = iwusrq->srq_id;
 	return 0;
 }
 
