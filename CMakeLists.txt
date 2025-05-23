@@ -65,6 +65,10 @@ if(POLICY CMP0056)
   cmake_policy(SET CMP0056 NEW)
 endif()
 
+if(POLICY CMP0148)
+  cmake_policy(SET CMP0148 NEW)
+endif()
+
 set(PACKAGE_NAME "RDMA")
 
 # See Documentation/versioning.md
@@ -186,17 +190,19 @@ RDMA_BuildType()
 include_directories(${BUILD_INCLUDE})
 
 # Look for Python. We prefer some variant of python 3 if the system has it.
-FIND_PACKAGE(PythonInterp 3 QUIET)
-if (PythonInterp_FOUND)
+find_package(Python COMPONENTS Interpreter Development QUIET)
+if (Python_FOUND)
   # pyverbs can only use python3:
   if (NO_PYVERBS)
     set(CYTHON_EXECUTABLE "")
   else()
-    FIND_PACKAGE(cython)
+    find_package(Cython)
   endif()
+  set(PYTHON_EXECUTABLE ${Python_EXECUTABLE})
 else()
   # But we still must have python (be it 2) for the build process:
-  FIND_PACKAGE(PythonInterp REQUIRED)
+  find_package(Python COMPONENTS Interpreter REQUIRED)
+  set(PYTHON_EXECUTABLE ${Python_EXECUTABLE})
   set(CYTHON_EXECUTABLE "")
 endif()
 
@@ -405,8 +411,9 @@ if (CYTHON_EXECUTABLE)
  # find a matching -devel installation but will happily return a non-matching
  # one too. We need them both to match exactly to guarantee cython does the
  # right thing.
-  FIND_PACKAGE(PythonLibs ${PYTHON_VERSION_MAJOR}.${PYTHON_VERSION_MINOR}
-    EXACT REQUIRED)
+  if (NOT Python_Development_FOUND)
+    message(WARNING "Python Development libraries not found. Cython modules may fail to build.")
+  endif()
 
  # Get a default installation path
   execute_process(COMMAND "${PYTHON_EXECUTABLE}" -c

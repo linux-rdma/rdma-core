@@ -59,6 +59,9 @@
 #include "cma.h"
 #include "indexer.h"
 
+/* Forward declaration for __fxstat to address missing prototype warning */
+int __fxstat(int ver, int fd, struct stat *buf);
+
 struct socket_calls {
 	int (*socket)(int domain, int type, int protocol);
 	int (*bind)(int socket, const struct sockaddr *addr, socklen_t addrlen);

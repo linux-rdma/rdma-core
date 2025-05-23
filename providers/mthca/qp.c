@@ -108,8 +108,8 @@ int mthca_tavor_post_send(struct ibv_qp *ibqp, struct ibv_send_wr *wr,
 	int size;
 	int size0 = 0;
 	int i;
-	uint32_t uninitialized_var(f0);
-	uint32_t uninitialized_var(op0);
+	uint32_t f0 = 0;
+	uint32_t op0 = 0;
 
 	pthread_spin_lock(&qp->sq.lock);
 	udma_to_device_barrier();
@@ -450,8 +450,8 @@ int mthca_arbel_post_send(struct ibv_qp *ibqp, struct ibv_send_wr *wr,
 	int size;
 	int size0 = 0;
 	int i;
-	uint32_t uninitialized_var(f0);
-	uint32_t uninitialized_var(op0);
+	uint32_t f0 = 0;
+	uint32_t op0 = 0;
 
 	pthread_spin_lock(&qp->sq.lock);
 
