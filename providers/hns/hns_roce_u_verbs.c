@@ -1010,12 +1010,13 @@ static int qp_alloc_wqe(struct ibv_qp_cap *cap, struct hns_roce_qp *qp,
 	}
 
 	if (hns_roce_alloc_buf(&qp->buf, qp->buf_size, HNS_HW_PAGE_SIZE))
-		goto err_alloc;
+		goto err_alloc_recv_rinl_buf;
 
 	return 0;
 
-err_alloc:
+err_alloc_recv_rinl_buf:
 	free_recv_rinl_buf(&qp->rq_rinl_buf);
+err_alloc:
 	if (qp->rq.wrid)
 		free(qp->rq.wrid);
 
