@@ -63,6 +63,18 @@ static inline unsigned int mtu_enum_to_int(enum ibv_mtu mtu)
 	return zxdh_roce_mtu[mtu];
 }
 
+static inline void print_fw_ver(uint64_t fw_ver, char *str, size_t len)
+{
+	uint16_t major, minor, sub_minor, sub_major;
+
+	major = (fw_ver >> 48) & 0xffff;
+	sub_major = (fw_ver >> 32) & 0xffff;
+	minor = (fw_ver >> 16) & 0xffff;
+	sub_minor = fw_ver & 0xffff;
+	snprintf(str, len, "%d.%02d.%02d.%02d", major, sub_major, minor,
+		 sub_minor);
+}
+
 /**
  * zxdh_get_inline_data - get inline_multi_sge data
  * @inline_data: uint8_t*
@@ -101,6 +113,18 @@ int zxdh_uquery_device_ex(struct ibv_context *context,
 			  const struct ibv_query_device_ex_input *input,
 			  struct ibv_device_attr_ex *attr, size_t attr_size)
 {
+	struct ib_uverbs_ex_query_device_resp resp = {};
+	size_t resp_size = sizeof(resp);
+	int ret;
+
+	ret = ibv_cmd_query_device_any(context, input, attr, attr_size, &resp,
+				       &resp_size);
+	if (ret)
+		return ret;
+
+	print_fw_ver(resp.base.fw_ver, attr->orig_attr.fw_ver,
+		     sizeof(attr->orig_attr.fw_ver));
+
 	return 0;
 }
 
@@ -113,7 +137,9 @@ int zxdh_uquery_device_ex(struct ibv_context *context,
 int zxdh_uquery_port(struct ibv_context *context, uint8_t port,
 		     struct ibv_port_attr *attr)
 {
-	return 0;
+	struct ibv_query_port cmd;
+
+	return ibv_cmd_query_port(context, port, attr, &cmd, sizeof(cmd));
 }
 
 /**
@@ -1901,6 +1927,7 @@ int zxdh_upost_send(struct ibv_qp *ib_qp, struct ibv_send_wr *ib_wr,
 	if (!ZXDH_RING_MORE_WORK(iwuqp->qp.sq_ring) &&
 	    ib_qp->state == IBV_QPS_ERR)
 		reflush = true;
+
 	while (ib_wr) {
 		memset(&info, 0, sizeof(info));
 		info.wr_id = (__u64)(ib_wr->wr_id);
@@ -2574,7 +2601,7 @@ int zxdh_udestroy_ah(struct ibv_ah *ibah)
 int zxdh_uattach_mcast(struct ibv_qp *qp, const union ibv_gid *gid,
 		       uint16_t lid)
 {
-	return 0;
+	return ibv_cmd_attach_mcast(qp, gid, lid);
 }
 
 /**
@@ -2586,7 +2613,7 @@ int zxdh_uattach_mcast(struct ibv_qp *qp, const union ibv_gid *gid,
 int zxdh_udetach_mcast(struct ibv_qp *qp, const union ibv_gid *gid,
 		       uint16_t lid)
 {
-	return 0;
+	return ibv_cmd_detach_mcast(qp, gid, lid);
 }
 
 /**
@@ -3243,4 +3270,12 @@ void zxdh_set_debug_mask(void)
 	env = getenv("ZXDH_DEBUG_MASK");
 	if (env)
 		zxdh_debug_mask = strtol(env, NULL, 0);
+}
+
+int zxdh_get_write_imm_split_switch(void)
+{
+	char *env;
+
+	env = getenv("ZXDH_WRITE_IMM_SPILT_ENABLE");
+	return (env != NULL) ? atoi(env) : 0;
 }

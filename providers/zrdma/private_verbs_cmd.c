@@ -69,8 +69,92 @@ static int _zxdh_query_qpc(struct ibv_qp *qp, struct zxdh_rdma_qpc *qpc)
 	return 0;
 }
 
+static void copy_modify_qpc_fields(struct zxdh_modify_qpc_req *req_cmd,
+				   uint64_t attr_mask,
+				   struct zxdh_rdma_qpc *qpc)
+{
+	if (attr_mask & ZXDH_TX_READ_RETRY_FLAG_SET) {
+		req_cmd->retry_flag = qpc->retry_flag;
+		req_cmd->rnr_retry_flag = qpc->rnr_retry_flag;
+		req_cmd->read_retry_flag = qpc->read_retry_flag;
+		req_cmd->cur_retry_count = qpc->cur_retry_count;
+	}
+	if (attr_mask & ZXDH_RETRY_CQE_SQ_OPCODE)
+		req_cmd->retry_cqe_sq_opcode = qpc->retry_cqe_sq_opcode;
+
+	if (attr_mask & ZXDH_ERR_FLAG_SET) {
+		req_cmd->err_flag = qpc->err_flag;
+		req_cmd->ack_err_flag = qpc->ack_err_flag;
+	}
+	if (attr_mask & ZXDH_PACKAGE_ERR_FLAG)
+		req_cmd->package_err_flag = qpc->package_err_flag;
+}
+
+static int _zxdh_reset_qp(struct ibv_qp *qp, uint64_t opcode)
+{
+	DECLARE_COMMAND_BUFFER(cmd, ZXDH_IB_OBJECT_QP_OBJ,
+			       ZXDH_IB_METHOD_QP_RESET_QP, 2);
+	fill_attr_in_obj(cmd, ZXDH_IB_ATTR_QP_RESET_QP_HANDLE, qp->handle);
+	fill_attr_in_uint64(cmd, ZXDH_IB_ATTR_QP_RESET_OP_CODE, opcode);
+	return execute_ioctl(qp->context, cmd);
+}
+
+static int _zxdh_modify_qpc(struct ibv_qp *qp, struct zxdh_rdma_qpc *qpc,
+			    uint64_t qpc_mask)
+{
+	DECLARE_COMMAND_BUFFER(cmd, ZXDH_IB_OBJECT_QP_OBJ,
+			       ZXDH_IB_METHOD_QP_MODIFY_QPC, 3);
+	struct zxdh_modify_qpc_req req = { 0 };
+
+	copy_modify_qpc_fields(&req, qpc_mask, qpc);
+	fill_attr_in_obj(cmd, ZXDH_IB_ATTR_QP_QUERY_HANDLE, qp->handle);
+	fill_attr_in_uint64(cmd, ZXDH_IB_ATTR_QP_MODIFY_QPC_MASK, qpc_mask);
+	fill_attr_in_ptr(cmd, ZXDH_IB_ATTR_QP_MODIFY_QPC_REQ, &req);
+	return execute_ioctl(qp->context, cmd);
+}
+
+static int _zxdh_modify_qp_udp_sport(struct ibv_context *ibctx,
+				     uint16_t udp_sport, uint32_t qpn)
+{
+	if (udp_sport <= MIN_UDP_SPORT || qpn <= MIN_QP_QPN)
+		return -EINVAL;
+
+	DECLARE_COMMAND_BUFFER(cmd, ZXDH_IB_OBJECT_QP_OBJ,
+			       ZXDH_IB_METHOD_QP_MODIFY_UDP_SPORT, 2);
+	fill_attr_in(cmd, ZXDH_IB_ATTR_QP_UDP_PORT, &udp_sport,
+		     sizeof(udp_sport));
+	fill_attr_in_uint32(cmd, ZXDH_IB_ATTR_QP_QPN, qpn);
+	return execute_ioctl(ibctx, cmd);
+}
+
+static int _zxdh_get_log_trace_switch(struct ibv_context *ibctx,
+				      uint8_t *switch_status)
+{
+	DECLARE_COMMAND_BUFFER(cmd, ZXDH_IB_OBJECT_DEV,
+			       ZXDH_IB_METHOD_DEV_GET_LOG_TRACE, 1);
+
+	fill_attr_out_ptr(cmd, ZXDH_IB_ATTR_DEV_GET_LOG_TARCE_SWITCH,
+			  switch_status);
+	return execute_ioctl(ibctx, cmd);
+}
+
+static int _zxdh_set_log_trace_switch(struct ibv_context *ibctx,
+				      uint8_t switch_status)
+{
+	DECLARE_COMMAND_BUFFER(cmd, ZXDH_IB_OBJECT_DEV,
+			       ZXDH_IB_METHOD_DEV_SET_LOG_TRACE, 1);
+	fill_attr_in(cmd, ZXDH_IB_ATTR_DEV_SET_LOG_TARCE_SWITCH, &switch_status,
+		     sizeof(switch_status));
+	return execute_ioctl(ibctx, cmd);
+}
+
 static struct zxdh_uvcontext_ops zxdh_ctx_ops = {
+	.modify_qp_udp_sport = _zxdh_modify_qp_udp_sport,
+	.get_log_trace_switch = _zxdh_get_log_trace_switch,
+	.set_log_trace_switch = _zxdh_set_log_trace_switch,
 	.query_qpc = _zxdh_query_qpc,
+	.modify_qpc = _zxdh_modify_qpc,
+	.reset_qp = _zxdh_reset_qp,
 };
 
 static inline struct zxdh_uvcontext *to_zxdhtx(struct ibv_context *ibctx)

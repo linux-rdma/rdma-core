@@ -49,6 +49,9 @@
 #define ZXDH_DB_SQ_OFFSET 0x404
 #define ZXDH_DB_CQ_OFFSET 0x588
 
+#define MIN_UDP_SPORT 1024
+#define MIN_QP_QPN 1
+
 enum zxdh_supported_wc_flags {
 	ZXDH_CQ_SUPPORTED_WC_FLAGS =
 		IBV_WC_EX_WITH_BYTE_LEN | IBV_WC_EX_WITH_IMM |
@@ -242,7 +245,9 @@ int zxdh_udetach_mcast(struct ibv_qp *qp, const union ibv_gid *gid,
 		       uint16_t lid);
 void zxdh_async_event(struct ibv_context *context,
 		      struct ibv_async_event *event);
+void zxdh_set_hw_attrs(struct zxdh_hw_attrs *attrs);
 void *zxdh_mmap(int fd, off_t offset);
 void zxdh_munmap(void *map);
 void zxdh_set_debug_mask(void);
+int zxdh_get_write_imm_split_switch(void);
 #endif /* __ZXDH_ZRDMA_H__ */

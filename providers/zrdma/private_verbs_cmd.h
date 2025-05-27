@@ -36,16 +36,6 @@
 #include "zxdh_zrdma.h"
 #include "zxdh_dv.h"
 
-enum zxdh_rdma_tool_flags {
-	ZXDH_QP_EXTEND_OP = 1 << 0,
-	ZXDH_CAPTURE = 1 << 1,
-	ZXDH_GET_HW_DATA = 1 << 2,
-	ZXDH_GET_HW_OBJECT_DATA = 1 << 3,
-	ZXDH_CHECK_HW_HEALTH = 1 << 4,
-	ZXDH_RDMA_TOOL_CFG_DEV_PARAM = 1 << 5,
-	ZXDH_RDMA_TOOL_SHOW_RES_MAP = 1 << 5,
-};
-
 struct zxdh_uvcontext_ops {
 	int (*modify_qp_udp_sport)(struct ibv_context *ibctx,
 				   uint16_t udp_sport, uint32_t qpn);

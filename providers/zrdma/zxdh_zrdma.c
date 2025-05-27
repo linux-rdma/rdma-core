@@ -43,6 +43,7 @@
 #include "zxdh_devids.h"
 #include "zxdh_zrdma.h"
 #include "zxdh_abi.h"
+#include "private_verbs_cmd.h"
 
 #define ZXDH_HCA(v, d) VERBS_PCI_MATCH(v, d, NULL)
 static const struct verbs_match_ent hca_table[] = {
@@ -59,6 +60,12 @@ static const struct verbs_match_ent hca_table[] = {
 	ZXDH_HCA(PCI_VENDOR_ID_ZXDH_E316, ZXDH_DEV_ID_ADAPTIVE_E316_VF),
 	ZXDH_HCA(PCI_VENDOR_ID_ZXDH_X512, ZXDH_DEV_ID_ADAPTIVE_X512_PF),
 	ZXDH_HCA(PCI_VENDOR_ID_ZXDH_X512, ZXDH_DEV_ID_ADAPTIVE_X512_VF),
+	ZXDH_HCA(PCI_VENDOR_ID_ZXDH_E312_TY_CLOUD, ZXDH_DEV_ID_ADAPTIVE_E312_TY_CLOUD_PF),
+	ZXDH_HCA(PCI_VENDOR_ID_ZXDH_E312_TY_CLOUD, ZXDH_DEV_ID_ADAPTIVE_E312_TY_CLOUD_VF),
+	ZXDH_HCA(PCI_VENDOR_ID_ZXDH_E310_TY_CLOUD, ZXDH_DEV_ID_ADAPTIVE_E310_TY_CLOUD_PF),
+	ZXDH_HCA(PCI_VENDOR_ID_ZXDH_E310_TY_CLOUD, ZXDH_DEV_ID_ADAPTIVE_E310_TY_CLOUD_VF),
+	ZXDH_HCA(PCI_VENDOR_ID_ZXDH_E312S_D, ZXDH_DEV_ID_ADAPTIVE_E312S_D_PF),
+	ZXDH_HCA(PCI_VENDOR_ID_ZXDH_E312S_D, ZXDH_DEV_ID_ADAPTIVE_E312S_D_VF),
 	{}
 };
 
@@ -141,6 +148,9 @@ static struct verbs_context *zxdh_ualloc_context(struct ibv_device *ibdev,
 	if (!iwvctx)
 		return NULL;
 
+	zxdh_set_debug_mask();
+	iwvctx->zxdh_write_imm_split_switch = zxdh_get_write_imm_split_switch();
+
 	cmd.userspace_ver = ZXDH_CONTEXT_VER_V1;
 	if (ibv_cmd_get_context(&iwvctx->ibv_ctx,
 				(struct ibv_get_context *)&cmd, sizeof(cmd),
@@ -192,7 +202,7 @@ static struct verbs_context *zxdh_ualloc_context(struct ibv_device *ibdev,
 
 	ibv_pd->context = &iwvctx->ibv_ctx.context;
 	iwvctx->iwupd = container_of(ibv_pd, struct zxdh_upd, ibv_pd);
-
+	add_private_ops(iwvctx);
 	return &iwvctx->ibv_ctx;
 err_free:
 	free(iwvctx);
