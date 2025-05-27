@@ -1,5 +1,16 @@
 /* Export symbols should be added below according to
    Documentation/versioning.md document. */
 ZRDMA_1.0 {
+	global:
+		zxdh_get_log_trace_switch;
 	local: *;
 };
+
+ZRDMA_1.1 {
+	global:
+		zxdh_set_log_trace_switch;
+		zxdh_modify_qp_udp_sport;
+		zxdh_query_qpc;
+		zxdh_modify_qpc;
+		zxdh_reset_qp;
+} ZRDMA_1.0;
