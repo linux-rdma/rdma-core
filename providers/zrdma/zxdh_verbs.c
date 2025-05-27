@@ -712,7 +712,7 @@ static inline void zxdh_process_cqe_ext(struct zxdh_cq_poll_info *cur_cqe)
 	if (cur_cqe->error)
 		ibvcq_ex->status =
 				zxdh_err_to_ib_wc_status(
-					cur_cqe->major_err << 16 | 
+					cur_cqe->major_err << 16 |
 					cur_cqe->minor_err);
 	else
 		ibvcq_ex->status = IBV_WC_SUCCESS;
@@ -738,7 +738,7 @@ static inline void zxdh_process_cqe(struct ibv_wc *entry,
 	if (cur_cqe->error) {
 		entry->status =
 				zxdh_err_to_ib_wc_status(
-					cur_cqe->major_err << 16 | 
+					cur_cqe->major_err << 16 |
 					cur_cqe->minor_err);
 		entry->vendor_err =
 			cur_cqe->major_err << 16 | cur_cqe->minor_err;
@@ -1775,8 +1775,8 @@ int zxdh_umodify_qp(struct ibv_qp *qp, struct ibv_qp_attr *attr, int attr_mask)
 		ret = ibv_cmd_modify_qp(qp, attr, attr_mask, &cmd, sizeof(cmd));
 	}
 
-	if (!ret && 
-		(attr_mask & IBV_QP_STATE) && 
+	if (!ret &&
+		(attr_mask & IBV_QP_STATE) &&
 		attr->qp_state == IBV_QPS_RESET) {
 		if (iwuqp->send_cq)
 			zxdh_clean_cqes(&iwuqp->qp, iwuqp->send_cq);
