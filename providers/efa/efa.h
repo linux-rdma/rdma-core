@@ -69,6 +69,7 @@ struct efa_cq {
 	size_t cqe_size;
 	uint8_t *buf;
 	size_t buf_size;
+	bool buf_mmaped;
 	uint32_t *db;
 	uint8_t *db_mmap_addr;
 	uint16_t cc; /* Consumer Counter */
