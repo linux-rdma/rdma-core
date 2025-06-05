@@ -647,7 +647,13 @@ static void efa_process_cqe(struct efa_cq *cq, struct ibv_wc *wc,
 		struct efa_io_rx_cdesc_ex *rcqe =
 			container_of(cqe, struct efa_io_rx_cdesc_ex, base.common);
 
-		cq->cur_wq = &qp->rq.wq;
+		if (EFA_GET(&cqe->flags, EFA_IO_CDESC_COMMON_UNSOLICITED)) {
+			cq->cur_wq = NULL;
+			wc->wr_id = 0;
+		} else {
+			cq->cur_wq = &qp->rq.wq;
+			wc->wr_id = cq->cur_wq->wrid[wrid_idx];
+		}
 
 		wc->byte_len = rcqe->base.length;
 
@@ -666,9 +672,6 @@ static void efa_process_cqe(struct efa_cq *cq, struct ibv_wc *wc,
 			wc->imm_data = htobe32(rcqe->base.imm);
 			wc->wc_flags |= IBV_WC_WITH_IMM;
 		}
-
-		wc->wr_id = !EFA_GET(&cqe->flags, EFA_IO_CDESC_COMMON_UNSOLICITED) ?
-			cq->cur_wq->wrid[wrid_idx] : 0;
 
 		rdma_tracepoint(rdma_core_efa, process_completion, cq->dev->name, wc->wr_id,
 				wc->status, wc->opcode, wc->src_qp, wc->qp_num, wc->slid,
@@ -693,9 +696,14 @@ static void efa_process_ex_cqe(struct efa_cq *cq, struct efa_qp *qp)
 				ibvcqx->status, efa_wc_read_opcode(ibvcqx), cqe->qp_num,
 				UINT32_MAX, UINT16_MAX, efa_wc_read_byte_len(ibvcqx));
 	} else {
-		cq->cur_wq = &qp->rq.wq;
-		ibvcqx->wr_id = !EFA_GET(&cqe->flags, EFA_IO_CDESC_COMMON_UNSOLICITED) ?
-			cq->cur_wq->wrid[wrid_idx] : 0;
+		if (EFA_GET(&cqe->flags, EFA_IO_CDESC_COMMON_UNSOLICITED)) {
+			cq->cur_wq = NULL;
+			ibvcqx->wr_id = 0;
+		} else {
+			cq->cur_wq = &qp->rq.wq;
+			ibvcqx->wr_id = cq->cur_wq->wrid[wrid_idx];
+		}
+
 		ibvcqx->status = to_ibv_status(cqe->status);
 
 		rdma_tracepoint(rdma_core_efa, process_completion, cq->dev->name, ibvcqx->wr_id,
@@ -727,6 +735,7 @@ static inline int efa_poll_sub_cq(struct efa_cq *cq, struct efa_sub_cq *sub_cq,
 		 */
 		*cur_qp = ctx->qp_table[qpn & ctx->qp_table_sz_m1];
 		if (!*cur_qp) {
+			cq->cur_wq = NULL;
 			verbs_err(&ctx->ibvctx,
 				  "QP[%u] does not exist in QP table\n",
 				  qpn);
@@ -738,7 +747,7 @@ static inline int efa_poll_sub_cq(struct efa_cq *cq, struct efa_sub_cq *sub_cq,
 		efa_process_ex_cqe(cq, *cur_qp);
 	} else {
 		efa_process_cqe(cq, wc, *cur_qp);
-		if (!EFA_GET(&cq->cur_cqe->flags, EFA_IO_CDESC_COMMON_UNSOLICITED))
+		if (cq->cur_wq)
 			efa_wq_put_wrid_idx_unlocked(cq->cur_wq, cq->cur_cqe->req_id);
 	}
 
@@ -823,7 +832,7 @@ static int efa_next_poll(struct ibv_cq_ex *ibvcqx)
 	struct efa_cq *cq = to_efa_cq_ex(ibvcqx);
 	int ret;
 
-	if (!EFA_GET(&cq->cur_cqe->flags, EFA_IO_CDESC_COMMON_UNSOLICITED))
+	if (cq->cur_wq)
 		efa_wq_put_wrid_idx_unlocked(cq->cur_wq, cq->cur_cqe->req_id);
 	ret = efa_poll_sub_cqs(cq, NULL, true);
 
@@ -835,7 +844,7 @@ static void efa_end_poll(struct ibv_cq_ex *ibvcqx)
 	struct efa_cq *cq = to_efa_cq_ex(ibvcqx);
 
 	if (cq->cur_cqe) {
-		if (!EFA_GET(&cq->cur_cqe->flags, EFA_IO_CDESC_COMMON_UNSOLICITED))
+		if (cq->cur_wq)
 			efa_wq_put_wrid_idx_unlocked(cq->cur_wq, cq->cur_cqe->req_id);
 		if (cq->db)
 			efa_update_cq_doorbell(cq, false);
