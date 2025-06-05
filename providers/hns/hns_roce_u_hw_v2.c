@@ -51,7 +51,6 @@ static const uint32_t hns_roce_opcode[] = {
 	HR_IBV_OPC_MAP(RDMA_READ,		RDMA_READ),
 	HR_IBV_OPC_MAP(ATOMIC_CMP_AND_SWP,	ATOMIC_COM_AND_SWAP),
 	HR_IBV_OPC_MAP(ATOMIC_FETCH_AND_ADD,	ATOMIC_FETCH_AND_ADD),
-	HR_IBV_OPC_MAP(BIND_MW,			BIND_MW_TYPE),
 	HR_IBV_OPC_MAP(SEND_WITH_INV,		SEND_WITH_INV),
 };
 
@@ -386,7 +385,6 @@ static const unsigned int wc_send_op_map[] = {
 	[HNS_ROCE_SQ_OP_RDMA_READ] = IBV_WC_RDMA_READ,
 	[HNS_ROCE_SQ_OP_ATOMIC_COMP_AND_SWAP] = IBV_WC_COMP_SWAP,
 	[HNS_ROCE_SQ_OP_ATOMIC_FETCH_AND_ADD] = IBV_WC_FETCH_ADD,
-	[HNS_ROCE_SQ_OP_BIND_MW] = IBV_WC_BIND_MW,
 };
 
 static const unsigned int wc_rcv_op_map[] = {
@@ -568,7 +566,6 @@ static void parse_cqe_for_req(struct hns_roce_v2_cqe *cqe, struct ibv_wc *wc,
 	case HNS_ROCE_SQ_OP_SEND:
 	case HNS_ROCE_SQ_OP_SEND_WITH_INV:
 	case HNS_ROCE_SQ_OP_RDMA_WRITE:
-	case HNS_ROCE_SQ_OP_BIND_MW:
 		wc->wc_flags = 0;
 		break;
 	case HNS_ROCE_SQ_OP_SEND_WITH_IMM:
@@ -1251,28 +1248,6 @@ static int set_rc_inl(struct hns_roce_qp *qp, const struct ibv_send_wr *wr,
 	return 0;
 }
 
-static void set_bind_mw_seg(struct hns_roce_rc_sq_wqe *wqe,
-			    const struct ibv_send_wr *wr)
-{
-	unsigned int access = wr->bind_mw.bind_info.mw_access_flags;
-
-	hr_reg_write_bool(wqe, RCWQE_MW_TYPE, wr->bind_mw.mw->type - 1);
-	hr_reg_write_bool(wqe, RCWQE_MW_RA_EN,
-			  !!(access & IBV_ACCESS_REMOTE_ATOMIC));
-	hr_reg_write_bool(wqe, RCWQE_MW_RR_EN,
-			  !!(access & IBV_ACCESS_REMOTE_READ));
-	hr_reg_write_bool(wqe, RCWQE_MW_RW_EN,
-			  !!(access & IBV_ACCESS_REMOTE_WRITE));
-
-	wqe->new_rkey = htole32(wr->bind_mw.rkey);
-	wqe->byte_16 = htole32(wr->bind_mw.bind_info.length &
-			       HNS_ROCE_ADDRESS_MASK);
-	wqe->byte_20 = htole32(wr->bind_mw.bind_info.length >>
-			       HNS_ROCE_ADDRESS_SHIFT);
-	wqe->rkey = htole32(wr->bind_mw.bind_info.mr->rkey);
-	wqe->va = htole64(wr->bind_mw.bind_info.addr);
-}
-
 static int check_rc_opcode(struct hns_roce_rc_sq_wqe *wqe,
 			   const struct ibv_send_wr *wr)
 {
@@ -1297,9 +1272,6 @@ static int check_rc_opcode(struct hns_roce_rc_sq_wqe *wqe,
 		break;
 	case IBV_WR_SEND_WITH_INV:
 		wqe->inv_key = htole32(wr->invalidate_rkey);
-		break;
-	case IBV_WR_BIND_MW:
-		set_bind_mw_seg(wqe, wr);
 		break;
 	default:
 		ret = EINVAL;
@@ -1334,9 +1306,6 @@ static int set_rc_wqe(void *wqe, struct hns_roce_qp *qp, struct ibv_send_wr *wr,
 	hr_reg_write(rc_sq_wqe, RCWQE_MSG_START_SGE_IDX,
 		     sge_info->start_idx & (qp->ex_sge.sge_cnt - 1));
 
-	if (wr->opcode == IBV_WR_BIND_MW)
-		goto wqe_valid;
-
 	wqe += sizeof(struct hns_roce_rc_sq_wqe);
 	dseg = wqe;
 
@@ -1357,7 +1326,6 @@ static int set_rc_wqe(void *wqe, struct hns_roce_qp *qp, struct ibv_send_wr *wr,
 	if (ret)
 		return ret;
 
-wqe_valid:
 	enable_wqe(qp, rc_sq_wqe, qp->sq.head + nreq);
 
 	return 0;
