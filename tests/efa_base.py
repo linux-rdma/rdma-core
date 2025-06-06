@@ -11,7 +11,8 @@ from pyverbs.qp import QPAttr, QPCap, QPInitAttrEx
 import pyverbs.providers.efa.efa_enums as efa_e
 import pyverbs.providers.efa.efadv as efa
 import pyverbs.device as d
-import pyverbs.enums as e
+from pyverbs.libibverbs_enums import ibv_qp_init_attr_mask, ibv_qp_type, ibv_qp_create_send_ops_flags,\
+                                     ibv_access_flags, IBV_WC_STANDARD_FLAGS
 
 from tests.base import PyverbsAPITestCase
 from tests.base import TrafficResources
@@ -68,10 +69,10 @@ class SRDResources(TrafficResources):
     def create_qps(self):
         qp_cap = QPCap(max_recv_wr=self.num_msgs, max_send_wr=self.num_msgs, max_recv_sge=1,
                        max_send_sge=1)
-        comp_mask = e.IBV_QP_INIT_ATTR_PD
+        comp_mask = ibv_qp_init_attr_mask.IBV_QP_INIT_ATTR_PD
         if self.send_ops_flags:
-            comp_mask |= e.IBV_QP_INIT_ATTR_SEND_OPS_FLAGS
-        qp_init_attr_ex = QPInitAttrEx(cap=qp_cap, qp_type=e.IBV_QPT_DRIVER, scq=self.cq,
+            comp_mask |= ibv_qp_init_attr_mask.IBV_QP_INIT_ATTR_SEND_OPS_FLAGS
+        qp_init_attr_ex = QPInitAttrEx(cap=qp_cap, qp_type=ibv_qp_type.IBV_QPT_DRIVER, scq=self.cq,
                                        rcq=self.cq, pd=self.pd, send_ops_flags=self.send_ops_flags,
                                        comp_mask=comp_mask)
         efa_init_attr_ex = efa.EfaQPInitAttr()
@@ -89,10 +90,10 @@ class SRDResources(TrafficResources):
 
     def create_mr(self):
         additional_access_flags = 0
-        if self.send_ops_flags == e.IBV_QP_EX_WITH_RDMA_READ:
-            additional_access_flags = e.IBV_ACCESS_REMOTE_READ
-        elif self.send_ops_flags in [e.IBV_QP_EX_WITH_RDMA_WRITE, e.IBV_QP_EX_WITH_RDMA_WRITE_WITH_IMM]:
-            additional_access_flags = e.IBV_ACCESS_REMOTE_WRITE
+        if self.send_ops_flags == ibv_qp_create_send_ops_flags.IBV_QP_EX_WITH_RDMA_READ:
+            additional_access_flags = ibv_access_flags.IBV_ACCESS_REMOTE_READ
+        elif self.send_ops_flags in [ibv_qp_create_send_ops_flags.IBV_QP_EX_WITH_RDMA_WRITE, ibv_qp_create_send_ops_flags.IBV_QP_EX_WITH_RDMA_WRITE_WITH_IMM]:
+            additional_access_flags = ibv_access_flags.IBV_ACCESS_REMOTE_WRITE
         self.mr = tests.utils.create_custom_mr(self, additional_access_flags)
 
 
@@ -118,7 +119,7 @@ class EfaCQRes(SRDResources):
                     raise unittest.SkipTest(f'Device caps doesn\'t support {miss_caps}')
 
     def create_cq(self):
-        cia = CqInitAttrEx(wc_flags=e.IBV_WC_STANDARD_FLAGS)
+        cia = CqInitAttrEx(wc_flags=IBV_WC_STANDARD_FLAGS)
         efa_cia = efa.EfaDVCQInitAttr(self.efa_wc_flags)
         try:
             self.cq = efa.EfaCQ(self.ctx, cia, efa_cia)

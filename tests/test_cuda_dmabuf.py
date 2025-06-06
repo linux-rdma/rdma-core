@@ -9,7 +9,7 @@ from tests.base import RCResources, RDMATestCase
 from pyverbs.mr import DmaBufMR
 from pyverbs.qp import QPAttr
 import tests.cuda_utils as cu
-import pyverbs.enums as e
+from pyverbs.libibverbs_enums import ibv_access_flags, ibv_wr_opcode
 import tests.utils as u
 
 try:
@@ -24,7 +24,7 @@ GPU_PAGE_SIZE = 1 << 16
 @cu.set_mem_io_cuda_methods
 class DmabufCudaRes(RCResources):
     def __init__(self, dev_name, ib_port, gid_index,
-                 mr_access=e.IBV_ACCESS_LOCAL_WRITE):
+                 mr_access=ibv_access_flags.IBV_ACCESS_LOCAL_WRITE):
         """
         Initializes MR and DMA BUF resources on top of a CUDA memory.
         Uses RC QPs for traffic.
@@ -60,8 +60,8 @@ class DmabufCudaRes(RCResources):
 
     def create_qp_attr(self):
         qp_attr = QPAttr(port_num=self.ib_port)
-        qp_access = e.IBV_ACCESS_LOCAL_WRITE | e.IBV_ACCESS_REMOTE_WRITE | \
-                    e.IBV_ACCESS_REMOTE_READ
+        qp_access = ibv_access_flags.IBV_ACCESS_LOCAL_WRITE | ibv_access_flags.IBV_ACCESS_REMOTE_WRITE | \
+                    ibv_access_flags.IBV_ACCESS_REMOTE_READ
         qp_attr.qp_access_flags = qp_access
         return qp_attr
 
@@ -77,6 +77,6 @@ class DmabufCudaTest(RDMATestCase):
         Runs RDMA Write traffic over CUDA allocated memory using DMA BUF and
         RC QPs.
         """
-        access = e.IBV_ACCESS_LOCAL_WRITE | e.IBV_ACCESS_REMOTE_WRITE
+        access = ibv_access_flags.IBV_ACCESS_LOCAL_WRITE | ibv_access_flags.IBV_ACCESS_REMOTE_WRITE
         self.create_players(DmabufCudaRes, mr_access=access)
-        u.rdma_traffic(**self.traffic_args, send_op=e.IBV_WR_RDMA_WRITE)
+        u.rdma_traffic(**self.traffic_args, send_op=ibv_wr_opcode.IBV_WR_RDMA_WRITE)

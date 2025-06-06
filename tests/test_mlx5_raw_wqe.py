@@ -3,18 +3,18 @@
 
 from pyverbs.providers.mlx5.mlx5dv import Wqe, WqeDataSeg, WqeCtrlSeg
 from pyverbs.pyverbs_error import PyverbsError
-import pyverbs.providers.mlx5.mlx5_enums as dve
+from pyverbs.providers.mlx5.mlx5_enums import mlx5dv_qp_create_send_ops_flags, MLX5_WQE_CTRL_CQ_UPDATE, MLX5_OPCODE_SEND
 from tests.mlx5_base import Mlx5RDMATestCase, Mlx5RcResources
 from pyverbs.qp import QPCap
 from pyverbs.wr import SGE
-import pyverbs.enums as e
+from pyverbs.libibverbs_enums import ibv_qp_create_send_ops_flags, ibv_send_flags, ibv_wc_opcode
 import tests.utils as u
 
 
 class Mlx5RawWqeResources(Mlx5RcResources):
     def create_send_ops_flags(self):
-        self.dv_send_ops_flags = dve.MLX5DV_QP_EX_WITH_RAW_WQE
-        self.send_ops_flags = e.IBV_QP_EX_WITH_SEND
+        self.dv_send_ops_flags = mlx5dv_qp_create_send_ops_flags.MLX5DV_QP_EX_WITH_RAW_WQE
+        self.send_ops_flags = ibv_qp_create_send_ops_flags.IBV_QP_EX_WITH_SEND
 
     def create_qp_cap(self):
         """
@@ -40,9 +40,9 @@ class RawWqeTest(Mlx5RDMATestCase):
         data_segs = [WqeDataSeg(unit_size, mr.lkey, mr.buf + i * unit_size) for
                      i in range(sge_count)]
         ctrl_seg = WqeCtrlSeg()
-        ctrl_seg.fm_ce_se = dve.MLX5_WQE_CTRL_CQ_UPDATE
+        ctrl_seg.fm_ce_se = MLX5_WQE_CTRL_CQ_UPDATE
         segment_num = 1 + len(data_segs)
-        ctrl_seg.opmod_idx_opcode = dve.MLX5_OPCODE_SEND
+        ctrl_seg.opmod_idx_opcode = MLX5_OPCODE_SEND
         ctrl_seg.qpn_ds = segment_num | int(self.client.qp.qp_num) << 8
         self.raw_send_wqe = Wqe([ctrl_seg] + data_segs)
         self.regular_send_sge = SGE(mr.buf, mr.length, mr.lkey)
@@ -56,7 +56,7 @@ class RawWqeTest(Mlx5RDMATestCase):
             self.client.qp.wr_start()
             if i % 2:
                 self.client.mr.write('c' * self.client.mr.length, self.client.mr.length)
-                self.client.qp.wr_flags = e.IBV_SEND_SIGNALED
+                self.client.qp.wr_flags = ibv_send_flags.IBV_SEND_SIGNALED
                 self.client.qp.wr_send()
                 self.client.qp.wr_set_sge(self.regular_send_sge)
             else:
@@ -66,7 +66,7 @@ class RawWqeTest(Mlx5RDMATestCase):
             u.poll_cq_ex(self.client.cq)
             u.poll_cq_ex(self.server.cq)
             u.post_recv(self.server, s_recv_wr)
-            expected_opcode = e.IBV_WC_SEND if i % 2 else e.IBV_WC_DRIVER2
+            expected_opcode = ibv_wc_opcode.IBV_WC_SEND if i % 2 else ibv_wc_opcode.IBV_WC_DRIVER2
 
             if self.client.cq.read_opcode() != expected_opcode:
                 raise PyverbsError('Opcode validation failed: expected '

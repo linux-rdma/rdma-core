@@ -6,14 +6,14 @@ import abc
 from pyverbs.cmid import CMID, AddrInfo, CMEventChannel, ConnParam, UDParam
 from pyverbs.qp import QPCap, QPInitAttr, QPAttr, QP
 from pyverbs.pyverbs_error import PyverbsUserError
-import pyverbs.cm_enums as ce
-import pyverbs.enums as e
+from pyverbs.librdmacm_enums import rdma_port_space, RAI_PASSIVE
+from pyverbs.libibverbs_enums import ibv_qp_type, ibv_qp_state
 from pyverbs.cq import CQ
 
 
 GRH_SIZE = 40
-qp_type_per_ps = {ce.RDMA_PS_TCP: e.IBV_QPT_RC, ce.RDMA_PS_UDP: e.IBV_QPT_UD,
-                  ce.RDMA_PS_IPOIB : e.IBV_QPT_UD}
+qp_type_per_ps = {rdma_port_space.RDMA_PS_TCP: ibv_qp_type.IBV_QPT_RC, rdma_port_space.RDMA_PS_UDP: ibv_qp_type.IBV_QPT_UD,
+                  rdma_port_space.RDMA_PS_IPOIB : ibv_qp_type.IBV_QPT_UD}
 
 
 class CMResources(abc.ABC):
@@ -38,7 +38,7 @@ class CMResources(abc.ABC):
         self.with_ext_qp = kwargs.get('with_ext_qp', False)
         self.port = kwargs.get('port') if kwargs.get('port') else '7471'
         self.ib_port = int(kwargs.get('ib_port', '1'))
-        self.port_space = kwargs.get('port_space', ce.RDMA_PS_TCP)
+        self.port_space = kwargs.get('port_space', rdma_port_space.RDMA_PS_TCP)
         self.remote_operation = kwargs.get('remote_op')
         self.qp_type = qp_type_per_ps[self.port_space]
         self.qp_init_attr = QPInitAttr(qp_type=self.qp_type, cap=QPCap())
@@ -58,7 +58,7 @@ class CMResources(abc.ABC):
         self.cmids = {}
         if self.passive:
             self.ai = AddrInfo(src=addr, src_service=self.port,
-                               port_space=self.port_space, flags=ce.RAI_PASSIVE)
+                               port_space=self.port_space, flags=RAI_PASSIVE)
         else:
             self.ai = AddrInfo(src=addr, dst=addr, dst_service=self.port,
                                port_space=self.port_space)
@@ -97,7 +97,7 @@ class CMResources(abc.ABC):
         return ConnParam(qp_num=qp_num)
 
     def set_ud_params(self, cm_event):
-        if self.port_space in [ce.RDMA_PS_UDP, ce.RDMA_PS_IPOIB]:
+        if self.port_space in [rdma_port_space.RDMA_PS_UDP, rdma_port_space.RDMA_PS_IPOIB]:
             self.ud_params = UDParam(cm_event)
 
     def my_qp_number(self):
@@ -128,11 +128,11 @@ class CMResources(abc.ABC):
 
     def modify_ext_qp_to_rts(self, conn_idx=0):
         cmid = self.child_id if self.passive else self.cmid
-        attr, mask = cmid.init_qp_attr(e.IBV_QPS_INIT)
+        attr, mask = cmid.init_qp_attr(ibv_qp_state.IBV_QPS_INIT)
         self.qps[conn_idx].modify(attr, mask)
-        attr, mask = cmid.init_qp_attr(e.IBV_QPS_RTR)
+        attr, mask = cmid.init_qp_attr(ibv_qp_state.IBV_QPS_RTR)
         self.qps[conn_idx].modify(attr, mask)
-        attr, mask = cmid.init_qp_attr(e.IBV_QPS_RTS)
+        attr, mask = cmid.init_qp_attr(ibv_qp_state.IBV_QPS_RTS)
         self.qps[conn_idx].modify(attr, mask)
 
     def mem_write(self, data, size, offset=0):

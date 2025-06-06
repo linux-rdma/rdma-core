@@ -8,9 +8,8 @@ from tests.rdmacm_utils import  CMSyncConnection, CMAsyncConnection
 from tests.base import RDMATestCase, RDMACMBaseTest
 from tests.utils import requires_mcast_support
 import tests.irdma_base as irdma
-import pyverbs.cm_enums as ce
+from pyverbs.librdmacm_enums import rdma_port_space
 import pyverbs.device as d
-import pyverbs.enums as e
 
 
 class CMTestCase(RDMACMBaseTest):
@@ -20,7 +19,7 @@ class CMTestCase(RDMACMBaseTest):
     @staticmethod
     def get_port_space():
         # IPoIB currently is not supported
-        return ce.RDMA_PS_UDP
+        return rdma_port_space.RDMA_PS_UDP
 
 
     def test_rdmacm_sync_traffic(self):

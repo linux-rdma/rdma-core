@@ -16,7 +16,8 @@ from pyverbs.qp import QPAttr, QP
 from tests.base import PyverbsAPITestCase, RDMATestCase, RCResources
 import pyverbs.utils as pu
 import pyverbs.device as d
-import pyverbs.enums as e
+from pyverbs.libibverbs_enums import ibv_qp_type, ibv_qp_state, ibv_qp_attr_mask, ibv_node_type, \
+    ibv_wr_opcode, ibv_query_qp_data_in_order_flags, ibv_query_qp_data_in_order_caps
 from pyverbs.pd import PD
 from pyverbs.cq import CQ
 import tests.utils as u
@@ -47,7 +48,7 @@ class QPTest(PyverbsAPITestCase):
         """
         with PD(self.ctx) as pd:
             with CQ(self.ctx, 100, None, None, 0) as cq:
-                if qp_type == e.IBV_QPT_RAW_PACKET:
+                if qp_type == ibv_qp_type.IBV_QPT_RAW_PACKET:
                     if not (u.is_eth(self.ctx, self.ib_port) and u.is_root()):
                         raise unittest.SkipTest('To Create RAW QP must be done by root on Ethernet link layer')
 
@@ -72,19 +73,19 @@ class QPTest(PyverbsAPITestCase):
         """
         Test RC QP creation via ibv_create_qp without a QPAttr object provided.
         """
-        self.create_qp_common_test(e.IBV_QPT_RC, e.IBV_QPS_RESET, False, False)
+        self.create_qp_common_test(ibv_qp_type.IBV_QPT_RC, ibv_qp_state.IBV_QPS_RESET, False, False)
 
     def test_create_uc_qp_no_attr(self):
         """
         Test UC QP creation via ibv_create_qp without a QPAttr object provided.
         """
-        self.create_qp_common_test(e.IBV_QPT_UC, e.IBV_QPS_RESET, False, False)
+        self.create_qp_common_test(ibv_qp_type.IBV_QPT_UC, ibv_qp_state.IBV_QPS_RESET, False, False)
 
     def test_create_ud_qp_no_attr(self):
         """
         Test UD QP creation via ibv_create_qp without a QPAttr object provided.
         """
-        self.create_qp_common_test(e.IBV_QPT_UD, e.IBV_QPS_RESET, False, False)
+        self.create_qp_common_test(ibv_qp_type.IBV_QPT_UD, ibv_qp_state.IBV_QPS_RESET, False, False)
 
     def test_create_raw_qp_no_attr(self):
         """
@@ -92,25 +93,25 @@ class QPTest(PyverbsAPITestCase):
         provided.
         Raw Packet is skipped for non-root users / Infiniband link layer.
         """
-        self.create_qp_common_test(e.IBV_QPT_RAW_PACKET, e.IBV_QPS_RESET, False, False)
+        self.create_qp_common_test(ibv_qp_type.IBV_QPT_RAW_PACKET, ibv_qp_state.IBV_QPS_RESET, False, False)
 
     def test_create_rc_qp_with_attr(self):
         """
         Test RC QP creation via ibv_create_qp with a QPAttr object provided.
         """
-        self.create_qp_common_test(e.IBV_QPT_RC, e.IBV_QPS_INIT, False, True)
+        self.create_qp_common_test(ibv_qp_type.IBV_QPT_RC, ibv_qp_state.IBV_QPS_INIT, False, True)
 
     def test_create_uc_qp_with_attr(self):
         """
         Test UC QP creation via ibv_create_qp with a QPAttr object provided.
         """
-        self.create_qp_common_test(e.IBV_QPT_UC, e.IBV_QPS_INIT, False, True)
+        self.create_qp_common_test(ibv_qp_type.IBV_QPT_UC, ibv_qp_state.IBV_QPS_INIT, False, True)
 
     def test_create_ud_qp_with_attr(self):
         """
         Test UD QP creation via ibv_create_qp with a QPAttr object provided.
         """
-        self.create_qp_common_test(e.IBV_QPT_UD, e.IBV_QPS_RTS, False, True)
+        self.create_qp_common_test(ibv_qp_type.IBV_QPT_UD, ibv_qp_state.IBV_QPS_RTS, False, True)
 
     def test_create_raw_qp_with_attr(self):
         """
@@ -118,28 +119,28 @@ class QPTest(PyverbsAPITestCase):
         provided.
         Raw Packet is skipped for non-root users / Infiniband link layer.
         """
-        self.create_qp_common_test(e.IBV_QPT_RAW_PACKET, e.IBV_QPS_RTS, False, True)
+        self.create_qp_common_test(ibv_qp_type.IBV_QPT_RAW_PACKET, ibv_qp_state.IBV_QPS_RTS, False, True)
 
     def test_create_rc_qp_ex_no_attr(self):
         """
         Test RC QP creation via ibv_create_qp_ex without a QPAttr object
         provided.
         """
-        self.create_qp_common_test(e.IBV_QPT_RC, e.IBV_QPS_RESET, True, False)
+        self.create_qp_common_test(ibv_qp_type.IBV_QPT_RC, ibv_qp_state.IBV_QPS_RESET, True, False)
 
     def test_create_uc_qp_ex_no_attr(self):
         """
         Test UC QP creation via ibv_create_qp_ex without a QPAttr object
         provided.
         """
-        self.create_qp_common_test(e.IBV_QPT_UC, e.IBV_QPS_RESET, True, False)
+        self.create_qp_common_test(ibv_qp_type.IBV_QPT_UC, ibv_qp_state.IBV_QPS_RESET, True, False)
 
     def test_create_ud_qp_ex_no_attr(self):
         """
         Test UD QP creation via ibv_create_qp_ex without a QPAttr object
         provided.
         """
-        self.create_qp_common_test(e.IBV_QPT_UD, e.IBV_QPS_RESET, True, False)
+        self.create_qp_common_test(ibv_qp_type.IBV_QPT_UD, ibv_qp_state.IBV_QPS_RESET, True, False)
 
     def test_create_raw_qp_ex_no_attr(self):
         """
@@ -147,25 +148,25 @@ class QPTest(PyverbsAPITestCase):
         provided.
         Raw Packet is skipped for non-root users / Infiniband link layer.
         """
-        self.create_qp_common_test(e.IBV_QPT_RAW_PACKET, e.IBV_QPS_RESET, True, False)
+        self.create_qp_common_test(ibv_qp_type.IBV_QPT_RAW_PACKET, ibv_qp_state.IBV_QPS_RESET, True, False)
 
     def test_create_rc_qp_ex_with_attr(self):
         """
         Test RC QP creation via ibv_create_qp_ex with a QPAttr object provided.
         """
-        self.create_qp_common_test(e.IBV_QPT_RC, e.IBV_QPS_INIT, True, True)
+        self.create_qp_common_test(ibv_qp_type.IBV_QPT_RC, ibv_qp_state.IBV_QPS_INIT, True, True)
 
     def test_create_uc_qp_ex_with_attr(self):
         """
         Test UC QP creation via ibv_create_qp_ex with a QPAttr object provided.
         """
-        self.create_qp_common_test(e.IBV_QPT_UC, e.IBV_QPS_INIT, True, True)
+        self.create_qp_common_test(ibv_qp_type.IBV_QPT_UC, ibv_qp_state.IBV_QPS_INIT, True, True)
 
     def test_create_ud_qp_ex_with_attr(self):
         """
         Test UD QP creation via ibv_create_qp_ex with a QPAttr object provided.
         """
-        self.create_qp_common_test(e.IBV_QPT_UD, e.IBV_QPS_RTS, True, True)
+        self.create_qp_common_test(ibv_qp_type.IBV_QPT_UD, ibv_qp_state.IBV_QPS_RTS, True, True)
 
     def test_create_raw_qp_ex_with_attr(self):
         """
@@ -173,7 +174,7 @@ class QPTest(PyverbsAPITestCase):
         provided.
         Raw Packet is skipped for non-root users / Infiniband link layer.
         """
-        self.create_qp_common_test(e.IBV_QPT_RAW_PACKET, e.IBV_QPS_RTS, True, True)
+        self.create_qp_common_test(ibv_qp_type.IBV_QPT_RAW_PACKET, ibv_qp_state.IBV_QPS_RTS, True, True)
 
     def qp_attr_edit_max_send_wr_callback(self, qp_init_attr):
         qp_init_attr.max_send_wr = 0xffffffff # max_uint32
@@ -198,7 +199,7 @@ class QPTest(PyverbsAPITestCase):
         dev_attr = self.ctx.query_device()
         if dev_attr.max_qp_wr < 0xffffffff:
             with self.assertRaises(PyverbsRDMAError) as ex:
-                self.create_qp_common_test(e.IBV_QPT_UD, e.IBV_QPS_RTS, False, True,
+                self.create_qp_common_test(ibv_qp_type.IBV_QPT_UD, ibv_qp_state.IBV_QPS_RTS, False, True,
                                         qp_attr_edit_callback=self.qp_attr_edit_max_send_wr_callback)
             self.assertNotEqual(ex.exception.error_code, 0)
 
@@ -209,7 +210,7 @@ class QPTest(PyverbsAPITestCase):
         dev_attr = self.ctx.query_device()
         if dev_attr.max_sge < 0xffff:
             with self.assertRaises(PyverbsRDMAError) as ex:
-                self.create_qp_common_test(e.IBV_QPT_UD, e.IBV_QPS_RTS, False, True,
+                self.create_qp_common_test(ibv_qp_type.IBV_QPT_UD, ibv_qp_state.IBV_QPS_RTS, False, True,
                                         qp_attr_edit_callback=self.qp_attr_edit_max_send_sge_callback)
             self.assertNotEqual(ex.exception.error_code, 0)
 
@@ -220,7 +221,7 @@ class QPTest(PyverbsAPITestCase):
         dev_attr = self.ctx.query_device()
         if dev_attr.max_sge < 0xffff:
             with self.assertRaises(PyverbsRDMAError) as ex:
-                self.create_qp_common_test(e.IBV_QPT_UD, e.IBV_QPS_RTS, False, True,
+                self.create_qp_common_test(ibv_qp_type.IBV_QPT_UD, ibv_qp_state.IBV_QPS_RTS, False, True,
                                         qp_attr_edit_callback=self.qp_attr_edit_max_recv_sge_callback)
             self.assertNotEqual(ex.exception.error_code, 0)
 
@@ -231,7 +232,7 @@ class QPTest(PyverbsAPITestCase):
         dev_attr = self.ctx.query_device()
         if dev_attr.max_qp_wr < 0xffffffff:
             with self.assertRaises(PyverbsRDMAError) as ex:
-                self.create_qp_common_test(e.IBV_QPT_UD, e.IBV_QPS_RTS, False, True,
+                self.create_qp_common_test(ibv_qp_type.IBV_QPT_UD, ibv_qp_state.IBV_QPS_RTS, False, True,
                                         qp_attr_edit_callback=self.qp_attr_edit_max_recv_wr_callback)
             self.assertNotEqual(ex.exception.error_code, 0)
 
@@ -251,7 +252,7 @@ class QPTest(PyverbsAPITestCase):
     def query_qp_common_test(self, qp_type):
         with PD(self.ctx) as pd:
             with CQ(self.ctx, 100, None, None, 0) as cq:
-                if qp_type == e.IBV_QPT_RAW_PACKET:
+                if qp_type == ibv_qp_type.IBV_QPT_RAW_PACKET:
                     if not (u.is_eth(self.ctx, self.ib_port) and u.is_root()):
                         raise unittest.SkipTest('To Create RAW QP must be done by root on Ethernet link layer')
 
@@ -260,42 +261,42 @@ class QPTest(PyverbsAPITestCase):
                 qia.qp_type = qp_type
                 caps = qia.cap
                 qp = self.create_qp(pd, qia, False, False, self.ib_port)
-                qp_attr, qp_init_attr = qp.query(e.IBV_QP_STATE | e.IBV_QP_CAP)
-                if self.get_node_type() == e.IBV_NODE_RNIC:
-                    self.verify_qp_attrs(caps, e.IBV_QPS_INIT, qp_init_attr, qp_attr)
+                qp_attr, qp_init_attr = qp.query(ibv_qp_attr_mask.IBV_QP_STATE | ibv_qp_attr_mask.IBV_QP_CAP)
+                if self.get_node_type() == ibv_node_type.IBV_NODE_RNIC:
+                    self.verify_qp_attrs(caps, ibv_qp_state.IBV_QPS_INIT, qp_init_attr, qp_attr)
                 else:
-                    self.verify_qp_attrs(caps, e.IBV_QPS_RESET, qp_init_attr, qp_attr)
+                    self.verify_qp_attrs(caps, ibv_qp_state.IBV_QPS_RESET, qp_init_attr, qp_attr)
 
                 # Extended QP
                 qia = get_qp_init_attr_ex(cq, pd, self.attr, self.attr_ex, qp_type)
                 caps = qia.cap # Save them to verify values later
                 qp = self.create_qp(self.ctx, qia, True, False, self.ib_port)
-                qp_attr, qp_init_attr = qp.query(e.IBV_QP_STATE | e.IBV_QP_CAP)
-                if self.get_node_type() == e.IBV_NODE_RNIC:
-                    self.verify_qp_attrs(caps, e.IBV_QPS_INIT, qp_init_attr, qp_attr)
+                qp_attr, qp_init_attr = qp.query(ibv_qp_attr_mask.IBV_QP_STATE | ibv_qp_attr_mask.IBV_QP_CAP)
+                if self.get_node_type() == ibv_node_type.IBV_NODE_RNIC:
+                    self.verify_qp_attrs(caps, ibv_qp_state.IBV_QPS_INIT, qp_init_attr, qp_attr)
                 else:
-                    self.verify_qp_attrs(caps, e.IBV_QPS_RESET, qp_init_attr, qp_attr)
+                    self.verify_qp_attrs(caps, ibv_qp_state.IBV_QPS_RESET, qp_init_attr, qp_attr)
 
     def test_query_rc_qp(self):
         """
         Queries an RC QP after creation. Verifies that its properties are as
         expected.
         """
-        self.query_qp_common_test(e.IBV_QPT_RC)
+        self.query_qp_common_test(ibv_qp_type.IBV_QPT_RC)
 
     def test_query_uc_qp(self):
         """
         Queries an UC QP after creation. Verifies that its properties are as
         expected.
         """
-        self.query_qp_common_test(e.IBV_QPT_UC)
+        self.query_qp_common_test(ibv_qp_type.IBV_QPT_UC)
 
     def test_query_ud_qp(self):
         """
         Queries an UD QP after creation. Verifies that its properties are as
         expected.
         """
-        self.query_qp_common_test(e.IBV_QPT_UD)
+        self.query_qp_common_test(ibv_qp_type.IBV_QPT_UD)
 
     def test_query_raw_qp(self):
         """
@@ -303,7 +304,7 @@ class QPTest(PyverbsAPITestCase):
         are as expected.
         Raw Packet is skipped for non-root users / Infiniband link layer.
         """
-        self.query_qp_common_test(e.IBV_QPT_RAW_PACKET)
+        self.query_qp_common_test(ibv_qp_type.IBV_QPT_RAW_PACKET)
 
     def test_query_data_in_order(self):
         """
@@ -313,14 +314,16 @@ class QPTest(PyverbsAPITestCase):
         with PD(self.ctx) as pd:
             with CQ(self.ctx, 100, None, None, 0) as cq:
                 qia = u.get_qp_init_attr(cq, self.attr)
-                qia.qp_type = e.IBV_QPT_UD
+                qia.qp_type = ibv_qp_type.IBV_QPT_UD
                 qp = self.create_qp(pd, qia, False, True, self.ib_port)
-                is_data_in_order = qp.query_data_in_order(e.IBV_WR_SEND)
+                is_data_in_order = qp.query_data_in_order(ibv_wr_opcode.IBV_WR_SEND)
                 self.assertIn(is_data_in_order, [0, 1], 'Data in order result with flags=0 is not valid')
-                is_data_in_order = qp.query_data_in_order(e.IBV_WR_SEND,e.IBV_QUERY_QP_DATA_IN_ORDER_RETURN_CAPS)
+                is_data_in_order = qp.query_data_in_order(ibv_wr_opcode.IBV_WR_SEND,
+                                                          ibv_query_qp_data_in_order_flags.IBV_QUERY_QP_DATA_IN_ORDER_RETURN_CAPS)
                 valid_results = [0,
-                                e.IBV_QUERY_QP_DATA_IN_ORDER_ALIGNED_128_BYTES,
-                                e.IBV_QUERY_QP_DATA_IN_ORDER_WHOLE_MSG | e.IBV_QUERY_QP_DATA_IN_ORDER_ALIGNED_128_BYTES]
+                                ibv_query_qp_data_in_order_caps.IBV_QUERY_QP_DATA_IN_ORDER_ALIGNED_128_BYTES,
+                                ibv_query_qp_data_in_order_caps.IBV_QUERY_QP_DATA_IN_ORDER_WHOLE_MSG | \
+                                    ibv_query_qp_data_in_order_caps.IBV_QUERY_QP_DATA_IN_ORDER_ALIGNED_128_BYTES]
                 self.assertIn(is_data_in_order, valid_results, 'Data in order result with flags=1 is not valid')
 
     @u.skip_unsupported
@@ -333,37 +336,37 @@ class QPTest(PyverbsAPITestCase):
             with CQ(self.ctx, 100, None, None, 0) as cq:
                 # Legacy QP
                 qia = u.get_qp_init_attr(cq, self.attr)
-                qia.qp_type = e.IBV_QPT_UD
+                qia.qp_type = ibv_qp_type.IBV_QPT_UD
                 qp = self.create_qp(pd, qia, False, False, self.ib_port)
                 qa = QPAttr()
                 qa.qkey = 0x123
                 qp.to_init(qa)
-                qp_attr, _ = qp.query(e.IBV_QP_QKEY)
+                qp_attr, _ = qp.query(ibv_qp_attr_mask.IBV_QP_QKEY)
                 assert qp_attr.qkey == qa.qkey, 'Legacy QP, QKey is not as expected'
                 qp.to_rtr(qa)
                 qa.sq_psn = 0x45
                 qp.to_rts(qa)
-                qp_attr, _ = qp.query(e.IBV_QP_SQ_PSN)
+                qp_attr, _ = qp.query(ibv_qp_attr_mask.IBV_QP_SQ_PSN)
                 assert qp_attr.sq_psn == qa.sq_psn, 'Legacy QP, SQ PSN is not as expected'
-                qa.qp_state = e.IBV_QPS_RESET
-                qp.modify(qa, e.IBV_QP_STATE)
-                assert qp.qp_state == e.IBV_QPS_RESET, 'Legacy QP, QP state is not as expected'
+                qa.qp_state = ibv_qp_state.IBV_QPS_RESET
+                qp.modify(qa, ibv_qp_attr_mask.IBV_QP_STATE)
+                assert qp.qp_state == ibv_qp_state.IBV_QPS_RESET, 'Legacy QP, QP state is not as expected'
                 # Extended QP
-                qia = get_qp_init_attr_ex(cq, pd, self.attr, self.attr_ex, e.IBV_QPT_UD)
+                qia = get_qp_init_attr_ex(cq, pd, self.attr, self.attr_ex, ibv_qp_type.IBV_QPT_UD)
                 qp = self.create_qp(self.ctx, qia, True, False, self.ib_port)
                 qa = QPAttr()
                 qa.qkey = 0x123
                 qp.to_init(qa)
-                qp_attr, _ = qp.query(e.IBV_QP_QKEY)
+                qp_attr, _ = qp.query(ibv_qp_attr_mask.IBV_QP_QKEY)
                 assert qp_attr.qkey == qa.qkey, 'Extended QP, QKey is not as expected'
                 qp.to_rtr(qa)
                 qa.sq_psn = 0x45
                 qp.to_rts(qa)
-                qp_attr, _ = qp.query(e.IBV_QP_SQ_PSN)
+                qp_attr, _ = qp.query(ibv_qp_attr_mask.IBV_QP_SQ_PSN)
                 assert qp_attr.sq_psn == qa.sq_psn, 'Extended QP, SQ PSN is not as expected'
-                qa.qp_state = e.IBV_QPS_RESET
-                qp.modify(qa, e.IBV_QP_STATE)
-                assert qp.qp_state == e.IBV_QPS_RESET, 'Extended QP, QP state is not as expected'
+                qa.qp_state = ibv_qp_state.IBV_QPS_RESET
+                qp.modify(qa, ibv_qp_attr_mask.IBV_QP_STATE)
+                assert qp.qp_state == ibv_qp_state.IBV_QPS_RESET, 'Extended QP, QP state is not as expected'
 
 
 class RCQPTest(RDMATestCase):
@@ -381,7 +384,8 @@ class RCQPTest(RDMATestCase):
         self.create_players(RCResources, max_rd_atomic=self.max_rd_atomic,
                             max_dest_rd_atomic=self.max_dest_rd_atomic)
 
-        qp_attr, _ = self.server.qp.query(e.IBV_QP_MAX_QP_RD_ATOMIC | e.IBV_QP_MAX_DEST_RD_ATOMIC)
+        qp_attr, _ = self.server.qp.query(ibv_qp_attr_mask.IBV_QP_MAX_QP_RD_ATOMIC | \
+                                          ibv_qp_attr_mask.IBV_QP_MAX_DEST_RD_ATOMIC)
 
         self.assertGreaterEqual(qp_attr.max_rd_atomic, self.max_rd_atomic,
                                 'Max RD Atomic value is less than requested.')
