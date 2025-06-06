@@ -12,7 +12,7 @@ from tests.base import RDMATestCase
 from pyverbs.device import Context
 from pyverbs.pd import PD
 from pyverbs.mr import MR
-import pyverbs.enums as e
+from pyverbs.libibverbs_enums import ibv_wr_opcode
 import tests.utils as u
 
 
@@ -92,4 +92,4 @@ class SharedPDTestCase(RDMATestCase):
         client.raddr = server_import.mr.buf
         server_import.raddr = client.mr.buf
         u.rdma_traffic(client, server_import, self.iters, self.gid_index,
-                       self.ib_port, send_op=e.IBV_WR_RDMA_WRITE, new_send=True)
+                       self.ib_port, send_op=ibv_wr_opcode.IBV_WR_RDMA_WRITE, new_send=True)

@@ -26,13 +26,19 @@ from pyverbs.providers.mlx5.dr_matcher import DrMatcher
 from pyverbs.providers.mlx5.dr_domain import DrDomain
 from pyverbs.providers.mlx5.dr_table import DrTable
 from pyverbs.providers.mlx5.dr_rule import DrRule
-import pyverbs.providers.mlx5.mlx5_enums as dve
+from pyverbs.providers.mlx5.mlx5_enums import mlx5dv_dr_domain_type, mlx5dv_dr_action_flags, \
+    mlx5dv_dr_matcher_layout_flags, mlx5dv_dr_action_dest_type, mlx5dv_dr_action_flags, \
+    MLX5DV_FLOW_ACTION_PACKET_REFORMAT_TYPE_L2_TO_L2_TUNNEL_, \
+    MLX5DV_FLOW_ACTION_PACKET_REFORMAT_TYPE_L2_TO_L3_TUNNEL_, \
+    MLX5DV_FLOW_ACTION_PACKET_REFORMAT_TYPE_L2_TUNNEL_TO_L2_, \
+    MLX5DV_FLOW_ACTION_PACKET_REFORMAT_TYPE_L3_TUNNEL_TO_L2_
 
 from tests.test_mlx5_flow import requires_reformat_support
 from pyverbs.cq import CqInitAttrEx, CQEX, CQ
 from pyverbs.wq import WQInitAttr, WQ, WQAttr
 from tests.base import RawResources
-import pyverbs.enums as e
+from pyverbs.libibverbs_enums import ibv_wq_attr_mask, ibv_wq_state, ibv_wr_opcode, ibv_create_cq_wc_flags, \
+    IBV_WC_STANDARD_FLAGS
 import tests.utils as u
 
 SET_ACTION = 0x1
@@ -130,7 +136,7 @@ class Mlx5DrResources(RawResources):
         """
         Create an Extended CQ.
         """
-        wc_flags = e.IBV_WC_STANDARD_FLAGS | self.wc_flags
+        wc_flags = IBV_WC_STANDARD_FLAGS | self.wc_flags
         cia = CqInitAttrEx(cqe=self.num_msgs, wc_flags=wc_flags)
         try:
             self.cq = CQEX(self.ctx, cia)
@@ -174,7 +180,7 @@ class Mlx5DrTirResources(Mlx5DrResources):
         else:
             from tests.mlx5_prm_structs import Tirc, CreateTirIn, CreateTirOut
             self.qps = [WQ(self.ctx, WQInitAttr(wq_pd=self.pd, wq_cq=self.cq))]
-            self.qps[0].modify(WQAttr(attr_mask=e.IBV_WQ_ATTR_STATE, wq_state=e.IBV_WQS_RDY))
+            self.qps[0].modify(WQAttr(attr_mask=ibv_wq_attr_mask.IBV_WQ_ATTR_STATE, wq_state=ibv_wq_state.IBV_WQS_RDY))
             tir_ctx = Tirc(inline_rqn=self.qps[0].wqn)
             self.tir = Mlx5DevxObj(self.ctx, CreateTirIn(tir_context=tir_ctx), len(CreateTirOut()))
 
@@ -212,7 +218,7 @@ class Mlx5DrTest(Mlx5RDMATestCase):
         :return: Non-root table and dest table action to it if root=false else root_table
         """
         self.domain_rx = domain if domain else DrDomain(self.server.ctx,
-                                                        dve.MLX5DV_DR_DOMAIN_TYPE_NIC_RX)
+                                                        mlx5dv_dr_domain_type.MLX5DV_DR_DOMAIN_TYPE_NIC_RX)
         root_table = DrTable(self.domain_rx, 0)
         if not root_only:
             non_root_table = DrTable(self.domain_rx, 1)
@@ -260,7 +266,7 @@ class Mlx5DrTest(Mlx5RDMATestCase):
         c_send_wr, _, _ = u.get_send_elements_raw_qp(self.client, src_mac=src_mac)
         poll_cq = u.poll_cq_ex if isinstance(self.client.cq, CQEX) else u.poll_cq
         for _ in range(iters):
-            u.send(self.client, c_send_wr, e.IBV_WR_SEND)
+            u.send(self.client, c_send_wr, ibv_wr_opcode.IBV_WR_SEND)
             poll_cq(self.client.cq)
 
     def send_server_fdb_to_nic_packets(self, iters):
@@ -272,7 +278,7 @@ class Mlx5DrTest(Mlx5RDMATestCase):
         u.post_recv(self.server, s_recv_wr, qp_idx=0)
         c_send_wr, _, msg = u.get_send_elements_raw_qp(self.server)
         for _ in range(iters):
-            u.send(self.server, c_send_wr, e.IBV_WR_SEND)
+            u.send(self.server, c_send_wr, ibv_wr_opcode.IBV_WR_SEND)
             u.poll_cq_ex(self.server.cq)
             u.poll_cq_ex(self.server.cq)
             u.post_recv(self.server, s_recv_wr, qp_idx=0)
@@ -292,13 +298,13 @@ class Mlx5DrTest(Mlx5RDMATestCase):
         """
         self.client = Mlx5DrResources(**self.dev_info)
         self.server = Mlx5DrResources(**self.dev_info)
-        self.domain_fdb = DrDomain(self.server.ctx, dve.MLX5DV_DR_DOMAIN_TYPE_FDB)
+        self.domain_fdb = DrDomain(self.server.ctx, mlx5dv_dr_domain_type.MLX5DV_DR_DOMAIN_TYPE_FDB)
         port_action = DrActionVPort(self.domain_fdb, PF_VPORT) if is_vport \
             else DrActionIBPort(self.domain_fdb, self.ib_port)
         smac_value = struct.pack('!6s', bytes.fromhex(PacketConsts.SRC_MAC.replace(':', '')))
         self.fdb_table, self.fdb_dest_act = self.create_rx_recv_rules(smac_value, [port_action],
                                                                       domain=self.domain_fdb)
-        self.domain_rx = DrDomain(self.server.ctx, dve.MLX5DV_DR_DOMAIN_TYPE_NIC_RX)
+        self.domain_rx = DrDomain(self.server.ctx, mlx5dv_dr_domain_type.MLX5DV_DR_DOMAIN_TYPE_NIC_RX)
         rx_table = DrTable(self.domain_rx, 0)
         qp_action = DrActionQp(self.server.qp)
         smac_mask = bytes([0xff] * 6)
@@ -462,7 +468,7 @@ class Mlx5DrTest(Mlx5RDMATestCase):
         """
         from tests.mlx5_prm_structs import SetActionIn
         self.create_players(Mlx5DrResources)
-        self.domain_tx = DrDomain(self.client.ctx, dve.MLX5DV_DR_DOMAIN_TYPE_NIC_TX)
+        self.domain_tx = DrDomain(self.client.ctx, mlx5dv_dr_domain_type.MLX5DV_DR_DOMAIN_TYPE_NIC_TX)
         root_table_tx = DrTable(self.domain_tx, 0)
         if not root_only:
             non_root_table_tx = DrTable(self.domain_tx, 1)
@@ -478,7 +484,7 @@ class Mlx5DrTest(Mlx5RDMATestCase):
                               data=0x88888888, length=ModifyFieldsLen.MAC_47_16)
         action2 = SetActionIn(action_type=SET_ACTION, field=ModifyFields.OUT_SMAC_15_0,
                               data=0x8888, length=ModifyFieldsLen.MAC_15_0)
-        flags = dve.MLX5DV_DR_ACTION_FLAGS_ROOT_LEVEL if root_only else 0
+        flags = mlx5dv_dr_action_flags.MLX5DV_DR_ACTION_FLAGS_ROOT_LEVEL if root_only else 0
         self.modify_action_tx = DrActionModify(self.domain_tx, flags, [action1, action2])
         self.rules.append(DrRule(matcher_tx, value_param, [self.modify_action_tx]))
         src_mac = struct.pack('!6s', bytes.fromhex("88:88:88:88:88:88".replace(':', '')))
@@ -543,8 +549,8 @@ class Mlx5DrTest(Mlx5RDMATestCase):
                 FlowTableEntryMatchSetMisc2(metadata_reg_c_0=REG_C_DATA,
                                             metadata_reg_c_1=REG_C_DATA))
         value_param = Mlx5FlowMatchParameters(len(match_param), value_metadata)
-        self.client.domain = DrDomain(self.client.ctx, dve.MLX5DV_DR_DOMAIN_TYPE_NIC_TX)
-        self.server.domain = DrDomain(self.server.ctx, dve.MLX5DV_DR_DOMAIN_TYPE_NIC_RX)
+        self.client.domain = DrDomain(self.client.ctx, mlx5dv_dr_domain_type.MLX5DV_DR_DOMAIN_TYPE_NIC_TX)
+        self.server.domain = DrDomain(self.server.ctx, mlx5dv_dr_domain_type.MLX5DV_DR_DOMAIN_TYPE_NIC_RX)
         for player in [self.client, self.server]:
             player.tables = []
             player.matchers = []
@@ -622,7 +628,7 @@ class Mlx5DrTest(Mlx5RDMATestCase):
         """
         from tests.mlx5_prm_structs import FlowTableEntryMatchParamSW
         self.server = Mlx5DrResources(**self.dev_info)
-        domain_rx = DrDomain(self.server.ctx, dve.MLX5DV_DR_DOMAIN_TYPE_NIC_RX)
+        domain_rx = DrDomain(self.server.ctx, mlx5dv_dr_domain_type.MLX5DV_DR_DOMAIN_TYPE_NIC_RX)
         domain_rx.allow_duplicate_rules(False)
         table = DrTable(domain_rx, 1)
         empty_param = Mlx5FlowMatchParameters(len(FlowTableEntryMatchParamSW()),
@@ -638,7 +644,7 @@ class Mlx5DrTest(Mlx5RDMATestCase):
     def _drop_action(self, root_only=False):
         self.create_players(Mlx5DrResources)
         # Initiate the sender side
-        domain_tx = DrDomain(self.client.ctx, dve.MLX5DV_DR_DOMAIN_TYPE_NIC_TX)
+        domain_tx = DrDomain(self.client.ctx, mlx5dv_dr_domain_type.MLX5DV_DR_DOMAIN_TYPE_NIC_TX)
         tx_root_table = DrTable(domain_tx, 0)
         smac_value = struct.pack('!6s', bytes.fromhex(PacketConsts.SRC_MAC.replace(':', '')))
         if not root_only:
@@ -652,7 +658,7 @@ class Mlx5DrTest(Mlx5RDMATestCase):
         self.tx_drop_action = DrActionDrop()
         self.rules.append(DrRule(matcher, value_param, [self.tx_drop_action]))
         # Initiate the receiver side
-        domain_rx = DrDomain(self.server.ctx, dve.MLX5DV_DR_DOMAIN_TYPE_NIC_RX)
+        domain_rx = DrDomain(self.server.ctx, mlx5dv_dr_domain_type.MLX5DV_DR_DOMAIN_TYPE_NIC_RX)
         rx_root_table = DrTable(domain_rx, 0)
         if not root_only:
             rx_non_root_table = DrTable(domain_rx, 1)
@@ -701,8 +707,8 @@ class Mlx5DrTest(Mlx5RDMATestCase):
         Verifies traffic and tag.
         :param root_only : If True, rules are created only on root table
         """
-        self.wc_flags = e.IBV_WC_EX_WITH_FLOW_TAG
-        self.create_players(Mlx5DrResources,  wc_flags=e.IBV_WC_EX_WITH_FLOW_TAG)
+        self.wc_flags = ibv_create_cq_wc_flags.IBV_WC_EX_WITH_FLOW_TAG
+        self.create_players(Mlx5DrResources,  wc_flags=ibv_create_cq_wc_flags.IBV_WC_EX_WITH_FLOW_TAG)
         qp_action = DrActionQp(self.server.qp)
         tag = 0x123
         tag_action = DrActionTag(tag)
@@ -744,7 +750,7 @@ class Mlx5DrTest(Mlx5RDMATestCase):
         self.create_rx_recv_rules(smac_value, [self.qp_action], log_matcher_size)
         self.matcher.set_layout(log_matcher_size + 1)
         u.raw_traffic(self.client, self.server, self.iters)
-        self.matcher.set_layout(flags=dve.MLX5DV_DR_MATCHER_LAYOUT_RESIZABLE)
+        self.matcher.set_layout(flags=mlx5dv_dr_matcher_layout_flags.MLX5DV_DR_MATCHER_LAYOUT_RESIZABLE)
         u.raw_traffic(self.client, self.server, self.iters)
 
     @skip_unsupported
@@ -760,12 +766,12 @@ class Mlx5DrTest(Mlx5RDMATestCase):
                                (PacketConsts.VLAN_CFI << 12) + PacketConsts.VLAN_ID)
         self.server = Mlx5DrResources(msg_size=self.client.msg_size + PacketConsts.VLAN_HEADER_SIZE,
                                       **self.dev_info)
-        self.domain_tx = DrDomain(self.client.ctx, dve.MLX5DV_DR_DOMAIN_TYPE_NIC_TX)
+        self.domain_tx = DrDomain(self.client.ctx, mlx5dv_dr_domain_type.MLX5DV_DR_DOMAIN_TYPE_NIC_TX)
         smac_value = struct.pack('!6s', bytes.fromhex(PacketConsts.SRC_MAC.replace(':', '')))
         push_action = DrActionPushVLan(self.domain_tx, struct.unpack('I', vlan_hdr)[0])
         self.tx_table, self.tx_dest_act = self.create_rx_recv_rules(smac_value, [push_action],
                                                                     domain=self.domain_tx)
-        self.domain_rx = DrDomain(self.server.ctx, dve.MLX5DV_DR_DOMAIN_TYPE_NIC_RX)
+        self.domain_rx = DrDomain(self.server.ctx, mlx5dv_dr_domain_type.MLX5DV_DR_DOMAIN_TYPE_NIC_RX)
         qp_action = DrActionQp(self.server.qp)
         self.create_rx_recv_rules(smac_value, [qp_action], domain=self.domain_rx)
         exp_packet = u.gen_packet(self.client.msg_size + PacketConsts.VLAN_HEADER_SIZE,
@@ -802,19 +808,19 @@ class Mlx5DrTest(Mlx5RDMATestCase):
         max_actions = 8
         self.client = Mlx5DrResources(qp_count=max_actions, **self.dev_info)
         self.server = Mlx5DrResources(qp_count=max_actions, **self.dev_info)
-        self.domain_rx = DrDomain(self.server.ctx, dve.MLX5DV_DR_DOMAIN_TYPE_NIC_RX)
+        self.domain_rx = DrDomain(self.server.ctx, mlx5dv_dr_domain_type.MLX5DV_DR_DOMAIN_TYPE_NIC_RX)
         actions = []
         dest_attrs = []
         for qp in self.server.qps[:-1]:
             qp_action = DrActionQp(qp)
             actions.append(qp_action)
-            dest_attrs.append(DrActionDestAttr(dve.MLX5DV_DR_ACTION_DEST, qp_action))
+            dest_attrs.append(DrActionDestAttr(mlx5dv_dr_action_dest_type.MLX5DV_DR_ACTION_DEST, qp_action))
         ft_action = DrTable(self.domain_rx, 0xff)
         last_table_action = DrActionDestTable(ft_action)
         smac_mask = bytes([0xff] * 6) + bytes(2)
         mask_param = Mlx5FlowMatchParameters(len(smac_mask), smac_mask)
         last_matcher = DrMatcher(ft_action, 1, u.MatchCriteriaEnable.OUTER, mask_param)
-        dest_attrs.append(DrActionDestAttr(dve.MLX5DV_DR_ACTION_DEST, last_table_action))
+        dest_attrs.append(DrActionDestAttr(mlx5dv_dr_action_dest_type.MLX5DV_DR_ACTION_DEST, last_table_action))
         last_qp_action = DrActionQp(self.server.qps[max_actions - 1])
         smac_value = struct.pack('!6s2s', bytes.fromhex(PacketConsts.SRC_MAC.replace(':', '')),
                                  bytes(2))
@@ -857,7 +863,7 @@ class Mlx5DrTest(Mlx5RDMATestCase):
         should reach server side which has RX rule with QP action.
         """
         self.create_players(Mlx5DrResources)
-        self.domain_tx = DrDomain(self.client.ctx, dve.MLX5DV_DR_DOMAIN_TYPE_NIC_TX)
+        self.domain_tx = DrDomain(self.client.ctx, mlx5dv_dr_domain_type.MLX5DV_DR_DOMAIN_TYPE_NIC_TX)
         tx_def_miss = DrActionDefMiss()
         tx_drop_action = DrActionDrop()
         smac_value = struct.pack('!6s', bytes.fromhex(PacketConsts.SRC_MAC.replace(':', '')))
@@ -904,9 +910,9 @@ class Mlx5DrTest(Mlx5RDMATestCase):
         mask_param = Mlx5FlowMatchParameters(len(smac_mask), smac_mask)
         smac_value = struct.pack('!6s', bytes.fromhex(PacketConsts.SRC_MAC.replace(':', '')))
         value_param = Mlx5FlowMatchParameters(len(smac_value), smac_value)
-        reformat_flag = dve.MLX5DV_DR_ACTION_FLAGS_ROOT_LEVEL if root_only else 0
+        reformat_flag = mlx5dv_dr_action_flags.MLX5DV_DR_ACTION_FLAGS_ROOT_LEVEL if root_only else 0
         # TX
-        domain_tx = DrDomain(self.client.ctx, dve.MLX5DV_DR_DOMAIN_TYPE_NIC_TX)
+        domain_tx = DrDomain(self.client.ctx, mlx5dv_dr_domain_type.MLX5DV_DR_DOMAIN_TYPE_NIC_TX)
         tx_root_table = DrTable(domain_tx, 0)
         tx_root_matcher = DrMatcher(tx_root_table, 0, u.MatchCriteriaEnable.OUTER, mask_param)
         if not root_only:
@@ -916,22 +922,22 @@ class Mlx5DrTest(Mlx5RDMATestCase):
             self.rules.append(DrRule(tx_root_matcher, value_param, [dest_table_action_tx]))
         reformat_matcher = tx_root_matcher if root_only else tx_matcher
         # Create encap action
-        tx_reformat_type = dve.MLX5DV_FLOW_ACTION_PACKET_REFORMAT_TYPE_L2_TO_L2_TUNNEL_ if \
-            l2_ref_type else dve.MLX5DV_FLOW_ACTION_PACKET_REFORMAT_TYPE_L2_TO_L3_TUNNEL_
+        tx_reformat_type = MLX5DV_FLOW_ACTION_PACKET_REFORMAT_TYPE_L2_TO_L2_TUNNEL_ if \
+            l2_ref_type else MLX5DV_FLOW_ACTION_PACKET_REFORMAT_TYPE_L2_TO_L3_TUNNEL_
         reformat_action_tx = DrActionPacketReformat(domain=domain_tx, flags=reformat_flag,
                                                     reformat_type=tx_reformat_type, data=outer)
         smac_value_tx = smac_value + bytes(2)
         value_param = Mlx5FlowMatchParameters(len(smac_value_tx), smac_value_tx)
         self.rules.append(DrRule(reformat_matcher, value_param, [reformat_action_tx]))
         # RX
-        domain_rx = DrDomain(self.server.ctx, dve.MLX5DV_DR_DOMAIN_TYPE_NIC_RX)
+        domain_rx = DrDomain(self.server.ctx, mlx5dv_dr_domain_type.MLX5DV_DR_DOMAIN_TYPE_NIC_RX)
         # Create decap action
         data = struct.pack('!6s6s',
                            bytes.fromhex(PacketConsts.DST_MAC.replace(':', '')),
                            bytes.fromhex(PacketConsts.SRC_MAC.replace(':', '')))
         data += PacketConsts.ETHER_TYPE_IPV4.to_bytes(2, 'big')
-        rx_reformat_type = dve.MLX5DV_FLOW_ACTION_PACKET_REFORMAT_TYPE_L2_TUNNEL_TO_L2_ if \
-            l2_ref_type else dve.MLX5DV_FLOW_ACTION_PACKET_REFORMAT_TYPE_L3_TUNNEL_TO_L2_
+        rx_reformat_type = MLX5DV_FLOW_ACTION_PACKET_REFORMAT_TYPE_L2_TUNNEL_TO_L2_ if \
+            l2_ref_type else MLX5DV_FLOW_ACTION_PACKET_REFORMAT_TYPE_L3_TUNNEL_TO_L2_
         reformat_action_rx = DrActionPacketReformat(domain=domain_rx, flags=reformat_flag,
                                                     reformat_type=rx_reformat_type,
                                                     data=None if l2_ref_type else data)
@@ -965,7 +971,7 @@ class Mlx5DrTest(Mlx5RDMATestCase):
         self.server_counter_action = DrActionFlowCounter(counter_1)
         # Create resources
         smac_value = struct.pack('!6s', bytes.fromhex(PacketConsts.SRC_MAC.replace(':', '')))
-        rx_domain = DrDomain(self.server.ctx, dve.MLX5DV_DR_DOMAIN_TYPE_NIC_RX)
+        rx_domain = DrDomain(self.server.ctx, mlx5dv_dr_domain_type.MLX5DV_DR_DOMAIN_TYPE_NIC_RX)
         default_tbl = DrTable(rx_domain, 2)
         # Create sampler action on NIC RX table
         sample_actions = [self.server_counter_action, tir_action]
@@ -1008,7 +1014,7 @@ class Mlx5DrTest(Mlx5RDMATestCase):
         """
         self.create_players(Mlx5DrResources)
         geneve_mask, geneve_val = self.create_geneve_params()
-        domain_rx = DrDomain(self.server.ctx, dve.MLX5DV_DR_DOMAIN_TYPE_NIC_RX)
+        domain_rx = DrDomain(self.server.ctx, mlx5dv_dr_domain_type.MLX5DV_DR_DOMAIN_TYPE_NIC_RX)
         counter, flow_counter_id = self.create_counter(self.server.ctx)
         self.server_counter_action = DrActionFlowCounter(counter)
         self.qp_action = DrActionQp(self.server.qp)
@@ -1056,7 +1062,7 @@ class Mlx5DrTest(Mlx5RDMATestCase):
         skip_if_has_geneve_tx_bug(self.client.ctx)
         geneve_mask, geneve_val = self.create_geneve_params()
         # TX
-        self.domain_tx = DrDomain(self.client.ctx, dve.MLX5DV_DR_DOMAIN_TYPE_NIC_TX)
+        self.domain_tx = DrDomain(self.client.ctx, mlx5dv_dr_domain_type.MLX5DV_DR_DOMAIN_TYPE_NIC_TX)
         tx_root_table = DrTable(self.domain_tx, 0)
         tx_root_matcher = DrMatcher(tx_root_table, 0, u.MatchCriteriaEnable.MISC, geneve_mask)
         tx_table = DrTable(self.domain_tx, 1)
@@ -1067,7 +1073,7 @@ class Mlx5DrTest(Mlx5RDMATestCase):
         self.rules.append(DrRule(tx_root_matcher, geneve_val, [self.dest_table_action_tx]))
         self.rules.append(DrRule(self.tx_matcher, geneve_val, [self.client_counter_action]))
         # RX
-        domain_rx = DrDomain(self.server.ctx, dve.MLX5DV_DR_DOMAIN_TYPE_NIC_RX)
+        domain_rx = DrDomain(self.server.ctx, mlx5dv_dr_domain_type.MLX5DV_DR_DOMAIN_TYPE_NIC_RX)
         self.qp_action = DrActionQp(self.server.qp)
         empty_param = Mlx5FlowMatchParameters(len(FlowTableEntryMatchParamSW()),
                                               FlowTableEntryMatchParamSW())
@@ -1087,7 +1093,7 @@ class Mlx5DrTest(Mlx5RDMATestCase):
         self.assertEqual(recv_packets_tx, self.iters,
                          'Counter tx counts more than expected recv packets')
 
-    def roce_bth_match(self, domain_flag=dve.MLX5DV_DR_DOMAIN_TYPE_NIC_RX):
+    def roce_bth_match(self, domain_flag=mlx5dv_dr_domain_type.MLX5DV_DR_DOMAIN_TYPE_NIC_RX):
         """
         Creates RoCE BTH rule on RX/TX domain. For RX domain, will match on BTH related
         fields with counter and qp action. For TX domain, will match on BTH relate fields
@@ -1105,7 +1111,7 @@ class Mlx5DrTest(Mlx5RDMATestCase):
         root_matcher = DrMatcher(root_table, 0, u.MatchCriteriaEnable.NONE, empty_param)
         table = DrTable(self.domain, 1)
         self.matcher = DrMatcher(table, 1, u.MatchCriteriaEnable.MISC, roce_bth_mask)
-        if domain_flag == dve.MLX5DV_DR_DOMAIN_TYPE_NIC_RX:
+        if domain_flag == mlx5dv_dr_domain_type.MLX5DV_DR_DOMAIN_TYPE_NIC_RX:
             counter, flow_counter_id = self.create_counter(self.server.ctx)
         else:
             counter, flow_counter_id = self.create_counter(self.client.ctx)
@@ -1113,12 +1119,12 @@ class Mlx5DrTest(Mlx5RDMATestCase):
         self.qp_action = DrActionQp(self.server.qp)
         self.counter_action = DrActionFlowCounter(counter)
         self.rules.append(DrRule(root_matcher, empty_param, [self.dest_tbl_action]))
-        if domain_flag == dve.MLX5DV_DR_DOMAIN_TYPE_NIC_RX:
+        if domain_flag == mlx5dv_dr_domain_type.MLX5DV_DR_DOMAIN_TYPE_NIC_RX:
             self.rules.append(DrRule(self.matcher, roce_bth_val, [self.qp_action, self.counter_action]))
         else:
             self.rules.append(DrRule(self.matcher, roce_bth_val, [self.counter_action]))
-        if domain_flag == dve.MLX5DV_DR_DOMAIN_TYPE_NIC_TX:
-            domain_rx = DrDomain(self.server.ctx, dve.MLX5DV_DR_DOMAIN_TYPE_NIC_RX)
+        if domain_flag == mlx5dv_dr_domain_type.MLX5DV_DR_DOMAIN_TYPE_NIC_TX:
+            domain_rx = DrDomain(self.server.ctx, mlx5dv_dr_domain_type.MLX5DV_DR_DOMAIN_TYPE_NIC_RX)
             self.create_rx_recv_rules_based_on_match_params\
                 (empty_param, empty_param, [self.qp_action],
                 match_criteria=u.MatchCriteriaEnable.NONE, domain=domain_rx)
@@ -1150,7 +1156,7 @@ class Mlx5DrTest(Mlx5RDMATestCase):
         """
         Verify TX matching on RoCE BTH.
         """
-        self.roce_bth_match(domain_flag=dve.MLX5DV_DR_DOMAIN_TYPE_NIC_TX)
+        self.roce_bth_match(domain_flag=mlx5dv_dr_domain_type.MLX5DV_DR_DOMAIN_TYPE_NIC_TX)
 
     @skip_unsupported
     def test_packet_reformat_l2_gre(self):
@@ -1264,8 +1270,8 @@ class Mlx5DrTest(Mlx5RDMATestCase):
         reg_c_red = Mlx5FlowMatchParameters(matcher_len, FlowTableEntryMatchParamSW(
             misc_parameters_2=FlowTableEntryMatchSetMisc2(**{reg_c_field: FLOW_METER_RED})))
 
-        self.client.domain = DrDomain(self.client.ctx, dve.MLX5DV_DR_DOMAIN_TYPE_NIC_TX)
-        self.server.domain = DrDomain(self.server.ctx, dve.MLX5DV_DR_DOMAIN_TYPE_NIC_RX)
+        self.client.domain = DrDomain(self.client.ctx, mlx5dv_dr_domain_type.MLX5DV_DR_DOMAIN_TYPE_NIC_TX)
+        self.server.domain = DrDomain(self.server.ctx, mlx5dv_dr_domain_type.MLX5DV_DR_DOMAIN_TYPE_NIC_RX)
 
         for player in [self.client, self.server]:
             player.root_table = DrTable(player.domain, 0)
@@ -1346,7 +1352,7 @@ class Mlx5DrTest(Mlx5RDMATestCase):
         """
         self.create_players(Mlx5DrResources)
         # Create TX resources
-        self.domain_tx = DrDomain(self.client.ctx, dve.MLX5DV_DR_DOMAIN_TYPE_NIC_TX)
+        self.domain_tx = DrDomain(self.client.ctx, mlx5dv_dr_domain_type.MLX5DV_DR_DOMAIN_TYPE_NIC_TX)
         tx_root_table = DrTable(self.domain_tx, 0)
         if not root_only:
             tx_non_root_table = DrTable(self.domain_tx, 1)
@@ -1358,7 +1364,7 @@ class Mlx5DrTest(Mlx5RDMATestCase):
         tx_actions = [self.client_counter_action]
         self.gen_two_smac_rules(tx_table, tx_actions)
         # Create RX resources
-        self.domain_rx = DrDomain(self.server.ctx, dve.MLX5DV_DR_DOMAIN_TYPE_NIC_RX)
+        self.domain_rx = DrDomain(self.server.ctx, mlx5dv_dr_domain_type.MLX5DV_DR_DOMAIN_TYPE_NIC_RX)
         rx_root_table = DrTable(self.domain_rx, 0)
         if not root_only:
             rx_non_root_table = DrTable(self.domain_rx, 1)
@@ -1408,7 +1414,7 @@ class Mlx5DrDumpTest(PyverbsAPITestCase):
     def test_domain_dump(self):
         dump_file = '/tmp/dump.txt'
         self.res = Mlx5DrResources(self.dev_name, self.ib_port)
-        self.domain_rx = DrDomain(self.res.ctx, dve.MLX5DV_DR_DOMAIN_TYPE_NIC_RX)
+        self.domain_rx = DrDomain(self.res.ctx, mlx5dv_dr_domain_type.MLX5DV_DR_DOMAIN_TYPE_NIC_RX)
         self.domain_rx.dump(dump_file)
         self.assertTrue(path.isfile(dump_file), 'Dump file does not exist.')
         self.assertGreater(path.getsize(dump_file), 0, 'Dump file is empty')

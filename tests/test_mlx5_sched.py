@@ -6,7 +6,7 @@ from pyverbs.providers.mlx5.mlx5dv_sched import Mlx5dvSchedAttr, \
 from tests.mlx5_base import Mlx5RDMATestCase, Mlx5PyverbsAPITestCase
 from pyverbs.pyverbs_error import PyverbsRDMAError
 from pyverbs.providers.mlx5.mlx5dv import Mlx5QP
-import pyverbs.providers.mlx5.mlx5_enums as dve
+from pyverbs.providers.mlx5.mlx5_enums import mlx5dv_sched_elem_attr_flags
 from tests.base import RCResources
 import tests.utils as u
 
@@ -23,17 +23,17 @@ class Mlx5SchedTest(Mlx5PyverbsAPITestCase):
             root_node = Mlx5dvSchedNode(self.ctx, Mlx5dvSchedAttr())
             # Create a node with only max_avg_bw argument.
             max_sched_attr = Mlx5dvSchedAttr(root_node, max_avg_bw=10,
-                                             flags=dve.MLX5DV_SCHED_ELEM_ATTR_FLAGS_MAX_AVG_BW)
+                                             flags=mlx5dv_sched_elem_attr_flags.MLX5DV_SCHED_ELEM_ATTR_FLAGS_MAX_AVG_BW)
             max_bw_node = Mlx5dvSchedNode(self.ctx, max_sched_attr)
 
             # Create a node with only bw_share argument.
             weighed_sched_attr = Mlx5dvSchedAttr(root_node, bw_share=10,
-                                                 flags=dve.MLX5DV_SCHED_ELEM_ATTR_FLAGS_BW_SHARE)
+                                                 flags=mlx5dv_sched_elem_attr_flags.MLX5DV_SCHED_ELEM_ATTR_FLAGS_BW_SHARE)
             max_bw_node = Mlx5dvSchedNode(self.ctx, weighed_sched_attr)
 
             # Create a node with max_avg_bw and bw_share arguments.
-            mixed_flags = dve.MLX5DV_SCHED_ELEM_ATTR_FLAGS_MAX_AVG_BW | \
-                dve.MLX5DV_SCHED_ELEM_ATTR_FLAGS_BW_SHARE
+            mixed_flags = mlx5dv_sched_elem_attr_flags.MLX5DV_SCHED_ELEM_ATTR_FLAGS_MAX_AVG_BW | \
+                mlx5dv_sched_elem_attr_flags.MLX5DV_SCHED_ELEM_ATTR_FLAGS_BW_SHARE
             mixed_sched_attr = Mlx5dvSchedAttr(root_node, max_avg_bw=10, bw_share=2,
                                                flags=mixed_flags)
             mixed_bw_node = Mlx5dvSchedNode(self.ctx, mixed_sched_attr)
@@ -75,8 +75,8 @@ class Mlx5SchedTrafficTest(Mlx5RDMATestCase):
         self.create_players(RCResources)
         try:
             root_node = Mlx5dvSchedNode(self.server.ctx, Mlx5dvSchedAttr())
-            mixed_flags = dve.MLX5DV_SCHED_ELEM_ATTR_FLAGS_MAX_AVG_BW | \
-                dve.MLX5DV_SCHED_ELEM_ATTR_FLAGS_BW_SHARE
+            mixed_flags = mlx5dv_sched_elem_attr_flags.MLX5DV_SCHED_ELEM_ATTR_FLAGS_MAX_AVG_BW | \
+                mlx5dv_sched_elem_attr_flags.MLX5DV_SCHED_ELEM_ATTR_FLAGS_BW_SHARE
             mixed_sched_attr = Mlx5dvSchedAttr(root_node, max_avg_bw=10,
                                                bw_share=2, flags=mixed_flags)
             leaf = Mlx5dvSchedLeaf(self.server.ctx, mixed_sched_attr)

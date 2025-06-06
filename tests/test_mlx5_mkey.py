@@ -13,33 +13,38 @@ from pyverbs.providers.mlx5.mlx5dv_mkey import Mlx5Mkey, Mlx5MrInterleaved, \
     Mlx5MkeyConfAttr, Mlx5SigT10Dif, Mlx5SigCrc, Mlx5SigBlockDomain, \
     Mlx5SigBlockAttr
 from tests.base import RCResources, RDMATestCase
-import pyverbs.providers.mlx5.mlx5_enums as dve
+from pyverbs.providers.mlx5.mlx5_enums import mlx5dv_mkey_init_attr_flags, mlx5dv_qp_create_flags, \
+    mlx5dv_qp_create_send_ops_flags, mlx5dv_qp_init_attr_mask, mlx5dv_sig_t10dif_flags, \
+    mlx5dv_sig_t10dif_bg_type, mlx5dv_sig_type, mlx5dv_block_size, mlx5dv_sig_mask, mlx5dv_sig_crc_type, \
+    mlx5dv_mkey_err_type
 from pyverbs.wr import SGE, SendWR, RecvWR
 from pyverbs.qp import QPInitAttrEx, QPCap, QPAttr
 from pyverbs.mr import MR
-import pyverbs.enums as e
+from pyverbs.libibverbs_enums import ibv_access_flags, ibv_qp_create_send_ops_flags, ibv_qp_init_attr_mask, \
+    ibv_qp_type, ibv_odp_transport_cap_bits, ibv_send_flags, ibv_wr_opcode, ibv_event_type, ibv_qp_state, \
+    ibv_qp_attr_mask
 import tests.utils as u
 
 
 class Mlx5MkeyResources(RCResources):
     def __init__(self, dev_name, ib_port, gid_index, dv_send_ops_flags=0,
-                 mkey_create_flags=dve.MLX5DV_MKEY_INIT_ATTR_FLAGS_INDIRECT,
-                 dv_qp_create_flags=dve.MLX5DV_QP_CREATE_DISABLE_SCATTER_TO_CQE):
+                 mkey_create_flags=mlx5dv_mkey_init_attr_flags.MLX5DV_MKEY_INIT_ATTR_FLAGS_INDIRECT,
+                 dv_qp_create_flags=mlx5dv_qp_create_flags.MLX5DV_QP_CREATE_DISABLE_SCATTER_TO_CQE):
         self.dv_send_ops_flags = dv_send_ops_flags
         self.mkey_create_flags = mkey_create_flags
         self.dv_qp_create_flags = dv_qp_create_flags
-        if dv_send_ops_flags & dve.MLX5DV_QP_EX_WITH_MKEY_CONFIGURE:
+        if dv_send_ops_flags & mlx5dv_qp_create_send_ops_flags.MLX5DV_QP_EX_WITH_MKEY_CONFIGURE:
             self.max_inline_data = 512
         else:
             self.max_inline_data = 0
 
-        self.qp_access_flags = e.IBV_ACCESS_LOCAL_WRITE
-        self.send_ops_flags = e.IBV_QP_EX_WITH_SEND
+        self.qp_access_flags = ibv_access_flags.IBV_ACCESS_LOCAL_WRITE
+        self.send_ops_flags = ibv_qp_create_send_ops_flags.IBV_QP_EX_WITH_SEND
         # The signature pipelining tests use RDMA_WRITE. Allow RDMA_WRITE
         # if the pipelining flag is enabled for the QP.
-        if self.dv_qp_create_flags & dve.MLX5DV_QP_CREATE_SIG_PIPELINING:
-            self.qp_access_flags |= e.IBV_ACCESS_REMOTE_WRITE
-            self.send_ops_flags |= e.IBV_QP_EX_WITH_RDMA_WRITE
+        if self.dv_qp_create_flags & mlx5dv_qp_create_flags.MLX5DV_QP_CREATE_SIG_PIPELINING:
+            self.qp_access_flags |= ibv_access_flags.IBV_ACCESS_REMOTE_WRITE
+            self.send_ops_flags |= ibv_qp_create_send_ops_flags.IBV_QP_EX_WITH_RDMA_WRITE
 
         super().__init__(dev_name, ib_port, gid_index)
         self.create_mkey()
@@ -66,9 +71,9 @@ class Mlx5MkeyResources(RCResources):
                      max_inline_data=self.max_inline_data)
 
     def create_qp_init_attr(self):
-        comp_mask = e.IBV_QP_INIT_ATTR_PD | e.IBV_QP_INIT_ATTR_SEND_OPS_FLAGS
+        comp_mask = ibv_qp_init_attr_mask.IBV_QP_INIT_ATTR_PD | ibv_qp_init_attr_mask.IBV_QP_INIT_ATTR_SEND_OPS_FLAGS
         return QPInitAttrEx(cap=self.create_qp_cap(), pd=self.pd, scq=self.cq,
-                            rcq=self.cq, qp_type=e.IBV_QPT_RC,
+                            rcq=self.cq, qp_type=ibv_qp_type.IBV_QPT_RC,
                             send_ops_flags=self.send_ops_flags,
                             comp_mask=comp_mask)
 
@@ -80,8 +85,8 @@ class Mlx5MkeyResources(RCResources):
     def create_qps(self):
         try:
             qp_init_attr = self.create_qp_init_attr()
-            comp_mask = dve.MLX5DV_QP_INIT_ATTR_MASK_QP_CREATE_FLAGS |\
-                 dve.MLX5DV_QP_INIT_ATTR_MASK_SEND_OPS_FLAGS
+            comp_mask = mlx5dv_qp_init_attr_mask.MLX5DV_QP_INIT_ATTR_MASK_QP_CREATE_FLAGS |\
+                 mlx5dv_qp_init_attr_mask.MLX5DV_QP_INIT_ATTR_MASK_SEND_OPS_FLAGS
             attr = Mlx5DVQPInitAttr(comp_mask=comp_mask,
                                     create_flags=self.dv_qp_create_flags,
                                     send_ops_flags=self.dv_send_ops_flags)
@@ -96,9 +101,9 @@ class Mlx5MkeyResources(RCResources):
 
 
 class Mlx5MkeyOdpRes(Mlx5MkeyResources):
-    @u.requires_odp('rc', e.IBV_ODP_SUPPORT_SEND | e.IBV_ODP_SUPPORT_RECV)
+    @u.requires_odp('rc', ibv_odp_transport_cap_bits.IBV_ODP_SUPPORT_SEND | ibv_odp_transport_cap_bits.IBV_ODP_SUPPORT_RECV)
     def create_mr(self):
-        self.mr = MR(self.pd, self.msg_size, e.IBV_ACCESS_LOCAL_WRITE | e.IBV_ACCESS_ON_DEMAND)
+        self.mr = MR(self.pd, self.msg_size, ibv_access_flags.IBV_ACCESS_LOCAL_WRITE | ibv_access_flags.IBV_ACCESS_ON_DEMAND)
 
 
 class Mlx5MkeyTest(RDMATestCase):
@@ -118,15 +123,15 @@ class Mlx5MkeyTest(RDMATestCase):
         """
         for player in [self.server, self.client]:
             player.qp.wr_start()
-            player.qp.wr_flags = e.IBV_SEND_SIGNALED | e.IBV_SEND_INLINE
+            player.qp.wr_flags = ibv_send_flags.IBV_SEND_SIGNALED | ibv_send_flags.IBV_SEND_INLINE
             sge_1 = SGE(player.mr.buf, 8, player.mr.lkey)
             sge_2 = SGE(player.mr.buf + 64, 8, player.mr.lkey)
             if configure_mkey:
                 player.qp.wr_mkey_configure(player.mkey, 2, Mlx5MkeyConfAttr())
-                player.qp.wr_set_mkey_access_flags(e.IBV_ACCESS_LOCAL_WRITE)
+                player.qp.wr_set_mkey_access_flags(ibv_access_flags.IBV_ACCESS_LOCAL_WRITE)
                 player.qp.wr_set_mkey_layout_list([sge_1, sge_2])
             else:
-                player.qp.wr_mr_list(player.mkey, e.IBV_ACCESS_LOCAL_WRITE,
+                player.qp.wr_mr_list(player.mkey, ibv_access_flags.IBV_ACCESS_LOCAL_WRITE,
                                      sge_list=[sge_1, sge_2])
             player.qp.wr_complete()
             u.poll_cq(player.cq)
@@ -138,19 +143,19 @@ class Mlx5MkeyTest(RDMATestCase):
         """
         for player in [self.server, self.client]:
             player.qp.wr_start()
-            player.qp.wr_flags = e.IBV_SEND_SIGNALED | e.IBV_SEND_INLINE
+            player.qp.wr_flags = ibv_send_flags.IBV_SEND_SIGNALED | ibv_send_flags.IBV_SEND_INLINE
             mr_interleaved_1 = Mlx5MrInterleaved(addr=player.mr.buf, bytes_count=8,
                                                  bytes_skip=2, lkey=player.mr.lkey)
             mr_interleaved_2 = Mlx5MrInterleaved(addr=player.mr.buf + 64, bytes_count=8,
                                                  bytes_skip=2, lkey=player.mr.lkey)
             mr_interleaved_lst = [mr_interleaved_1, mr_interleaved_2]
-            mkey_access = e.IBV_ACCESS_LOCAL_WRITE
+            mkey_access = ibv_access_flags.IBV_ACCESS_LOCAL_WRITE
             if configure_mkey:
                 player.qp.wr_mkey_configure(player.mkey, 2, Mlx5MkeyConfAttr())
                 player.qp.wr_set_mkey_access_flags(mkey_access)
                 player.qp.wr_set_mkey_layout_interleaved(3, mr_interleaved_lst)
             else:
-                player.qp.wr_mr_interleaved(player.mkey, e.IBV_ACCESS_LOCAL_WRITE,
+                player.qp.wr_mr_interleaved(player.mkey, ibv_access_flags.IBV_ACCESS_LOCAL_WRITE,
                                             repeat_count=3, mr_interleaved_lst=mr_interleaved_lst)
             player.qp.wr_complete()
             u.poll_cq(player.cq)
@@ -161,26 +166,26 @@ class Mlx5MkeyTest(RDMATestCase):
         """
         for player in [self.server, self.client]:
             player.qp.wr_start()
-            player.qp.wr_flags = e.IBV_SEND_SIGNALED | e.IBV_SEND_INLINE
+            player.qp.wr_flags = ibv_send_flags.IBV_SEND_SIGNALED | ibv_send_flags.IBV_SEND_INLINE
             sge = SGE(player.mr.buf, 512, player.mr.lkey)
             player.qp.wr_mkey_configure(player.mkey, 3, Mlx5MkeyConfAttr())
-            player.qp.wr_set_mkey_access_flags(e.IBV_ACCESS_LOCAL_WRITE)
+            player.qp.wr_set_mkey_access_flags(ibv_access_flags.IBV_ACCESS_LOCAL_WRITE)
             player.qp.wr_set_mkey_layout_list([sge])
 
-            t10dif_flags = dve.MLX5DV_SIG_T10DIF_FLAG_REF_REMAP
-            sig_t10dif = Mlx5SigT10Dif(bg_type=dve.MLX5DV_SIG_T10DIF_CRC,
+            t10dif_flags = mlx5dv_sig_t10dif_flags.MLX5DV_SIG_T10DIF_FLAG_REF_REMAP
+            sig_t10dif = Mlx5SigT10Dif(bg_type=mlx5dv_sig_t10dif_bg_type.MLX5DV_SIG_T10DIF_CRC,
                                        bg=0xFFFF, app_tag=0xABCD,
                                        ref_tag=0x01234567, flags=t10dif_flags)
 
-            sig_type = dve.MLX5DV_SIG_TYPE_T10DIF
-            block_size = dve.MLX5DV_BLOCK_SIZE_512
+            sig_type = mlx5dv_sig_type.MLX5DV_SIG_TYPE_T10DIF
+            block_size = mlx5dv_block_size.MLX5DV_BLOCK_SIZE_512
             sig_block_domain = Mlx5SigBlockDomain(sig_type=sig_type,
                                                   dif=sig_t10dif,
                                                   block_size=block_size)
 
-            check_mask = (dve.MLX5DV_SIG_MASK_T10DIF_GUARD |
-                          dve.MLX5DV_SIG_MASK_T10DIF_APPTAG |
-                          dve.MLX5DV_SIG_MASK_T10DIF_REFTAG)
+            check_mask = (mlx5dv_sig_mask.MLX5DV_SIG_MASK_T10DIF_GUARD |
+                          mlx5dv_sig_mask.MLX5DV_SIG_MASK_T10DIF_APPTAG |
+                          mlx5dv_sig_mask.MLX5DV_SIG_MASK_T10DIF_REFTAG)
             sig_attr = Mlx5SigBlockAttr(wire=sig_block_domain,
                                         check_mask=check_mask)
             player.qp.wr_set_mkey_sig_block(sig_attr)
@@ -193,19 +198,19 @@ class Mlx5MkeyTest(RDMATestCase):
         """
         for player in [self.server, self.client]:
             player.qp.wr_start()
-            player.qp.wr_flags = e.IBV_SEND_SIGNALED | e.IBV_SEND_INLINE
+            player.qp.wr_flags = ibv_send_flags.IBV_SEND_SIGNALED | ibv_send_flags.IBV_SEND_INLINE
             sge = SGE(player.mr.buf, 512, player.mr.lkey)
             player.qp.wr_mkey_configure(player.mkey, 3, Mlx5MkeyConfAttr())
-            player.qp.wr_set_mkey_access_flags(e.IBV_ACCESS_LOCAL_WRITE)
+            player.qp.wr_set_mkey_access_flags(ibv_access_flags.IBV_ACCESS_LOCAL_WRITE)
             player.qp.wr_set_mkey_layout_list([sge])
 
-            sig_crc = Mlx5SigCrc(crc_type=dve.MLX5DV_SIG_CRC_TYPE_CRC32,
+            sig_crc = Mlx5SigCrc(crc_type=mlx5dv_sig_crc_type.MLX5DV_SIG_CRC_TYPE_CRC32,
                                  seed=0xFFFFFFFF)
-            sig_block_domain = Mlx5SigBlockDomain(sig_type=dve.MLX5DV_SIG_TYPE_CRC,
+            sig_block_domain = Mlx5SigBlockDomain(sig_type=mlx5dv_sig_type.MLX5DV_SIG_TYPE_CRC,
                                                   crc=sig_crc,
-                                                  block_size=dve.MLX5DV_BLOCK_SIZE_512)
+                                                  block_size=mlx5dv_block_size.MLX5DV_BLOCK_SIZE_512)
             sig_attr = Mlx5SigBlockAttr(wire=sig_block_domain,
-                                        check_mask=dve.MLX5DV_SIG_MASK_CRC32)
+                                        check_mask=mlx5dv_sig_mask.MLX5DV_SIG_MASK_CRC32)
             player.qp.wr_set_mkey_sig_block(sig_attr)
             player.qp.wr_complete()
             u.poll_cq(player.cq)
@@ -218,34 +223,34 @@ class Mlx5MkeyTest(RDMATestCase):
         the memory buffer.
         """
 
-        sig_crc = Mlx5SigCrc(crc_type=dve.MLX5DV_SIG_CRC_TYPE_CRC32,
+        sig_crc = Mlx5SigCrc(crc_type=mlx5dv_sig_crc_type.MLX5DV_SIG_CRC_TYPE_CRC32,
                              seed=0xFFFFFFFF)
 
-        block_size = dve.MLX5DV_BLOCK_SIZE_512
-        sig_block_domain = Mlx5SigBlockDomain(sig_type=dve.MLX5DV_SIG_TYPE_CRC,
+        block_size = mlx5dv_block_size.MLX5DV_BLOCK_SIZE_512
+        sig_block_domain = Mlx5SigBlockDomain(sig_type=mlx5dv_sig_type.MLX5DV_SIG_TYPE_CRC,
                                               crc=sig_crc,
                                               block_size=block_size)
         sig_attr = Mlx5SigBlockAttr(mem=sig_block_domain,
-                                    check_mask=dve.MLX5DV_SIG_MASK_CRC32)
+                                    check_mask=mlx5dv_sig_mask.MLX5DV_SIG_MASK_CRC32)
 
         # Configure the mkey on the server side
         self.server.qp.wr_start()
-        self.server.qp.wr_flags = e.IBV_SEND_SIGNALED | e.IBV_SEND_INLINE
+        self.server.qp.wr_flags = ibv_send_flags.IBV_SEND_SIGNALED | ibv_send_flags.IBV_SEND_INLINE
         sge = SGE(self.server.mr.buf, 512, self.server.mr.lkey)
         self.server.qp.wr_mkey_configure(self.server.mkey, 2,
                                          Mlx5MkeyConfAttr())
-        self.server.qp.wr_set_mkey_access_flags(e.IBV_ACCESS_LOCAL_WRITE)
+        self.server.qp.wr_set_mkey_access_flags(ibv_access_flags.IBV_ACCESS_LOCAL_WRITE)
         self.server.qp.wr_set_mkey_layout_list([sge])
         self.server.qp.wr_complete()
         u.poll_cq(self.server.cq)
 
         # Configure the mkey on the client side
         self.client.qp.wr_start()
-        self.client.qp.wr_flags = e.IBV_SEND_SIGNALED | e.IBV_SEND_INLINE
+        self.client.qp.wr_flags = ibv_send_flags.IBV_SEND_SIGNALED | ibv_send_flags.IBV_SEND_INLINE
         sge = SGE(self.client.mr.buf, 512 + 4, self.client.mr.lkey)
         self.client.qp.wr_mkey_configure(self.client.mkey, 3,
                                          Mlx5MkeyConfAttr())
-        self.client.qp.wr_set_mkey_access_flags(e.IBV_ACCESS_LOCAL_WRITE)
+        self.client.qp.wr_set_mkey_access_flags(ibv_access_flags.IBV_ACCESS_LOCAL_WRITE)
         self.client.qp.wr_set_mkey_layout_list([sge])
         self.client.qp.wr_set_mkey_sig_block(sig_attr)
         self.client.qp.wr_complete()
@@ -256,12 +261,12 @@ class Mlx5MkeyTest(RDMATestCase):
         Register mkey without signature.
         """
         self.server.qp.wr_start()
-        self.server.qp.wr_flags = e.IBV_SEND_SIGNALED | e.IBV_SEND_INLINE
+        self.server.qp.wr_flags = ibv_send_flags.IBV_SEND_SIGNALED | ibv_send_flags.IBV_SEND_INLINE
         sge = SGE(self.server.mr.buf, 512, self.server.mr.lkey)
         self.server.qp.wr_mkey_configure(self.server.mkey, 2,
                                          Mlx5MkeyConfAttr())
-        self.server.qp.wr_set_mkey_access_flags(e.IBV_ACCESS_LOCAL_WRITE |
-                                                e.IBV_ACCESS_REMOTE_WRITE)
+        self.server.qp.wr_set_mkey_access_flags(ibv_access_flags.IBV_ACCESS_LOCAL_WRITE |
+                                                ibv_access_flags.IBV_ACCESS_REMOTE_WRITE)
         self.server.qp.wr_set_mkey_layout_list([sge])
         self.server.qp.wr_complete()
         u.poll_cq(self.server.cq)
@@ -273,18 +278,18 @@ class Mlx5MkeyTest(RDMATestCase):
         :param check_mask: The mask for the signature checking.
         """
         self.client.qp.wr_start()
-        self.client.qp.wr_flags = e.IBV_SEND_SIGNALED | e.IBV_SEND_INLINE
+        self.client.qp.wr_flags = ibv_send_flags.IBV_SEND_SIGNALED | ibv_send_flags.IBV_SEND_INLINE
         # Add 4 bytes for CRC32 signature
         sge = SGE(self.client.mr.buf, 512 + 4, self.client.mr.lkey)
         self.client.qp.wr_mkey_configure(self.client.mkey, 3,
                                          Mlx5MkeyConfAttr())
-        self.client.qp.wr_set_mkey_access_flags(e.IBV_ACCESS_LOCAL_WRITE)
+        self.client.qp.wr_set_mkey_access_flags(ibv_access_flags.IBV_ACCESS_LOCAL_WRITE)
         self.client.qp.wr_set_mkey_layout_list([sge])
 
-        sig = Mlx5SigCrc(crc_type = dve.MLX5DV_SIG_CRC_TYPE_CRC32)
-        sig_domain = Mlx5SigBlockDomain(sig_type=dve.MLX5DV_SIG_TYPE_CRC,
+        sig = Mlx5SigCrc(crc_type = mlx5dv_sig_crc_type.MLX5DV_SIG_CRC_TYPE_CRC32)
+        sig_domain = Mlx5SigBlockDomain(sig_type=mlx5dv_sig_type.MLX5DV_SIG_TYPE_CRC,
                                         crc=sig,
-                                        block_size=dve.MLX5DV_BLOCK_SIZE_512)
+                                        block_size=mlx5dv_block_size.MLX5DV_BLOCK_SIZE_512)
         sig_attr = Mlx5SigBlockAttr(mem=sig_domain,
                                     check_mask=check_mask)
         self.client.qp.wr_set_mkey_sig_block(sig_attr)
@@ -296,7 +301,7 @@ class Mlx5MkeyTest(RDMATestCase):
         Build the server and client send/recv work requests.
         :param sge_size: The sge send size using the mkey.
         """
-        opcode = e.IBV_WR_SEND
+        opcode = ibv_wr_opcode.IBV_WR_SEND
         server_sge = SGE(0, sge_size, self.server.mkey.lkey)
         self.server_recv_wr = RecvWR(sg=[server_sge], num_sge=1)
         client_sge = SGE(0, sge_size, self.client.mkey.lkey)
@@ -315,13 +320,13 @@ class Mlx5MkeyTest(RDMATestCase):
         server_sge_resp = SGE(self.server.mr.buf, 16, self.server.mr.lkey)
         self.server_resp_wr = RecvWR(sg=[server_sge_resp], num_sge=1)
         client_sge_data = SGE(0, 512, self.client.mkey.lkey)
-        self.client_data_wr = SendWR(wr_id=1, opcode=e.IBV_WR_RDMA_WRITE,
+        self.client_data_wr = SendWR(wr_id=1, opcode=ibv_wr_opcode.IBV_WR_RDMA_WRITE,
                                      num_sge=1, sg=[client_sge_data],
                                      send_flags=0)
         self.client_data_wr.set_wr_rdma(self.server.mkey.rkey, 0)
         client_sge_resp = SGE(self.client.mr.buf, 16, self.client.mr.lkey)
-        client_send_flags = e.IBV_SEND_SIGNALED | e.IBV_SEND_FENCE
-        self.client_resp_wr = SendWR(wr_id=1, opcode=e.IBV_WR_SEND, num_sge=1,
+        client_send_flags = ibv_send_flags.IBV_SEND_SIGNALED | ibv_send_flags.IBV_SEND_FENCE
+        self.client_resp_wr = SendWR(wr_id=1, opcode=ibv_wr_opcode.IBV_WR_SEND, num_sge=1,
                                      sg=[client_sge_resp],
                                      send_flags=client_send_flags)
 
@@ -361,7 +366,7 @@ class Mlx5MkeyTest(RDMATestCase):
         Invalidate the players mkey.
         """
         for player in [self.server, self.client]:
-            inv_send_wr = SendWR(opcode=e.IBV_WR_LOCAL_INV)
+            inv_send_wr = SendWR(opcode=ibv_wr_opcode.IBV_WR_LOCAL_INV)
             inv_send_wr.imm_data = player.mkey.lkey
             player.qp.post_send(inv_send_wr)
             u.poll_cq(player.cq)
@@ -373,7 +378,7 @@ class Mlx5MkeyTest(RDMATestCase):
         sge = SGE(0,0, self.server.mkey.lkey)
         self.server.qp.post_recv(RecvWR(sg=[sge], num_sge=1))
         self.client.qp.wr_start()
-        self.client.qp.wr_flags = e.IBV_SEND_SIGNALED
+        self.client.qp.wr_flags = ibv_send_flags.IBV_SEND_SIGNALED
         self.client.qp.wr_send_inv(self.server.mkey.rkey)
         sge = SGE(0, 0, self.client.mkey.lkey)
         self.client.qp.wr_set_sge(sge)
@@ -388,16 +393,16 @@ class Mlx5MkeyTest(RDMATestCase):
         the server's mkey remotly.
         """
         self.create_players(Mlx5MkeyResources,
-                            mkey_create_flags=dve.MLX5DV_MKEY_INIT_ATTR_FLAGS_INDIRECT |
-                                              dve.MLX5DV_MKEY_INIT_ATTR_FLAGS_REMOTE_INVALIDATE,
-                            dv_send_ops_flags=dve.MLX5DV_QP_EX_WITH_MKEY_CONFIGURE)
+                            mkey_create_flags=mlx5dv_mkey_init_attr_flags.MLX5DV_MKEY_INIT_ATTR_FLAGS_INDIRECT |
+                                              mlx5dv_mkey_init_attr_flags.MLX5DV_MKEY_INIT_ATTR_FLAGS_REMOTE_INVALIDATE,
+                            dv_send_ops_flags=mlx5dv_qp_create_send_ops_flags.MLX5DV_QP_EX_WITH_MKEY_CONFIGURE)
         self.reg_mr_list(configure_mkey=True)
         self.traffic_scattered_data()
         self.invalidate_mkeys_remotely()
         with self.assertRaises(PyverbsRDMAError):
             self.traffic_scattered_data()
 
-    def check_mkey(self, player, expected=dve.MLX5DV_MKEY_NO_ERR):
+    def check_mkey(self, player, expected=mlx5dv_mkey_err_type.MLX5DV_MKEY_NO_ERR):
         """
         Check the player's mkey for a signature error.
         param player: Player to check.
@@ -415,7 +420,7 @@ class Mlx5MkeyTest(RDMATestCase):
         then perform traffic using it.
         """
         self.create_players(Mlx5MkeyResources,
-                            dv_send_ops_flags=dve.MLX5DV_QP_EX_WITH_MR_INTERLEAVED)
+                            dv_send_ops_flags=mlx5dv_qp_create_send_ops_flags.MLX5DV_QP_EX_WITH_MR_INTERLEAVED)
         self.reg_mr_interleaved()
         self.traffic_scattered_data()
         self.invalidate_mkeys()
@@ -426,7 +431,7 @@ class Mlx5MkeyTest(RDMATestCase):
         traffic using this mkey.
         """
         self.create_players(Mlx5MkeyResources,
-                            dv_send_ops_flags=dve.MLX5DV_QP_EX_WITH_MR_LIST)
+                            dv_send_ops_flags=mlx5dv_qp_create_send_ops_flags.MLX5DV_QP_EX_WITH_MR_LIST)
         self.reg_mr_list()
         self.traffic_scattered_data()
         self.invalidate_mkeys()
@@ -437,7 +442,7 @@ class Mlx5MkeyTest(RDMATestCase):
         traffic using this mkey.
         """
         self.create_players(Mlx5MkeyResources,
-                            dv_send_ops_flags=dve.MLX5DV_QP_EX_WITH_MKEY_CONFIGURE)
+                            dv_send_ops_flags=mlx5dv_qp_create_send_ops_flags.MLX5DV_QP_EX_WITH_MKEY_CONFIGURE)
         self.reg_mr_list(configure_mkey=True)
         self.traffic_scattered_data()
         self.invalidate_mkeys()
@@ -448,7 +453,7 @@ class Mlx5MkeyTest(RDMATestCase):
         traffic using this mkey.
         """
         self.create_players(Mlx5MkeyOdpRes,
-                            dv_send_ops_flags=dve.MLX5DV_QP_EX_WITH_MKEY_CONFIGURE)
+                            dv_send_ops_flags=mlx5dv_qp_create_send_ops_flags.MLX5DV_QP_EX_WITH_MKEY_CONFIGURE)
         self.reg_mr_list(configure_mkey=True)
         self.traffic_scattered_data()
         self.invalidate_mkeys()
@@ -459,7 +464,7 @@ class Mlx5MkeyTest(RDMATestCase):
         API and then perform traffic using it.
         """
         self.create_players(Mlx5MkeyResources,
-                            dv_send_ops_flags=dve.MLX5DV_QP_EX_WITH_MKEY_CONFIGURE)
+                            dv_send_ops_flags=mlx5dv_qp_create_send_ops_flags.MLX5DV_QP_EX_WITH_MKEY_CONFIGURE)
         self.reg_mr_interleaved(configure_mkey=True)
         self.traffic_scattered_data()
         self.invalidate_mkeys()
@@ -471,7 +476,7 @@ class Mlx5MkeyTest(RDMATestCase):
         fail.
         """
         self.create_players(Mlx5MkeyResources,
-                            dv_send_ops_flags=dve.MLX5DV_QP_EX_WITH_MR_LIST)
+                            dv_send_ops_flags=mlx5dv_qp_create_send_ops_flags.MLX5DV_QP_EX_WITH_MR_LIST)
         self.reg_mr_list()
         with self.assertRaises(PyverbsRDMAError) as ex:
             self.traffic_scattered_data(sge_size=100)
@@ -482,9 +487,9 @@ class Mlx5MkeyTest(RDMATestCase):
         this mkey.
         """
         self.create_players(Mlx5MkeyResources,
-                            dv_send_ops_flags=dve.MLX5DV_QP_EX_WITH_MKEY_CONFIGURE,
-                            mkey_create_flags=dve.MLX5DV_MKEY_INIT_ATTR_FLAGS_INDIRECT |
-                                              dve.MLX5DV_MKEY_INIT_ATTR_FLAGS_BLOCK_SIGNATURE)
+                            dv_send_ops_flags=mlx5dv_qp_create_send_ops_flags.MLX5DV_QP_EX_WITH_MKEY_CONFIGURE,
+                            mkey_create_flags=mlx5dv_mkey_init_attr_flags.MLX5DV_MKEY_INIT_ATTR_FLAGS_INDIRECT |
+                                              mlx5dv_mkey_init_attr_flags.MLX5DV_MKEY_INIT_ATTR_FLAGS_BLOCK_SIGNATURE)
         self.reg_mr_sig_t10dif()
         self.traffic_sig()
         self.check_mkey(self.server)
@@ -497,9 +502,9 @@ class Mlx5MkeyTest(RDMATestCase):
         this mkey.
         """
         self.create_players(Mlx5MkeyResources,
-                            dv_send_ops_flags=dve.MLX5DV_QP_EX_WITH_MKEY_CONFIGURE,
-                            mkey_create_flags=dve.MLX5DV_MKEY_INIT_ATTR_FLAGS_INDIRECT |
-                                              dve.MLX5DV_MKEY_INIT_ATTR_FLAGS_BLOCK_SIGNATURE)
+                            dv_send_ops_flags=mlx5dv_qp_create_send_ops_flags.MLX5DV_QP_EX_WITH_MKEY_CONFIGURE,
+                            mkey_create_flags=mlx5dv_mkey_init_attr_flags.MLX5DV_MKEY_INIT_ATTR_FLAGS_INDIRECT |
+                                              mlx5dv_mkey_init_attr_flags.MLX5DV_MKEY_INIT_ATTR_FLAGS_BLOCK_SIGNATURE)
         self.reg_mr_sig_crc()
         self.traffic_sig()
         self.check_mkey(self.server)
@@ -514,15 +519,15 @@ class Mlx5MkeyTest(RDMATestCase):
         signature error is detected.
         """
         self.create_players(Mlx5MkeyResources,
-                            dv_send_ops_flags=dve.MLX5DV_QP_EX_WITH_MKEY_CONFIGURE,
-                            mkey_create_flags=dve.MLX5DV_MKEY_INIT_ATTR_FLAGS_INDIRECT |
-                                              dve.MLX5DV_MKEY_INIT_ATTR_FLAGS_BLOCK_SIGNATURE)
+                            dv_send_ops_flags=mlx5dv_qp_create_send_ops_flags.MLX5DV_QP_EX_WITH_MKEY_CONFIGURE,
+                            mkey_create_flags=mlx5dv_mkey_init_attr_flags.MLX5DV_MKEY_INIT_ATTR_FLAGS_INDIRECT |
+                                              mlx5dv_mkey_init_attr_flags.MLX5DV_MKEY_INIT_ATTR_FLAGS_BLOCK_SIGNATURE)
         self.reg_mr_sig_err()
         # The test supports only one iteration because mkey re-registration
         # is required after each signature error.
         self.iters = 1
         self.traffic_sig()
-        self.check_mkey(self.client, dve.MLX5DV_MKEY_SIG_BLOCK_BAD_GUARD)
+        self.check_mkey(self.client, mlx5dv_mkey_err_type.MLX5DV_MKEY_SIG_BLOCK_BAD_GUARD)
         self.check_mkey(self.server)
         self.invalidate_mkeys()
 
@@ -531,11 +536,11 @@ class Mlx5MkeyTest(RDMATestCase):
         Test the good signature pipelining scenario.
         """
         self.create_players(Mlx5MkeyResources,
-                            dv_send_ops_flags=dve.MLX5DV_QP_EX_WITH_MKEY_CONFIGURE,
-                            mkey_create_flags=dve.MLX5DV_MKEY_INIT_ATTR_FLAGS_INDIRECT |
-                                              dve.MLX5DV_MKEY_INIT_ATTR_FLAGS_BLOCK_SIGNATURE,
-                            dv_qp_create_flags=dve.MLX5DV_QP_CREATE_DISABLE_SCATTER_TO_CQE |
-                                               dve.MLX5DV_QP_CREATE_SIG_PIPELINING)
+                            dv_send_ops_flags=mlx5dv_qp_create_send_ops_flags.MLX5DV_QP_EX_WITH_MKEY_CONFIGURE,
+                            mkey_create_flags=mlx5dv_mkey_init_attr_flags.MLX5DV_MKEY_INIT_ATTR_FLAGS_INDIRECT |
+                                              mlx5dv_mkey_init_attr_flags.MLX5DV_MKEY_INIT_ATTR_FLAGS_BLOCK_SIGNATURE,
+                            dv_qp_create_flags=mlx5dv_qp_create_flags.MLX5DV_QP_CREATE_DISABLE_SCATTER_TO_CQE |
+                                               mlx5dv_qp_create_flags.MLX5DV_QP_CREATE_SIG_PIPELINING)
         self.reg_mr_sig_pipelining_client()
         self.reg_mr_sig_pipelining_server()
         self.build_traffic_elements_sig_pipelining()
@@ -552,12 +557,12 @@ class Mlx5MkeyTest(RDMATestCase):
         Test the bad signature pipelining scenario.
         """
         self.create_players(Mlx5MkeyResources,
-                            dv_send_ops_flags=dve.MLX5DV_QP_EX_WITH_MKEY_CONFIGURE,
-                            mkey_create_flags=dve.MLX5DV_MKEY_INIT_ATTR_FLAGS_INDIRECT |
-                                              dve.MLX5DV_MKEY_INIT_ATTR_FLAGS_BLOCK_SIGNATURE,
-                            dv_qp_create_flags=dve.MLX5DV_QP_CREATE_DISABLE_SCATTER_TO_CQE |
-                                               dve.MLX5DV_QP_CREATE_SIG_PIPELINING)
-        self.reg_mr_sig_pipelining_client(check_mask=dve.MLX5DV_SIG_MASK_CRC32)
+                            dv_send_ops_flags=mlx5dv_qp_create_send_ops_flags.MLX5DV_QP_EX_WITH_MKEY_CONFIGURE,
+                            mkey_create_flags=mlx5dv_mkey_init_attr_flags.MLX5DV_MKEY_INIT_ATTR_FLAGS_INDIRECT |
+                                              mlx5dv_mkey_init_attr_flags.MLX5DV_MKEY_INIT_ATTR_FLAGS_BLOCK_SIGNATURE,
+                            dv_qp_create_flags=mlx5dv_qp_create_flags.MLX5DV_QP_CREATE_DISABLE_SCATTER_TO_CQE |
+                                               mlx5dv_qp_create_flags.MLX5DV_QP_CREATE_SIG_PIPELINING)
+        self.reg_mr_sig_pipelining_client(check_mask=mlx5dv_sig_mask.MLX5DV_SIG_MASK_CRC32)
         self.reg_mr_sig_pipelining_server()
         self.build_traffic_elements_sig_pipelining()
 
@@ -568,14 +573,14 @@ class Mlx5MkeyTest(RDMATestCase):
         # Expect SQ_DRAINED event
         event = self.client.ctx.get_async_event()
         event.ack()
-        self.assertEqual(event.event_type, e.IBV_EVENT_SQ_DRAINED)
+        self.assertEqual(event.event_type, ibv_event_type.IBV_EVENT_SQ_DRAINED)
         # No completion is expected on the client side
         nc, _ = self.client.cq.poll(1)
         self.assertEqual(nc, 0)
         # No completion is expected on the server side
         nc, _ = self.server.cq.poll(1)
         self.assertEqual(nc, 0)
-        self.check_mkey(self.client, dve.MLX5DV_MKEY_SIG_BLOCK_BAD_GUARD)
+        self.check_mkey(self.client, mlx5dv_mkey_err_type.MLX5DV_MKEY_SIG_BLOCK_BAD_GUARD)
         self.check_mkey(self.server)
 
         # Cancel and repost response WR
@@ -584,8 +589,8 @@ class Mlx5MkeyTest(RDMATestCase):
         self.client.qp.post_send(self.client_resp_wr)
 
         # Move QP back to RTS and receive completions
-        self.client.qp.modify(QPAttr(qp_state=e.IBV_QPS_RTS,
-                                     cur_qp_state=e.IBV_QPS_SQD),
-                              e.IBV_QP_STATE | e.IBV_QP_CUR_STATE)
+        self.client.qp.modify(QPAttr(qp_state=ibv_qp_state.IBV_QPS_RTS,
+                                     cur_qp_state=ibv_qp_state.IBV_QPS_SQD),
+                              ibv_qp_attr_mask.IBV_QP_STATE | ibv_qp_attr_mask.IBV_QP_CUR_STATE)
         u.poll_cq(self.client.cq)
         u.poll_cq(self.server.cq)

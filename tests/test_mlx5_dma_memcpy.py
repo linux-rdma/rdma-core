@@ -7,10 +7,12 @@ import unittest
 from pyverbs.providers.mlx5.mlx5dv import Mlx5Context, Mlx5DVContextAttr
 from pyverbs.pyverbs_error import PyverbsRDMAError, PyverbsUserError
 from tests.mlx5_base import Mlx5RDMATestCase, Mlx5RcResources
-import pyverbs.providers.mlx5.mlx5_enums as dve
+from pyverbs.providers.mlx5.mlx5_enums import mlx5dv_qp_create_send_ops_flags, mlx5dv_wc_opcode, \
+    mlx5dv_context_comp_mask
 from pyverbs.pd import PD
 from pyverbs.mr import MR
-import pyverbs.enums as e
+from pyverbs.libibverbs_enums import ibv_qp_create_send_ops_flags, ibv_access_flags, ibv_send_flags, \
+    ibv_wc_status
 import tests.utils as u
 
 
@@ -21,8 +23,8 @@ class BadFlowType(Enum):
 
 class Mlx5DmaResources(Mlx5RcResources):
     def create_send_ops_flags(self):
-        self.dv_send_ops_flags = dve.MLX5DV_QP_EX_WITH_MEMCPY
-        self.send_ops_flags = e.IBV_QP_EX_WITH_SEND
+        self.dv_send_ops_flags = mlx5dv_qp_create_send_ops_flags.MLX5DV_QP_EX_WITH_MEMCPY
+        self.send_ops_flags = ibv_qp_create_send_ops_flags.IBV_QP_EX_WITH_SEND
 
 
 class DmaGgaMemcpy(Mlx5RDMATestCase):
@@ -40,11 +42,11 @@ class DmaGgaMemcpy(Mlx5RDMATestCase):
         """
         self.server = Mlx5DmaResources(**self.dev_info, **resource_arg)
         self.dest_pd = self.server.pd
-        dest_mr_access = e.IBV_ACCESS_LOCAL_WRITE
+        dest_mr_access = ibv_access_flags.IBV_ACCESS_LOCAL_WRITE
         if bad_flow_type == BadFlowType.DIFFERENT_PD:
             self.dest_pd = PD(self.server.ctx)
         elif bad_flow_type == BadFlowType.MR_ILLEGAL_ACCESS:
-            dest_mr_access = e.IBV_ACCESS_REMOTE_READ
+            dest_mr_access = ibv_access_flags.IBV_ACCESS_REMOTE_READ
         self.dest_mr = MR(self.dest_pd, self.server.msg_size, dest_mr_access)
         # No need to connect the QPs
         self.server.pre_run([0], [0])
@@ -62,13 +64,13 @@ class DmaGgaMemcpy(Mlx5RDMATestCase):
             self.dest_mr.write('0' * msg_size, msg_size)
             self.server.mr.write('s' * msg_size, msg_size)
         self.server.qp.wr_start()
-        self.server.qp.wr_flags = e.IBV_SEND_SIGNALED
+        self.server.qp.wr_flags = ibv_send_flags.IBV_SEND_SIGNALED
         self.server.qp.wr_memcpy(self.dest_mr.lkey, self.dest_mr.buf, self.server.mr.lkey,
                                  self.server.mr.buf, msg_size)
         self.server.qp.wr_complete()
         u.poll_cq_ex(self.server.cq)
         wc_opcode = self.server.cq.read_opcode()
-        self.assertEqual(wc_opcode, dve.MLX5DV_WC_MEMCPY,
+        self.assertEqual(wc_opcode, mlx5dv_wc_opcode.MLX5DV_WC_MEMCPY,
                          'WC opcode validation failed')
         self.assertEqual(self.dest_mr.read(msg_size, 0),
                          self.server.mr.read(msg_size, 0))
@@ -83,14 +85,14 @@ class DmaGgaMemcpy(Mlx5RDMATestCase):
         """
         self.create_resources(bad_flow_type)
         self.server.qp.wr_start()
-        self.server.qp.wr_flags = e.IBV_SEND_SIGNALED
+        self.server.qp.wr_flags = ibv_send_flags.IBV_SEND_SIGNALED
         self.server.qp.wr_memcpy(self.dest_mr.lkey, self.dest_mr.buf,
                                  self.server.mr.lkey,
                                  self.server.mr.buf, self.server.msg_size)
         self.server.qp.wr_complete()
         with self.assertRaises(PyverbsRDMAError):
             u.poll_cq_ex(self.server.cq)
-        self.assertEqual(self.server.cq.status, e.IBV_WC_LOC_PROT_ERR,
+        self.assertEqual(self.server.cq.status, ibv_wc_status.IBV_WC_LOC_PROT_ERR,
                          'Expected CQE with Local Protection Error')
 
     def test_dma_memcpy_data(self):
@@ -115,7 +117,7 @@ class DmaGgaMemcpy(Mlx5RDMATestCase):
         except PyverbsRDMAError:
             raise unittest.SkipTest('Opening mlx5 context is not supported')
         max_size = ctx.query_mlx5_device(
-            dve.MLX5DV_CONTEXT_MASK_WR_MEMCPY_LENGTH).max_wr_memcpy_length
+            mlx5dv_context_comp_mask.MLX5DV_CONTEXT_MASK_WR_MEMCPY_LENGTH).max_wr_memcpy_length
         max_size = max_size if max_size else 1024
 
         with self.assertRaises(PyverbsRDMAError):

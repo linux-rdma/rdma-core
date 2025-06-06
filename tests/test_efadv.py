@@ -14,7 +14,8 @@ import pyverbs.providers.efa.efadv as efa
 from pyverbs.qp import QPInitAttrEx
 from pyverbs.addr import AHAttr
 from pyverbs.cq import CQ
-import pyverbs.enums as e
+from pyverbs.libibverbs_enums import ibv_qp_type, ibv_qp_create_send_ops_flags, ibv_qp_init_attr_mask, \
+    ibv_wr_opcode, ibv_access_flags
 from pyverbs.pd import PD
 
 from tests.efa_base import EfaAPITestCase, EfaRDMATestCase, EfaCQRes
@@ -74,7 +75,7 @@ class EfaQPTest(EfaAPITestCase):
         with PD(self.ctx) as pd:
             with CQ(self.ctx, 100) as cq:
                 qia = u.get_qp_init_attr(cq, self.attr)
-                qia.qp_type = e.IBV_QPT_DRIVER
+                qia.qp_type = ibv_qp_type.IBV_QPT_DRIVER
                 try:
                     qp = efa.SRDQP(pd, qia)
                 except PyverbsRDMAError as ex:
@@ -105,11 +106,11 @@ class EfaQPExTest(EfaAPITestCase):
 
 
 def get_random_send_op_flags():
-    send_ops_flags = [e.IBV_QP_EX_WITH_SEND,
-                      e.IBV_QP_EX_WITH_SEND_WITH_IMM,
-                      e.IBV_QP_EX_WITH_RDMA_READ,
-                      e.IBV_QP_EX_WITH_RDMA_WRITE,
-                      e.IBV_QP_EX_WITH_RDMA_WRITE_WITH_IMM]
+    send_ops_flags = [ibv_qp_create_send_ops_flags.IBV_QP_EX_WITH_SEND,
+                      ibv_qp_create_send_ops_flags.IBV_QP_EX_WITH_SEND_WITH_IMM,
+                      ibv_qp_create_send_ops_flags.IBV_QP_EX_WITH_RDMA_READ,
+                      ibv_qp_create_send_ops_flags.IBV_QP_EX_WITH_RDMA_WRITE,
+                      ibv_qp_create_send_ops_flags.IBV_QP_EX_WITH_RDMA_WRITE_WITH_IMM]
     selected = u.sample(send_ops_flags)
     selected_ops_flags = 0
     for s in selected:
@@ -119,9 +120,9 @@ def get_random_send_op_flags():
 def get_qp_init_attr_ex(cq, pd, attr):
     qp_cap = u.random_qp_cap(attr)
     sig = random.randint(0, 1)
-    mask = e.IBV_QP_INIT_ATTR_PD | e.IBV_QP_INIT_ATTR_SEND_OPS_FLAGS
+    mask = ibv_qp_init_attr_mask.IBV_QP_INIT_ATTR_PD | ibv_qp_init_attr_mask.IBV_QP_INIT_ATTR_SEND_OPS_FLAGS
     send_ops_flags = get_random_send_op_flags()
-    qia = QPInitAttrEx(qp_type=e.IBV_QPT_DRIVER, cap=qp_cap, sq_sig_all=sig, comp_mask=mask,
+    qia = QPInitAttrEx(qp_type=ibv_qp_type.IBV_QPT_DRIVER, cap=qp_cap, sq_sig_all=sig, comp_mask=mask,
                        create_flags=0, max_tso_header=0, send_ops_flags=send_ops_flags)
     qia.send_cq = cq
     qia.recv_cq = cq
@@ -144,12 +145,12 @@ class EfaCqTest(EfaRDMATestCase):
     def test_dv_cq_ex_with_sgid(self):
         wc_flag = efa_e.EFADV_WC_EX_WITH_SGID
         dev_cap = efa_e.EFADV_DEVICE_ATTR_CAPS_CQ_WITH_SGID
-        self.create_players(dev_cap, wc_flag, e.IBV_QP_EX_WITH_SEND, qp_count=1)
+        self.create_players(dev_cap, wc_flag, ibv_qp_create_send_ops_flags.IBV_QP_EX_WITH_SEND, qp_count=1)
         recv_wr = u.get_recv_wr(self.server)
         self.server.qps[0].post_recv(recv_wr)
         ah_client = u.get_global_ah(self.client, self.gid_index, self.ib_port)
         _ , sg = u.get_send_elements(self.client, False)
-        u.send(self.client, sg, e.IBV_WR_SEND, new_send=True, qp_idx=0, ah=ah_client)
+        u.send(self.client, sg, ibv_wr_opcode.IBV_WR_SEND, new_send=True, qp_idx=0, ah=ah_client)
         u.poll_cq_ex(self.client.cq)
         u.poll_cq_ex(self.server.cq, sgid=self.server.remote_gid)
 
@@ -161,7 +162,7 @@ class EfaMRTest(EfaAPITestCase):
     def test_efadv_query_mr(self):
         with PD(self.ctx) as pd:
             try:
-                mr = efa.EfaMR(pd, 16, e.IBV_ACCESS_LOCAL_WRITE)
+                mr = efa.EfaMR(pd, 16, ibv_access_flags.IBV_ACCESS_LOCAL_WRITE)
                 mr_attrs = mr.query()
                 if self.config['verbosity']:
                     print(f'\n{mr_attrs}')

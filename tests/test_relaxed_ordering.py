@@ -2,25 +2,24 @@ from tests.base import RCResources, UDResources, XRCResources
 from tests.utils import traffic, xrc_traffic
 from tests.base import RDMATestCase
 from pyverbs.mr import MR
-import pyverbs.enums as e
-
+from pyverbs.libibverbs_enums import ibv_access_flags
 
 class RoUD(UDResources):
     def create_mr(self):
         self.mr = MR(self.pd, self.msg_size + self.GRH_SIZE,
-                     e.IBV_ACCESS_LOCAL_WRITE | e.IBV_ACCESS_RELAXED_ORDERING)
+                     ibv_access_flags.IBV_ACCESS_LOCAL_WRITE | ibv_access_flags.IBV_ACCESS_RELAXED_ORDERING)
 
 
 class RoRC(RCResources):
     def create_mr(self):
         self.mr = MR(self.pd, self.msg_size,
-                     e.IBV_ACCESS_LOCAL_WRITE | e.IBV_ACCESS_RELAXED_ORDERING)
+                     ibv_access_flags.IBV_ACCESS_LOCAL_WRITE | ibv_access_flags.IBV_ACCESS_RELAXED_ORDERING)
 
 
 class RoXRC(XRCResources):
     def create_mr(self):
         self.mr = MR(self.pd, self.msg_size,
-                     e.IBV_ACCESS_LOCAL_WRITE | e.IBV_ACCESS_RELAXED_ORDERING)
+                     ibv_access_flags.IBV_ACCESS_LOCAL_WRITE | ibv_access_flags.IBV_ACCESS_RELAXED_ORDERING)
 
 
 class RoTestCase(RDMATestCase):
