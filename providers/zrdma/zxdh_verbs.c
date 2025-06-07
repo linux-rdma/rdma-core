@@ -1,4 +1,4 @@
-/*
+/* SPDX-License-Identifier: GPL-2.0 or Linux-OpenIB
  * Copyright (c) 2024 ZTE Corporation.
  *
  * This software is available to you under a choice of one of two
@@ -1750,7 +1750,6 @@ static void zxdh_init_qp_indices(struct zxdh_qp *qp)
 	qp->rwqe_signature = 0;
 	ZXDH_RING_INIT(qp->rq_ring, qp->rq_size);
 }
-
 /**
  * zxdh_umodify_qp - send qp modify to driver
  * @qp: qp to modify
