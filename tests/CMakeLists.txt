@@ -19,6 +19,7 @@ rdma_python_test(tests
   test_cqex.py
   test_cuda_dmabuf.py
   test_device.py
+  test_dmah.py
   test_efa_srd.py
   test_efadv.py
   test_flow.py

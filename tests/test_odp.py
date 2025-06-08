@@ -1,16 +1,19 @@
 from pyverbs.mem_alloc import mmap, munmap, madvise, MAP_ANONYMOUS_, MAP_PRIVATE_, \
     MAP_HUGETLB_
+from pyverbs.pyverbs_error import PyverbsError, PyverbsRDMAError
 from tests.base import RCResources, UDResources, XRCResources
 from pyverbs.qp import QPCap, QPAttr, QPInitAttr
 from pyverbs.wr import SGE, SendWR, RecvWR
 from tests.base import RDMATestCase
-from pyverbs.mr import MR
+from pyverbs.mr import MR, MREx
 from pyverbs.libibverbs_enums import ibv_odp_transport_cap_bits, ibv_access_flags, ibv_odp_transport_cap_bits, \
     ibv_qp_type, ibv_placement_type, ibv_selectivity_level, ibv_qp_create_send_ops_flags, ibv_wr_opcode, \
     ibv_wc_status, _IBV_ADVISE_MR_ADVICE_PREFETCH_WRITE, _IBV_ADVISE_MR_ADVICE_PREFETCH, \
     _IBV_ADVISE_MR_ADVICE_PREFETCH_NO_FAULT
 import tests.utils as u
 import unittest
+import errno
+
 
 HUGE_PAGE_SIZE = 0x200000
 
@@ -174,6 +177,53 @@ class OdpQpExRC(RCResources):
         else:
             raise unittest.SkipTest('There is no qpex test for the specified ODP caps.')
 
+
+class OdpQpExMRExRC(OdpQpExRC):
+    """
+    MREx version of OdpQpExRC that uses MREx instead of MR for memory registration.
+    """
+    def create_mr(self):
+        u.odp_supported(self.ctx, 'rc', self.odp_caps)
+        if self.odp_caps & ibv_odp_transport_cap_bits.IBV_ODP_SUPPORT_FLUSH:
+            try:
+                self.mr = u.create_custom_mr(self, ibv_access_flags.IBV_ACCESS_FLUSH_GLOBAL |
+                                             ibv_access_flags.IBV_ACCESS_REMOTE_WRITE |
+                                             ibv_access_flags.IBV_ACCESS_ON_DEMAND,
+                                             mr_ex=True)
+            except PyverbsRDMAError as ex:
+                if ex.error_code == errno.EINVAL:
+                    raise unittest.SkipTest('Create mr with IBV_ACCESS_FLUSH_GLOBAL access flag is'
+                                            ' not supported in kernel')
+                raise ex
+        else:
+            raise unittest.SkipTest('There is no qpex test for the specified ODP caps.')
+
+
+class MRExOdpRC(OdpRC):
+    """
+    MREx version of OdpRC that uses MREx instead of MR for memory registration.
+    """
+    @u.requires_odp('rc', ibv_odp_transport_cap_bits.IBV_ODP_SUPPORT_SEND |
+                    ibv_odp_transport_cap_bits.IBV_ODP_SUPPORT_RECV)
+    @u.skip_unsupported
+    def create_mr(self):
+        u.odp_supported(self.ctx, 'rc', self.odp_caps)
+        if self.request_user_addr:
+            mmap_flags = MAP_ANONYMOUS_| MAP_PRIVATE_
+            length = self.msg_size
+            if self.is_huge:
+                mmap_flags |= MAP_HUGETLB_
+                length = HUGE_PAGE_SIZE
+            self.user_addr = mmap(length=length, flags=mmap_flags)
+        access = self.access
+        if self.is_huge:
+            access |= ibv_access_flags.IBV_ACCESS_HUGETLB
+        self.mr = MREx(self.pd, self.msg_size, access, address=self.user_addr,
+                       implicit=self.is_implicit)
+        if self.use_mixed_mr:
+            self.non_odp_mr = MREx(self.pd, self.msg_size, ibv_access_flags.IBV_ACCESS_LOCAL_WRITE)
+
+
 class OdpTestCase(RDMATestCase):
     def setUp(self):
         super(OdpTestCase, self).setUp()
@@ -225,13 +275,13 @@ class OdpTestCase(RDMATestCase):
         wcs = u.flush_traffic(**self.traffic_args, new_send=True,
                               send_op=ibv_wr_opcode.IBV_WR_FLUSH)
         if wcs[0].status != ibv_wc_status.IBV_WC_SUCCESS:
-            raise PyverbsError(f'Unexpected {wc_status_to_str(wcs[0].status)}')
+            raise PyverbsError(f'Unexpected {u.wc_status_to_str(wcs[0].status)}')
 
         self.client.level = ibv_selectivity_level.IBV_FLUSH_MR
         wcs = u.flush_traffic(**self.traffic_args, new_send=True,
                               send_op=ibv_wr_opcode.IBV_WR_FLUSH)
         if wcs[0].status != ibv_wc_status.IBV_WC_SUCCESS:
-            raise PyverbsError(f'Unexpected {wc_status_to_str(wcs[0].status)}')
+            raise PyverbsError(f'Unexpected {u.wc_status_to_str(wcs[0].status)}')
 
     def test_odp_rc_atomic_cmp_and_swp(self):
         self.create_players(OdpRC, request_user_addr=self.force_page_faults,
@@ -334,3 +384,42 @@ class OdpTestCase(RDMATestCase):
         self.create_players(OdpRC, request_user_addr=self.force_page_faults,
                             use_mr_prefetch='async', prefetch_advice=prefetch_advice)
         u.traffic(**self.traffic_args)
+
+    def test_mrex_odp_rc_traffic(self):
+        """
+        Test ODP traffic with MREx
+        """
+        self.create_players(MRExOdpRC, request_user_addr=self.force_page_faults)
+        u.traffic(**self.traffic_args)
+
+    @u.requires_huge_pages()
+    def test_mrex_odp_rc_huge_traffic(self):
+        self.force_page_faults = False
+        self.create_players(MRExOdpRC, request_user_addr=self.force_page_faults,
+                            is_huge=True)
+        u.traffic(**self.traffic_args)
+
+    def test_mrex_odp_implicit_rc_traffic(self):
+        """
+        Test ODP implicit traffic with MREx
+        """
+        self.create_players(MRExOdpRC, request_user_addr=self.force_page_faults,
+                            is_implicit=True)
+        u.traffic(**self.traffic_args)
+
+    def test_mrex_odp_qp_ex_rc_flush(self):
+        """
+        Test ODP QP extended flush with MREx
+        """
+        super().create_players(OdpQpExMRExRC, request_user_addr=self.force_page_faults,
+                              odp_caps=ibv_odp_transport_cap_bits.IBV_ODP_SUPPORT_FLUSH)
+        wcs = u.flush_traffic(**self.traffic_args, new_send=True,
+                             send_op=ibv_wr_opcode.IBV_WR_FLUSH)
+        if wcs[0].status != ibv_wc_status.IBV_WC_SUCCESS:
+            raise PyverbsError(f'Unexpected {u.wc_status_to_str(wcs[0].status)}')
+
+        self.client.level = ibv_selectivity_level.IBV_FLUSH_MR
+        wcs = u.flush_traffic(**self.traffic_args, new_send=True,
+                             send_op=ibv_wr_opcode.IBV_WR_FLUSH)
+        if wcs[0].status != ibv_wc_status.IBV_WC_SUCCESS:
+            raise PyverbsError(f'Unexpected {u.wc_status_to_str(wcs[0].status)}')
