@@ -4,6 +4,7 @@
 
 import resource
 import logging
+import weakref
 
 from posix.mman cimport mmap, munmap, MAP_PRIVATE, PROT_READ, PROT_WRITE, \
     MAP_ANONYMOUS, MAP_HUGETLB, MAP_SHARED
@@ -17,9 +18,11 @@ from libc.string cimport memcpy, memset
 cimport pyverbs.libibverbs_enums as e
 from pyverbs.device cimport DM
 from libc.stdlib cimport free, malloc
+from pyverbs.device cimport Context
 from .cmid cimport CMID
 from .pd cimport PD
 from .dmabuf cimport DmaBuf
+from pyverbs.base cimport close_weakrefs
 
 cdef extern from 'sys/mman.h':
     cdef void* MAP_FAILED
@@ -55,6 +58,7 @@ cdef class MR(PyverbsCM):
         :return: The newly created MR on success
         """
         super().__init__()
+        cdef int mmap_len = 0
         if self.mr != NULL:
             return
         self.is_huge = True if access & e.IBV_ACCESS_HUGETLB else False
@@ -78,21 +82,11 @@ cdef class MR(PyverbsCM):
 
         # Allocate a buffer
         if not address and length > 0:
-            if self.is_huge:
-                # Rounding up to multiple of HUGE_PAGE_SIZE
-                self.mmap_length = length + (HUGE_PAGE_SIZE - length % HUGE_PAGE_SIZE) \
-                    if length % HUGE_PAGE_SIZE else length
-                self.buf = mmap(NULL, self.mmap_length, PROT_READ | PROT_WRITE,
-                                MAP_PRIVATE | MAP_ANONYMOUS | MAP_HUGETLB, -1, 0)
-                if self.buf == MAP_FAILED:
-                    raise PyverbsError('Failed to allocate MR buffer of size {l}'.
-                                       format(l=length))
-            else:
-                rc = posix_memalign(&self.buf, resource.getpagesize(), length)
-                if rc:
-                    raise PyverbsError('Failed to allocate MR buffer of size {l}'.
-                                       format(l=length))
-            memset(self.buf, 0, length)
+            self._allocate_buffer(<size_t>length, self.is_huge, &mmap_len)
+            if self.buf == NULL:
+                raise PyverbsError('Failed to allocate MR buffer of size {l}'.
+                                   format(l=length))
+            self.mmap_length = mmap_len
         if isinstance(creator, PD):
             pd = <PD>creator
             if implicit:
@@ -142,10 +136,7 @@ cdef class MR(PyverbsCM):
                 if rc != 0:
                     raise PyverbsRDMAError('Failed to dereg MR', rc)
                 if not self.is_user_addr:
-                    if self.is_huge:
-                        munmap(self.buf, self.mmap_length)
-                    else:
-                        free(self.buf)
+                    self._free_buffer(self.is_huge, self.mmap_length)
             self.mr = NULL
             self.pd = None
             self.buf = NULL
@@ -206,10 +197,7 @@ cdef class MR(PyverbsCM):
 
         if flags & e.IBV_REREG_MR_CHANGE_TRANSLATION:
             if not self.is_user_addr:
-                if self.is_huge:
-                    munmap(self.buf, self.mmap_length)
-                else:
-                    free(self.buf)
+                self._free_buffer(self.is_huge, self.mmap_length)
             self.buf = <void*><uintptr_t>addr
             self.is_user_addr = True
 
@@ -217,6 +205,38 @@ cdef class MR(PyverbsCM):
             (<PD>self.pd).remove_ref(self)
             self.pd = pd
             pd.add_ref(self)
+
+    cdef void _allocate_buffer(self, size_t length, bint is_huge, int *mmap_length):
+        cdef void *buf = NULL
+        cdef size_t rounded
+        cdef int rc
+        if length == 0:
+            mmap_length[0] = 0
+            return
+        if is_huge:
+            rounded = length + (HUGE_PAGE_SIZE - length % HUGE_PAGE_SIZE) if \
+                                length % HUGE_PAGE_SIZE else length
+            buf = mmap(NULL, rounded, PROT_READ | PROT_WRITE,
+                       MAP_PRIVATE | MAP_ANONYMOUS | MAP_HUGETLB, -1, 0)
+            if buf == MAP_FAILED:
+                return
+            mmap_length[0] = <int>rounded
+        else:
+            rc = posix_memalign(&buf, resource.getpagesize(), length)
+            if rc:
+                return
+            mmap_length[0] = 0
+
+        memset(buf, 0, length)
+        self.buf = buf
+
+    cdef void _free_buffer(self, bint is_huge, int mmap_length):
+        if self.buf == NULL:
+            return
+        if is_huge:
+            munmap(self.buf, mmap_length)
+        else:
+            free(self.buf)
 
     @property
     def buf(self):
@@ -490,9 +510,200 @@ cdef class DmaBufMR(MR):
         return res
 
 
+cdef class DmaHandleInitAttr(PyverbsObject):
+    def __init__(self, comp_mask=0, cpu_id=0, ph=0, tph_mem_type=0):
+        """
+        Initialize a DmaHandleInitAttr object with the specified configuration.
+        :param comp_mask: Bitmask of initialization attributes
+        :param cpu_id: CPU identifier for DMA operations
+        :param ph: Processing hints for DMA operations
+        :param tph_mem_type: Type of target memory
+        """
+        super().__init__()
+        self.init_attr.comp_mask = comp_mask
+        self.init_attr.cpu_id = cpu_id
+        self.init_attr.ph = ph
+        self.init_attr.tph_mem_type = tph_mem_type
+
+    @property
+    def comp_mask(self):
+        return self.init_attr.comp_mask
+
+    @comp_mask.setter
+    def comp_mask(self, value):
+        self.init_attr.comp_mask = value
+
+    @property
+    def cpu_id(self):
+        return self.init_attr.cpu_id
+
+    @cpu_id.setter
+    def cpu_id(self, value):
+        self.init_attr.cpu_id = value
+
+    @property
+    def ph(self):
+        return self.init_attr.ph
+
+    @ph.setter
+    def ph(self, value):
+        self.init_attr.ph = value
+
+    @property
+    def tph_mem_type(self):
+        return self.init_attr.tph_mem_type
+
+    @tph_mem_type.setter
+    def tph_mem_type(self, value):
+        self.init_attr.tph_mem_type = value
+
+    def __str__(self):
+        print_format = '{:22}: {:<20}\n'
+        return 'DmaHandleInitAttr:\n' + \
+               print_format.format('comp_mask', self.comp_mask) + \
+               print_format.format('cpu_id', self.cpu_id) + \
+               print_format.format('ph', self.ph) + \
+               print_format.format('tph_mem_type', self.tph_mem_type)
+
+
+cdef class DMAHandle(PyverbsCM):
+    def __init__(self, Context ctx not None, DmaHandleInitAttr init_attr not None):
+        """
+        Initialize a DMAHandle object with the specified configuration.
+        :param ctx: A Context object representing the RDMA device context
+        :param init_attr: A DmaHandleInitAttr object containing initialization attributes
+        :raises PyverbsError: If DMA handle allocation fails
+        """
+        super().__init__()
+
+        self.dmah = v.ibv_alloc_dmah(ctx.context, &init_attr.init_attr)
+        if self.dmah == NULL:
+            raise PyverbsRDMAErrno('Failed to create DMA Handle')
+
+        self.mrs = weakref.WeakSet()
+        self.ctx = ctx
+        ctx.add_ref(self)
+
+    def __dealloc__(self):
+        self.close()
+
+    cpdef close(self):
+        """
+        Close and deallocate the DMA handle.
+        :raises PyverbsRDMAError: If deallocation fails
+        """
+        if self.dmah != NULL:
+            if self.logger:
+                self.logger.debug('Closing DMA Handle')
+            close_weakrefs([self.mrs])
+            rc = v.ibv_dealloc_dmah(self.dmah)
+            if rc != 0:
+                raise PyverbsRDMAError('Failed to dealloc DMA Handle', rc)
+            self.dmah = NULL
+            self.ctx = None
+
+    cdef add_ref(self, obj):
+        if isinstance(obj, MREx):
+            self.mrs.add(obj)
+        else:
+            raise PyverbsError('Unrecognized object type')
+
+
 def mwtype2str(mw_type):
     mw_types = {1:'IBV_MW_TYPE_1', 2:'IBV_MW_TYPE_2'}
     try:
         return mw_types[mw_type]
     except KeyError:
         return 'Unknown MW type ({t})'.format(t=mw_type)
+
+
+cdef class MREx(MR):
+    """
+    MREx class represents a memory region registered using the extended API ibv_reg_mr_ex.
+    This class provides more flexibility in memory registration compared to the basic MR class.
+    """
+    def __init__(self, PD pd not None, length=0, access=0, address=None,
+                 iova=None, fd=None, fd_offset=0, dmah=None, implicit=False, **kwargs):
+        """
+        Register a memory region using the extended API ibv_reg_mr_ex.
+        :param pd: A PD object
+        :param length: Length (in bytes) of MR's buffer
+        :param access: Access flags, see ibv_access_flags enum
+        :param address: Memory address to register (Optional)
+        :param iova: IOVA address to register (Optional)
+        :param fd: File descriptor for dma-buf based registration (Optional)
+        :param fd_offset: Offset in the dma-buf (Optional)
+        :param dmah: DMA handle for registration (Optional)
+        :param implicit: If True, register implicit MR
+        :param kwargs: Additional arguments
+        :return: The newly created MREx on success
+        """
+        PyverbsCM.__init__(self)
+        cdef int mmap_len = 0
+        cdef v.ibv_mr_init_attr in_
+        self.is_huge = True if access & e.IBV_ACCESS_HUGETLB else False
+        self.is_user_addr = False
+        self.mmap_length = 0
+
+        # Handle memory allocation if no address is provided
+        if not address and length > 0 and fd is None:
+            self._allocate_buffer(<size_t>length, self.is_huge, &mmap_len)
+            if self.buf == NULL:
+                raise PyverbsError(f'Failed to allocate MR buffer of size {length}')
+            self.mmap_length = mmap_len
+        elif address:
+            self.is_user_addr = True
+            self.buf = <void*><uintptr_t>address
+
+        memset(&in_, 0, sizeof(in_))
+        if implicit:
+            in_.length = SIZE_MAX
+            in_.comp_mask |= e.IBV_REG_MR_MASK_ADDR
+            in_.addr = NULL
+        else:
+            in_.length = length
+            if self.buf != NULL:
+                in_.comp_mask |= e.IBV_REG_MR_MASK_ADDR
+                in_.addr = self.buf
+
+        in_.access = access
+        if iova is not None:
+            in_.comp_mask |= e.IBV_REG_MR_MASK_IOVA
+            in_.iova = iova
+        if fd is not None:
+            in_.comp_mask |= e.IBV_REG_MR_MASK_FD | e.IBV_REG_MR_MASK_FD_OFFSET
+            in_.fd = fd
+            in_.fd_offset = fd_offset
+        if dmah is not None:
+            in_.comp_mask |= e.IBV_REG_MR_MASK_DMAH
+            in_.dmah = (<DMAHandle>dmah).dmah
+
+        self.mr = v.ibv_reg_mr_ex(pd.pd, &in_)
+        if self.mr == NULL:
+            # Clean up allocated memory if registration fails
+            if not self.is_user_addr and self.buf != NULL:
+                self._free_buffer(self.is_huge, self.mmap_length)
+            raise PyverbsRDMAErrno('Failed to register MR using extended API')
+
+        self.pd = pd
+        pd.add_ref(self)
+        if dmah is not None:
+            (<DMAHandle>dmah).add_ref(self)
+        self.dmah = dmah
+        self.logger.debug(f'Registered MR using extended API. Length: {length}, '
+                          f'access flags {access}')
+
+    def __str__(self):
+        print_format = '{:22}: {:<20}\n'
+        return 'MREx:\n' + \
+               print_format.format('lkey', self.lkey) + \
+               print_format.format('rkey', self.rkey) + \
+               print_format.format('length', self.length) + \
+               print_format.format('buf', <uintptr_t>self.buf) + \
+               print_format.format('handle', self.handle)
+
+    cpdef close(self):
+        """Close MREx and release its association with DMAHandle."""
+        if self.mr != NULL:
+            super(MREx, self).close()
+            self.dmah = None
