@@ -22,7 +22,10 @@ from pyverbs.pyverbs_error import PyverbsRDMAError, PyverbsUserError, \
     PyverbsError
 from pyverbs.providers.mlx5.mlx5dv_objects import Mlx5DvObj
 from pyverbs.qp import QPCap, QPInitAttrEx, QPAttr
-import pyverbs.providers.mlx5.mlx5_enums as dve
+from pyverbs.providers.mlx5.mlx5_enums import mlx5dv_qp_init_attr_mask, mlx5dv_dc_type, mlx5dv_qp_init_attr_mask, \
+    mlx5dv_context_attr_flags, mlx5dv_obj_type, mlx5dv_context_attr_comp_mask, MLX5_SEND_WQE_BB, MLX5_SEND_WQE_SHIFT, \
+    MLX5_WQE_CTRL_CQ_UPDATE, MLX5_OPCODE_SEND_IMM, MLX5_SND_DBR, MLX5_RCV_DBR, MLX5_CQE_INVALID, MLX5_CQE_RESP_ERR, \
+    MLX5_CQE_REQ_ERR, MLX5_CQE_REQ, MLX5_CQE_RESP_SEND_IMM, _MLX5DV_UAR_ALLOC_TYPE_NC
 from pyverbs.addr import AHAttr, GlobalRoute
 from pyverbs.cq import CqInitAttrEx
 from pyverbs.device import FdArr
@@ -30,7 +33,9 @@ import pyverbs.mem_alloc as mem
 import pyverbs.dma_util as dma
 import pyverbs.device as d
 from pyverbs.pd import PD
-import pyverbs.enums as e
+from pyverbs.libibverbs_enums import ibv_qp_init_attr_mask, ibv_qp_type, ibv_qp_state, \
+    ibv_access_flags, ibv_qp_attr_mask, ibv_wc_status, ibv_rereg_mr_flags, ibv_wr_opcode, \
+    ibv_gid_type_sysfs, ibv_qp_create_send_ops_flags
 from pyverbs.mr import MR
 import tests.utils
 
@@ -139,8 +144,8 @@ class Mlx5DcResources(RoCETrafficResources):
             raise unittest.SkipTest('Opening mlx5 context is not supported')
 
     def create_mr(self):
-        access = e.IBV_ACCESS_REMOTE_WRITE | e.IBV_ACCESS_LOCAL_WRITE | \
-                 e.IBV_ACCESS_REMOTE_ATOMIC | e.IBV_ACCESS_REMOTE_READ
+        access = ibv_access_flags.IBV_ACCESS_REMOTE_WRITE | ibv_access_flags.IBV_ACCESS_LOCAL_WRITE | \
+                 ibv_access_flags.IBV_ACCESS_REMOTE_ATOMIC | ibv_access_flags.IBV_ACCESS_REMOTE_READ
         self.mr = MR(self.pd, self.msg_size, access)
 
     def create_qp_cap(self):
@@ -149,8 +154,8 @@ class Mlx5DcResources(RoCETrafficResources):
     def create_qp_attr(self):
         qp_attr = QPAttr(port_num=self.ib_port)
         set_rnr_attributes(qp_attr)
-        qp_access = e.IBV_ACCESS_LOCAL_WRITE | e.IBV_ACCESS_REMOTE_WRITE | \
-                    e.IBV_ACCESS_REMOTE_ATOMIC | e.IBV_ACCESS_REMOTE_READ
+        qp_access = ibv_access_flags.IBV_ACCESS_LOCAL_WRITE | ibv_access_flags.IBV_ACCESS_REMOTE_WRITE | \
+                    ibv_access_flags.IBV_ACCESS_REMOTE_ATOMIC | ibv_access_flags.IBV_ACCESS_REMOTE_READ
         qp_attr.qp_access_flags = qp_access
         gr = GlobalRoute(dgid=self.ctx.query_gid(self.ib_port, self.gid_index),
                          sgid_index=self.gid_index)
@@ -160,11 +165,11 @@ class Mlx5DcResources(RoCETrafficResources):
         return qp_attr
 
     def create_qp_init_attr(self, send_ops_flags=0):
-        comp_mask = e.IBV_QP_INIT_ATTR_PD
+        comp_mask = ibv_qp_init_attr_mask.IBV_QP_INIT_ATTR_PD
         if send_ops_flags:
-            comp_mask |= e.IBV_QP_INIT_ATTR_SEND_OPS_FLAGS
+            comp_mask |= ibv_qp_init_attr_mask.IBV_QP_INIT_ATTR_SEND_OPS_FLAGS
         return QPInitAttrEx(cap=self.create_qp_cap(), pd=self.pd, scq=self.cq,
-                            rcq=self.cq, srq=self.srq, qp_type=e.IBV_QPT_DRIVER,
+                            rcq=self.cq, srq=self.srq, qp_type=ibv_qp_type.IBV_QPT_DRIVER,
                             send_ops_flags=send_ops_flags, comp_mask=comp_mask,
                             sq_sig_all=1)
 
@@ -173,9 +178,9 @@ class Mlx5DcResources(RoCETrafficResources):
         qp_init_attr = self.create_qp_init_attr(self.send_ops_flags)
         try:
             for _ in range(self.qp_count):
-                comp_mask = dve.MLX5DV_QP_INIT_ATTR_MASK_DC
+                comp_mask = mlx5dv_qp_init_attr_mask.MLX5DV_QP_INIT_ATTR_MASK_DC
                 if self.create_flags:
-                    comp_mask |= dve.MLX5DV_QP_INIT_ATTR_MASK_QP_CREATE_FLAGS
+                    comp_mask |= mlx5dv_qp_init_attr_mask.MLX5DV_QP_INIT_ATTR_MASK_QP_CREATE_FLAGS
                 attr = Mlx5DVQPInitAttr(comp_mask=comp_mask,
                                         create_flags=self.create_flags,
                                         dc_init_attr=Mlx5DVDCInitAttr())
@@ -186,9 +191,9 @@ class Mlx5DcResources(RoCETrafficResources):
 
             # Create the DCT QP.
             qp_init_attr = self.create_qp_init_attr()
-            dc_attr = Mlx5DVDCInitAttr(dc_type=dve.MLX5DV_DCTYPE_DCT,
+            dc_attr = Mlx5DVDCInitAttr(dc_type=mlx5dv_dc_type.MLX5DV_DCTYPE_DCT,
                                        dct_access_key=DCT_KEY)
-            attr = Mlx5DVQPInitAttr(comp_mask=dve.MLX5DV_QP_INIT_ATTR_MASK_DC,
+            attr = Mlx5DVQPInitAttr(comp_mask=mlx5dv_qp_init_attr_mask.MLX5DV_QP_INIT_ATTR_MASK_DC,
                                     dc_init_attr=dc_attr)
             self.dct_qp = Mlx5QP(self.ctx, qp_init_attr, attr)
         except PyverbsRDMAError as ex:
@@ -207,8 +212,8 @@ class Mlx5DcStreamsRes(Mlx5DcResources):
                          qp_count, create_flags)
 
     def reset_qp(self, qp_idx):
-        qp_attr = QPAttr(qp_state=e.IBV_QPS_RESET)
-        self.qps[qp_idx].modify(qp_attr, e.IBV_QP_STATE)
+        qp_attr = QPAttr(qp_state=ibv_qp_state.IBV_QPS_RESET)
+        self.qps[qp_idx].modify(qp_attr, ibv_qp_attr_mask.IBV_QP_STATE)
         self.qps[qp_idx].to_rts(qp_attr)
         self.qp_stream_errors[qp_idx][0] = 0
 
@@ -237,14 +242,14 @@ class Mlx5DcStreamsRes(Mlx5DcResources):
         str_id = self.get_stream_id(qp_idx)
         bt_stream = (1 << str_id)
 
-        if status == e.IBV_WC_LOC_PROT_ERR:
+        if status == ibv_wc_status.IBV_WC_LOC_PROT_ERR:
             self.qp_stream_errors[qp_idx][1] += 1
             if (self.qp_stream_errors[qp_idx][0] & bt_stream) != 0:
                 raise PyverbsError(f'Dublicate error from stream id {str_id}')
             self.qp_stream_errors[qp_idx][0] |= bt_stream
-        if status == e.IBV_WC_WR_FLUSH_ERR:
-            qp_attr, _ = self.qps[qp_idx].query(e.IBV_QP_STATE)
-            if qp_attr.cur_qp_state == e.IBV_QPS_ERR and reset:
+        if status == ibv_wc_status.IBV_WC_WR_FLUSH_ERR:
+            qp_attr, _ = self.qps[qp_idx].query(ibv_qp_attr_mask.IBV_QP_STATE)
+            if qp_attr.cur_qp_state == ibv_qp_state.IBV_QPS_ERR and reset:
                 if self.qp_stream_errors[qp_idx][1] != self.dcis[qp_idx]['errored']:
                     msg = f'QP {qp_idx} in ERR state with wrong number of counter'
                     raise PyverbsError(msg)
@@ -302,7 +307,7 @@ class Mlx5DcStreamsRes(Mlx5DcResources):
                 pd = self.pd
                 change_mr = True
         if change_mr:
-            self.mr.rereg(flags=e.IBV_REREG_MR_CHANGE_PD, pd=pd,
+            self.mr.rereg(flags=ibv_rereg_mr_flags.IBV_REREG_MR_CHANGE_PD, pd=pd,
                           addr=0, length=0, access=0)
 
     def check_after_traffic(self):
@@ -343,12 +348,12 @@ class Mlx5DcStreamsRes(Mlx5DcResources):
         self.current_qp_stream_id = {}
         # This array counts different errors in bad_flow
         self.qp_stream_errors = []
-        comp_mask = dve.MLX5DV_QP_INIT_ATTR_MASK_DC | \
-                    dve.MLX5DV_QP_INIT_ATTR_MASK_DCI_STREAMS
+        comp_mask = mlx5dv_qp_init_attr_mask.MLX5DV_QP_INIT_ATTR_MASK_DC | \
+                    mlx5dv_qp_init_attr_mask.MLX5DV_QP_INIT_ATTR_MASK_DCI_STREAMS
         try:
             for qpn in range(self.qp_count):
                 if self.create_flags:
-                    comp_mask |= dve.MLX5DV_QP_INIT_ATTR_MASK_QP_CREATE_FLAGS
+                    comp_mask |= mlx5dv_qp_init_attr_mask.MLX5DV_QP_INIT_ATTR_MASK_QP_CREATE_FLAGS
                 self.generate_dci_attr(qpn)
                 stream_ctx = Mlx5DCIStreamInitAttr(self.log_dci_streams,
                                                    self.log_dci_errored)
@@ -374,9 +379,9 @@ class Mlx5DcStreamsRes(Mlx5DcResources):
                 self.psns.append(random.getrandbits(24))
             # Create the DCT QP.
             qp_init_attr = self.create_qp_init_attr()
-            dc_attr = Mlx5DVDCInitAttr(dc_type=dve.MLX5DV_DCTYPE_DCT,
+            dc_attr = Mlx5DVDCInitAttr(dc_type=mlx5dv_dc_type.MLX5DV_DCTYPE_DCT,
                                        dct_access_key=DCT_KEY)
-            attr = Mlx5DVQPInitAttr(comp_mask=dve.MLX5DV_QP_INIT_ATTR_MASK_DC,
+            attr = Mlx5DVQPInitAttr(comp_mask=mlx5dv_qp_init_attr_mask.MLX5DV_QP_INIT_ATTR_MASK_DC,
                                     dc_init_attr=dc_attr)
             self.dct_qp = Mlx5QP(self.ctx, qp_init_attr, attr)
         except PyverbsRDMAError as ex:
@@ -396,7 +401,7 @@ class Mlx5DcStreamsRes(Mlx5DcResources):
         :return: None
         """
         import tests.utils as u
-        send_op = e.IBV_WR_SEND
+        send_op = ibv_wr_opcode.IBV_WR_SEND
         ah_client = u.get_global_ah(client, gid_idx, port)
         s_recv_wr = u.get_recv_wr(server)
         c_recv_wr = u.get_recv_wr(client)
@@ -413,11 +418,11 @@ class Mlx5DcStreamsRes(Mlx5DcResources):
                 try:
                     wcs = u._poll_cq(client.cq)
                 except PyverbsError as ex:
-                    if client.bad_flow_handling(qp_idx, e.IBV_WC_SUCCESS, True):
+                    if client.bad_flow_handling(qp_idx, ibv_wc_status.IBV_WC_SUCCESS, True):
                         continue
                     raise ex
                 else:
-                    if wcs[0].status != e.IBV_WC_SUCCESS and \
+                    if wcs[0].status != ibv_wc_status.IBV_WC_SUCCESS and \
                             client.bad_flow_handling(qp_idx, wcs[0].status, True):
                         continue
 
@@ -672,7 +677,7 @@ class Mlx5DevxRcResources(BaseResources):
         self.qattr.rq.wqe_size = self.roundup_pow_of_two(wqe_size)
         max_recv_wr = self.roundup_pow_of_two(self.num_msgs)
         self.qattr.rq.wq_size = max(self.qattr.rq.wqe_size * max_recv_wr,
-                                    dve.MLX5_SEND_WQE_BB)
+                                    MLX5_SEND_WQE_BB)
         self.qattr.rq.wqe_num = math.ceil(self.qattr.rq.wq_size / self.qattr.rq.wqe_size)
         self.qattr.rq.wqe_shift = int(math.log2(self.qattr.rq.wqe_size - 1)) + 1
 
@@ -681,14 +686,14 @@ class Mlx5DevxRcResources(BaseResources):
         # 192 = max overhead size of all structs needed for all operations in RC
         wqe_size = 192 + WqeDataSeg.sizeof()
         # Align wqe size to MLX5_SEND_WQE_BB
-        self.qattr.sq.wqe_size = (wqe_size + dve.MLX5_SEND_WQE_BB - 1) & ~(dve.MLX5_SEND_WQE_BB - 1)
+        self.qattr.sq.wqe_size = (wqe_size + MLX5_SEND_WQE_BB - 1) & ~(MLX5_SEND_WQE_BB - 1)
         self.qattr.sq.wq_size = self.roundup_pow_of_two(self.qattr.sq.wqe_size * self.num_msgs)
-        self.qattr.sq.wqe_num = math.ceil(self.qattr.sq.wq_size / dve.MLX5_SEND_WQE_BB)
-        self.qattr.sq.wqe_shift = int(math.log2(dve.MLX5_SEND_WQE_BB))
+        self.qattr.sq.wqe_num = math.ceil(self.qattr.sq.wq_size / MLX5_SEND_WQE_BB)
+        self.qattr.sq.wqe_shift = int(math.log2(MLX5_SEND_WQE_BB))
 
     def create_context(self):
         try:
-            attr = Mlx5DVContextAttr(dve.MLX5DV_CONTEXT_FLAGS_DEVX)
+            attr = Mlx5DVContextAttr(mlx5dv_context_attr_flags.MLX5DV_CONTEXT_FLAGS_DEVX)
             self.ctx = Mlx5Context(attr, self.dev_name)
         except PyverbsUserError as ex:
             raise unittest.SkipTest(f'Could not open mlx5 context ({ex})')
@@ -697,21 +702,21 @@ class Mlx5DevxRcResources(BaseResources):
 
     def create_pd(self):
         self.pd = PD(self.ctx)
-        self.dv_pd = Mlx5DvObj(dve.MLX5DV_OBJ_PD, pd=self.pd).dvpd
+        self.dv_pd = Mlx5DvObj(mlx5dv_obj_type.MLX5DV_OBJ_PD, pd=self.pd).dvpd
 
     def create_mr(self):
-        access = e.IBV_ACCESS_REMOTE_WRITE | e.IBV_ACCESS_LOCAL_WRITE | \
-                 e.IBV_ACCESS_REMOTE_READ
+        access = ibv_access_flags.IBV_ACCESS_REMOTE_WRITE | ibv_access_flags.IBV_ACCESS_LOCAL_WRITE | \
+                 ibv_access_flags.IBV_ACCESS_REMOTE_READ
         self.mr = MR(self.pd, self.msg_size, access)
 
     def create_umem(self, size,
-                    access=e.IBV_ACCESS_LOCAL_WRITE,
+                    access=ibv_access_flags.IBV_ACCESS_LOCAL_WRITE,
                     alignment=resource.getpagesize()):
         return Mlx5UMEM(self.ctx, size=size, alignment=alignment, access=access)
 
     def create_uar(self):
-        self.uar['qp'] = Mlx5UAR(self.ctx, dve._MLX5DV_UAR_ALLOC_TYPE_NC)
-        self.uar['cq'] = Mlx5UAR(self.ctx, dve._MLX5DV_UAR_ALLOC_TYPE_NC)
+        self.uar['qp'] = Mlx5UAR(self.ctx, _MLX5DV_UAR_ALLOC_TYPE_NC)
+        self.uar['cq'] = Mlx5UAR(self.ctx, _MLX5DV_UAR_ALLOC_TYPE_NC)
         if not self.uar['cq'].page_id or not self.uar['qp'].page_id:
             raise PyverbsRDMAError('Failed to allocate UAR')
 
@@ -796,7 +801,7 @@ class Mlx5DevxRcResources(BaseResources):
             swqpc.primary_address_path.src_addr_index = self.gid_index
             swqpc.primary_address_path.hop_limit = tests.utils.PacketConsts.TTL_HOP_LIMIT
             # UDP sport must be reserved for roce v1 and v1.5
-            if self.ctx.query_gid_type(self.ib_port, self.gid_index) == e.IBV_GID_TYPE_SYSFS_ROCE_V2:
+            if self.ctx.query_gid_type(self.ib_port, self.gid_index) == ibv_gid_type_sysfs.IBV_GID_TYPE_SYSFS_ROCE_V2:
                 swqpc.primary_address_path.udp_sport = 0xdcba
         else:
             swqpc.primary_address_path.rlid = self.rlid
@@ -843,23 +848,23 @@ class Mlx5DevxRcResources(BaseResources):
             buffer_address = self.uar['qp'].base_addr + DB_BF_DBR_LESS_BUF_OFFSET
 
         idx = self.qattr.sq.post_idx if self.qattr.sq.post_idx < self.qattr.sq.wqe_num else 0
-        buf_offset = self.qattr.sq.offset + (idx << dve.MLX5_SEND_WQE_SHIFT)
+        buf_offset = self.qattr.sq.offset + (idx << MLX5_SEND_WQE_SHIFT)
         # Prepare WQE
         imm_be32 = struct.unpack("<I", struct.pack(">I", self.imm + self.qattr.sq.post_idx))[0]
-        ctrl_seg = WqeCtrlSeg(imm=imm_be32, fm_ce_se=dve.MLX5_WQE_CTRL_CQ_UPDATE)
+        ctrl_seg = WqeCtrlSeg(imm=imm_be32, fm_ce_se=MLX5_WQE_CTRL_CQ_UPDATE)
         data_seg = self.get_wqe_data_segment()
-        ctrl_seg.opmod_idx_opcode = (self.qattr.sq.post_idx & 0xffff) << 8 | dve.MLX5_OPCODE_SEND_IMM
+        ctrl_seg.opmod_idx_opcode = (self.qattr.sq.post_idx & 0xffff) << 8 | MLX5_OPCODE_SEND_IMM
         size_in_octowords = int((ctrl_seg.sizeof() + data_seg.sizeof()) / 16)
         ctrl_seg.qpn_ds = self.qpn << 8 | size_in_octowords
         Wqe([ctrl_seg, data_seg], self.umems['qp'].umem_addr + buf_offset)
         self.qattr.sq.post_idx += int((size_in_octowords * 16 +
-                                       dve.MLX5_SEND_WQE_BB - 1) / dve.MLX5_SEND_WQE_BB)
+                                       MLX5_SEND_WQE_BB - 1) / MLX5_SEND_WQE_BB)
         # Make sure descriptors are written
         dma.udma_to_dev_barrier()
         if not self.send_dbr_mode:
             # Update the doorbell record
             mem.writebe32(self.umems['qp_dbr'].umem_addr,
-                          self.qattr.sq.post_idx & 0xffff, dve.MLX5_SND_DBR)
+                          self.qattr.sq.post_idx & 0xffff, MLX5_SND_DBR)
             dma.udma_to_dev_barrier()
         # Ring the doorbell and post the WQE
         dma.mmio_write64_as_be(buffer_address, mem.read64(ctrl_seg.addr))
@@ -880,7 +885,7 @@ class Mlx5DevxRcResources(BaseResources):
         # Update the doorbell record
         dma.udma_to_dev_barrier()
         mem.writebe32(self.umems['qp_dbr'].umem_addr,
-                      self.qattr.rq.post_idx & 0xffff, dve.MLX5_RCV_DBR)
+                      self.qattr.rq.post_idx & 0xffff, MLX5_RCV_DBR)
 
     def poll_cq(self):
         """
@@ -896,7 +901,7 @@ class Mlx5DevxRcResources(BaseResources):
         start_poll_t = time.perf_counter()
         while cqe is None:
             cqe = Mlx5Cqe64(cqe_start_addr)
-            if (cqe.opcode == dve.MLX5_CQE_INVALID) or \
+            if (cqe.opcode == MLX5_CQE_INVALID) or \
                     (cqe.owner ^ cq_owner_flip) or cqe.is_empty():
                 if time.perf_counter() - start_poll_t >= POLL_CQ_TIMEOUT:
                     raise PyverbsRDMAError(f'CQE #{self.qattr.cq.cons_idx} '
@@ -907,10 +912,10 @@ class Mlx5DevxRcResources(BaseResources):
         dma.udma_from_dev_barrier()
         cqe = Mlx5Cqe64(cqe_start_addr)
 
-        if cqe.opcode == dve.MLX5_CQE_RESP_ERR:
+        if cqe.opcode == MLX5_CQE_RESP_ERR:
             raise PyverbsRDMAError(f'Got a CQE #{self.qattr.cq.cons_idx} '
                                    f'with responder error:\n{cqe.dump()}')
-        elif cqe.opcode == dve.MLX5_CQE_REQ_ERR:
+        elif cqe.opcode == MLX5_CQE_REQ_ERR:
             raise PyverbsRDMAError(f'Got a CQE #{self.qattr.cq.cons_idx} '
                                    f'with requester error:\n{cqe.dump()}')
 
@@ -972,11 +977,11 @@ class Mlx5DevxTrafficBase(Mlx5RDMATestCase):
             self.client.post_send()
             # Poll client and verify received cqe opcode
             send_cqe = self.client.poll_cq()
-            self.assertEqual(send_cqe.opcode, dve.MLX5_CQE_REQ,
+            self.assertEqual(send_cqe.opcode, MLX5_CQE_REQ,
                              'Unexpected CQE opcode')
             # Poll server and verify received cqe opcode
             recv_cqe = self.server.poll_cq()
-            self.assertEqual(recv_cqe.opcode, dve.MLX5_CQE_RESP_SEND_IMM,
+            self.assertEqual(recv_cqe.opcode, MLX5_CQE_RESP_SEND_IMM,
                              'Unexpected CQE opcode')
             msg_received = self.server.mem_read()
             # Validate data (of received message and immediate value)
@@ -998,7 +1003,7 @@ class Mlx5RcResources(RCResources):
 
     def create_send_ops_flags(self):
         self.dv_send_ops_flags = 0
-        self.send_ops_flags = e.IBV_QP_EX_WITH_SEND
+        self.send_ops_flags = ibv_qp_create_send_ops_flags.IBV_QP_EX_WITH_SEND
 
     def create_context(self):
         mlx5dv_attr = Mlx5DVContextAttr()
@@ -1010,18 +1015,18 @@ class Mlx5RcResources(RCResources):
             raise unittest.SkipTest('Opening mlx5 context is not supported')
 
     def create_qp_init_attr(self):
-        comp_mask = e.IBV_QP_INIT_ATTR_PD | e.IBV_QP_INIT_ATTR_SEND_OPS_FLAGS
+        comp_mask = ibv_qp_init_attr_mask.IBV_QP_INIT_ATTR_PD | ibv_qp_init_attr_mask.IBV_QP_INIT_ATTR_SEND_OPS_FLAGS
         return QPInitAttrEx(cap=self.create_qp_cap(), pd=self.pd, scq=self.cq,
-                            rcq=self.cq, qp_type=e.IBV_QPT_RC,
+                            rcq=self.cq, qp_type=ibv_qp_type.IBV_QPT_RC,
                             send_ops_flags=self.send_ops_flags,
                             comp_mask=comp_mask)
 
     def create_qps(self):
         try:
             qp_init_attr = self.create_qp_init_attr()
-            comp_mask = dve.MLX5DV_QP_INIT_ATTR_MASK_QP_CREATE_FLAGS
+            comp_mask = mlx5dv_qp_init_attr_mask.MLX5DV_QP_INIT_ATTR_MASK_QP_CREATE_FLAGS
             if self.dv_send_ops_flags:
-                comp_mask |= dve.MLX5DV_QP_INIT_ATTR_MASK_SEND_OPS_FLAGS
+                comp_mask |= mlx5dv_qp_init_attr_mask.MLX5DV_QP_INIT_ATTR_MASK_SEND_OPS_FLAGS
             attr = Mlx5DVQPInitAttr(comp_mask=comp_mask,
                                     send_ops_flags=self.dv_send_ops_flags)
             qp = Mlx5QP(self.ctx, qp_init_attr, attr)
@@ -1060,8 +1065,8 @@ def create_privileged_context(agr_obj):
             fd = open(file_path, 'rb')
             open_fds.append(fd)
         agr_obj.fds = FdArr(arr=[fd.fileno() for fd in open_fds], count=len(open_fds))
-        attr = Mlx5DVContextAttr(flags=dve.MLX5DV_CONTEXT_FLAGS_DEVX,
-                                    comp_mask=dve.MLX5DV_CONTEXT_ATTR_MASK_FD_ARRAY,
+        attr = Mlx5DVContextAttr(flags=mlx5dv_context_attr_flags.MLX5DV_CONTEXT_FLAGS_DEVX,
+                                    comp_mask=mlx5dv_context_attr_comp_mask.MLX5DV_CONTEXT_ATTR_MASK_FD_ARRAY,
                                     fds=agr_obj.fds)
         agr_obj.ctx = Mlx5Context(attr, agr_obj.dev_name)
         for fd in open_fds: fd.close()

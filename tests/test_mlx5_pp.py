@@ -7,7 +7,7 @@ Test module for mlx5 packet pacing entry allocation.
 
 from pyverbs.providers.mlx5.mlx5dv import Mlx5PP, Mlx5Context, Mlx5DVContextAttr
 from pyverbs.pyverbs_error import PyverbsRDMAError, PyverbsUserError
-import pyverbs.providers.mlx5.mlx5_enums as e
+from pyverbs.providers.mlx5.mlx5_enums import mlx5dv_context_attr_flags, _MLX5DV_PP_ALLOC_FLAGS_DEDICATED_INDEX
 from tests.mlx5_base import Mlx5RDMATestCase
 import unittest
 import struct
@@ -17,7 +17,7 @@ import errno
 class Mlx5PPRes:
     def __init__(self, dev_name):
         try:
-            mlx5dv_attr = Mlx5DVContextAttr(e.MLX5DV_CONTEXT_FLAGS_DEVX)
+            mlx5dv_attr = Mlx5DVContextAttr(mlx5dv_context_attr_flags.MLX5DV_CONTEXT_FLAGS_DEVX)
             self.ctx = Mlx5Context(mlx5dv_attr, dev_name)
         except PyverbsUserError as ex:
             raise unittest.SkipTest('Could not open mlx5 context ({})'
@@ -45,7 +45,7 @@ class Mlx5PPTestCase(Mlx5RDMATestCase):
             # Create a dedicated entry of the same previous configuration
             # and verify that it has a different index
             self.pp_res.pps.append(Mlx5PP(self.pp_res.ctx, rate_limit,
-                                          flags=e._MLX5DV_PP_ALLOC_FLAGS_DEDICATED_INDEX))
+                                          flags=_MLX5DV_PP_ALLOC_FLAGS_DEDICATED_INDEX))
             self.assertNotEqual(self.pp_res.pps[0].index, self.pp_res.pps[1].index,
                                 'Dedicated PP index is not unique')
             for pp in self.pp_res.pps:

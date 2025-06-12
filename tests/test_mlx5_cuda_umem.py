@@ -5,9 +5,9 @@ import resource
 
 from pyverbs.providers.mlx5.mlx5dv import Mlx5DevxObj, WqeDataSeg, Mlx5UMEM
 from tests.mlx5_base import Mlx5DevxRcResources, Mlx5DevxTrafficBase
-import pyverbs.providers.mlx5.mlx5_enums as dve
+from pyverbs.providers.mlx5.mlx5_enums import MLX5DV_UMEM_MASK_DMABUF
 import tests.cuda_utils as cu
-import pyverbs.enums as e
+from pyverbs.libibverbs_enums import ibv_access_flags
 
 try:
     from cuda import cuda, cudart, nvrtc
@@ -21,7 +21,7 @@ GPU_PAGE_SIZE = 1 << 16
 @cu.set_mem_io_cuda_methods
 class CudaDevxRes(Mlx5DevxRcResources):
     def __init__(self, dev_name, ib_port, gid_index,
-                 mr_access=e.IBV_ACCESS_LOCAL_WRITE):
+                 mr_access=ibv_access_flags.IBV_ACCESS_LOCAL_WRITE):
         """
         Initialize DevX resources with CUDA memory allocations.
         :param dev_name: Device name to be used
@@ -77,11 +77,12 @@ class CudaDevxRes(Mlx5DevxRcResources):
         umem_aligment = resource.getpagesize()
         self.umem = Mlx5UMEM(self.ctx, GPU_PAGE_SIZE, 0,
                              umem_aligment, self.mr_access, umem_aligment,
-                             dve.MLX5DV_UMEM_MASK_DMABUF, self.dmabuf_fd)
+                             MLX5DV_UMEM_MASK_DMABUF, self.dmabuf_fd)
 
     def create_mkey(self):
         from tests.mlx5_prm_structs import SwMkc, CreateMkeyIn, CreateMkeyOut
-        accesses = [e.IBV_ACCESS_LOCAL_WRITE, e.IBV_ACCESS_REMOTE_READ, e.IBV_ACCESS_REMOTE_WRITE]
+        accesses = [ibv_access_flags.IBV_ACCESS_LOCAL_WRITE, ibv_access_flags.IBV_ACCESS_REMOTE_READ,
+                    ibv_access_flags.IBV_ACCESS_REMOTE_WRITE]
         lw, rr, rw = (list(map(lambda access: int(self.mr_access & access != 0), accesses)))
         mkey_ctx = SwMkc(lr=1, lw=lw, rr=rr, rw=rw, access_mode_1_0=0x1,
                          start_addr=int(self.cuda_addr),
