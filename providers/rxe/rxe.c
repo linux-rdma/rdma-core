@@ -1854,6 +1854,7 @@ static const struct verbs_context_ops rxe_ctx_ops = {
 	.attach_mcast = ibv_cmd_attach_mcast,
 	.detach_mcast = ibv_cmd_detach_mcast,
 	.free_context = rxe_free_context,
+	.advise_mr = ibv_cmd_advise_mr,
 };
 
 static struct verbs_context *rxe_alloc_context(struct ibv_device *ibdev,
