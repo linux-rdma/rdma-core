@@ -45,6 +45,9 @@ This function describes ordering at the receiving side of the QP, not the sendin
 
 IBV_QUERY_QP_DATA_IN_ORDER_RETURN_CAPS - Query for supported capabilities and return a capabilities vector.
 
+IBV_QUERY_QP_DATA_IN_ORDER_DEVICE_ONLY - Allows querying device support for data-in-order semantics
+    without enforcing host CPU architecture restrictions.
+
 Passing 0 is equivalent to using IBV_QUERY_QP_DATA_IN_ORDER_RETURN_CAPS and checking for IBV_QUERY_QP_DATA_IN_ORDER_WHOLE_MSG support.
 
 # RETURN VALUE
