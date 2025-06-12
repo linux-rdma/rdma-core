@@ -1,6 +1,6 @@
 /* SPDX-License-Identifier: ((GPL-2.0 WITH Linux-syscall-note) OR BSD-2-Clause) */
 /*
- * Copyright 2018-2024 Amazon.com, Inc. or its affiliates. All rights reserved.
+ * Copyright 2018-2025 Amazon.com, Inc. or its affiliates. All rights reserved.
  */
 
 #ifndef EFA_ABI_USER_H
@@ -56,6 +56,7 @@ struct efa_ibv_alloc_pd_resp {
 enum {
 	EFA_CREATE_CQ_WITH_COMPLETION_CHANNEL = 1 << 0,
 	EFA_CREATE_CQ_WITH_SGID               = 1 << 1,
+	EFA_CREATE_CQ_WITH_EXT_MEM_DMABUF     = 1 << 2,
 };
 
 struct efa_ibv_create_cq {
@@ -64,6 +65,10 @@ struct efa_ibv_create_cq {
 	__u16 num_sub_cqs;
 	__u8 flags;
 	__u8 reserved_58[5];
+	__aligned_u64 ext_mem_offset;
+	__aligned_u64 ext_mem_length;
+	__u32 ext_mem_fd;
+	__u8 reserved_120[4];
 };
 
 enum {
@@ -131,6 +136,7 @@ enum {
 	EFA_QUERY_DEVICE_CAPS_DATA_POLLING_128 = 1 << 4,
 	EFA_QUERY_DEVICE_CAPS_RDMA_WRITE = 1 << 5,
 	EFA_QUERY_DEVICE_CAPS_UNSOLICITED_WRITE_RECV = 1 << 6,
+	EFA_QUERY_DEVICE_CAPS_CQ_WITH_EXT_MEM_DMABUF = 1 << 7,
 };
 
 struct efa_ibv_ex_query_device_resp {
