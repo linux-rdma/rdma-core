@@ -1242,7 +1242,8 @@ def context_flags_to_str(flags):
          dve.MLX5DV_CONTEXT_FLAGS_CQE_128B_COMP: 'Support CQE 128B compression',
          dve.MLX5DV_CONTEXT_FLAGS_CQE_128B_PAD: 'Support CQE 128B padding',
          dve.MLX5DV_CONTEXT_FLAGS_PACKET_BASED_CREDIT_MODE:
-         'Support packet based credit mode (in RC QP)'}
+         'Support packet based credit mode (in RC QP)',
+         dve.MLX5DV_CONTEXT_FLAGS_BLUEFLAME: 'Support BlueFlame'}
     return bitmask_to_str(flags, l)
 
 

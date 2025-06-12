@@ -894,6 +894,9 @@ static int _mlx5dv_query_device(struct ibv_context *ctx_in,
 		MLX5_VENDOR_CAP_FLAGS_PACKET_BASED_CREDIT_MODE)
 		attrs_out->flags |= MLX5DV_CONTEXT_FLAGS_PACKET_BASED_CREDIT_MODE;
 
+	if (mctx->bf_reg_size > 0)
+		attrs_out->flags |= MLX5DV_CONTEXT_FLAGS_BLUEFLAME;
+
 	if (attrs_out->comp_mask & MLX5DV_CONTEXT_MASK_SWP) {
 		attrs_out->sw_parsing_caps = mctx->sw_parsing_caps;
 		comp_mask_out |= MLX5DV_CONTEXT_MASK_SWP;
