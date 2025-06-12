@@ -176,6 +176,9 @@ Provides: libocrdma = %{version}-%{release}
 Obsoletes: libocrdma < %{version}-%{release}
 Provides: librxe = %{version}-%{release}
 Obsoletes: librxe < %{version}-%{release}
+Provides: libzrdma = %{version}-%{release}
+Obsoletes: libzrdma < %{version}-%{release}
+
 
 %description -n libibverbs
 libibverbs is a library that allows userspace processes to use RDMA
@@ -202,6 +205,7 @@ Device-specific plug-in ibverbs userspace drivers are included:
 - librxe: A software implementation of the RoCE protocol
 - libsiw: A software implementation of the iWarp protocol
 - libvmw_pvrdma: VMware paravirtual RDMA device
+- libzrdma: ZTE NX series RDMA device
 
 %package -n libibverbs-utils
 Summary: Examples for the libibverbs library
@@ -597,6 +601,7 @@ fi
 %{_libdir}/libmana.so.*
 %{_libdir}/libmlx5.so.*
 %{_libdir}/libmlx4.so.*
+%{_libdir}/libzrdma.so.*
 %config(noreplace) %{_sysconfdir}/libibverbs.d/*.driver
 %doc %{_docdir}/%{name}/libibverbs.md
 
