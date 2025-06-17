@@ -64,6 +64,48 @@ struct bnxt_re_dv_umem_reg_attr {
 };
 
 struct bnxt_re_dv_umem;
+struct bnxt_re_dv_cq_init_attr {
+	uint64_t cq_handle;
+	void *umem_handle; /* umem_handle from umem_reg */
+	uint64_t cq_umem_offset;	/* offset into umem */
+	uint32_t ncqe;
+};
+
+struct bnxt_re_dv_cq_attr {
+	uint32_t ncqe; /* no. of entries */
+	uint32_t cqe_size; /* size of entries */
+};
+
+struct bnxt_re_dv_qp_init_attr {
+	/* Standard ibv params */
+	enum ibv_qp_type qp_type;
+	uint32_t max_send_wr;
+	uint32_t max_recv_wr;
+	uint32_t max_send_sge;
+	uint32_t max_recv_sge;
+	uint32_t max_inline_data;
+	struct ibv_cq *send_cq;
+	struct ibv_cq *recv_cq;
+	struct ibv_srq *srq;
+
+	/* DV params */
+	uint64_t qp_handle;	/* to match with cqe */
+	void *dbr_handle;	/* dbr_handle from alloc_dbr */
+	void *sq_umem_handle;	/* umem_handle from umem_reg */
+	uint64_t sq_umem_offset;	/* offset into umem */
+	uint32_t sq_len;	/* sq length including MSN area */
+	uint32_t sq_slots;	/* sq length in slots */
+	void *rq_umem_handle;	/* umem_handle from umem_reg */
+	uint64_t rq_umem_offset;	/* offset into umem */
+	uint32_t sq_wqe_sz;     /* sq wqe size */
+	uint32_t sq_psn_sz;     /* sq psn size */
+	uint32_t sq_npsn;       /* sq num psn entries */
+	uint32_t rq_len;	/* rq length */
+	uint32_t rq_slots;	/* rq length in slots */
+	uint32_t rq_wqe_sz;     /* rq wqe size */
+	uint64_t comp_mask;	/* compatibility mask for future updates */
+};
+
 struct bnxt_re_dv_db_region_attr *
 bnxt_re_dv_alloc_db_region(struct ibv_context *ctx);
 int bnxt_re_dv_free_db_region(struct ibv_context *ctx,
@@ -73,6 +115,15 @@ int bnxt_re_dv_get_default_db_region(struct ibv_context *ibvctx,
 struct bnxt_re_dv_umem *bnxt_re_dv_umem_reg(struct ibv_context *ibvctx,
 					    struct bnxt_re_dv_umem_reg_attr *in);
 int bnxt_re_dv_umem_dereg(struct bnxt_re_dv_umem *umem);
+struct ibv_cq *bnxt_re_dv_create_cq(struct ibv_context *ibvctx,
+				    struct bnxt_re_dv_cq_init_attr *cq_attr);
+int bnxt_re_dv_destroy_cq(struct ibv_cq *ibv_cq);
+struct ibv_qp *bnxt_re_dv_create_qp(struct ibv_pd *pd,
+				    struct bnxt_re_dv_qp_init_attr *qp_attr);
+int bnxt_re_dv_destroy_qp(struct ibv_qp *ibvqp);
+int bnxt_re_dv_modify_qp(struct ibv_qp *ibv_qp, struct ibv_qp_attr *attr,
+			 int attr_mask);
+int bnxt_re_dv_query_qp(void *qp_handle, struct ib_uverbs_qp_attr *attr);
 #ifdef __cplusplus
 }
 #endif
