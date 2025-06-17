@@ -47,11 +47,11 @@
 
 DECLARE_DRV_CMD(ubnxt_re_pd, IB_USER_VERBS_CMD_ALLOC_PD,
 		empty, bnxt_re_pd_resp);
-DECLARE_DRV_CMD(ubnxt_re_cq, IB_USER_VERBS_CMD_CREATE_CQ,
+DECLARE_DRV_CMD(ubnxt_re_cq, IB_USER_VERBS_EX_CMD_CREATE_CQ,
 		bnxt_re_cq_req, bnxt_re_cq_resp);
 DECLARE_DRV_CMD(ubnxt_re_resize_cq, IB_USER_VERBS_CMD_RESIZE_CQ,
 		bnxt_re_resize_cq_req, empty);
-DECLARE_DRV_CMD(ubnxt_re_qp, IB_USER_VERBS_CMD_CREATE_QP,
+DECLARE_DRV_CMD(ubnxt_re_qp, IB_USER_VERBS_EX_CMD_CREATE_QP,
 		bnxt_re_qp_req, bnxt_re_qp_resp);
 DECLARE_DRV_CMD(ubnxt_re_cntx, IB_USER_VERBS_CMD_GET_CONTEXT,
 		bnxt_re_uctx_req, bnxt_re_uctx_resp);
@@ -226,6 +226,7 @@ enum {
 	BNXT_RE_COMP_MASK_UCNTX_DBR_PACING_ENABLED = 0x02,
 	BNXT_RE_COMP_MASK_UCNTX_POW2_DISABLED = 0x04,
 	BNXT_RE_COMP_MASK_UCNTX_MSN_TABLE_ENABLED = 0x08,
+	BNXT_RE_COMP_MASK_UCNTX_UAPI_COMPAT_SUPPORTED = 0x10,
 };
 
 enum bnxt_re_que_flags_mask {

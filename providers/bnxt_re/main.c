@@ -228,6 +228,8 @@ static struct verbs_context *bnxt_re_alloc_context(struct ibv_device *vdev,
 		cntx->comp_mask |= BNXT_RE_COMP_MASK_UCNTX_POW2_DISABLED;
 	if (resp.comp_mask & BNXT_RE_UCNTX_CMASK_MSN_TABLE_ENABLED)
 		cntx->comp_mask |= BNXT_RE_COMP_MASK_UCNTX_MSN_TABLE_ENABLED;
+	if (resp.comp_mask & BNXT_RE_UCNTX_CMASK_UAPI_COMPAT_SUPPORTED)
+		cntx->comp_mask |= BNXT_RE_COMP_MASK_UCNTX_UAPI_COMPAT_SUPPORTED;
 
 	/* mmap shared page. */
 	cntx->shpg = mmap(NULL, rdev->pg_size, PROT_READ | PROT_WRITE,
