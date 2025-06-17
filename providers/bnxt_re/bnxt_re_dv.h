@@ -63,6 +63,12 @@ struct bnxt_re_dv_umem_reg_attr {
 };
 
 struct bnxt_re_dv_umem;
+struct bnxt_re_dv_cq_init_attr {
+	void *umem_handle;	/* umem_handle from umem_reg */
+	uint64_t umem_offset;	/* offset into umem */
+	uint32_t ncqe;		/* num cq entries */
+};
+
 struct bnxt_re_dv_db_region_attr *
 bnxt_re_dv_alloc_db_region(struct ibv_context *ctx);
 int bnxt_re_dv_free_db_region(struct ibv_context *ctx,
@@ -72,6 +78,9 @@ int bnxt_re_dv_get_default_db_region(struct ibv_context *ibvctx,
 struct bnxt_re_dv_umem *bnxt_re_dv_umem_reg(struct ibv_context *ibvctx,
 					    struct bnxt_re_dv_umem_reg_attr *in);
 int bnxt_re_dv_umem_dereg(struct bnxt_re_dv_umem *umem);
+struct ibv_cq *bnxt_re_dv_create_cq(struct ibv_context *ibvctx,
+				    struct bnxt_re_dv_cq_init_attr *cq_attr);
+int bnxt_re_dv_destroy_cq(struct ibv_cq *ibv_cq);
 #ifdef __cplusplus
 }
 #endif
