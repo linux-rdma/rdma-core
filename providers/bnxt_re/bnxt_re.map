@@ -1,0 +1,10 @@
+{
+	global:
+		openib_driver_init;
+		bnxt_re_dv_alloc_db_region;
+		bnxt_re_dv_free_db_region;
+		bnxt_re_dv_umem_reg;
+		bnxt_re_dv_umem_dereg;
+		bnxt_re_dv_get_default_db_region;
+	local: *;
+};
