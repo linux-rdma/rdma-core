@@ -1,3 +1,17 @@
+libbnxt_re.so.1 ibverbs-providers #MINVER#
+* Build-Depends-Package: libibverbs-dev
+ BNXT_RE_1.1@BNXT_RE_1.1 64
+ bnxt_re_dv_alloc_db_region@BNXT_RE_1.1 64
+ bnxt_re_dv_create_cq@BNXT_RE_1.1 64
+ bnxt_re_dv_create_qp@BNXT_RE_1.1 64
+ bnxt_re_dv_destroy_cq@BNXT_RE_1.1 64
+ bnxt_re_dv_destroy_qp@BNXT_RE_1.1 64
+ bnxt_re_dv_free_db_region@BNXT_RE_1.1 64
+ bnxt_re_dv_get_default_db_region@BNXT_RE_1.1 64
+ bnxt_re_dv_modify_qp@BNXT_RE_1.1 64
+ bnxt_re_dv_query_qp@BNXT_RE_1.1 64
+ bnxt_re_dv_umem_dereg@BNXT_RE_1.1 64
+ bnxt_re_dv_umem_reg@BNXT_RE_1.1 64
 libmlx4.so.1 ibverbs-providers #MINVER#
 * Build-Depends-Package: libibverbs-dev
  MLX4_1.0@MLX4_1.0 15

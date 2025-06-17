@@ -150,6 +150,8 @@ compatibility reasons.
 Summary: A library and drivers for direct userspace use of RDMA (InfiniBand/iWARP/RoCE) hardware
 Requires(post): /sbin/ldconfig
 Requires(postun): /sbin/ldconfig
+Provides: libbnxt_re = %{version}-%{release}
+Obsoletes: libbnxt_re < %{version}-%{release}
 Provides: libcxgb4 = %{version}-%{release}
 Obsoletes: libcxgb4 < %{version}-%{release}
 Provides: libefa = %{version}-%{release}
@@ -594,6 +596,7 @@ fi
 %files -n libibverbs
 %dir %{_sysconfdir}/libibverbs.d
 %dir %{_libdir}/libibverbs
+%{_libdir}/libbnxt_re.so.*
 %{_libdir}/libefa.so.*
 %{_libdir}/libhns.so.*
 %{_libdir}/libibverbs*.so.*
