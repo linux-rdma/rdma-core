@@ -97,7 +97,6 @@ struct bnxt_re_queue {
 	uint32_t old_head;
 };
 
-
 /* Basic queue operation */
 static inline void *bnxt_re_get_hwqe(struct bnxt_re_queue *que, uint32_t idx)
 {
