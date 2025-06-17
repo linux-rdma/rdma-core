@@ -54,6 +54,7 @@
 
 #include "main.h"
 #include "verbs.h"
+#include "bnxt_re_dv.h"
 
 static int bnxt_re_poll_one(struct bnxt_re_cq *cq, int nwc, struct ibv_wc *wc,
 			    uint32_t *resize);
@@ -1080,7 +1081,7 @@ int bnxt_re_poll_cq(struct ibv_cq *ibvcq, int nwc, struct ibv_wc *wc)
 	return dqed;
 }
 
-static void bnxt_re_cleanup_cq(struct bnxt_re_qp *qp, struct bnxt_re_cq *cq)
+void bnxt_re_cleanup_cq(struct bnxt_re_qp *qp, struct bnxt_re_cq *cq)
 {
 	struct bnxt_re_queue *que = cq->cqq;
 	struct bnxt_re_bcqe *hdr;
@@ -1088,6 +1089,9 @@ static void bnxt_re_cleanup_cq(struct bnxt_re_qp *qp, struct bnxt_re_cq *cq)
 	struct bnxt_re_rc_cqe *rcqe;
 	void *cqe;
 	int indx, type;
+
+	if (cq->dv_cq_flags & BNXT_DV_CQ_FLAGS_VALID)
+		return;
 
 	pthread_spin_lock(&que->qlock);
 	for (indx = 0; indx < que->depth; indx++) {
