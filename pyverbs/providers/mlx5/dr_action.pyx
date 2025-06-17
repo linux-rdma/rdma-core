@@ -5,7 +5,7 @@ from pyverbs.base import PyverbsRDMAErrno, PyverbsRDMAError
 from pyverbs.providers.mlx5.dr_domain cimport DrDomain
 from pyverbs.providers.mlx5.mlx5dv cimport Mlx5DevxObj
 from pyverbs.providers.mlx5.dr_rule cimport DrRule
-import pyverbs.providers.mlx5.mlx5_enums as dve
+from pyverbs.providers.mlx5.mlx5_enums import mlx5dv_dr_action_dest_type
 from pyverbs.pyverbs_error import PyverbsError
 from pyverbs.base cimport close_weakrefs
 from libc.stdlib cimport calloc, free
@@ -216,7 +216,7 @@ cdef class DrActionDestAttr(PyverbsCM):
         super().__init__()
         self.dest_reformat = NULL
         self.action_dest_attr = NULL
-        if action_type == dve.MLX5DV_DR_ACTION_DEST:
+        if action_type == mlx5dv_dr_action_dest_type.MLX5DV_DR_ACTION_DEST:
             self.action_dest_attr = <dv.mlx5dv_dr_action_dest_attr *> calloc(
                 1, sizeof(dv.mlx5dv_dr_action_dest_attr))
             if self.action_dest_attr == NULL:
@@ -224,7 +224,7 @@ cdef class DrActionDestAttr(PyverbsCM):
             self.action_dest_attr.type = action_type
             self.action_dest_attr.dest = dest.action
             self.dest = dest
-        elif action_type == dve.MLX5DV_DR_ACTION_DEST_REFORMAT:
+        elif action_type == mlx5dv_dr_action_dest_type.MLX5DV_DR_ACTION_DEST_REFORMAT:
             self.dest_reformat = <dv.mlx5dv_dr_action_dest_reformat *> calloc(
                 1, sizeof(dv.mlx5dv_dr_action_dest_reformat))
             if self.dest_reformat == NULL:

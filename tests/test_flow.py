@@ -7,7 +7,7 @@ from tests.base import RDMATestCase, RawResources, PyverbsRDMAError
 from pyverbs.spec import EthSpec, Ipv4ExtSpec, Ipv6Spec, TcpUdpSpec
 from tests.utils import requires_root_on_eth, PacketConsts
 from pyverbs.flow import FlowAttr, Flow
-import pyverbs.enums as e
+from pyverbs.libibverbs_enums import ibv_flow_spec_type
 import tests.utils as u
 import unittest
 import socket
@@ -138,7 +138,7 @@ class FlowTest(RDMATestCase):
         if self.is_eth_and_has_roce_hw_bug():
             raise unittest.SkipTest(f'Device {self.dev_name} doesn\'t support Ipv4ExtSpec')
         ip_spec = self.server.create_ip_spec()
-        udp_spec = self.server.create_tcp_udp_spec(e.IBV_FLOW_SPEC_UDP)
+        udp_spec = self.server.create_tcp_udp_spec(ibv_flow_spec_type.IBV_FLOW_SPEC_UDP)
         self.flow_traffic([eth_spec, ip_spec, udp_spec], PacketConsts.IP_V4,
                           PacketConsts.UDP_PROTO)
 
@@ -149,6 +149,6 @@ class FlowTest(RDMATestCase):
             raise unittest.SkipTest(f'Device {self.dev_name} doesn\'t support Ipv6Spec')
         ip_spec = self.server.create_ip_spec(PacketConsts.IP_V6,
                                              socket.IPPROTO_TCP)
-        tcp_spec = self.server.create_tcp_udp_spec(e.IBV_FLOW_SPEC_TCP)
+        tcp_spec = self.server.create_tcp_udp_spec(ibv_flow_spec_type.IBV_FLOW_SPEC_TCP)
         self.flow_traffic([eth_spec, ip_spec, tcp_spec], PacketConsts.IP_V6,
                           PacketConsts.TCP_PROTO)

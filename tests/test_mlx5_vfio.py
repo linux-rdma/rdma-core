@@ -19,7 +19,7 @@ from tests.mlx5_base import Mlx5DevxRcResources, Mlx5DevxTrafficBase, PortState,
 from pyverbs.providers.mlx5.mlx5dv import Mlx5DevxMsiVector, Mlx5DevxEq, Mlx5UAR
 from pyverbs.providers.mlx5.mlx5_vfio import Mlx5VfioAttr, Mlx5VfioContext
 from pyverbs.pyverbs_error import PyverbsRDMAError
-import pyverbs.providers.mlx5.mlx5_enums as dve
+from pyverbs.providers.mlx5.mlx5_enums import _MLX5DV_UAR_ALLOC_TYPE_NC
 from pyverbs.base import PyverbsRDMAErrno
 import pyverbs.mem_alloc as mem
 import pyverbs.dma_util as dma
@@ -69,7 +69,7 @@ class Mlx5VfioEqResources(Mlx5VfioResources):
 
     def create_uar(self):
         super().create_uar()
-        self.uar['eq'] = Mlx5UAR(self.ctx, dve._MLX5DV_UAR_ALLOC_TYPE_NC)
+        self.uar['eq'] = Mlx5UAR(self.ctx, _MLX5DV_UAR_ALLOC_TYPE_NC)
         if not self.uar['eq'].page_id:
             raise PyverbsRDMAError('Failed to allocate UAR')
 

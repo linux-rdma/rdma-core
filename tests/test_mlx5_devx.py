@@ -8,7 +8,7 @@ Test module for mlx5 DevX.
 from tests.mlx5_base import Mlx5DevxRcResources, Mlx5DevxTrafficBase
 import pyverbs.mem_alloc as mem
 from pyverbs.mr import MR
-import pyverbs.enums as e
+from pyverbs.libibverbs_enums import ibv_access_flags, ibv_odp_transport_cap_bits
 import tests.utils as u
 
 
@@ -18,8 +18,8 @@ class Mlx5DevxRcOdpRes(Mlx5DevxRcResources):
         self.with_odp = True
         self.user_addr = mem.mmap(length=self.msg_size,
                                   flags=mem.MAP_ANONYMOUS_ | mem.MAP_PRIVATE_)
-        access = e.IBV_ACCESS_LOCAL_WRITE | e.IBV_ACCESS_REMOTE_READ | \
-                 e.IBV_ACCESS_ON_DEMAND
+        access = ibv_access_flags.IBV_ACCESS_LOCAL_WRITE | ibv_access_flags.IBV_ACCESS_REMOTE_READ | \
+                 ibv_access_flags.IBV_ACCESS_ON_DEMAND
         self.mr = MR(self.pd, self.msg_size, access, self.user_addr)
 
 
@@ -48,7 +48,7 @@ class Mlx5DevxRcTrafficTest(Mlx5DevxTrafficBase):
         # Send traffic
         self.send_imm_traffic()
 
-    @u.requires_odp('rc', e.IBV_ODP_SUPPORT_SEND | e.IBV_ODP_SUPPORT_RECV)
+    @u.requires_odp('rc', ibv_odp_transport_cap_bits.IBV_ODP_SUPPORT_SEND | ibv_odp_transport_cap_bits.IBV_ODP_SUPPORT_RECV)
     def test_devx_rc_qp_odp_traffic(self):
         """
         Creates two DevX RC QPs using ODP enabled MKeys.

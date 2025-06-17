@@ -13,7 +13,9 @@ from pyverbs.wr import SGE, RecvWR, SendWR
 from pyverbs.base import PyverbsRDMAErrno
 from pyverbs.qp import QPAttr, QPCap
 from pyverbs.mr import MR
-import pyverbs.enums as e
+from pyverbs.libibverbs_enums import ibv_tm_cap_flags, ibv_srq_init_attr_mask, ibv_srq_type, \
+    ibv_create_cq_wc_flags, ibv_access_flags, ibv_tmh_op, ibv_wr_opcode, ibv_wc_flags, ibv_wc_status, \
+    ibv_wc_opcode, ibv_ops_wr_opcode, ibv_ops_flags, IBV_WC_STANDARD_FLAGS
 import tests.utils as u
 
 TAG_MASK = 0xffff
@@ -61,14 +63,14 @@ class TMResources(RCResources):
         super().__init__(dev_name=dev_name, ib_port=ib_port,
                          gid_index=gid_index, with_srq=with_srq,
                          qp_count=qp_count)
-        if not self.ctx.query_device_ex().tm_caps.flags & e.IBV_TM_CAP_RC:
+        if not self.ctx.query_device_ex().tm_caps.flags & ibv_tm_cap_flags.IBV_TM_CAP_RC:
             raise unittest.SkipTest("Tag matching is not supported")
 
     def create_srq(self):
         srq_attr = SrqInitAttrEx()
-        srq_attr.comp_mask = e.IBV_SRQ_INIT_ATTR_TYPE | e.IBV_SRQ_INIT_ATTR_PD | \
-                             e.IBV_SRQ_INIT_ATTR_CQ | e.IBV_SRQ_INIT_ATTR_TM
-        srq_attr.srq_type = e.IBV_SRQT_TM
+        srq_attr.comp_mask = ibv_srq_init_attr_mask.IBV_SRQ_INIT_ATTR_TYPE | ibv_srq_init_attr_mask.IBV_SRQ_INIT_ATTR_PD | \
+                             ibv_srq_init_attr_mask.IBV_SRQ_INIT_ATTR_CQ | ibv_srq_init_attr_mask.IBV_SRQ_INIT_ATTR_TM
+        srq_attr.srq_type = ibv_srq_type.IBV_SRQT_TM
         srq_attr.pd = self.pd
         srq_attr.cq = self.cq
         srq_attr.max_num_tags = self.ctx.query_device_ex().tm_caps.max_num_tags
@@ -76,7 +78,7 @@ class TMResources(RCResources):
         self.srq = SRQ(self.ctx, srq_attr)
 
     def create_cq(self):
-        cq_init_attr = CqInitAttrEx(wc_flags=e.IBV_WC_EX_WITH_TM_INFO | e.IBV_WC_STANDARD_FLAGS)
+        cq_init_attr = CqInitAttrEx(wc_flags=ibv_create_cq_wc_flags.IBV_WC_EX_WITH_TM_INFO | IBV_WC_STANDARD_FLAGS)
         try:
             self.cq = CQEX(self.ctx, cq_init_attr)
         except PyverbsRDMAError as ex:
@@ -90,12 +92,12 @@ class TMResources(RCResources):
 
     def create_qp_attr(self):
         qp_attr = QPAttr(port_num=self.ib_port)
-        qp_attr.qp_access_flags = e.IBV_ACCESS_LOCAL_WRITE | e.IBV_ACCESS_REMOTE_READ | \
-                                  e.IBV_ACCESS_REMOTE_WRITE
+        qp_attr.qp_access_flags = ibv_access_flags.IBV_ACCESS_LOCAL_WRITE | ibv_access_flags.IBV_ACCESS_REMOTE_READ | \
+                                  ibv_access_flags.IBV_ACCESS_REMOTE_WRITE
         return qp_attr
 
     def create_mr(self):
-        access = e.IBV_ACCESS_LOCAL_WRITE | e.IBV_ACCESS_REMOTE_READ | e.IBV_ACCESS_REMOTE_WRITE
+        access = ibv_access_flags.IBV_ACCESS_LOCAL_WRITE | ibv_access_flags.IBV_ACCESS_REMOTE_READ | ibv_access_flags.IBV_ACCESS_REMOTE_WRITE
         self.mr = MR(self.pd, self.msg_size, access=access)
 
 
@@ -128,7 +130,7 @@ class TMTest(RDMATestCase):
             u.post_recv(self.client, u.get_recv_wr(self.client), num_wqes=HW_LIMITAION)
             u.post_recv(self.server, u.get_recv_wr(self.server), num_wqes=HW_LIMITAION)
 
-    def get_send_elements(self, tag=0, tm_opcode=e.IBV_TMH_EAGER, tm=True):
+    def get_send_elements(self, tag=0, tm_opcode=ibv_tmh_op.IBV_TMH_EAGER, tm=True):
         """
         Creates a single SGE and a single Send WR for client QP. The content
         of the message is 'c' for client side. The function also generates TMH
@@ -136,7 +138,7 @@ class TMTest(RDMATestCase):
         :return: Send wr and expected msg that is read from mr
         """
         sge = SGE(self.client.mr.buf, self.client.msg_size, self.client.mr_lkey)
-        if tm_opcode == e.IBV_TMH_RNDV:
+        if tm_opcode == ibv_tmh_op.IBV_TMH_RNDV:
             max_rndv_hdr_size = self.server.ctx.query_device_ex().tm_caps.max_rndv_hdr_size
             sge.length = max_rndv_hdr_size if max_rndv_hdr_size <= self.server.mr.length else \
                 self.server.mr.length
@@ -150,16 +152,16 @@ class TMTest(RDMATestCase):
             if tm:
                 write_tm_header(mr=self.client.mr, tag=tag, tm_opcode=tm_opcode)
 
-        send_wr = SendWR(opcode=e.IBV_WR_SEND, num_sge=1, sg=[sge])
+        send_wr = SendWR(opcode=ibv_wr_opcode.IBV_WR_SEND, num_sge=1, sg=[sge])
         exp_msg = self.client.mr.read(self.client.msg_size, 0)
         return send_wr, exp_msg
 
-    def get_exp_wc_flags(self, tm_opcode=e.IBV_TMH_EAGER, fixed_send_tag=None):
-        if tm_opcode == e.IBV_TMH_RNDV:
-            return e.IBV_WC_TM_MATCH
-        return 0 if fixed_send_tag else e.IBV_WC_TM_MATCH | e.IBV_WC_TM_DATA_VALID
+    def get_exp_wc_flags(self, tm_opcode=ibv_tmh_op.IBV_TMH_EAGER, fixed_send_tag=None):
+        if tm_opcode == ibv_tmh_op.IBV_TMH_RNDV:
+            return ibv_wc_flags.IBV_WC_TM_MATCH
+        return 0 if fixed_send_tag else ibv_wc_flags.IBV_WC_TM_MATCH | ibv_wc_flags.IBV_WC_TM_DATA_VALID
 
-    def get_exp_params(self, fixed_send_tag=None, send_tag=0, tm_opcode=e.IBV_TMH_EAGER):
+    def get_exp_params(self, fixed_send_tag=None, send_tag=0, tm_opcode=ibv_tmh_op.IBV_TMH_EAGER):
         wc_flags = self.get_exp_wc_flags(tm_opcode=tm_opcode, fixed_send_tag=fixed_send_tag)
         return (fixed_send_tag, 0, 0, wc_flags) if fixed_send_tag else \
             (send_tag, send_tag, send_tag, wc_flags)
@@ -191,7 +193,7 @@ class TMTest(RDMATestCase):
             ret = cqex.start_poll(poll_attr)
         if ret != 0:
             raise PyverbsRDMAErrno('Failed to poll CQ - got a timeout')
-        if cqex.status != e.IBV_WC_SUCCESS:
+        if cqex.status != ibv_wc_status.IBV_WC_SUCCESS:
             raise PyverbsError(f'Completion status is {cqex.status}')
         actual_cqe_dict = {}
         if to_valid:
@@ -201,15 +203,15 @@ class TMTest(RDMATestCase):
                                'wc_flags': cqex.read_wc_flags()}
             if is_server:
                 actual_cqe_dict['tag'] = cqex.read_tm_info().tag
-            if recv_opcode == e.IBV_WC_TM_RECV and not \
-                    (recv_flags & (e.IBV_WC_TM_MATCH | e.IBV_WC_TM_DATA_VALID)):
+            if recv_opcode == ibv_wc_opcode.IBV_WC_TM_RECV and not \
+                    (recv_flags & (ibv_wc_flags.IBV_WC_TM_MATCH | ibv_wc_flags.IBV_WC_TM_DATA_VALID)):
                 # In case of receiving unexpected tag, HW doesn't return such wc_flags
                 # updadte unexpected count and sync is required.
                 self.server.unexp_cnt += 1
                 cqex.end_poll()
                 self.post_sync()
                 return actual_cqe_dict
-            if recv_opcode == e.IBV_WC_TM_ADD and (recv_flags & e.IBV_WC_TM_SYNC_REQ):
+            if recv_opcode == ibv_wc_opcode.IBV_WC_TM_ADD and (recv_flags & ibv_wc_flags.IBV_WC_TM_SYNC_REQ):
                 # These completion is complemented by the IBV_WC_TM_SYNC_REQ flag,
                 # which indicates whether further HW synchronization is needed.
                 cqex.end_poll()
@@ -227,11 +229,11 @@ class TMTest(RDMATestCase):
         SW (with respect to the current posted tags). When the SW and HW are in
         sync, tag matching resumes normally.
         """
-        wr = OpsWr(wr_id=wr_id, opcode=e.IBV_WR_TAG_SYNC, unexpected_cnt=self.server.unexp_cnt,
-                   recv_wr_id=wr_id, flags=e.IBV_OPS_SIGNALED | e.IBV_OPS_TM_SYNC)
+        wr = OpsWr(wr_id=wr_id, opcode=ibv_ops_wr_opcode.IBV_WR_TAG_SYNC, unexpected_cnt=self.server.unexp_cnt,
+                   recv_wr_id=wr_id, flags=ibv_ops_flags.IBV_OPS_SIGNALED | ibv_ops_flags.IBV_OPS_TM_SYNC)
         self.server.srq.post_srq_ops(wr)
         actual_cqe = self.poll_cq_ex(cqex=self.server.cq)
-        self.verify_cqe(actual_cqe=actual_cqe, wr_id=SYNC_WRID, opcode=e.IBV_WC_TM_SYNC)
+        self.verify_cqe(actual_cqe=actual_cqe, wr_id=SYNC_WRID, opcode=ibv_wc_opcode.IBV_WC_TM_SYNC)
 
     def post_recv_tm(self, tag, wrid):
         """
@@ -246,14 +248,14 @@ class TMTest(RDMATestCase):
         self.server.srq.post_srq_ops(wr)
         return wr
 
-    def build_expected_and_recv_msgs(self, exp_msg, tm_opcode=e.IBV_TMH_EAGER, fixed_send_tag=None):
-        no_tag = tm_opcode == e.IBV_TMH_RNDV or fixed_send_tag
+    def build_expected_and_recv_msgs(self, exp_msg, tm_opcode=ibv_tmh_op.IBV_TMH_EAGER, fixed_send_tag=None):
+        no_tag = tm_opcode == ibv_tmh_op.IBV_TMH_RNDV or fixed_send_tag
         actual_msg = self.server.mr.read(self.server.msg_size, 0)
         return (actual_msg, exp_msg, self.client.msg_size) if no_tag else \
             (actual_msg.decode(), (self.client.msg_size - TMH_SIZE) * 'c',
              self.client.msg_size - TMH_SIZE)
 
-    def tm_traffic(self, tm_opcode=e.IBV_TMH_EAGER, fixed_send_tag=None):
+    def tm_traffic(self, tm_opcode=ibv_tmh_op.IBV_TMH_EAGER, fixed_send_tag=None):
         """
         Runs Tag matching traffic between two sides (server and client)
         :param tm_opcode: The TM opcode in the send WR
@@ -263,7 +265,7 @@ class TMTest(RDMATestCase):
         for recv_tag in tags_list:
             self.post_recv_tm(tag=recv_tag, wrid=recv_tag)
             actual_cqe = self.poll_cq_ex(cqex=self.server.cq)
-            self.verify_cqe(actual_cqe=actual_cqe, wr_id=recv_tag, opcode=e.IBV_WC_TM_ADD)
+            self.verify_cqe(actual_cqe=actual_cqe, wr_id=recv_tag, opcode=ibv_wc_opcode.IBV_WC_TM_ADD)
         tags_list.reverse()
         for send_tag in tags_list:
             send_tag, tag_exp, wrid_exp, wc_flags = self.get_exp_params(
@@ -272,20 +274,20 @@ class TMTest(RDMATestCase):
             u.send(self.client, send_wr)
             self.poll_cq_ex(cqex=self.client.cq, to_valid=False)
             actual_cqe = self.poll_cq_ex(cqex=self.server.cq)
-            exp_recv_tm_opcode = e.IBV_WC_TM_NO_TAG if tm_opcode == e.IBV_TMH_NO_TAG else \
-                e.IBV_WC_TM_RECV
+            exp_recv_tm_opcode = ibv_wc_opcode.IBV_WC_TM_NO_TAG if tm_opcode == ibv_tmh_op.IBV_TMH_NO_TAG else \
+                ibv_wc_opcode.IBV_WC_TM_RECV
             self.verify_cqe(actual_cqe=actual_cqe, wr_id=wrid_exp, opcode=exp_recv_tm_opcode,
                             wc_flags=wc_flags, tag=tag_exp)
-            if tm_opcode == e.IBV_TMH_RNDV:
+            if tm_opcode == ibv_tmh_op.IBV_TMH_RNDV:
                 actual_cqe = self.poll_cq_ex(cqex=self.client.cq)
-                self.verify_cqe(actual_cqe=actual_cqe, opcode=e.IBV_WC_RECV, is_server=False)
+                self.verify_cqe(actual_cqe=actual_cqe, opcode=ibv_wc_opcode.IBV_WC_RECV, is_server=False)
                 actual_cqe = self.poll_cq_ex(cqex=self.server.cq)
-                self.verify_cqe(actual_cqe=actual_cqe, wr_id=wrid_exp, opcode=e.IBV_WC_TM_RECV,
-                                wc_flags=e.IBV_WC_TM_DATA_VALID)
+                self.verify_cqe(actual_cqe=actual_cqe, wr_id=wrid_exp, opcode=ibv_wc_opcode.IBV_WC_TM_RECV,
+                                wc_flags=ibv_wc_flags.IBV_WC_TM_DATA_VALID)
             actual_msg, exp_msg, msg_size = self.build_expected_and_recv_msgs \
                 (exp_msg=exp_msg, tm_opcode=tm_opcode, fixed_send_tag=fixed_send_tag)
             self.validate_msg(actual_msg, exp_msg, msg_size)
-            if fixed_send_tag and tm_opcode != e.IBV_TMH_NO_TAG:
+            if fixed_send_tag and tm_opcode != ibv_tmh_op.IBV_TMH_NO_TAG:
                 self.validate_exp_recv_params(exp_parm=self.curr_unexpected_cnt,
                                               recv_parm=self.server.unexp_cnt,
                                               descriptor='unexpected_count')
@@ -315,7 +317,7 @@ class TMTest(RDMATestCase):
         server receives and validates it,
         completions are expected to be with no tag.
         """
-        self.tm_traffic(tm_opcode=e.IBV_TMH_NO_TAG, fixed_send_tag=FIXED_SEND_TAG)
+        self.tm_traffic(tm_opcode=ibv_tmh_op.IBV_TMH_NO_TAG, fixed_send_tag=FIXED_SEND_TAG)
 
     def test_tm_rndv(self):
         """
@@ -324,4 +326,4 @@ class TMTest(RDMATestCase):
         server receives and validates it,
         2 completions are expected to be received for every WRs.
         """
-        self.tm_traffic(tm_opcode=e.IBV_TMH_RNDV)
+        self.tm_traffic(tm_opcode=ibv_tmh_op.IBV_TMH_RNDV)
