@@ -1,4 +1,5 @@
 etc/libibverbs.d/
+usr/lib/*/libbnxt_re.so.*
 usr/lib/*/libefa.so.*
 usr/lib/*/libhns.so.*
 usr/lib/*/libibverbs/lib*-rdmav*.so
