@@ -46,6 +46,9 @@
 
 void bnxt_re_free_mem(struct bnxt_re_mem *mem)
 {
+	if (!mem)
+		return;
+
 	if (mem->va_head) {
 		ibv_dofork_range(mem->va_head, mem->size);
 		munmap(mem->va_head, mem->size);

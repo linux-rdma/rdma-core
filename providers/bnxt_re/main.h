@@ -89,6 +89,11 @@ struct bnxt_re_pd {
 	uint32_t pdid;
 };
 
+enum bnxt_dv_cq_flags {
+	BNXT_DV_CQ_FLAGS_NONE = 0,
+	BNXT_DV_CQ_FLAGS_VALID = 0x1,
+};
+
 struct bnxt_re_cq {
 	struct ibv_cq ibvcq;
 	uint32_t cqid;
@@ -109,6 +114,8 @@ struct bnxt_re_cq {
 	uint8_t resize_tog;
 	bool deffered_db_sup;
 	uint32_t hw_cqes;
+	struct bnxt_re_dv_umem *cq_umem;
+	int dv_cq_flags;
 };
 
 struct bnxt_re_push_buffer {
@@ -233,6 +240,9 @@ struct bnxt_re_qp {
 	uint8_t qptyp;
 	struct bnxt_re_mem *mem;
 	struct bnxt_re_wr_send_qp wr_sq;
+	struct bnxt_re_pd *re_pd;
+	struct bnxt_re_dpi dv_dpi;
+	uint32_t qp_handle;
 };
 
 struct bnxt_re_mr {
