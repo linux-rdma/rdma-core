@@ -1,0 +1,9 @@
+/* Export symbols should be added below according to
+   Documentation/versioning.md document. */
+BNXT_RE_1.1 {
+	global:
+		bnxt_re_dv_alloc_db_region;
+		bnxt_re_dv_free_db_region;
+		bnxt_re_dv_get_default_db_region;
+	local: *;
+};
