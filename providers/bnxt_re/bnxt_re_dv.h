@@ -50,12 +50,20 @@ struct bnxt_re_dv_db_region_attr {
 	uint64_t *dbr;
 };
 
+struct bnxt_re_dv_cq_init_attr {
+	struct ibv_buf *umem_handle;	/* handle from ibv_alloc_user_buf() */
+	uint64_t umem_offset;		/* offset into umem_handle */
+	uint32_t ncqe;			/* num cq entries */
+};
+
 struct bnxt_re_dv_db_region_attr *
 bnxt_re_dv_alloc_db_region(struct ibv_context *ctx);
 int bnxt_re_dv_free_db_region(struct ibv_context *ctx,
 			      struct bnxt_re_dv_db_region_attr *attr);
 int bnxt_re_dv_get_default_db_region(struct ibv_context *ibvctx,
 				     struct bnxt_re_dv_db_region_attr *out);
+struct ibv_cq *bnxt_re_dv_create_cq(struct ibv_context *ibvctx,
+				    struct bnxt_re_dv_cq_init_attr *cq_attr);
 #ifdef __cplusplus
 }
 #endif

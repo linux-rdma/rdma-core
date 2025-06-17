@@ -46,6 +46,13 @@
 
 void bnxt_re_free_mem(struct bnxt_re_mem *mem)
 {
+	/* When a DV app allocates its own memory for objects,
+	 * there is no bnxt_re_mem object associated. So just
+	 * return when called from its destroy().
+	 */
+	if (!mem)
+		return;
+
 	if (mem->va_head) {
 		ibv_dofork_range(mem->va_head, mem->size);
 		munmap(mem->va_head, mem->size);
