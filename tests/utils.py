@@ -1504,11 +1504,11 @@ def requires_no_sriov():
     return outer
 
 
-def requires_root_on_eth(port_num=1):
+def requires_eth(port_num=1):
     def outer(func):
         def inner(instance):
-            if not (is_eth(instance.ctx, port_num) and is_root()):
-                raise unittest.SkipTest('Must be run by root on Ethernet link layer')
+            if not is_eth(instance.ctx, port_num):
+                raise unittest.SkipTest('Must be run on Ethernet link layer')
             return func(instance)
         return inner
     return outer
@@ -1742,6 +1742,32 @@ def is_datagram_qp(agr_obj):
 
 def is_root():
     return os.geteuid() == 0
+
+
+def has_cap_net_raw():
+    """
+    Check if the current process has CAP_NET_RAW capability.
+    """
+    try:
+        with open('/proc/self/status', 'r') as f:
+            for line in f:
+                if line.startswith('CapEff:'):
+                    # Parse the effective capabilities (hex format)
+                    cap_eff = int(line.split()[1], 16)
+                    return bool(cap_eff & 1 << 13)
+    except (IOError, ValueError, IndexError):
+        pass
+    return False
+
+
+def requires_cap_net_raw():
+    def outer(func):
+        def inner(instance):
+            if not has_cap_net_raw():
+                raise unittest.SkipTest('The process must have CAP_NET_RAW set')
+            return func(instance)
+        return inner
+    return outer
 
 
 def post_rq_state_bad_flow(test_obj):

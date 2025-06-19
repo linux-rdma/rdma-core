@@ -49,8 +49,9 @@ class QPTest(PyverbsAPITestCase):
         with PD(self.ctx) as pd:
             with CQ(self.ctx, 100, None, None, 0) as cq:
                 if qp_type == ibv_qp_type.IBV_QPT_RAW_PACKET:
-                    if not (u.is_eth(self.ctx, self.ib_port) and u.is_root()):
-                        raise unittest.SkipTest('To Create RAW QP must be done by root on Ethernet link layer')
+                    if not (u.is_eth(self.ctx, self.ib_port) and u.has_cap_net_raw()):
+                        raise unittest.SkipTest('To Create RAW QP must be done by user with '\
+                                                'CAP_NET_RAW on Ethernet link layer')
 
                 if is_ex:
                     qia = get_qp_init_attr_ex(cq, pd, self.attr, self.attr_ex, qp_type)
@@ -253,8 +254,9 @@ class QPTest(PyverbsAPITestCase):
         with PD(self.ctx) as pd:
             with CQ(self.ctx, 100, None, None, 0) as cq:
                 if qp_type == ibv_qp_type.IBV_QPT_RAW_PACKET:
-                    if not (u.is_eth(self.ctx, self.ib_port) and u.is_root()):
-                        raise unittest.SkipTest('To Create RAW QP must be done by root on Ethernet link layer')
+                    if not (u.is_eth(self.ctx, self.ib_port) and u.has_cap_net_raw()):
+                        raise unittest.SkipTest('To Create RAW QP must be done by user with '\
+                                                'CAP_NET_RAW on Ethernet link layer')
 
                 # Legacy QP
                 qia = u.get_qp_init_attr(cq, self.attr)
