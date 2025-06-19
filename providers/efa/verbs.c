@@ -769,9 +769,6 @@ static inline int efa_poll_sub_cqs(struct efa_cq *cq, struct ibv_wc *wc,
 		sub_cq = &cq->sub_cq_arr[cq->next_poll_idx++];
 		cq->next_poll_idx %= num_sub_cqs;
 
-		if (!sub_cq->ref_cnt)
-			continue;
-
 		err = efa_poll_sub_cq(cq, sub_cq, &qp, wc, extended);
 		if (err != ENOENT) {
 			cq->cc++;
