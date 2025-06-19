@@ -45,7 +45,6 @@ struct rc_rq_shadow_wqe {
 struct shadow_queue {
 	uint64_t prod_idx;
 	uint64_t cons_idx;
-	uint64_t next_to_complete_idx;
 	uint64_t next_to_signal_idx;
 	uint32_t length;
 	uint32_t stride;
@@ -56,7 +55,6 @@ static inline void reset_shadow_queue(struct shadow_queue *queue)
 {
 	queue->prod_idx = 0;
 	queue->cons_idx = 0;
-	queue->next_to_complete_idx = 0;
 	queue->next_to_signal_idx = 0;
 }
 
@@ -90,6 +88,14 @@ static inline bool shadow_queue_full(struct shadow_queue *queue)
 	return (prod_idx - cons_idx) >= queue->length;
 }
 
+static inline bool shadow_queue_empty(struct shadow_queue *queue)
+{
+	uint64_t prod_idx = atomic_load_explicit(producer(queue), memory_order_acquire);
+	uint64_t cons_idx = atomic_load_explicit(consumer(queue), memory_order_relaxed);
+
+	return (prod_idx == cons_idx);
+}
+
 static inline struct shadow_wqe_header *
 shadow_queue_producer_entry(struct shadow_queue *queue)
 {
@@ -116,36 +122,22 @@ static inline struct shadow_wqe_header *
 shadow_queue_get_next_to_consume(struct shadow_queue *queue)
 {
 	uint64_t cons_idx = atomic_load_explicit(consumer(queue), memory_order_relaxed);
+	uint64_t prod_idx = atomic_load_explicit(producer(queue), memory_order_acquire);
 
-	if (cons_idx == queue->next_to_complete_idx)
+	if (cons_idx == prod_idx)
 		return NULL;
 
 	return shadow_queue_get_element(queue, cons_idx);
 }
 
 static inline struct shadow_wqe_header *
-shadow_queue_get_next_to_complete(struct shadow_queue *queue)
-{
-	uint64_t prod_idx = atomic_load_explicit(producer(queue), memory_order_acquire);
-
-	if (queue->next_to_complete_idx == prod_idx)
-		return NULL;
-
-	return shadow_queue_get_element(queue, queue->next_to_complete_idx);
-}
-
-static inline void shadow_queue_advance_next_to_complete(struct shadow_queue *queue)
-{
-	queue->next_to_complete_idx++;
-}
-
-static inline struct shadow_wqe_header *
 shadow_queue_get_next_to_signal(struct shadow_queue *queue)
 {
 	uint64_t prod_idx = atomic_load_explicit(producer(queue), memory_order_acquire);
+	uint64_t cons_idx = atomic_load_explicit(consumer(queue), memory_order_relaxed);
 	struct shadow_wqe_header *wqe = NULL;
 
-	queue->next_to_signal_idx = max(queue->next_to_signal_idx, queue->next_to_complete_idx);
+	queue->next_to_signal_idx = max(queue->next_to_signal_idx, cons_idx);
 	while (queue->next_to_signal_idx < prod_idx) {
 		wqe = shadow_queue_get_element(queue, queue->next_to_signal_idx);
 		queue->next_to_signal_idx++;

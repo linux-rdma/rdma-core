@@ -9,6 +9,7 @@
 #include "manadv.h"
 #include <ccan/minmax.h>
 #include "shadow_queue.h"
+#include "gdma.h"
 
 #define COMP_ENTRY_SIZE 64
 #define MANA_IB_TOEPLITZ_HASH_KEY_SIZE_IN_BYTES 40
@@ -50,6 +51,8 @@ enum user_queue_types {
 	USER_RC_RECV_QUEUE_RESPONDER = 3,
 	USER_RC_QUEUE_TYPE_MAX = 4,
 };
+
+
 
 static inline uint32_t align_hw_size(uint32_t size)
 {
@@ -133,8 +136,10 @@ struct mana_qp {
 	struct shadow_queue shadow_rq;
 	struct shadow_queue shadow_sq;
 
-	struct list_node send_cq_node;
-	struct list_node recv_cq_node;
+	struct list_node send_err_node;
+	struct list_node recv_err_node;
+	bool on_err_list_send;
+	bool on_err_list_recv;
 };
 
 struct mana_wq {
@@ -159,10 +164,10 @@ struct mana_cq {
 	uint32_t head;
 	uint32_t poll_credit;
 	void *db_page;
-	/* list of qp's that use this cq for send completions */
-	struct list_head send_qp_list;
-	/* list of qp's that use this cq for recv completions */
-	struct list_head recv_qp_list;
+	struct list_head send_err_qp_list;
+	struct list_head recv_err_qp_list;
+	struct gdma_cqe pending_cqe;
+	bool has_pending_cqe;
 	bool buf_external;
 };
 

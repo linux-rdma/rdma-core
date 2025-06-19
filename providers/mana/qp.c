@@ -263,8 +263,6 @@ static uint32_t get_queue_size(struct ibv_qp_init_attr *attr, enum user_queue_ty
 static struct ibv_qp *mana_create_qp_rc(struct ibv_pd *ibpd,
 					struct ibv_qp_init_attr *attr)
 {
-	struct mana_cq *send_cq = container_of(attr->send_cq, struct mana_cq, ibcq);
-	struct mana_cq *recv_cq = container_of(attr->recv_cq, struct mana_cq, ibcq);
 	struct mana_context *ctx = to_mctx(ibpd->context);
 	struct mana_ib_create_rc_qp_resp *qp_resp_drv;
 	struct mana_create_rc_qp_resp qp_resp = {};
@@ -335,14 +333,6 @@ static struct ibv_qp *mana_create_qp_rc(struct ibv_pd *ibpd,
 		errno = ret;
 		goto destroy_qp;
 	}
-
-	pthread_spin_lock(&send_cq->lock);
-	list_add(&send_cq->send_qp_list, &qp->send_cq_node);
-	pthread_spin_unlock(&send_cq->lock);
-
-	pthread_spin_lock(&recv_cq->lock);
-	list_add(&recv_cq->recv_qp_list, &qp->recv_cq_node);
-	pthread_spin_unlock(&recv_cq->lock);
 
 	return &qp->ibqp.qp;
 
@@ -446,11 +436,17 @@ static void mana_drain_cqes(struct mana_qp *qp)
 	struct mana_cq *recv_cq = container_of(qp->ibqp.qp.recv_cq, struct mana_cq, ibcq);
 
 	pthread_spin_lock(&send_cq->lock);
-	list_del(&qp->send_cq_node);
+	if (qp->on_err_list_send) {
+		list_del(&qp->send_err_node);
+		qp->on_err_list_send = false;
+	}
 	pthread_spin_unlock(&send_cq->lock);
 
 	pthread_spin_lock(&recv_cq->lock);
-	list_del(&qp->recv_cq_node);
+	if (qp->on_err_list_recv) {
+		list_del(&qp->recv_err_node);
+		qp->on_err_list_recv = false;
+	}
 	pthread_spin_unlock(&recv_cq->lock);
 }
 
