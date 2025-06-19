@@ -18,8 +18,8 @@ from pyverbs.providers.mlx5.mlx5_enums import mlx5dv_flow_matcher_attr_mask, mlx
     MLX5DV_FLOW_ACTION_PACKET_REFORMAT_TYPE_L2_TO_L2_TUNNEL_
 from pyverbs.libibverbs_enums import ibv_flow_flags
 from tests.mlx5_base import Mlx5RDMATestCase, create_privileged_context, Mlx5RcResources
-from tests.utils import requires_root_on_eth, PacketConsts, is_eth, requires_root, \
-    requires_no_sriov
+from tests.utils import PacketConsts, is_eth, requires_no_sriov, requires_eth,\
+    requires_cap_net_raw, requires_root
 from tests.base import RawResources
 import tests.utils as u
 import struct
@@ -115,7 +115,8 @@ class Mlx5FlowResources(RawResources):
             raise ex
         return matcher
 
-    @requires_root_on_eth()
+    @requires_cap_net_raw()
+    @requires_eth()
     def create_qps(self):
         super().create_qps()
 
@@ -346,8 +347,8 @@ class Mlx5MatcherTest(Mlx5RDMATestCase):
                           gid_idx=self.gid_index, port=self.ib_port, is_cq_ex=True)
 
     @u.skip_unsupported
-    @requires_root()
     @requires_no_sriov()
+    @requires_cap_net_raw()
     def test_flow_table_drop(self):
         """
         Creates rules with DevX objects for RDMA RX and TX tables.

@@ -5,7 +5,7 @@ Test module for pyverbs' flow module.
 """
 from tests.base import RDMATestCase, RawResources, PyverbsRDMAError
 from pyverbs.spec import EthSpec, Ipv4ExtSpec, Ipv6Spec, TcpUdpSpec
-from tests.utils import requires_root_on_eth, PacketConsts
+from tests.utils import requires_cap_net_raw, PacketConsts, requires_eth
 from pyverbs.flow import FlowAttr, Flow
 from pyverbs.libibverbs_enums import ibv_flow_spec_type
 import tests.utils as u
@@ -25,7 +25,8 @@ class FlowRes(RawResources):
         super().__init__(dev_name=dev_name, ib_port=ib_port,
                          gid_index=gid_index)
 
-    @requires_root_on_eth()
+    @requires_cap_net_raw()
+    @requires_eth()
     def create_qps(self):
         super().create_qps()
 
