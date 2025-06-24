@@ -269,7 +269,6 @@ static int cq_next_poll(struct ibv_cq_ex *current)
 
 	if (check_cq_queue_empty(cq)) {
 		store_consumer_index(cq->queue, cq->cur_index);
-		pthread_spin_unlock(&cq->lock);
 		errno = ENOENT;
 		return errno;
 	}
