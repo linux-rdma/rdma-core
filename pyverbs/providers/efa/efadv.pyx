@@ -7,7 +7,7 @@ cimport pyverbs.providers.efa.libefa as dv
 from pyverbs.addr cimport GID
 from pyverbs.base import PyverbsRDMAErrno, PyverbsRDMAError
 from pyverbs.cq cimport CQEX, CqInitAttrEx
-import pyverbs.enums as e
+from pyverbs.libibverbs_enums import ibv_qp_attr_mask
 cimport pyverbs.libibverbs as v
 from pyverbs.pd cimport PD
 from pyverbs.qp cimport QP, QPEx, QPInitAttr, QPInitAttrEx
@@ -212,10 +212,10 @@ cdef class SRDQPEx(QPEx):
         super().__init__(ctx, attr_ex)
 
     def _get_comp_mask(self, dst):
-        srd_mask = {'INIT': e.IBV_QP_PKEY_INDEX | e.IBV_QP_PORT | e.IBV_QP_QKEY,
+        srd_mask = {'INIT': ibv_qp_attr_mask.IBV_QP_PKEY_INDEX | ibv_qp_attr_mask.IBV_QP_PORT | ibv_qp_attr_mask.IBV_QP_QKEY,
                     'RTR': 0,
-                    'RTS': e.IBV_QP_SQ_PSN}
-        return srd_mask [dst] | e.IBV_QP_STATE
+                    'RTS': ibv_qp_attr_mask.IBV_QP_SQ_PSN}
+        return srd_mask [dst] | ibv_qp_attr_mask.IBV_QP_STATE
 
 
 cdef class EfaDVCQInitAttr(PyverbsObject):

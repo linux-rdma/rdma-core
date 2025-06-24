@@ -10,7 +10,8 @@ from pyverbs.qp import QPInitAttrEx, QPEx
 from tests.test_flow import FlowRes
 from pyverbs.flow import Flow
 from pyverbs.cq import CQ
-import pyverbs.enums as e
+from pyverbs.libibverbs_enums import ibv_qp_init_attr_mask, ibv_qp_type, ibv_wq_attr_mask, ibv_wq_state, \
+    ibv_wq_type, ibv_rx_hash_function_flags, ibv_rx_hash_fields
 import tests.utils as u
 
 
@@ -75,9 +76,9 @@ class RssRes(FlowRes):
 
     def create_qp_init_attr(self):
         self.create_ind_table()
-        mask = e.IBV_QP_INIT_ATTR_CREATE_FLAGS | e.IBV_QP_INIT_ATTR_PD | \
-                    e.IBV_QP_INIT_ATTR_RX_HASH | e.IBV_QP_INIT_ATTR_IND_TABLE
-        return QPInitAttrEx(qp_type=e.IBV_QPT_RAW_PACKET, comp_mask=mask, pd=self.pd,
+        mask = ibv_qp_init_attr_mask.IBV_QP_INIT_ATTR_CREATE_FLAGS | ibv_qp_init_attr_mask.IBV_QP_INIT_ATTR_PD | \
+            ibv_qp_init_attr_mask.IBV_QP_INIT_ATTR_RX_HASH | ibv_qp_init_attr_mask.IBV_QP_INIT_ATTR_IND_TABLE
+        return QPInitAttrEx(qp_type=ibv_qp_type.IBV_QPT_RAW_PACKET, comp_mask=mask, pd=self.pd,
                             hash_conf=self.hash_conf, ind_table=self.ind_tbl)
 
     @requires_indirection_table_support
@@ -93,20 +94,20 @@ class RssRes(FlowRes):
         wqias = [self.initiate_wq_attr(cq) for cq in self.cqs]
         for i in range(1 << self.log_ind_tbl_size):
             wq = WQ(self.ctx, wqias[i % CQS_NUM])
-            wq.modify(WQAttr(attr_mask=e.IBV_WQ_ATTR_STATE, wq_state=e.IBV_WQS_RDY))
+            wq.modify(WQAttr(attr_mask=ibv_wq_attr_mask.IBV_WQ_ATTR_STATE, wq_state=ibv_wq_state.IBV_WQS_RDY))
             self.wqs.append(wq)
         return self.wqs
 
     def initiate_wq_attr(self, cq):
-        return WQInitAttr(wq_context=None, wq_pd=self.pd, wq_cq=cq, wq_type=e.IBV_WQT_RQ,
+        return WQInitAttr(wq_context=None, wq_pd=self.pd, wq_cq=cq, wq_type=ibv_wq_type.IBV_WQT_RQ,
                           max_wr=WRS_PER_ROUND, max_sge=self.ctx.query_device().max_sge,
                           comp_mask=0, create_flags=0)
 
     def init_rx_hash_config(self):
-        return RxHashConf(rx_hash_function=e.IBV_RX_HASH_FUNC_TOEPLITZ,
+        return RxHashConf(rx_hash_function=ibv_rx_hash_function_flags.IBV_RX_HASH_FUNC_TOEPLITZ,
                           rx_hash_key_len=len(HASH_KEY),
                           rx_hash_key=HASH_KEY,
-                          rx_hash_fields_mask=e.IBV_RX_HASH_DST_IPV4 | e.IBV_RX_HASH_SRC_IPV4)
+                          rx_hash_fields_mask=ibv_rx_hash_fields.IBV_RX_HASH_DST_IPV4 | ibv_rx_hash_fields.IBV_RX_HASH_SRC_IPV4)
 
     def _create_flow(self, flow_attr):
         return [Flow(qp, flow_attr) for qp in self.qps]

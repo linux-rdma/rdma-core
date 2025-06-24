@@ -2,7 +2,7 @@ import unittest
 
 from tests.base import RCResources, RDMATestCase
 from pyverbs.srq import SrqAttr
-import pyverbs.enums as e
+from pyverbs.libibverbs_enums import ibv_device_cap_flags, ibv_srq_attr_mask, ibv_event_type
 import tests.utils as u
 
 
@@ -25,13 +25,13 @@ class SrqTestCase(RDMATestCase):
         or equal than the requested max_wr.
         """
         device_attr = self.server.ctx.query_device()
-        if not device_attr.device_cap_flags & e.IBV_DEVICE_SRQ_RESIZE:
+        if not device_attr.device_cap_flags & ibv_device_cap_flags.IBV_DEVICE_SRQ_RESIZE:
             raise unittest.SkipTest('SRQ resize is not supported')
         srq_query_attr = self.server.srq.query()
         srq_query_max_wr = srq_query_attr.max_wr
         srq_max_wr = min(device_attr.max_srq_wr, srq_query_max_wr*2)
         srq_attr = SrqAttr(max_wr=srq_max_wr)
-        self.server.srq.modify(srq_attr, e.IBV_SRQ_MAX_WR)
+        self.server.srq.modify(srq_attr, ibv_srq_attr_mask.IBV_SRQ_MAX_WR)
         srq_attr_modified = self.server.srq.query()
         self.assertGreaterEqual(srq_attr_modified.max_wr, srq_attr.max_wr,
                                 'Resize SRQ failed')
@@ -49,7 +49,7 @@ class SrqTestCase(RDMATestCase):
         for _ in range(10):
             self.server.srq.post_recv(u.get_recv_wr(self.server))
         srq_modify_attr = SrqAttr(srq_limit=7)
-        self.server.srq.modify(srq_modify_attr, e.IBV_SRQ_LIMIT)
+        self.server.srq.modify(srq_modify_attr, ibv_srq_attr_mask.IBV_SRQ_LIMIT)
         server_query = self.server.srq.query()
         self.assertEqual(srq_modify_attr.srq_limit, server_query.srq_limit, 'Modify SRQ failed')
         for _ in range(4):
@@ -59,4 +59,4 @@ class SrqTestCase(RDMATestCase):
             u.poll_cq(self.server.cq)
         event = self.server.ctx.get_async_event()
         event.ack()
-        self.assertEqual(event.event_type, e.IBV_EVENT_SRQ_LIMIT_REACHED)
+        self.assertEqual(event.event_type, ibv_event_type.IBV_EVENT_SRQ_LIMIT_REACHED)

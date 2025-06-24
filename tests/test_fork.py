@@ -2,7 +2,7 @@
 # Copyright 2021 Amazon.com, Inc. or its affiliates. All rights reserved.
 
 import errno
-import pyverbs.enums as e
+from pyverbs.libibverbs_enums import ibv_fork_status
 from pyverbs.fork import fork_init, is_fork_initialized
 from pyverbs.pyverbs_error import PyverbsRDMAError
 
@@ -17,12 +17,12 @@ class ForkAPITest(PyverbsAPITestCase):
     def test_is_fork_initialized(self):
         try:
             fork_init()
-            expected_ret = [e.IBV_FORK_ENABLED, e.IBV_FORK_UNNEEDED]
+            expected_ret = [ibv_fork_status.IBV_FORK_ENABLED, ibv_fork_status.IBV_FORK_UNNEEDED]
         except PyverbsRDMAError as ex:
             # Depends on the order of the tests EINVAL could be returned if
             # fork_init() is called after an MR has already been registered.
             self.assertEqual(ex.error_code, errno.EINVAL)
-            expected_ret = [e.IBV_FORK_DISABLED, e.IBV_FORK_UNNEEDED]
+            expected_ret = [ibv_fork_status.IBV_FORK_DISABLED, ibv_fork_status.IBV_FORK_UNNEEDED]
 
         ret = is_fork_initialized()
         if self.config['verbosity']:

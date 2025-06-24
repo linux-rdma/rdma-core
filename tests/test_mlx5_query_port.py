@@ -11,7 +11,8 @@ import errno
 from pyverbs.pyverbs_error import PyverbsRDMAError
 from pyverbs.providers.mlx5.mlx5dv import Mlx5Context
 from tests.mlx5_base import Mlx5PyverbsAPITestCase
-import pyverbs.providers.mlx5.mlx5_enums as e
+from pyverbs.providers.mlx5.mlx5_enums import MLX5DV_QUERY_PORT_VPORT_STEERING_ICM_RX_, \
+    MLX5DV_QUERY_PORT_VPORT_STEERING_ICM_TX_, MLX5DV_QUERY_PORT_VPORT_REG_C0_
 
 
 class Mlx5DVQueryPortTestCase(Mlx5PyverbsAPITestCase):
@@ -27,14 +28,14 @@ class Mlx5DVQueryPortTestCase(Mlx5PyverbsAPITestCase):
                     raise unittest.SkipTest(f'mlx5dv_query_port() isn\'t supported')
                 raise ex
 
-            if (port_attr.flags & e.MLX5DV_QUERY_PORT_VPORT_STEERING_ICM_RX_):
+            if (port_attr.flags & MLX5DV_QUERY_PORT_VPORT_STEERING_ICM_RX_):
                 self.assertNotEqual(port_attr.vport_steering_icm_rx, 0,
                                     f'Vport steering icm rx address is zero')
 
-            if (port_attr.flags & e.MLX5DV_QUERY_PORT_VPORT_STEERING_ICM_TX_):
+            if (port_attr.flags & MLX5DV_QUERY_PORT_VPORT_STEERING_ICM_TX_):
                 self.assertNotEqual(port_attr.vport_steering_icm_tx, 0,
                                     f'Vport steering icm tx address is zero')
 
-            if (port_attr.flags & e.MLX5DV_QUERY_PORT_VPORT_REG_C0_):
+            if (port_attr.flags & MLX5DV_QUERY_PORT_VPORT_REG_C0_):
                 self.assertNotEqual(port_attr.reg_c0_mask, 0,
                                     f'Vport reg c0 mask is zero')

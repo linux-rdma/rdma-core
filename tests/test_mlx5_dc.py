@@ -4,20 +4,20 @@
 import unittest
 import errno
 
-import pyverbs.providers.mlx5.mlx5_enums as me
 from tests.mlx5_base import Mlx5DcResources, Mlx5RDMATestCase, Mlx5DcStreamsRes,\
     DCI_TEST_GOOD_FLOW, DCI_TEST_BAD_FLOW_WITH_RESET,\
     DCI_TEST_BAD_FLOW_WITHOUT_RESET
 from pyverbs.pyverbs_error import PyverbsRDMAError
 from pyverbs.providers.mlx5.mlx5dv import Mlx5QP
-import pyverbs.enums as e
+from pyverbs.libibverbs_enums import ibv_access_flags, ibv_qp_create_send_ops_flags, ibv_wr_opcode, \
+    ibv_odp_transport_cap_bits
 import tests.utils as u
 
 
 class OdpDc(Mlx5DcResources):
     def create_mr(self):
         try:
-            self.mr = u.create_custom_mr(self, e.IBV_ACCESS_ON_DEMAND)
+            self.mr = u.create_custom_mr(self, ibv_access_flags.IBV_ACCESS_ON_DEMAND)
         except PyverbsRDMAError as ex:
             if ex.error_code == errno.EOPNOTSUPP:
                 raise unittest.SkipTest('Reg ODP MR is not supported')
@@ -42,28 +42,28 @@ class DCTest(Mlx5RDMATestCase):
 
     def test_dc_rdma_write(self):
         self.create_players(Mlx5DcResources, qp_count=2,
-                            send_ops_flags=e.IBV_QP_EX_WITH_RDMA_WRITE)
+                            send_ops_flags=ibv_qp_create_send_ops_flags.IBV_QP_EX_WITH_RDMA_WRITE)
         u.rdma_traffic(**self.traffic_args, new_send=True,
-                       send_op=e.IBV_WR_RDMA_WRITE)
+                       send_op=ibv_wr_opcode.IBV_WR_RDMA_WRITE)
 
     def test_dc_send(self):
         self.create_players(Mlx5DcResources, qp_count=2,
-                            send_ops_flags=e.IBV_QP_EX_WITH_SEND)
+                            send_ops_flags=ibv_qp_create_send_ops_flags.IBV_QP_EX_WITH_SEND)
         u.traffic(**self.traffic_args, new_send=True,
-                  send_op=e.IBV_WR_SEND)
+                  send_op=ibv_wr_opcode.IBV_WR_SEND)
 
     def test_dc_atomic(self):
         self.create_players(Mlx5DcResources, qp_count=2,
-                            send_ops_flags=e.IBV_QP_EX_WITH_ATOMIC_FETCH_AND_ADD)
+                            send_ops_flags=ibv_qp_create_send_ops_flags.IBV_QP_EX_WITH_ATOMIC_FETCH_AND_ADD)
         client_max_log = self.client.ctx.query_mlx5_device().max_dc_rd_atom
         server_max_log = self.server.ctx.query_mlx5_device().max_dc_rd_atom
         u.atomic_traffic(**self.traffic_args, new_send=True,
-                         send_op=e.IBV_WR_ATOMIC_FETCH_AND_ADD,
+                         send_op=ibv_wr_opcode.IBV_WR_ATOMIC_FETCH_AND_ADD,
                          client_wr=client_max_log, server_wr=server_max_log)
 
     def test_dc_ah_to_qp_mapping(self):
         self.create_players(Mlx5DcResources, qp_count=2,
-                            send_ops_flags=e.IBV_QP_EX_WITH_SEND)
+                            send_ops_flags=ibv_qp_create_send_ops_flags.IBV_QP_EX_WITH_SEND)
         client_ah = u.get_global_ah(self.client, self.gid_index, self.ib_port)
         try:
             Mlx5QP.map_ah_to_qp(client_ah, self.server.qps[0].qp_num)
@@ -72,7 +72,7 @@ class DCTest(Mlx5RDMATestCase):
                 raise unittest.SkipTest('Mapping AH to QP is not supported')
             raise ex
         u.traffic(**self.traffic_args, new_send=True,
-                  send_op=e.IBV_WR_SEND)
+                  send_op=ibv_wr_opcode.IBV_WR_SEND)
 
     def check_odp_dc_support(self):
         """
@@ -80,16 +80,17 @@ class DCTest(Mlx5RDMATestCase):
         :raises SkipTest: In case ODP is not supported with DC
         """
         dc_odp_caps = self.server.ctx.query_mlx5_device().dc_odp_caps
-        required_odp_caps = e.IBV_ODP_SUPPORT_SEND | e.IBV_ODP_SUPPORT_SRQ_RECV
+        required_odp_caps = ibv_odp_transport_cap_bits.IBV_ODP_SUPPORT_SEND | \
+                            ibv_odp_transport_cap_bits.IBV_ODP_SUPPORT_SRQ_RECV
         if required_odp_caps & dc_odp_caps != required_odp_caps:
             raise unittest.SkipTest('ODP is not supported using DC')
 
     def test_odp_dc_traffic(self):
-        send_ops_flag = e.IBV_QP_EX_WITH_SEND
+        send_ops_flag = ibv_qp_create_send_ops_flags.IBV_QP_EX_WITH_SEND
         self.create_players(OdpDc, qp_count=2, send_ops_flags=send_ops_flag)
         self.check_odp_dc_support()
         u.traffic(**self.traffic_args, new_send=True,
-                  send_op=e.IBV_WR_SEND)
+                  send_op=ibv_wr_opcode.IBV_WR_SEND)
 
     def test_dc_rdma_write_stream(self):
         """
@@ -101,9 +102,9 @@ class DCTest(Mlx5RDMATestCase):
         :raises SkipTest: In case DCI is not supported with HW
         """
         self.create_players(Mlx5DcStreamsRes, qp_count=2,
-                            send_ops_flags=e.IBV_QP_EX_WITH_RDMA_WRITE)
+                            send_ops_flags=ibv_qp_create_send_ops_flags.IBV_QP_EX_WITH_RDMA_WRITE)
         u.rdma_traffic(**self.traffic_args, new_send=True,
-                       send_op=e.IBV_WR_RDMA_WRITE)
+                       send_op=ibv_wr_opcode.IBV_WR_RDMA_WRITE)
 
     def test_dc_send_stream_bad_flow(self):
         """
@@ -113,7 +114,7 @@ class DCTest(Mlx5RDMATestCase):
         :raises SkipTest: In case DCI is not supported with HW
         """
         self.create_players(Mlx5DcStreamsRes,
-                            qp_count=1, send_ops_flags=e.IBV_QP_EX_WITH_SEND)
+                            qp_count=1, send_ops_flags=ibv_qp_create_send_ops_flags.IBV_QP_EX_WITH_SEND)
         self.client.set_bad_flow(DCI_TEST_BAD_FLOW_WITH_RESET)
         self.client.traffic_with_bad_flow(**self.traffic_args)
 
@@ -129,6 +130,6 @@ class DCTest(Mlx5RDMATestCase):
         """
         self.iters = 20
         self.create_players(Mlx5DcStreamsRes,
-                            qp_count=1, send_ops_flags=e.IBV_QP_EX_WITH_SEND)
+                            qp_count=1, send_ops_flags=ibv_qp_create_send_ops_flags.IBV_QP_EX_WITH_SEND)
         self.client.set_bad_flow(DCI_TEST_BAD_FLOW_WITHOUT_RESET)
         self.client.traffic_with_bad_flow(**self.traffic_args)

@@ -8,7 +8,7 @@ from tests.base import RCResources, UDResources, RDMATestCase
 from pyverbs.pyverbs_error import PyverbsRDMAError
 from pyverbs.cq import CqInitAttrEx, CQEX
 import pyverbs.mem_alloc as mem
-import pyverbs.enums as e
+from pyverbs.libibverbs_enums import _IBV_ALLOCATOR_USE_DEFAULT, IBV_WC_STANDARD_FLAGS, ibv_cq_init_attr_mask
 import tests.utils as u
 
 import unittest
@@ -19,11 +19,11 @@ HUGE_PAGE_SIZE = 0x200000
 
 
 def default_allocator(pd, context, size, alignment, resource_type):
-    return e._IBV_ALLOCATOR_USE_DEFAULT
+    return _IBV_ALLOCATOR_USE_DEFAULT
 
 
 def default_free(pd, context, ptr, resource_type):
-    return e._IBV_ALLOCATOR_USE_DEFAULT
+    return _IBV_ALLOCATOR_USE_DEFAULT
 
 
 def mem_align_allocator(pd, context, size, alignment, resource_type):
@@ -126,10 +126,10 @@ class ParentDomainCqExSrqRes(parent_domain_res_cls(RCResources)):
                          free_func=free_func, with_srq=True)
 
     def create_cq(self):
-        wc_flags = e.IBV_WC_STANDARD_FLAGS
+        wc_flags = IBV_WC_STANDARD_FLAGS
         cia = CqInitAttrEx(cqe=2000, wc_flags=wc_flags, parent_domain=self.pd,
-                           comp_mask=e.IBV_CQ_INIT_ATTR_MASK_FLAGS |
-                                     e.IBV_CQ_INIT_ATTR_MASK_PD)
+                           comp_mask=ibv_cq_init_attr_mask.IBV_CQ_INIT_ATTR_MASK_FLAGS |
+                                     ibv_cq_init_attr_mask.IBV_CQ_INIT_ATTR_MASK_PD)
         try:
             self.cq = CQEX(self.ctx, cia)
         except PyverbsRDMAError as ex:

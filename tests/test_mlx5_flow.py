@@ -12,8 +12,11 @@ from pyverbs.providers.mlx5.mlx5dv_flow import Mlx5FlowMatcher, \
     Mlx5PacketReformatFlowAction
 from pyverbs.providers.mlx5.mlx5dv import Mlx5Context, Mlx5DVContextAttr, Mlx5DevxObj
 from pyverbs.pyverbs_error import PyverbsRDMAError, PyverbsUserError
-import pyverbs.providers.mlx5.mlx5_enums as dve
-import pyverbs.enums as e
+from pyverbs.providers.mlx5.mlx5_enums import mlx5dv_flow_matcher_attr_mask, mlx5dv_flow_matcher_attr_mask, mlx5dv_flow_action_type, \
+    MLX5DV_FLOW_TABLE_TYPE_NIC_RX_, MLX5DV_FLOW_TABLE_TYPE_RDMA_TRANSPORT_RX_, MLX5DV_FLOW_TABLE_TYPE_RDMA_TRANSPORT_TX_, \
+    MLX5DV_FLOW_TABLE_TYPE_RDMA_RX_, MLX5DV_FLOW_TABLE_TYPE_RDMA_TX_, MLX5DV_FLOW_TABLE_TYPE_NIC_TX_, \
+    MLX5DV_FLOW_ACTION_PACKET_REFORMAT_TYPE_L2_TO_L2_TUNNEL_
+from pyverbs.libibverbs_enums import ibv_flow_flags
 from tests.mlx5_base import Mlx5RDMATestCase, create_privileged_context, Mlx5RcResources
 from tests.utils import requires_root_on_eth, PacketConsts, is_eth, requires_root, \
     requires_no_sriov
@@ -89,7 +92,7 @@ def check_rdma_transport_domain_caps(agr_obj):
 
 class Mlx5FlowResources(RawResources):
     def create_matcher(self, mask, match_criteria_enable, flags=0,
-                       ft_type=dve.MLX5DV_FLOW_TABLE_TYPE_NIC_RX_):
+                       ft_type=MLX5DV_FLOW_TABLE_TYPE_NIC_RX_):
         """
         Creates a matcher from a provided mask.
         :param mask: The mask to match on (in bytes)
@@ -144,7 +147,7 @@ class Mlx5RCFlowResources(Mlx5RcResources):
                 obj.close()
 
     def create_matcher(self, mask, match_criteria_enable, flags=0,
-                       ft_type=dve.MLX5DV_FLOW_TABLE_TYPE_NIC_RX_, ib_port=1):
+                       ft_type=MLX5DV_FLOW_TABLE_TYPE_NIC_RX_, ib_port=1):
         """
         Creates a matcher from a provided mask.
         :param mask: The mask to match on (in bytes)
@@ -158,14 +161,14 @@ class Mlx5RCFlowResources(Mlx5RcResources):
         """
         try:
             flow_match_param = Mlx5FlowMatchParameters(len(mask), mask)
-            comp_mask = dve.MLX5DV_FLOW_MATCHER_MASK_FT_TYPE
+            comp_mask = mlx5dv_flow_matcher_attr_mask.MLX5DV_FLOW_MATCHER_MASK_FT_TYPE
 
-            if ft_type in [dve.MLX5DV_FLOW_TABLE_TYPE_RDMA_TRANSPORT_RX_,
-                           dve.MLX5DV_FLOW_TABLE_TYPE_RDMA_TRANSPORT_TX_]:
+            if ft_type in [MLX5DV_FLOW_TABLE_TYPE_RDMA_TRANSPORT_RX_,
+                           MLX5DV_FLOW_TABLE_TYPE_RDMA_TRANSPORT_TX_]:
                 if not is_eth(self.ctx, ib_port):
                     raise unittest.SkipTest('Must be run on Ethernet link layer')
 
-                comp_mask |= dve.MLX5DV_FLOW_MATCHER_MASK_IB_PORT
+                comp_mask |= mlx5dv_flow_matcher_attr_mask.MLX5DV_FLOW_MATCHER_MASK_IB_PORT
 
             attr = Mlx5FlowMatcherAttr(match_mask=flow_match_param,
                                        match_criteria_enable=match_criteria_enable,
@@ -294,7 +297,7 @@ class Mlx5MatcherTest(Mlx5RDMATestCase):
             group_id = self.server.create_devx_flow_group(table_id, table_type)
             self.server.create_devx_flow_entry(table_id, group_id, action, table_type)
             empty_value_param = Mlx5FlowMatchParameters(len(empty_mask), empty_mask)
-            action_dest = Mlx5FlowActionAttr(action_type=dve.MLX5DV_FLOW_ACTION_DEST_DEVX,
+            action_dest = Mlx5FlowActionAttr(action_type=mlx5dv_flow_action_type.MLX5DV_FLOW_ACTION_DEST_DEVX,
                                              obj=devx_table_obj)
             self.server.flow = Mlx5Flow(matcher, empty_value_param, [action_dest], 1)
 
@@ -314,8 +317,8 @@ class Mlx5MatcherTest(Mlx5RDMATestCase):
         """
         self.create_players(Mlx5RCFlowResources)
         flow_table_type_mapping = {
-            dve.MLX5DV_FLOW_TABLE_TYPE_RDMA_RX_: NIC_RX_RDMA_TABLE_TYPE,
-            dve.MLX5DV_FLOW_TABLE_TYPE_RDMA_TX_: NIC_TX_RDMA_TABLE_TYPE}
+            MLX5DV_FLOW_TABLE_TYPE_RDMA_RX_: NIC_RX_RDMA_TABLE_TYPE,
+            MLX5DV_FLOW_TABLE_TYPE_RDMA_TX_: NIC_TX_RDMA_TABLE_TYPE}
         self.generic_test_mlx5_flow_table(flow_table_type_mapping, action=DROP_ACTION)
 
     @u.skip_unsupported
@@ -330,8 +333,8 @@ class Mlx5MatcherTest(Mlx5RDMATestCase):
         self.pre_run()
         self.sync_remote_attr()
         flow_table_type_mapping = {
-            dve.MLX5DV_FLOW_TABLE_TYPE_RDMA_TRANSPORT_RX_: RDMA_TRANSPORT_RX,
-            dve.MLX5DV_FLOW_TABLE_TYPE_RDMA_TRANSPORT_TX_: RDMA_TRANSPORT_TX}
+            MLX5DV_FLOW_TABLE_TYPE_RDMA_TRANSPORT_RX_: RDMA_TRANSPORT_RX,
+            MLX5DV_FLOW_TABLE_TYPE_RDMA_TRANSPORT_TX_: RDMA_TRANSPORT_TX}
         self.generic_test_mlx5_flow_table(flow_table_type_mapping, action=ALLOW_ACTION, ib_port=1,
                                           traffic=True)
 
@@ -348,7 +351,7 @@ class Mlx5MatcherTest(Mlx5RDMATestCase):
         smac_value = struct.pack('!6s',
                                  bytes.fromhex(PacketConsts.SRC_MAC.replace(':', '')))
         value_param = Mlx5FlowMatchParameters(len(smac_value), smac_value)
-        action_qp = Mlx5FlowActionAttr(action_type=dve.MLX5DV_FLOW_ACTION_DEST_IBV_QP,
+        action_qp = Mlx5FlowActionAttr(action_type=mlx5dv_flow_action_type.MLX5DV_FLOW_ACTION_DEST_IBV_QP,
                                        qp=self.server.qp)
         self.server.flow = Mlx5Flow(matcher, value_param, [action_qp], 1)
         u.raw_traffic(self.client, self.server, self.iters)
@@ -378,21 +381,21 @@ class Mlx5MatcherTest(Mlx5RDMATestCase):
         # TX steering
         tx_matcher = self.client.create_matcher(empty_bytes_arr,
                                                 u.MatchCriteriaEnable.NONE,
-                                                e.IBV_FLOW_ATTR_FLAGS_EGRESS,
-                                                dve.MLX5DV_FLOW_TABLE_TYPE_NIC_TX_)
+                                                ibv_flow_flags.IBV_FLOW_ATTR_FLAGS_EGRESS,
+                                                MLX5DV_FLOW_TABLE_TYPE_NIC_TX_)
         # Create encap action
         reformat_action = Mlx5PacketReformatFlowAction(
             self.client.ctx, data=outer,
-            reformat_type=dve.MLX5DV_FLOW_ACTION_PACKET_REFORMAT_TYPE_L2_TO_L2_TUNNEL_,
-            ft_type=dve.MLX5DV_FLOW_TABLE_TYPE_NIC_TX_)
+            reformat_type=MLX5DV_FLOW_ACTION_PACKET_REFORMAT_TYPE_L2_TO_L2_TUNNEL_,
+            ft_type=MLX5DV_FLOW_TABLE_TYPE_NIC_TX_)
         action_reformat_attr = Mlx5FlowActionAttr(flow_action=reformat_action,
-                                                  action_type=dve.MLX5DV_FLOW_ACTION_IBV_FLOW_ACTION)
+                                                  action_type=mlx5dv_flow_action_type.MLX5DV_FLOW_ACTION_IBV_FLOW_ACTION)
         self.client.flow = Mlx5Flow(tx_matcher, empty_value_param,
                                     [action_reformat_attr], 1)
 
         # RX steering
         rx_matcher = self.server.create_matcher(empty_bytes_arr, u.MatchCriteriaEnable.NONE)
-        action_qp_attr = Mlx5FlowActionAttr(action_type=dve.MLX5DV_FLOW_ACTION_DEST_IBV_QP,
+        action_qp_attr = Mlx5FlowActionAttr(action_type=mlx5dv_flow_action_type.MLX5DV_FLOW_ACTION_DEST_IBV_QP,
                                             qp=self.server.qp)
         self.server.flow = Mlx5Flow(rx_matcher, empty_value_param, [action_qp_attr], 1)
 
