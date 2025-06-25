@@ -60,7 +60,7 @@ Group:          Productivity/Networking/Other
 %define dma_coherent 1
 %endif
 
-%global modprobe_d_files 50-libmlx4.conf truescale.conf %{?dma_coherent:mlx4.conf}
+%global modprobe_d_files 50-libmlx4.conf %{?dma_coherent:mlx4.conf}
 
 # Almost everything is licensed under the OFA dual GPLv2, 2 Clause BSD license
 #  providers/ipathverbs/ Dual licensed using a BSD license with an extra patent clause
@@ -663,7 +663,6 @@ done
 %if 0%{?dma_coherent}
 %{_modprobedir}/mlx4.conf
 %endif
-%{_modprobedir}/truescale.conf
 %{_unitdir}/rdma-hw.target
 %{_unitdir}/rdma-load-modules@.service
 %dir %{dracutlibdir}
@@ -678,7 +677,6 @@ done
 %{_udevrulesdir}/90-rdma-umad.rules
 %{_modprobedir}/50-libmlx4.conf
 %{_libexecdir}/mlx4-setup.sh
-%{_libexecdir}/truescale-serdes.cmds
 %{_sbindir}/rdma_topo
 %license COPYING.*
 %if 0%{?suse_version} < 1600
