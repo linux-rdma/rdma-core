@@ -444,7 +444,7 @@ cdef class TcpUdpSpec(Spec):
 
 
 cdef class Ipv6Spec(Spec):
-    EMPTY_IPV6 = [0] * 16
+    EMPTY_IPV6 = '::'
     IPV6_MASK = ("ffff:" * 8)[:-1]
     FLOW_LABEL_MASK = 0xfffff
 
@@ -476,9 +476,21 @@ cdef class Ipv6Spec(Spec):
             self.spec_type |= v.IBV_FLOW_SPEC_INNER
         self.size = sizeof(v.ibv_flow_spec_ipv6)
 
-        self.dst_ip, self.dst_ip_mask = self._set_val_mask(self.IPV6_MASK,
+        if dst_ip is None:
+            def_dst_ip_mask = self.EMPTY_IPV6
+            dst_ip = '::'
+        else:
+            def_dst_ip_mask = self.IPV6_MASK
+
+        if src_ip is None:
+            def_src_ip_mask = self.EMPTY_IPV6
+            src_ip = '::'
+        else:
+            def_src_ip_mask = self.IPV6_MASK
+
+        self.dst_ip, self.dst_ip_mask = self._set_val_mask(def_dst_ip_mask,
                                                            dst_ip, dst_ip_mask)
-        self.src_ip, self.src_ip_mask = self._set_val_mask(self.IPV6_MASK,
+        self.src_ip, self.src_ip_mask = self._set_val_mask(def_src_ip_mask,
                                                            src_ip, src_ip_mask)
         self.val.flow_label, self.mask.flow_label = \
             map(socket.htonl, self._set_val_mask(self.FLOW_LABEL_MASK,
@@ -492,7 +504,7 @@ cdef class Ipv6Spec(Spec):
 
     @property
     def dst_ip(self):
-        return socket.inet_ntop(socket.AF_INET6, self.val.dst_ip)
+        return socket.inet_ntop(socket.AF_INET6, self.val.dst_ip[:16])
 
     @dst_ip.setter
     def dst_ip(self, val):
@@ -500,7 +512,7 @@ cdef class Ipv6Spec(Spec):
 
     @property
     def dst_ip_mask(self):
-        return socket.inet_ntop(socket.AF_INET6, self.mask.dst_ip)
+        return socket.inet_ntop(socket.AF_INET6, self.mask.dst_ip[:16])
 
     @dst_ip_mask.setter
     def dst_ip_mask(self, val):
@@ -508,7 +520,7 @@ cdef class Ipv6Spec(Spec):
 
     @property
     def src_ip(self):
-        return socket.inet_ntop(socket.AF_INET6, self.val.src_ip)
+        return socket.inet_ntop(socket.AF_INET6, self.val.src_ip[:16])
 
     @src_ip.setter
     def src_ip(self, val):
@@ -516,7 +528,7 @@ cdef class Ipv6Spec(Spec):
 
     @property
     def src_ip_mask(self):
-        return socket.inet_ntop(socket.AF_INET6, self.mask.src_ip)
+        return socket.inet_ntop(socket.AF_INET6, self.mask.src_ip[:16])
 
     @src_ip_mask.setter
     def src_ip_mask(self, val):
