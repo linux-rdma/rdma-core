@@ -370,6 +370,40 @@ class QPTest(PyverbsAPITestCase):
                 qp.modify(qa, ibv_qp_attr_mask.IBV_QP_STATE)
                 assert qp.qp_state == ibv_qp_state.IBV_QPS_RESET, 'Extended QP, QP state is not as expected'
 
+    @u.skip_unsupported
+    @u.requires_cap_net_raw()
+    def test_create_ud_qp_with_privileged_qkey(self):
+        """
+        Test UD QP creation and modification with privileged QKEY 0x80000000.
+        Verifies that the privileged QKEY (IB_QP_PRIVILEGED_Q_KEY) can be set
+        and queried correctly for both legacy and extended QPs.
+        """
+        privileged_qkey = 0x80000000  # IB_QP_PRIVILEGED_Q_KEY
+
+        with PD(self.ctx) as pd:
+            with CQ(self.ctx, 100, None, None, 0) as cq:
+                # Test Legacy QP with privileged QKEY
+                qia = u.get_qp_init_attr(cq, self.attr)
+                qia.qp_type = ibv_qp_type.IBV_QPT_UD
+                qp = self.create_qp(pd, qia, False, False, self.ib_port)
+                qa = QPAttr()
+                qa.qkey = privileged_qkey
+                qp.to_init(qa)
+                qp_attr, _ = qp.query(ibv_qp_attr_mask.IBV_QP_QKEY)
+                self.assertEqual(qp_attr.qkey, qa.qkey,
+                                 f'Legacy QP, Privileged QKey is not as '\
+                                 f'expected. Got: 0x{qp_attr.qkey:08x}, Expected: 0x{qa.qkey:08x}')
+
+                # Test Extended QP with privileged QKEY
+                qia = get_qp_init_attr_ex(cq, pd, self.attr, self.attr_ex, ibv_qp_type.IBV_QPT_UD)
+                qp = self.create_qp(self.ctx, qia, True, False, self.ib_port)
+                qa = QPAttr()
+                qa.qkey = privileged_qkey
+                qp.to_init(qa)
+                qp_attr, _ = qp.query(ibv_qp_attr_mask.IBV_QP_QKEY)
+                self.assertEqual(qp_attr.qkey, qa.qkey,
+                                 f'Extended QP, Privileged QKey is not as '\
+                                 f'expected. Got: 0x{qp_attr.qkey:08x}, Expected: 0x{qa.qkey:08x}')
 
 class RCQPTest(RDMATestCase):
     """
