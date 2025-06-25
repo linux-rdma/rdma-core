@@ -1,6 +1,6 @@
 /* SPDX-License-Identifier: GPL-2.0 OR BSD-2-Clause */
 /*
- * Copyright 2019-2024 Amazon.com, Inc. or its affiliates. All rights reserved.
+ * Copyright 2019-2025 Amazon.com, Inc. or its affiliates. All rights reserved.
  */
 
 #ifndef __EFADV_H__
@@ -48,6 +48,7 @@ enum {
 	EFADV_DEVICE_ATTR_CAPS_CQ_WITH_SGID = 1 << 2,
 	EFADV_DEVICE_ATTR_CAPS_RDMA_WRITE = 1 << 3,
 	EFADV_DEVICE_ATTR_CAPS_UNSOLICITED_WRITE_RECV = 1 << 4,
+	EFADV_DEVICE_ATTR_CAPS_DATA_POLLING_128_BYTES = 1 << 5,
 };
 
 struct efadv_device_attr {
