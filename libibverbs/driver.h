@@ -106,6 +106,22 @@ enum verbs_xrcd_mask {
 
 enum create_cq_cmd_flags {
 	CREATE_CQ_CMD_FLAGS_TS_IGNORED_EX = 1 << 0,
+	CREATE_CQ_CMD_FLAGS_WITH_MEM_VA = 1 << 1,
+	CREATE_CQ_CMD_FLAGS_WITH_MEM_DMABUF = 1 << 2,
+};
+
+/* Must change the PRIVATE IBVERBS_PRIVATE_ symbol if this is changed */
+struct verbs_create_cq_prov_attr {
+	struct {
+		uint64_t length;
+		union {
+			uint8_t *ptr;
+			struct {
+				uint64_t offset;
+				int fd;
+			} dmabuf;
+		};
+	} buffer;
 };
 
 struct verbs_xrcd {
@@ -587,6 +603,7 @@ int ibv_cmd_create_cq(struct ibv_context *context, int cqe,
 		      struct ib_uverbs_create_cq_resp *resp, size_t resp_size);
 int ibv_cmd_create_cq_ex(struct ibv_context *context,
 			 const struct ibv_cq_init_attr_ex *cq_attr,
+			 struct verbs_create_cq_prov_attr *prov_attr,
 			 struct verbs_cq *cq,
 			 struct ibv_create_cq_ex *cmd,
 			 size_t cmd_size,
@@ -595,6 +612,7 @@ int ibv_cmd_create_cq_ex(struct ibv_context *context,
 			 uint32_t cmd_flags);
 int ibv_cmd_create_cq_ex2(struct ibv_context *context,
 			  const struct ibv_cq_init_attr_ex *cq_attr,
+			  struct verbs_create_cq_prov_attr *prov_attr,
 			  struct verbs_cq *cq,
 			  struct ibv_create_cq_ex *cmd,
 			  size_t cmd_size,

@@ -459,7 +459,7 @@ static int mlx4_cmd_create_cq_ex(struct ibv_context *context,
 	cmd.buf_addr = (uintptr_t) cq->buf.buf;
 	cmd.db_addr  = (uintptr_t) cq->set_ci_db;
 
-	ret = ibv_cmd_create_cq_ex(context, cq_attr,
+	ret = ibv_cmd_create_cq_ex(context, cq_attr, NULL,
 				   &cq->verbs_cq, &cmd.ibv_cmd,
 				   sizeof(cmd),
 				   &resp.ibv_resp,

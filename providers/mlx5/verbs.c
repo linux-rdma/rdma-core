@@ -1158,7 +1158,7 @@ static struct ibv_cq_ex *create_cq(struct ibv_context *context,
 		struct ibv_cq_init_attr_ex cq_attr_ex = *cq_attr;
 
 		cq_attr_ex.cqe = ncqe - 1;
-		ret = ibv_cmd_create_cq_ex2(context, &cq_attr_ex, &cq->verbs_cq,
+		ret = ibv_cmd_create_cq_ex2(context, &cq_attr_ex, NULL, &cq->verbs_cq,
 					    &cmd_ex.ibv_cmd, sizeof(cmd_ex),
 					    &resp_ex.ibv_resp, sizeof(resp_ex),
 					    CREATE_CQ_CMD_FLAGS_TS_IGNORED_EX,
