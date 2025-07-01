@@ -1078,6 +1078,28 @@ struct ibv_cq_ex *efadv_create_cq(struct ibv_context *ibvctx,
 	return create_cq(ibvctx, attr_ex, &local_efa_attr);
 }
 
+int efadv_query_cq(struct ibv_cq *ibvcq, struct efadv_cq_attr *attr, uint32_t inlen)
+{
+	struct efa_cq *cq = to_efa_cq(ibvcq);
+
+	if (!is_efa_dev(ibvcq->context->device)) {
+		verbs_err(verbs_get_ctx(ibvcq->context), "Not an EFA device\n");
+		return EOPNOTSUPP;
+	}
+
+	if (!vext_field_avail(typeof(*attr), num_entries, inlen)) {
+		verbs_err(verbs_get_ctx(ibvcq->context), "Compatibility issues\n");
+		return EINVAL;
+	}
+
+	attr->comp_mask = 0;
+	attr->buffer = cq->buf;
+	attr->entry_size = cq->cqe_size;
+	attr->num_entries = ibvcq->cqe;
+
+	return 0;
+}
+
 struct efadv_cq *efadv_cq_from_ibv_cq_ex(struct ibv_cq_ex *ibvcqx)
 {
 	struct efa_cq *cq = to_efa_cq_ex(ibvcqx);
@@ -1655,7 +1677,7 @@ struct ibv_qp *efadv_create_qp_ex(struct ibv_context *ibvctx,
 	    !vext_field_avail(struct efadv_qp_init_attr,
 			      driver_qp_type, inlen) ||
 	    efa_attr->comp_mask ||
-	    !is_reserved_cleared(efa_attr->reserved) ||
+	    efa_attr->reserved ||
 	    (inlen > sizeof(*efa_attr) && !is_ext_cleared(efa_attr, inlen))) {
 		verbs_err(verbs_get_ctx(ibvctx), "Compatibility issues\n");
 		errno = EINVAL;
@@ -1697,6 +1719,38 @@ int efa_query_qp(struct ibv_qp *ibvqp, struct ibv_qp_attr *attr,
 
 	return ibv_cmd_query_qp(ibvqp, attr, attr_mask, init_attr,
 				&cmd, sizeof(cmd));
+}
+
+int efadv_query_qp_wqs(struct ibv_qp *ibvqp, struct efadv_wq_attr *sq_attr,
+		       struct efadv_wq_attr *rq_attr, uint32_t inlen)
+{
+	struct efa_qp *qp = to_efa_qp(ibvqp);
+
+	if (!is_efa_dev(ibvqp->context->device)) {
+		verbs_err(verbs_get_ctx(ibvqp->context), "Not an EFA device\n");
+		return EOPNOTSUPP;
+	}
+
+	if (!vext_field_avail(typeof(*sq_attr), max_batch, inlen)) {
+		verbs_err(verbs_get_ctx(ibvqp->context), "Compatibility issues\n");
+		return EINVAL;
+	}
+
+	sq_attr->comp_mask = 0;
+	sq_attr->buffer = qp->sq.desc;
+	sq_attr->entry_size = sizeof(struct efa_io_tx_wqe);
+	sq_attr->num_entries = qp->sq.wq.wqe_cnt;
+	sq_attr->doorbell = qp->sq.wq.db;
+	sq_attr->max_batch = qp->sq.max_batch_wr;
+
+	rq_attr->comp_mask = 0;
+	rq_attr->buffer = qp->rq.buf;
+	rq_attr->entry_size = sizeof(struct efa_io_rx_desc);
+	rq_attr->num_entries = qp->rq.wq.desc_mask + 1;
+	rq_attr->doorbell = qp->rq.wq.db;
+	rq_attr->max_batch = rq_attr->num_entries;
+
+	return 0;
 }
 
 int efa_query_qp_data_in_order(struct ibv_qp *ibvqp, enum ibv_wr_opcode op,

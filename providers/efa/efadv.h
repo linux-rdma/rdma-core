@@ -1,6 +1,6 @@
 /* SPDX-License-Identifier: GPL-2.0 OR BSD-2-Clause */
 /*
- * Copyright 2019-2024 Amazon.com, Inc. or its affiliates. All rights reserved.
+ * Copyright 2019-2025 Amazon.com, Inc. or its affiliates. All rights reserved.
  */
 
 #ifndef __EFADV_H__
@@ -15,32 +15,6 @@
 #ifdef __cplusplus
 extern "C" {
 #endif
-
-enum {
-	/* Values must match the values in efa-abi.h */
-	EFADV_QP_DRIVER_TYPE_SRD = 0,
-};
-
-struct ibv_qp *efadv_create_driver_qp(struct ibv_pd *ibvpd,
-				      struct ibv_qp_init_attr *attr,
-				      uint32_t driver_qp_type);
-
-enum {
-	EFADV_QP_FLAGS_UNSOLICITED_WRITE_RECV = 1 << 0,
-};
-
-struct efadv_qp_init_attr {
-	uint64_t comp_mask;
-	uint32_t driver_qp_type;
-	uint16_t flags;
-	uint8_t sl;
-	uint8_t reserved[1];
-};
-
-struct ibv_qp *efadv_create_qp_ex(struct ibv_context *ibvctx,
-				  struct ibv_qp_init_attr_ex *attr_ex,
-				  struct efadv_qp_init_attr *efa_attr,
-				  uint32_t inlen);
 
 enum {
 	EFADV_DEVICE_ATTR_CAPS_RDMA_READ = 1 << 0,
@@ -76,6 +50,45 @@ struct efadv_ah_attr {
 int efadv_query_ah(struct ibv_ah *ibvah, struct efadv_ah_attr *attr,
 		   uint32_t inlen);
 
+enum {
+	/* Values must match the values in efa-abi.h */
+	EFADV_QP_DRIVER_TYPE_SRD = 0,
+};
+
+struct ibv_qp *efadv_create_driver_qp(struct ibv_pd *ibvpd,
+				      struct ibv_qp_init_attr *attr,
+				      uint32_t driver_qp_type);
+
+enum {
+	EFADV_QP_FLAGS_UNSOLICITED_WRITE_RECV = 1 << 0,
+};
+
+struct efadv_qp_init_attr {
+	uint64_t comp_mask;
+	uint32_t driver_qp_type;
+	uint16_t flags;
+	uint8_t sl;
+	uint8_t reserved;
+};
+
+struct ibv_qp *efadv_create_qp_ex(struct ibv_context *ibvctx,
+				  struct ibv_qp_init_attr_ex *attr_ex,
+				  struct efadv_qp_init_attr *efa_attr,
+				  uint32_t inlen);
+
+struct efadv_wq_attr {
+	uint64_t comp_mask;
+	uint8_t *buffer;
+	uint32_t entry_size;
+	uint32_t num_entries;
+	uint32_t *doorbell;
+	uint32_t max_batch;
+	uint8_t reserved[4];
+};
+
+int efadv_query_qp_wqs(struct ibv_qp *ibvqp, struct efadv_wq_attr *sq_attr,
+		       struct efadv_wq_attr *rq_attr, uint32_t inlen);
+
 struct efadv_cq {
 	uint64_t comp_mask;
 	int (*wc_read_sgid)(struct efadv_cq *efadv_cq, union ibv_gid *sgid);
@@ -108,6 +121,15 @@ struct ibv_cq_ex *efadv_create_cq(struct ibv_context *ibvctx,
 				  struct ibv_cq_init_attr_ex *attr_ex,
 				  struct efadv_cq_init_attr *efa_attr,
 				  uint32_t inlen);
+
+struct efadv_cq_attr {
+	uint64_t comp_mask;
+	uint8_t *buffer;
+	uint32_t entry_size;
+	uint32_t num_entries;
+};
+
+int efadv_query_cq(struct ibv_cq *ibvcq, struct efadv_cq_attr *attr, uint32_t inlen);
 
 struct efadv_cq *efadv_cq_from_ibv_cq_ex(struct ibv_cq_ex *ibvcqx);
 

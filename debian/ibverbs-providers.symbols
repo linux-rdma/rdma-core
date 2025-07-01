@@ -170,6 +170,7 @@ libefa.so.1 ibverbs-providers #MINVER#
  EFA_1.1@EFA_1.1 26
  EFA_1.2@EFA_1.2 43
  EFA_1.3@EFA_1.3 50
+ EFA_1.4@EFA_1.4 59
  efadv_create_driver_qp@EFA_1.0 24
  efadv_create_qp_ex@EFA_1.1 26
  efadv_query_device@EFA_1.1 26
@@ -177,6 +178,8 @@ libefa.so.1 ibverbs-providers #MINVER#
  efadv_cq_from_ibv_cq_ex@EFA_1.2 43
  efadv_create_cq@EFA_1.2 43
  efadv_query_mr@EFA_1.3 50
+ efadv_query_qp_wqs@EFA_1.4 59
+ efadv_query_cq@EFA_1.4 59
 libhns.so.1 ibverbs-providers #MINVER#
 * Build-Depends-Package: libibverbs-dev
  HNS_1.0@HNS_1.0 51
