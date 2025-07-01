@@ -431,7 +431,7 @@ static struct ibv_cq_ex *rxe_create_cq_ex(struct ibv_context *context,
 		goto err;
 
 	ret = ibv_cmd_create_cq_ex(context, attr, &cq->vcq,
-				   NULL, 0,
+				   NULL, NULL, 0,
 				   &resp.ibv_resp, sizeof(resp), 0);
 	if (ret)
 		goto err_free;
