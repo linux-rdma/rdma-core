@@ -48,6 +48,7 @@ enum {
 	EFADV_DEVICE_ATTR_CAPS_CQ_WITH_SGID = 1 << 2,
 	EFADV_DEVICE_ATTR_CAPS_RDMA_WRITE = 1 << 3,
 	EFADV_DEVICE_ATTR_CAPS_UNSOLICITED_WRITE_RECV = 1 << 4,
+	EFADV_DEVICE_ATTR_CAPS_CQ_WITH_EXT_MEM_DMABUF = 1 << 5,
 };
 
 struct efadv_device_attr {
@@ -86,9 +87,21 @@ enum {
 	EFADV_WC_EX_WITH_IS_UNSOLICITED = 1 << 1,
 };
 
+enum {
+	EFADV_CQ_INIT_FLAGS_EXT_MEM_DMABUF = 1 << 0,
+};
+
 struct efadv_cq_init_attr {
 	uint64_t comp_mask;
 	uint64_t wc_flags;
+	uint64_t flags;
+	struct {
+		uint8_t *buffer;
+		uint64_t length;
+		uint64_t offset;
+		int32_t fd;
+		uint8_t reserved[4];
+	} ext_mem_dmabuf;
 };
 
 struct ibv_cq_ex *efadv_create_cq(struct ibv_context *ibvctx,
