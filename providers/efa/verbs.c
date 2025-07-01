@@ -940,7 +940,7 @@ static struct ibv_cq_ex *create_cq(struct ibv_context *ibvctx,
 		cmd.flags |= EFA_CREATE_CQ_WITH_COMPLETION_CHANNEL;
 
 	attr->cqe = roundup_pow_of_two(attr->cqe);
-	err = ibv_cmd_create_cq_ex(ibvctx, attr, &cq->verbs_cq,
+	err = ibv_cmd_create_cq_ex(ibvctx, attr, NULL, &cq->verbs_cq,
 				   &cmd.ibv_cmd, sizeof(cmd),
 				   &resp.ibv_resp, sizeof(resp), 0);
 	if (err) {
