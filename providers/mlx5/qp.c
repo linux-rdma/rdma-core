@@ -42,6 +42,9 @@
 
 #include "mlx5.h"
 #include "mlx5_ifc.h"
+
+#define LTTNG_UST_TRACEPOINT_DEFINE
+#define LTTNG_UST_TRACEPOINT_PROBE_DYNAMIC_LINKAGE
 #include "mlx5_trace.h"
 #include "wqe.h"
 

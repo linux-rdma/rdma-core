@@ -11,12 +11,13 @@ if (MLX5_MW_DEBUG)
 endif()
 
 if (ENABLE_LTTNG AND LTTNGUST_FOUND)
-  set(TRACE_FILE mlx5_trace.c)
+  rdma_provider(mlx5_trace
+    mlx5_trace.c
+)
 endif()
 
 rdma_shared_provider(mlx5 libmlx5.map
   1 1.25.${PACKAGE_VERSION}
-  ${TRACE_FILE}
   buf.c
   cq.c
   dbrec.c
@@ -55,10 +56,12 @@ publish_headers(infiniband
 rdma_pkg_config("mlx5" "libibverbs" "${CMAKE_THREAD_LIBS_INIT}")
 
 if (ENABLE_LTTNG AND LTTNGUST_FOUND)
-	target_include_directories(mlx5 PUBLIC ".")
 	target_link_libraries(mlx5 LINK_PRIVATE LTTng::UST)
+	target_include_directories(mlx5_trace-rdmav${IBVERBS_PABI_VERSION} PUBLIC ".")
+	target_link_libraries(mlx5_trace-rdmav${IBVERBS_PABI_VERSION} LINK_PRIVATE LTTng::UST)
 	if (ENABLE_STATIC)
-		target_include_directories(mlx5-static PUBLIC ".")
 		target_link_libraries(mlx5-static LINK_PRIVATE LTTng::UST)
+		target_include_directories(mlx5_trace PUBLIC ".")
+		target_link_libraries(mlx5_trace LINK_PRIVATE LTTng::UST)
 	endif()
 endif()

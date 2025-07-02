@@ -22,6 +22,9 @@
 #include "efa_io_regs_defs.h"
 #include "efadv.h"
 #include "verbs.h"
+
+#define LTTNG_UST_TRACEPOINT_DEFINE
+#define LTTNG_UST_TRACEPOINT_PROBE_DYNAMIC_LINKAGE
 #include "efa_trace.h"
 
 #define EFA_DEV_CAP(ctx, cap) \

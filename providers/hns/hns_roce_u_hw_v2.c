@@ -38,6 +38,9 @@
 #include "hns_roce_u.h"
 #include "hns_roce_u_db.h"
 #include "hns_roce_u_hw_v2.h"
+
+#define LTTNG_UST_TRACEPOINT_DEFINE
+#define LTTNG_UST_TRACEPOINT_PROBE_DYNAMIC_LINKAGE
 #include "hns_roce_u_trace.h"
 
 #define HR_IBV_OPC_MAP(ib_key, hr_key) \
