@@ -14,6 +14,7 @@ publish_internal_headers(infiniband
   driver.h
   kern-abi.h
   marshall.h
+  trace.h
   )
 
 configure_file("libibverbs.map.in"

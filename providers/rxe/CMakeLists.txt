@@ -1,13 +1,20 @@
 if (ENABLE_LTTNG AND LTTNGUST_FOUND)
-  set(TRACE_FILE rxe_trace.c)
+  rdma_provider(rxe_trace
+    rxe_trace.c
+    )
 endif()
 
 rdma_provider(rxe
-  ${TRACE_FILE}
   rxe.c
   )
 
 if (ENABLE_LTTNG AND LTTNGUST_FOUND)
-	target_include_directories("rxe-rdmav${IBVERBS_PABI_VERSION}" PUBLIC ".")
 	target_link_libraries("rxe-rdmav${IBVERBS_PABI_VERSION}" LINK_PRIVATE LTTng::UST)
+	target_include_directories("rxe_trace-rdmav${IBVERBS_PABI_VERSION}" PUBLIC ".")
+	target_link_libraries("rxe_trace-rdmav${IBVERBS_PABI_VERSION}" LINK_PRIVATE LTTng::UST)
+	if (ENABLE_STATIC)
+		target_link_libraries(rxe LINK_PRIVATE LTTng::UST)
+		target_include_directories("rxe_trace" PUBLIC ".")
+		target_link_libraries("rxe_trace" LINK_PRIVATE LTTng::UST)
+	endif()
 endif()
