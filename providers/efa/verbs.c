@@ -26,6 +26,7 @@
 #define LTTNG_UST_TRACEPOINT_DEFINE
 #define LTTNG_UST_TRACEPOINT_PROBE_DYNAMIC_LINKAGE
 #include "efa_trace.h"
+#include <infiniband/trace.h>
 
 #define EFA_DEV_CAP(ctx, cap) \
 	((ctx)->device_caps & EFA_QUERY_DEVICE_CAPS_##cap)

@@ -59,6 +59,7 @@
 #define LTTNG_UST_TRACEPOINT_DEFINE
 #define LTTNG_UST_TRACEPOINT_PROBE_DYNAMIC_LINKAGE
 #include "rxe_trace.h"
+#include <infiniband/trace.h>
 
 static void rxe_free_context(struct ibv_context *ibctx);
 
