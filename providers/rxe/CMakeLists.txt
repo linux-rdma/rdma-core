@@ -10,4 +10,8 @@ rdma_provider(rxe
 if (ENABLE_LTTNG AND LTTNGUST_FOUND)
 	target_include_directories("rxe-rdmav${IBVERBS_PABI_VERSION}" PUBLIC ".")
 	target_link_libraries("rxe-rdmav${IBVERBS_PABI_VERSION}" LINK_PRIVATE LTTng::UST)
+	if (ENABLE_STATIC)
+		target_include_directories(rxe PUBLIC ".")
+		target_link_libraries(rxe LINK_PRIVATE LTTng::UST)
+	endif()
 endif()
