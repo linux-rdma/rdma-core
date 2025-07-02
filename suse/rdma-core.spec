@@ -146,6 +146,8 @@ BuildRequires:  make
 %define cmake_install DESTDIR=%{buildroot} make install
 %endif
 
+BuildRequires: lttng-ust-devel >= 2.13.0
+
 %description
 RDMA core userspace infrastructure and documentation, including initialization
 scripts, kernel driver-specific modprobe override configs, IPoIB network
@@ -305,6 +307,15 @@ Requires:       libibverbs%{?_isa} = %{version}
 %description -n libibverbs-utils
 Useful libibverbs example programs such as ibv_devinfo, which
 displays information about RDMA devices.
+
+%package -n     libibverbs-trace
+Summary:        libibverbs tracing library
+Group:          Productivity/Networking/Diagnostic
+Requires: libibverbs%{?_isa} = %{version}-%{release}
+Requires: lttng-ust >= 2.13.0
+
+%description -n libibverbs-trace
+Library for IO path tracing.
 
 %package -n     ibacm
 Summary:        InfiniBand Communication Manager Assistant
@@ -467,6 +478,7 @@ easy, object-oriented access to IB verbs.
          -DPYTHON_EXECUTABLE:PATH=%{__python3} \
          -DCMAKE_INSTALL_PYTHON_ARCH_LIB:PATH=%{python3_sitearch} \
 %endif
+         -DENABLE_LTTNG=1 \
 %if %{with_pyverbs}
          -DNO_PYVERBS=0
 %else
@@ -707,6 +719,7 @@ done
 %doc %{_docdir}/%{name}-%{version}/rxe.md
 %doc %{_docdir}/%{name}-%{version}/tag_matching.md
 %{_mandir}/man7/rxe*
+%exclude %{_libdir}/libibverbs/*trace*.so
 
 %files -n libibnetdisc%{ibnetdisc_major}
 %{_libdir}/libibnetdisc.so.*
@@ -738,6 +751,9 @@ done
 %files -n libibverbs-utils
 %{_bindir}/ibv_*
 %{_mandir}/man1/ibv_*
+
+%files -n libibverbs-trace
+%{_libdir}/libibverbs/*trace*.so
 
 %files -n ibacm
 %config(noreplace) %{_sysconfdir}/rdma/ibacm_opts.cfg
