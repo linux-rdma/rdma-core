@@ -175,6 +175,9 @@ int efadv_query_device(struct ibv_context *ibvctx,
 
 		if (EFA_DEV_CAP(ctx, UNSOLICITED_WRITE_RECV))
 			attr->device_caps |= EFADV_DEVICE_ATTR_CAPS_UNSOLICITED_WRITE_RECV;
+
+		if (EFA_DEV_CAP(ctx, DATA_POLLING_128))
+			attr->device_caps |= EFADV_DEVICE_ATTR_CAPS_DATA_POLLING_128_BYTES;
 	}
 
 	if (vext_field_avail(typeof(*attr), max_rdma_size, inlen)) {

@@ -85,6 +85,10 @@ struct efadv_device_attr {
 		requests in order to receive RDMA write with immediate and a WC generated for such
 		receive will be marked as unsolicited.
 
+	EFADV_DEVICE_ATTR_CAPS_DATA_POLLING_128_BYTES:
+		Indicates that any aligned 128 bytes block is being written in order from the
+		device perspective.
+
 *max_rdma_size*
 :	Maximum RDMA transfer size in bytes.
 
