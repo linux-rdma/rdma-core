@@ -769,9 +769,6 @@ static inline int efa_poll_sub_cqs(struct efa_cq *cq, struct ibv_wc *wc,
 		sub_cq = &cq->sub_cq_arr[cq->next_poll_idx++];
 		cq->next_poll_idx %= num_sub_cqs;
 
-		if (!sub_cq->ref_cnt)
-			continue;
-
 		err = efa_poll_sub_cq(cq, sub_cq, &qp, wc, extended);
 		if (err != ENOENT) {
 			cq->cc++;
@@ -896,7 +893,6 @@ static void efa_sub_cq_initialize(struct efa_sub_cq *sub_cq, uint8_t *buf,
 	sub_cq->buf = buf;
 	sub_cq->qmask = sub_cq_size - 1;
 	sub_cq->cqe_size = cqe_size;
-	sub_cq->ref_cnt = 0;
 }
 
 static struct ibv_cq_ex *create_cq(struct ibv_context *ibvctx,
@@ -1082,16 +1078,6 @@ int efa_destroy_cq(struct ibv_cq *ibvcq)
 	free(cq);
 
 	return 0;
-}
-
-static void efa_cq_inc_ref_cnt(struct efa_cq *cq, uint8_t sub_cq_idx)
-{
-	cq->sub_cq_arr[sub_cq_idx].ref_cnt++;
-}
-
-static void efa_cq_dec_ref_cnt(struct efa_cq *cq, uint8_t sub_cq_idx)
-{
-	cq->sub_cq_arr[sub_cq_idx].ref_cnt--;
 }
 
 static void efa_wq_terminate(struct efa_wq *wq, int pgsz)
@@ -1476,8 +1462,6 @@ static struct ibv_qp *create_qp(struct ibv_context *ibvctx,
 	struct efa_dev *dev = to_efa_dev(ibvctx->device);
 	struct efa_create_qp_resp resp = {};
 	struct efa_create_qp req = {};
-	struct efa_cq *send_cq;
-	struct efa_cq *recv_cq;
 	struct ibv_qp *ibvqp;
 	struct efa_qp *qp;
 	int err;
@@ -1534,16 +1518,6 @@ static struct ibv_qp *create_qp(struct ibv_context *ibvctx,
 	pthread_spin_lock(&ctx->qp_table_lock);
 	ctx->qp_table[ibvqp->qp_num & ctx->qp_table_sz_m1] = qp;
 	pthread_spin_unlock(&ctx->qp_table_lock);
-
-	send_cq = to_efa_cq(attr->send_cq);
-	pthread_spin_lock(&send_cq->lock);
-	efa_cq_inc_ref_cnt(send_cq, resp.send_sub_cq_idx);
-	pthread_spin_unlock(&send_cq->lock);
-
-	recv_cq = to_efa_cq(attr->recv_cq);
-	pthread_spin_lock(&recv_cq->lock);
-	efa_cq_inc_ref_cnt(recv_cq, resp.recv_sub_cq_idx);
-	pthread_spin_unlock(&recv_cq->lock);
 
 	if (attr->comp_mask & IBV_QP_INIT_ATTR_SEND_OPS_FLAGS) {
 		efa_qp_fill_wr_pfns(&qp->verbs_qp.qp_ex, attr);
@@ -1724,9 +1698,6 @@ int efa_destroy_qp(struct ibv_qp *ibvqp)
 
 	pthread_spin_lock(&ctx->qp_table_lock);
 	efa_lock_cqs(ibvqp);
-
-	efa_cq_dec_ref_cnt(to_efa_cq(ibvqp->send_cq), qp->sq.wq.sub_cq_idx);
-	efa_cq_dec_ref_cnt(to_efa_cq(ibvqp->recv_cq), qp->rq.wq.sub_cq_idx);
 
 	ctx->qp_table[ibvqp->qp_num & ctx->qp_table_sz_m1] = NULL;
 
