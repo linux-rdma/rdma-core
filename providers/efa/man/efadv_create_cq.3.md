@@ -47,6 +47,14 @@ Compatibility is handled using the comp_mask and inlen fields.
 struct efadv_cq_init_attr {
 	uint64_t comp_mask;
 	uint64_t wc_flags;
+	uint64_t flags;
+	struct {
+		uint8_t *buffer;
+		uint64_t length;
+		uint64_t offset;
+		int32_t fd;
+		uint8_t reserved[4];
+	} ext_mem_dmabuf;
 };
 ```
 
@@ -65,6 +73,28 @@ struct efadv_cq_init_attr {
 	EFADV_WC_EX_WITH_IS_UNSOLICITED:
 		request for an option to check whether a receive WC is unsolicited.
 
+*flags*
+:       A bitwise OR of the various values described below.
+
+	EFADV_CQ_INIT_FLAGS_EXT_MEM_DMABUF:
+		create CQ with external memory provided via dmabuf.
+
+*ext_mem_dmabuf*
+:       Structure containing information about external memory when using
+	EFADV_CQ_INIT_FLAGS_EXT_MEM_DMABUF flag.
+
+	buffer:
+		Pointer to the memory mapped in the process's virtual address space. The field is
+		optional, but if not provided, the use of CQ poll interfaces should be avoided.
+
+	length:
+		Length of the memory region to use.
+
+	fd:
+		File descriptor of the dmabuf.
+
+	offset:
+		Offset within the dmabuf.
 
 # Completion iterator functions
 
