@@ -4,6 +4,5 @@
  */
 
 #define LTTNG_UST_TRACEPOINT_CREATE_PROBES
-#define LTTNG_UST_TRACEPOINT_DEFINE
 
 #include "hns_roce_u_trace.h"

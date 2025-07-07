@@ -42,7 +42,11 @@
 
 #include "mlx5.h"
 #include "mlx5_ifc.h"
+
+#define LTTNG_UST_TRACEPOINT_DEFINE
+#define LTTNG_UST_TRACEPOINT_PROBE_DYNAMIC_LINKAGE
 #include "mlx5_trace.h"
+#include <infiniband/trace.h>
 #include "wqe.h"
 
 #define MLX5_ATOMIC_SIZE 8
