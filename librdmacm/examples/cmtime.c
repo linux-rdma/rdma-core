@@ -45,7 +45,7 @@
 #include <stdatomic.h>
 #include <netinet/tcp.h>
 #include <ccan/container_of.h>
-
+#include <inttypes.h>
 #include <rdma/rdma_cma.h>
 #include "common.h"
 
@@ -145,7 +145,7 @@ static inline bool is_client(void)
 
 static void show_perf(int iter)
 {
-	uint32_t diff, max[STEP_CNT], min[STEP_CNT], sum[STEP_CNT];
+	uint64_t diff, max[STEP_CNT], min[STEP_CNT], sum[STEP_CNT];
 	int i, c;
 
 	for (i = 0; i < STEP_CNT; i++) {
@@ -179,9 +179,10 @@ static void show_perf(int iter)
 
 	printf("step             avg/iter  total(us)    us/conn    sum(us)    max(us)    min(us)\n");
 	for (i = 0; i < STEP_CNT; i++) {
-		diff = (uint32_t) (times[i][1] - times[i][0]);
+		diff = (uint64_t) (times[i][1] - times[i][0]);
 
-		printf("%-13s  %10u %10u %10u %10u %10d %10u\n",
+		printf("%-13s  %10" PRIu64 " %10" PRIu64 " %10" PRIu64
+		       " %10" PRIu64 " %10" PRIu64 " %10" PRIu64 "\n",
 			step_str[i], diff / iter, diff,
 			sum[i] / iter, sum[i], max[i], min[i]);
 	}
