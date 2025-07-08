@@ -783,6 +783,7 @@ enum mlx5dv_flow_action_type {
 	MLX5DV_FLOW_ACTION_DEST_DEVX,
 	MLX5DV_FLOW_ACTION_COUNTERS_DEVX,
 	MLX5DV_FLOW_ACTION_DEFAULT_MISS,
+	MLX5DV_FLOW_ACTION_COUNTERS_DEVX_WITH_OFFSET,
 };
 
 struct mlx5dv_flow_action_attr {
@@ -793,6 +794,10 @@ struct mlx5dv_flow_action_attr {
 		struct ibv_flow_action *action;
 		uint32_t tag_value;
 		struct mlx5dv_devx_obj *obj;
+		struct {
+			struct mlx5dv_devx_obj *obj;
+			uint32_t offset;
+		} bulk_obj;
 	};
 };
 
