@@ -51,12 +51,24 @@ struct efa_context {
 struct efa_pd {
 	struct ibv_pd ibvpd;
 	uint16_t pdn;
+	/* Pointer to original PD used to create parent domain */
+	struct efa_pd *orig_pd;
+	/* Number of parent domains referencing this PD */
+	atomic_int refcount;
 };
 
 struct efa_td {
 	struct ibv_td ibvtd;
 	/* Number of parent domains referencing this TD */
 	atomic_int refcount;
+};
+
+struct efa_parent_domain {
+	struct efa_pd pd;
+	struct efa_td *td;
+	/* Number of objects referencing this parent domain */
+	atomic_int refcount;
+	void *pd_context;
 };
 
 struct efa_sub_cq {
@@ -210,6 +222,11 @@ static inline struct efa_ah *to_efa_ah(struct ibv_ah *ibvah)
 static inline struct efa_td *to_efa_td(struct ibv_td *ibvtd)
 {
 	return container_of(ibvtd, struct efa_td, ibvtd);
+}
+
+static inline struct efa_parent_domain *to_efa_parent_domain(struct ibv_pd *ibvpd)
+{
+	return container_of(ibvpd, struct efa_parent_domain, pd.ibvpd);
 }
 
 bool is_efa_dev(struct ibv_device *device);

@@ -213,6 +213,7 @@ struct ibv_pd *efa_alloc_pd(struct ibv_context *ibvctx)
 		goto out;
 	}
 
+	atomic_init(&pd->refcount, 0);
 	pd->pdn = resp.pdn;
 
 	return &pd->ibvpd;
@@ -223,10 +224,83 @@ out:
 	return NULL;
 }
 
+struct ibv_pd *efa_alloc_parent_domain(struct ibv_context *ibvctx,
+				       struct ibv_parent_domain_init_attr *attr)
+{
+	struct efa_parent_domain *parent_domain;
+	struct efa_pd *pd;
+
+	if (ibv_check_alloc_parent_domain(attr)) {
+		errno = EINVAL;
+		return NULL;
+	}
+
+	if (!check_comp_mask(attr->comp_mask,
+			     IBV_PARENT_DOMAIN_INIT_ATTR_PD_CONTEXT)) {
+		verbs_err(verbs_get_ctx(ibvctx), "Invalid comp_mask\n");
+		errno = EOPNOTSUPP;
+		return NULL;
+	}
+
+	pd = to_efa_pd(attr->pd);
+
+	/* We don't allow nested parent domains */
+	if (pd->orig_pd) {
+		errno = EINVAL;
+		return NULL;
+	}
+
+	parent_domain = calloc(1, sizeof(*parent_domain));
+	if (!parent_domain) {
+		errno = ENOMEM;
+		return NULL;
+	}
+
+	atomic_init(&parent_domain->refcount, 0);
+
+	if (attr->td) {
+		parent_domain->td = to_efa_td(attr->td);
+		atomic_fetch_add(&parent_domain->td->refcount, 1);
+	}
+
+	parent_domain->pd.orig_pd = pd;
+	atomic_fetch_add(&pd->refcount, 1);
+
+	ibv_initialize_parent_domain(&parent_domain->pd.ibvpd, attr->pd);
+
+	if (attr->comp_mask & IBV_PARENT_DOMAIN_INIT_ATTR_PD_CONTEXT)
+		parent_domain->pd_context = attr->pd_context;
+
+	return &parent_domain->pd.ibvpd;
+}
+
+static int efa_dealloc_parent_domain(struct efa_parent_domain *parent_domain)
+{
+	if (atomic_load(&parent_domain->refcount) > 0)
+		return EBUSY;
+
+	atomic_fetch_sub(&parent_domain->pd.orig_pd->refcount, 1);
+
+	if (parent_domain->td)
+		atomic_fetch_sub(&parent_domain->td->refcount, 1);
+
+	free(parent_domain);
+	return 0;
+}
+
 int efa_dealloc_pd(struct ibv_pd *ibvpd)
 {
+	struct efa_parent_domain *parent_domain;
 	struct efa_pd *pd = to_efa_pd(ibvpd);
 	int err;
+
+	if (pd->orig_pd) {
+		parent_domain = to_efa_parent_domain(ibvpd);
+		return efa_dealloc_parent_domain(parent_domain);
+	}
+
+	if (atomic_load(&pd->refcount) > 0)
+		return EBUSY;
 
 	err = ibv_cmd_dealloc_pd(ibvpd);
 	if (err) {

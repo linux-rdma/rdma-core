@@ -28,6 +28,7 @@ static const struct verbs_match_ent efa_table[] = {
 
 static const struct verbs_context_ops efa_ctx_ops = {
 	.alloc_pd = efa_alloc_pd,
+	.alloc_parent_domain = efa_alloc_parent_domain,
 	.alloc_td = efa_alloc_td,
 	.create_ah = efa_create_ah,
 	.create_cq = efa_create_cq,

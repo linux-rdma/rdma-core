@@ -16,6 +16,8 @@ int efa_query_device_ex(struct ibv_context *context,
 			const struct ibv_query_device_ex_input *input,
 			struct ibv_device_attr_ex *attr, size_t attr_size);
 struct ibv_pd *efa_alloc_pd(struct ibv_context *uctx);
+struct ibv_pd *efa_alloc_parent_domain(struct ibv_context *ibvctx,
+				       struct ibv_parent_domain_init_attr *attr);
 int efa_dealloc_pd(struct ibv_pd *ibvpd);
 struct ibv_mr *efa_reg_dmabuf_mr(struct ibv_pd *pd, uint64_t offset,
 				 size_t length, uint64_t iova, int fd, int acc);
