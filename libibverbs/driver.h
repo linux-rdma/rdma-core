@@ -189,6 +189,16 @@ struct verbs_dm {
 	uint32_t		handle;
 };
 
+struct verbs_dmah {
+	struct ibv_dmah dmah;
+	uint32_t handle;
+};
+
+static inline struct verbs_dmah *verbs_get_dmah(struct ibv_dmah *dmah)
+{
+	return container_of(dmah, struct verbs_dmah, dmah);
+}
+
 enum {
 	VERBS_MATCH_SENTINEL = 0,
 	VERBS_MATCH_PCI = 1,
@@ -316,6 +326,8 @@ struct verbs_context_ops {
 			 uint32_t num_sges);
 	struct ibv_dm *(*alloc_dm)(struct ibv_context *context,
 				   struct ibv_alloc_dm_attr *attr);
+	struct ibv_dmah *(*alloc_dmah)(struct ibv_context *context,
+				       struct ibv_dmah_init_attr *attr);
 	struct ibv_mw *(*alloc_mw)(struct ibv_pd *pd, enum ibv_mw_type type);
 	struct ibv_mr *(*alloc_null_mr)(struct ibv_pd *pd);
 	struct ibv_pd *(*alloc_parent_domain)(
@@ -363,6 +375,7 @@ struct verbs_context_ops {
 		struct ibv_srq_init_attr_ex *srq_init_attr_ex);
 	struct ibv_wq *(*create_wq)(struct ibv_context *context,
 				    struct ibv_wq_init_attr *wq_init_attr);
+	int (*dealloc_dmah)(struct ibv_dmah *dmah);
 	int (*dealloc_mw)(struct ibv_mw *mw);
 	int (*dealloc_pd)(struct ibv_pd *pd);
 	int (*dealloc_td)(struct ibv_td *td);
@@ -437,6 +450,7 @@ struct verbs_context_ops {
 					int fd, int access);
 	struct ibv_mr *(*reg_mr)(struct ibv_pd *pd, void *addr, size_t length,
 				 uint64_t hca_va, int access);
+	struct ibv_mr *(*reg_mr_ex)(struct ibv_pd *pd, struct ibv_reg_mr_in *in);
 	int (*req_notify_cq)(struct ibv_cq *cq, int solicited_only);
 	int (*rereg_mr)(struct verbs_mr *vmr, int flags, struct ibv_pd *pd,
 			void *addr, size_t length, int access);
@@ -559,6 +573,8 @@ int ibv_cmd_reg_dmabuf_mr(struct ibv_pd *pd, uint64_t offset, size_t length,
 			  uint64_t iova, int fd, int access,
 			  struct verbs_mr *vmr,
 			  struct ibv_command_buffer *driver);
+int ibv_cmd_reg_mr_ex(struct ibv_pd *pd, struct verbs_mr *vmr,
+		      struct ibv_reg_mr_in *in);
 int ibv_cmd_alloc_mw(struct ibv_pd *pd, enum ibv_mw_type type,
 		     struct ibv_mw *mw, struct ibv_alloc_mw *cmd,
 		     size_t cmd_size,
@@ -704,6 +720,9 @@ int ibv_cmd_alloc_dm(struct ibv_context *ctx,
 		     struct verbs_dm *dm,
 		     struct ibv_command_buffer *link);
 int ibv_cmd_free_dm(struct verbs_dm *dm);
+int ibv_cmd_alloc_dmah(struct ibv_context *ctx, struct verbs_dmah *st,
+		       struct ibv_dmah_init_attr *attr);
+int ibv_cmd_free_dmah(struct verbs_dmah *dmah);
 int ibv_cmd_reg_dm_mr(struct ibv_pd *pd, struct verbs_dm *dm,
 		      uint64_t offset, size_t length,
 		      unsigned int access, struct verbs_mr *vmr,

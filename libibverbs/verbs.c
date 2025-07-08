@@ -395,6 +395,23 @@ void ibv_unimport_dm(struct ibv_dm *dm)
 	get_ops(dm->context)->unimport_dm(dm);
 }
 
+/**
+ * ibv_alloc_dmah - Allocate a dma handle
+ */
+struct ibv_dmah *ibv_alloc_dmah(struct ibv_context *context,
+				struct ibv_dmah_init_attr *attr)
+{
+	return get_ops(context)->alloc_dmah(context, attr);
+}
+
+/**
+ * ibv_dealloc_dmah - Free a dma handle
+ */
+int ibv_dealloc_dmah(struct ibv_dmah *dmah)
+{
+	return get_ops(dmah->context)->dealloc_dmah(dmah);
+}
+
 struct ibv_mr *ibv_reg_dmabuf_mr(struct ibv_pd *pd, uint64_t offset,
 				 size_t length, uint64_t iova, int fd,
 				 int access)
@@ -410,6 +427,40 @@ struct ibv_mr *ibv_reg_dmabuf_mr(struct ibv_pd *pd, uint64_t offset,
 	mr->pd = pd;
 	mr->addr = (void *)(uintptr_t)offset;
 	mr->length = length;
+	return mr;
+}
+
+struct ibv_mr *ibv_reg_mr_ex(struct ibv_pd *pd, struct ibv_reg_mr_in *in)
+{
+	struct verbs_device *device = verbs_get_device(pd->context->device);
+	struct ibv_mr *mr;
+	int in_access = in->access;
+	bool need_fork = !((in->access & IBV_ACCESS_ON_DEMAND) ||
+			   (in->comp_mask & IBV_REG_MR_MASK_FD));
+
+	if (need_fork && ibv_dontfork_range(in->addr, in->length))
+		return NULL;
+
+	if (!(device->core_support & IB_UVERBS_CORE_SUPPORT_OPTIONAL_MR_ACCESS))
+		in->access &= ~IBV_ACCESS_OPTIONAL_RANGE;
+
+	mr = get_ops(pd->context)->reg_mr_ex(pd, in);
+	if (mr) {
+		mr->context = pd->context;
+		mr->length = in->length;
+		mr->pd = pd;
+		if (in->comp_mask & IBV_REG_MR_MASK_ADDR)
+			mr->addr = in->addr;
+		else
+			/* Follows ibv_reg_dmabuf_mr logic */
+			mr->addr = (void *)(uintptr_t)in->fd_offset;
+	} else {
+		if (need_fork)
+			ibv_dofork_range(in->addr, in->length);
+	}
+
+	/* restore the input access flags */
+	in->access = in_access;
 	return mr;
 }
 
