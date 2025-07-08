@@ -962,8 +962,7 @@ struct ibv_flow *
 _mlx5dv_create_flow(struct mlx5dv_flow_matcher *flow_matcher,
 		    struct mlx5dv_flow_match_parameters *match_value,
 		    size_t num_actions,
-		    struct mlx5dv_flow_action_attr actions_attr[],
-		    struct mlx5_flow_action_attr_aux actions_attr_aux[]);
+		    struct mlx5dv_flow_action_attr actions_attr[]);
 
 extern int mlx5_stall_num_loop;
 extern int mlx5_stall_cq_poll_min;
@@ -1586,11 +1585,11 @@ struct mlx5_dv_context_ops {
 	struct mlx5dv_flow_matcher *(*create_flow_matcher)(struct ibv_context *context,
 							   struct mlx5dv_flow_matcher_attr *attr);
 	int (*destroy_flow_matcher)(struct mlx5dv_flow_matcher *flow_matcher);
-	struct ibv_flow *(*create_flow)(struct mlx5dv_flow_matcher *flow_matcher,
-					struct mlx5dv_flow_match_parameters *match_value,
-					size_t num_actions,
-					struct mlx5dv_flow_action_attr actions_attr[],
-					struct mlx5_flow_action_attr_aux actions_attr_aux[]);
+	struct ibv_flow *(*create_flow)(
+		struct mlx5dv_flow_matcher *flow_matcher,
+		struct mlx5dv_flow_match_parameters *match_value,
+		size_t num_actions,
+		struct mlx5dv_flow_action_attr actions_attr[]);
 
 	struct mlx5dv_steering_anchor *(*create_steering_anchor)(struct ibv_context *conterxt,
 								 struct mlx5dv_steering_anchor_attr *attr);
