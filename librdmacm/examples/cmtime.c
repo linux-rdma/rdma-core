@@ -52,6 +52,7 @@
 #include <arpa/inet.h>
 #include "common.h"
 
+#define SRV_MAX_DISCONNECT_TIME_US 60000000
 
 static struct rdma_addrinfo hints, *rai;
 static struct addrinfo *ai;
@@ -131,6 +132,7 @@ struct conn {
 
 	uint64_t times[STEP_CNT][2];
 	int retries;
+	bool server_disconnected;
 };
 
 static struct work_queue wq;
@@ -558,6 +560,8 @@ static void server_disconnect(struct work_item *item)
 {
 	struct conn *c = container_of(item, struct conn, work);
 
+	c->server_disconnected = true;
+
 	start_perf(c, STEP_DISCONNECT);
 	rdma_disconnect(c->id);
 	end_perf(c, STEP_DISCONNECT);
@@ -587,6 +591,7 @@ static void cma_handler(struct rdma_cm_id *id, struct rdma_cm_event *event)
 		}
 		c = &conns[conn_index++];
 		c->id = id;
+		c->server_disconnected = false;
 		id->context = c;
 		wq_insert(&wq, &c->work, req_handler);
 		break;
@@ -863,6 +868,18 @@ static void reset_test(void)
 	do_sync(0);
 }
 
+static void server_disconnect_timeout(void)
+{
+	fprintf(stderr,
+		"Timeout waiting for clients to disconnect (got %d/%d)\n",
+		atomic_load(&completed[STEP_DISCONNECT]), num_conns);
+	for (int i = 0; i < num_conns; i++) {
+		if (conns[i].server_disconnected)
+			continue;
+		wq_insert(&wq, &conns[i].work, server_disconnect);
+	}
+}
+
 static void server_connect(void)
 {
 	reset_test();
@@ -874,8 +891,15 @@ static void server_connect(void)
 
 	do_sync(STEP_CONNECT);
 
-	while (atomic_load(&completed[STEP_DISCONNECT]) < num_conns)
+	uint64_t start_time = gettime_us();
+
+	while (atomic_load(&completed[STEP_DISCONNECT]) < num_conns) {
+		if (gettime_us() - start_time > SRV_MAX_DISCONNECT_TIME_US) {
+			server_disconnect_timeout();
+			start_time = gettime_us();
+		}
 		sched_yield();
+	}
 
 	do_sync(STEP_DISCONNECT);
 
