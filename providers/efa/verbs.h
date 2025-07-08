@@ -1,6 +1,6 @@
 /* SPDX-License-Identifier: GPL-2.0 OR BSD-2-Clause */
 /*
- * Copyright 2019-2023 Amazon.com, Inc. or its affiliates. All rights reserved.
+ * Copyright 2019-2025 Amazon.com, Inc. or its affiliates. All rights reserved.
  */
 
 #ifndef __EFA_VERBS_H__
@@ -50,5 +50,7 @@ int efa_post_recv(struct ibv_qp *ibvqp, struct ibv_recv_wr *wr,
 
 struct ibv_ah *efa_create_ah(struct ibv_pd *ibvpd, struct ibv_ah_attr *attr);
 int efa_destroy_ah(struct ibv_ah *ibvah);
+struct ibv_td *efa_alloc_td(struct ibv_context *ibvctx, struct ibv_td_init_attr *init_attr);
+int efa_dealloc_td(struct ibv_td *ibvtd);
 
 #endif /* __EFA_VERBS_H__ */

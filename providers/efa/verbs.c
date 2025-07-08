@@ -2636,3 +2636,38 @@ int efa_destroy_ah(struct ibv_ah *ibvah)
 
 	return 0;
 }
+
+struct ibv_td *efa_alloc_td(struct ibv_context *ibvctx, struct ibv_td_init_attr *init_attr)
+{
+	struct efa_td *td;
+
+	if (!check_comp_mask(init_attr->comp_mask, 0)) {
+		verbs_err(verbs_get_ctx(ibvctx), "Invalid comp_mask\n");
+		errno = EOPNOTSUPP;
+		return NULL;
+	}
+
+	td = calloc(1, sizeof(*td));
+	if (!td) {
+		errno = ENOMEM;
+		return NULL;
+	}
+
+	td->ibvtd.context = ibvctx;
+	atomic_init(&td->refcount, 0);
+
+	return &td->ibvtd;
+}
+
+int efa_dealloc_td(struct ibv_td *ibvtd)
+{
+	struct efa_td *td;
+
+	td = to_efa_td(ibvtd);
+	if (atomic_load(&td->refcount) > 0)
+		return EBUSY;
+
+	free(td);
+
+	return 0;
+}

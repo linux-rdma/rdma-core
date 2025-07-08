@@ -53,6 +53,12 @@ struct efa_pd {
 	uint16_t pdn;
 };
 
+struct efa_td {
+	struct ibv_td ibvtd;
+	/* Number of parent domains referencing this TD */
+	atomic_int refcount;
+};
+
 struct efa_sub_cq {
 	uint16_t consumed_cnt;
 	int phase;
@@ -199,6 +205,11 @@ static inline struct efa_qp *to_efa_qp_ex(struct ibv_qp_ex *ibvqpx)
 static inline struct efa_ah *to_efa_ah(struct ibv_ah *ibvah)
 {
 	return container_of(ibvah, struct efa_ah, ibvah);
+}
+
+static inline struct efa_td *to_efa_td(struct ibv_td *ibvtd)
+{
+	return container_of(ibvtd, struct efa_td, ibvtd);
 }
 
 bool is_efa_dev(struct ibv_device *device);
