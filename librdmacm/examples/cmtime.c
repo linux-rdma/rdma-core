@@ -45,6 +45,7 @@
 #include <stdatomic.h>
 #include <netinet/tcp.h>
 #include <ccan/container_of.h>
+#include <inttypes.h>
 #include <pthread.h>
 #include <rdma/rdma_cma.h>
 #include <ifaddrs.h>
@@ -160,7 +161,7 @@ static struct ibv_cq *cq;
 
 static void show_perf(void)
 {
-	uint32_t c, diff, max[STEP_CNT], min[STEP_CNT], sum[STEP_CNT];
+	uint64_t c, diff, max[STEP_CNT], min[STEP_CNT], sum[STEP_CNT];
 	int i;
 
 	for (i = 0; i < STEP_CNT; i++) {
@@ -194,11 +195,12 @@ static void show_perf(void)
 
 	printf("step             avg/conn  total(us)    us/conn    sum(us)    max(us)    min(us)\n");
 	for (i = 0; i < STEP_CNT; i++) {
-		diff = (uint32_t) (times[i][1] - times[i][0]);
+		diff = (uint64_t) (times[i][1] - times[i][0]);
 
-		printf("%-13s  %10u %10u %10u %10u %10d %10u\n",
-			step_str[i], diff / num_conns, diff,
-			sum[i] / num_conns, sum[i], max[i], min[i]);
+		printf("%-13s  %10" PRIu64 " %10" PRIu64 " %10" PRIu64
+		       " %10" PRIu64 " %10" PRIu64 " %10" PRIu64 "\n",
+		       step_str[i], diff / num_conns, diff,
+		       sum[i] / num_conns, sum[i], max[i], min[i]);
 	}
 }
 
