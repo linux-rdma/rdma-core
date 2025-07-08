@@ -219,7 +219,6 @@ int oob_try_bind(const char *src_addr, const char *port)
 	int ret;
 
 	hint.ai_flags = AI_PASSIVE;
-	hint.ai_family = AF_INET;
 	hint.ai_socktype = SOCK_STREAM;
 	ret = getaddrinfo(src_addr, port, &hint, &ai);
 	if (ret) {
