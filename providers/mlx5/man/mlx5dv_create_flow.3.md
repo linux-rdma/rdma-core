@@ -46,6 +46,10 @@ struct mlx5dv_flow_action_attr {
 		struct ibv_flow_action *action;
 		uint32_t tag_value;
 		struct mlx5dv_devx_obj *obj;
+		struct {
+			struct mlx5dv_devx_obj *obj;
+			uint32_t offset;
+		} bulk_obj;
 	};
 };
 ```
@@ -65,6 +69,8 @@ struct mlx5dv_flow_action_attr {
 		Steer the packet to the default miss destination.
 	MLX5DV_FLOW_ACTION_DROP
 		Action is dropping the matched packet.
+	MLX5DV_FLOW_ACTION_COUNTERS_DEVX_WITH_OFFSET
+		The DEVX bulk counter object and its counter offset for the matched packets.
 
 *qp*
 :	QP passed, to be used with *type* *MLX5DV_FLOW_ACTION_DEST_IBV_QP*.
@@ -78,7 +84,12 @@ struct mlx5dv_flow_action_attr {
 	*MLX5DV_FLOW_ACTION_TAG* see *ibv_create_cq_ex(3)*.
 
 *obj*
-:	DEVX object, to be used with *type* *MLX5DV_FLOW_ACTION_DEST_DEVX* or by *MLX5DV_FLOW_ACTION_COUNTERS_DEVX*.
+:	DEVX object, to be used with *type* *MLX5DV_FLOW_ACTION_DEST_DEVX* or by *MLX5DV_FLOW_ACTION_COUNTERS_DEVX*
+	or by *MLX5DV_FLOW_ACTION_COUNTERS_DEVX_WITH_OFFSET*.
+
+*offset*
+:	offset to the target counter within a bulk DEVX object, to be used with *type*
+	*MLX5DV_FLOW_ACTION_COUNTERS_DEVX_WITH_OFFSET*
 
 # RETURN VALUE
 
