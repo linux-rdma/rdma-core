@@ -867,6 +867,8 @@ static void server_connect(void)
 {
 	reset_test();
 
+	do_sync(STEP_INIT_QP);
+
 	while (atomic_load(&completed[STEP_CONNECT]) < num_conns)
 		sched_yield();
 
@@ -940,6 +942,8 @@ static void client_connect(void)
 	while (atomic_load(&completed[STEP_INIT_QP]) < num_conns)
 		sched_yield();
 	end_time(STEP_INIT_QP);
+
+	do_sync(STEP_INIT_QP);
 
 	printf("\tConnecting\n");
 	start_time(STEP_CONNECT);
