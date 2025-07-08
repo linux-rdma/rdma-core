@@ -1770,6 +1770,12 @@ static int mlx5_get_max_recv_wr(struct mlx5_context *ctx,
 				struct mlx5dv_qp_init_attr *mlx5_qp_attr,
 				uint32_t *max_recv_wr)
 {
+	/* Ignore max_recv_wr when SRQ is used. */
+	if (attr->srq) {
+		*max_recv_wr = 0;
+		return 0;
+	}
+
 	if (mlx5_qp_attr && (mlx5_qp_attr->create_flags & MLX5DV_QP_CREATE_OOO_DP) &&
 	    attr->cap.max_recv_wr > 1) {
 		uint32_t max_recv_wr_cap = 0;
