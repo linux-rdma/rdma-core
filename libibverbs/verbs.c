@@ -695,23 +695,31 @@ LATEST_SYMVER_FUNC(ibv_query_qp, 1_1, "IBVERBS_1.1",
 int ibv_query_qp_data_in_order(struct ibv_qp *qp, enum ibv_wr_opcode op,
 			       uint32_t flags)
 {
+	int result;
+
+	if (!check_comp_mask(flags,
+			     IBV_QUERY_QP_DATA_IN_ORDER_RETURN_CAPS |
+			     IBV_QUERY_QP_DATA_IN_ORDER_DEVICE_ONLY))
+		return 0;
+
 #if !defined(__i386__) && !defined(__x86_64__)
 	/* Currently this API is only supported for x86 architectures since most
 	 * non-x86 platforms are known to be OOO and need to do a per-platform study.
+	 * However, it is possible to override this restriction to allow querying
+	 * the device capability directly, regardless of the host CPU architecture.
 	 */
-	return 0;
-#else
-	int result;
-
-	if (!check_comp_mask(flags, IBV_QUERY_QP_DATA_IN_ORDER_RETURN_CAPS))
+	if (!(flags & IBV_QUERY_QP_DATA_IN_ORDER_DEVICE_ONLY))
 		return 0;
+#endif
 
 	result = get_ops(qp->context)->query_qp_data_in_order(qp, op, flags);
 	if (result & IBV_QUERY_QP_DATA_IN_ORDER_WHOLE_MSG)
 		result |= IBV_QUERY_QP_DATA_IN_ORDER_ALIGNED_128_BYTES;
 
-	return flags ? result : !!(result & IBV_QUERY_QP_DATA_IN_ORDER_WHOLE_MSG);
-#endif
+	if (flags & IBV_QUERY_QP_DATA_IN_ORDER_RETURN_CAPS)
+		return result;
+
+	return !!(result & IBV_QUERY_QP_DATA_IN_ORDER_WHOLE_MSG);
 }
 
 LATEST_SYMVER_FUNC(ibv_modify_qp, 1_1, "IBVERBS_1.1",
