@@ -20,6 +20,7 @@ is included:
  - iw_cxgb4.ko
  - hfi1.ko
  - hns-roce-hw-v2.ko
+ - ionic_rdma.ko
  - irdma.ko
  - ib_qib.ko
  - mana_ib.ko
