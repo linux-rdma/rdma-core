@@ -651,6 +651,25 @@ struct ibv_mr *mlx5_reg_mr(struct ibv_pd *pd, void *addr, size_t length,
 	return &mr->vmr.ibv_mr;
 }
 
+struct ibv_mr *mlx5_reg_mr_ex(struct ibv_pd *pd, struct ibv_reg_mr_in *in)
+{
+	struct mlx5_mr *mr;
+	int ret;
+
+	mr = calloc(1, sizeof(*mr));
+	if (!mr)
+		return NULL;
+
+	ret = ibv_cmd_reg_mr_ex(pd, &mr->vmr, in);
+	if (ret) {
+		free(mr);
+		return NULL;
+	}
+	mr->alloc_flags = in->access;
+
+	return &mr->vmr.ibv_mr;
+}
+
 struct ibv_mr *mlx5_reg_dmabuf_mr(struct ibv_pd *pd, uint64_t offset, size_t length,
 				  uint64_t iova, int fd, int acc)
 {
@@ -2980,6 +2999,73 @@ int mlx5_query_qp(struct ibv_qp *ibqp, struct ibv_qp_attr *attr,
 
 	attr->cap = init_attr->cap;
 
+	return 0;
+}
+
+enum {
+	ALLOC_DMAH_SUPPORTED_COMP_MASK = IBV_DMAH_INIT_ATTR_MASK_CPU_ID |
+					 IBV_DMAH_INIT_ATTR_MASK_PH |
+					 IBV_DMAH_INIT_ATTR_MASK_TPH_MEM_TYPE,
+};
+
+enum {
+	ALLOC_DMAH_ST_COMP_MASK = IBV_DMAH_INIT_ATTR_MASK_CPU_ID |
+				  IBV_DMAH_INIT_ATTR_MASK_TPH_MEM_TYPE,
+};
+
+struct ibv_dmah *
+mlx5_alloc_dmah(struct ibv_context *context, struct ibv_dmah_init_attr *attr)
+{
+	struct verbs_dmah *dmah;
+	int ret;
+
+	if (!check_comp_mask(attr->comp_mask,
+			     ALLOC_DMAH_SUPPORTED_COMP_MASK)) {
+		errno = EOPNOTSUPP;
+		return NULL;
+	}
+
+	if (!(attr->comp_mask & IBV_DMAH_INIT_ATTR_MASK_PH)) {
+		/* PH is a must */
+		errno = EINVAL;
+		return NULL;
+	}
+
+	/* ST is optional; however, partial data for it is not allowed */
+	if (attr->comp_mask & ALLOC_DMAH_ST_COMP_MASK) {
+		if ((attr->comp_mask & ALLOC_DMAH_ST_COMP_MASK) != ALLOC_DMAH_ST_COMP_MASK) {
+			errno = EINVAL;
+			return NULL;
+		}
+	}
+
+	dmah = calloc(1, sizeof(*dmah));
+	if (!dmah) {
+		errno = ENOMEM;
+		return NULL;
+	}
+
+	ret = ibv_cmd_alloc_dmah(context, dmah, attr);
+	if (ret)
+		goto err;
+
+	return &dmah->dmah;
+
+err:
+	free(dmah);
+	return NULL;
+}
+
+int mlx5_dealloc_dmah(struct ibv_dmah *dmah)
+{
+	struct verbs_dmah *vdmah = verbs_get_dmah(dmah);
+	int ret;
+
+	ret = ibv_cmd_free_dmah(vdmah);
+	if (ret)
+		return ret;
+
+	free(vdmah);
 	return 0;
 }
 

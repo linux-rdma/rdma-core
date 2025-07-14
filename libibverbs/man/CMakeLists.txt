@@ -1,6 +1,7 @@
 rdma_man_pages(
   ibv_advise_mr.3.md
   ibv_alloc_dm.3
+  ibv_alloc_dmah.3.md
   ibv_alloc_mw.3
   ibv_alloc_null_mr.3.md
   ibv_alloc_parent_domain.3
@@ -87,6 +88,7 @@ rdma_alias_man_pages(
   ibv_alloc_dm.3 ibv_reg_dm_mr.3
   ibv_alloc_dm.3 ibv_memcpy_to_dm.3
   ibv_alloc_dm.3 ibv_memcpy_from_dm.3
+  ibv_alloc_dmah.3 ibv_dealloc_dmah.3
   ibv_alloc_mw.3 ibv_dealloc_mw.3
   ibv_alloc_pd.3 ibv_dealloc_pd.3
   ibv_alloc_td.3 ibv_dealloc_td.3
@@ -116,6 +118,7 @@ rdma_alias_man_pages(
   ibv_rate_to_mbps.3 mbps_to_ibv_rate.3
   ibv_rate_to_mult.3 mult_to_ibv_rate.3
   ibv_reg_mr.3 ibv_dereg_mr.3
+  ibv_reg_mr.3 ibv_reg_mr_ex.3
   ibv_wr_post.3 ibv_wr_abort.3
   ibv_wr_post.3 ibv_wr_complete.3
   ibv_wr_post.3 ibv_wr_start.3
