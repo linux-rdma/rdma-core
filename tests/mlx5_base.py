@@ -123,9 +123,16 @@ class Mlx5RDMACMBaseTest(RDMACMBaseTest):
 
 class Mlx5DcResources(RoCETrafficResources):
     def __init__(self, dev_name, ib_port, gid_index, send_ops_flags,
-                 qp_count=1, create_flags=0):
+                 qp_count=1, create_flags=0, mr_access=None):
         self.send_ops_flags = send_ops_flags
         self.create_flags = create_flags
+        if mr_access is None:
+            self.mr_access = (ibv_access_flags.IBV_ACCESS_REMOTE_WRITE |
+                              ibv_access_flags.IBV_ACCESS_LOCAL_WRITE |
+                              ibv_access_flags.IBV_ACCESS_REMOTE_ATOMIC |
+                              ibv_access_flags.IBV_ACCESS_REMOTE_READ)
+        else:
+            self.mr_access = mr_access
         super().__init__(dev_name, ib_port, gid_index, with_srq=True,
                          qp_count=qp_count)
 
@@ -145,9 +152,7 @@ class Mlx5DcResources(RoCETrafficResources):
             raise unittest.SkipTest('Opening mlx5 context is not supported')
 
     def create_mr(self):
-        access = ibv_access_flags.IBV_ACCESS_REMOTE_WRITE | ibv_access_flags.IBV_ACCESS_LOCAL_WRITE | \
-                 ibv_access_flags.IBV_ACCESS_REMOTE_ATOMIC | ibv_access_flags.IBV_ACCESS_REMOTE_READ
-        self.mr = MR(self.pd, self.msg_size, access)
+        self.mr = MR(self.pd, self.msg_size, self.mr_access)
 
     def create_qp_cap(self):
         return QPCap(100, 0, 1, 0)
@@ -205,12 +210,12 @@ class Mlx5DcResources(RoCETrafficResources):
 
 class Mlx5DcStreamsRes(Mlx5DcResources):
     def __init__(self, dev_name, ib_port, gid_index, send_ops_flags,
-                 qp_count=1, create_flags=0):
+                 qp_count=1, create_flags=0, mr_access=None):
         self.bad_flow = 0
         self.mr_bad_flow = False
         self.stream_check = False
         super().__init__(dev_name, ib_port, gid_index, send_ops_flags,
-                         qp_count, create_flags)
+                         qp_count, create_flags, mr_access)
 
     def reset_qp(self, qp_idx):
         qp_attr = QPAttr(qp_state=ibv_qp_state.IBV_QPS_RESET)

@@ -10,7 +10,7 @@ from tests.mlx5_base import Mlx5DcResources, Mlx5RDMATestCase, Mlx5DcStreamsRes,
 from pyverbs.pyverbs_error import PyverbsRDMAError
 from pyverbs.providers.mlx5.mlx5dv import Mlx5QP
 from pyverbs.libibverbs_enums import ibv_access_flags, ibv_qp_create_send_ops_flags, ibv_wr_opcode, \
-    ibv_odp_transport_cap_bits
+    ibv_odp_transport_cap_bits, ibv_qp_attr_mask, ibv_qp_state
 import tests.utils as u
 
 
@@ -133,3 +133,59 @@ class DCTest(Mlx5RDMATestCase):
                             qp_count=1, send_ops_flags=ibv_qp_create_send_ops_flags.IBV_QP_EX_WITH_SEND)
         self.client.set_bad_flow(DCI_TEST_BAD_FLOW_WITHOUT_RESET)
         self.client.traffic_with_bad_flow(**self.traffic_args)
+
+    def test_dc_stream_qp_recovery(self):
+        """
+        Test DC QP error state transition with stream channel error accumulation.
+        Creates DC QPs with restricted MR access and generates remote access errors
+        via RDMA_WRITE operations. Verifies QP transitions to ERR state after enough
+        channels entered error mode. Validates QP recovery after reset.
+        """
+        self.create_players(Mlx5DcStreamsRes, qp_count=2,
+                            send_ops_flags=ibv_qp_create_send_ops_flags.IBV_QP_EX_WITH_RDMA_WRITE,
+                            mr_access=ibv_access_flags.IBV_ACCESS_LOCAL_WRITE)
+        qp_idx = 0
+        error_threshold = self.client.dcis[qp_idx]['errored']
+        u.traffic(**self.traffic_args, new_send=True, send_op=ibv_wr_opcode.IBV_WR_SEND)
+        for _ in range(error_threshold):
+            with self.assertRaisesRegex(PyverbsRDMAError, r'Remote access error'):
+                u.rdma_traffic(**self.traffic_args, new_send=True,
+                               send_op=ibv_wr_opcode.IBV_WR_RDMA_WRITE)
+        # Retry mechanism: QP state update to ERR takes time after errors occur
+        qp_in_err_state = False
+        for _ in range(3):
+            qp_attr, _ = self.client.qps[qp_idx].query(ibv_qp_attr_mask.IBV_QP_STATE)
+            if qp_attr.cur_qp_state == ibv_qp_state.IBV_QPS_ERR:
+                qp_in_err_state = True
+                break
+        if not qp_in_err_state:
+            raise PyverbsRDMAError(f'QP is not in ERR state after {error_threshold} errors')
+        for qp_idx in range(self.client.qp_count):
+            self.client.reset_qp(qp_idx)
+        for qp_idx in range(self.server.qp_count):
+            self.server.reset_qp(qp_idx)
+        u.traffic(**self.traffic_args, new_send=True, send_op=ibv_wr_opcode.IBV_WR_SEND)
+
+    def test_dc_stream_ids_recovery(self):
+        """
+        Test DC stream ID reset functionality after remote access errors.
+        Creates DC QPs with restricted MR access and generates
+        remote access errors via RDMA_WRITE operations. After each error, resets
+        the stream ID and verifies QP remains functional.
+        Validates normal SEND traffic continues to work after stream resets.
+        """
+        self.create_players(Mlx5DcStreamsRes, qp_count=2,
+                            send_ops_flags=ibv_qp_create_send_ops_flags.IBV_QP_EX_WITH_RDMA_WRITE,
+                            mr_access=ibv_access_flags.IBV_ACCESS_LOCAL_WRITE)
+        qp_idx = 0
+        error_threshold = self.client.dcis[qp_idx]['errored']
+        u.traffic(**self.traffic_args, new_send=True, send_op=ibv_wr_opcode.IBV_WR_SEND)
+        for _ in range(error_threshold):
+            with self.assertRaisesRegex(PyverbsRDMAError, r'Remote access error'):
+                u.rdma_traffic(**self.traffic_args, new_send=True,
+                            send_op=ibv_wr_opcode.IBV_WR_RDMA_WRITE)
+            self.client.dci_reset_stream_id(qp_idx)
+        qp_attr, _ = self.client.qps[qp_idx].query(ibv_qp_attr_mask.IBV_QP_STATE)
+        if qp_attr.cur_qp_state == ibv_qp_state.IBV_QPS_ERR:
+            raise PyverbsRDMAError('QP is in ERR state after reset stream id')
+        u.traffic(**self.traffic_args, new_send=True, send_op=ibv_wr_opcode.IBV_WR_SEND)
