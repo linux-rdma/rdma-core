@@ -155,12 +155,17 @@ cdef extern from 'infiniband/mlx5dv.h':
 
     cdef struct mlx5dv_devx_obj
 
+    cdef struct bulk_obj:
+        mlx5dv_devx_obj *obj
+        int             offset
+
     cdef struct mlx5dv_flow_action_attr:
         mlx5dv_flow_action_type type
         v.ibv_qp                *qp
         v.ibv_flow_action       *action
         unsigned int            tag_value
         mlx5dv_devx_obj         *obj
+        bulk_obj                bulk_obj
 
     cdef struct mlx5dv_dr_domain
 
