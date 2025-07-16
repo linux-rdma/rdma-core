@@ -198,7 +198,7 @@ cdef class Mlx5ModifyFlowAction(FlowAction):
 
 cdef class Mlx5FlowActionAttr(PyverbsObject):
     def __init__(self, action_type=None, QP qp=None,
-                 FlowAction flow_action=None, Mlx5DevxObj obj=None):
+                 FlowAction flow_action=None, Mlx5DevxObj obj=None, offset=0):
         """
         Initialize a Mlx5FlowActionAttr object over an underlying
         mlx5dv_flow_action_attr C object that defines actions attributes for
@@ -207,6 +207,7 @@ cdef class Mlx5FlowActionAttr(PyverbsObject):
         :param qp: A QP target for go to QP action
         :param flow_action: An action to perform for the flow
         :param obj: DEVX object
+        :param offset: Offset for the counters devx offset action
         """
         super().__init__()
         if action_type:
@@ -220,6 +221,10 @@ cdef class Mlx5FlowActionAttr(PyverbsObject):
         elif action_type in [dv.MLX5DV_FLOW_ACTION_DEST_DEVX, dv.MLX5DV_FLOW_ACTION_COUNTERS_DEVX]:
             self.attr.obj = obj.obj
             self.devx_obj = obj
+        elif action_type == dv.MLX5DV_FLOW_ACTION_COUNTERS_DEVX_WITH_OFFSET:
+            self.attr.bulk_obj.obj = obj.obj
+            self.attr.bulk_obj.offset = offset
+            self.devx_obj = obj
         elif action_type:
             raise PyverbsUserError(f'Unsupported action type: {action_type}.')
 
@@ -231,7 +236,8 @@ cdef class Mlx5FlowActionAttr(PyverbsObject):
     def type(self, action_type):
         if not (self.attr.type in [dv.MLX5DV_FLOW_ACTION_DEST_IBV_QP,
                                    dv.MLX5DV_FLOW_ACTION_DEST_DEVX,
-                                   dv.MLX5DV_FLOW_ACTION_COUNTERS_DEVX]):
+                                   dv.MLX5DV_FLOW_ACTION_COUNTERS_DEVX,
+                                   dv.MLX5DV_FLOW_ACTION_COUNTERS_DEVX_WITH_OFFSET]):
             raise PyverbsUserError(f'Unsupported action type: {action_type}.')
         self.attr.type = action_type
 
@@ -251,17 +257,22 @@ cdef class Mlx5FlowActionAttr(PyverbsObject):
     @property
     def devx_obj(self):
         if not (self.attr.type in [dv.MLX5DV_FLOW_ACTION_DEST_DEVX,
-                                  dv.MLX5DV_FLOW_ACTION_COUNTERS_DEVX]):
+                                   dv.MLX5DV_FLOW_ACTION_COUNTERS_DEVX,
+                                   dv.MLX5DV_FLOW_ACTION_COUNTERS_DEVX_WITH_OFFSET]):
             raise PyverbsUserError(f'Action attr of type {self.attr.type} doesn\'t have a devx_obj')
         return self.devx_obj
 
     @devx_obj.setter
     def devx_obj(self, Mlx5DevxObj devx_obj):
         if not (self.attr.type in [dv.MLX5DV_FLOW_ACTION_DEST_DEVX,
-                                   dv.MLX5DV_FLOW_ACTION_COUNTERS_DEVX]):
+                                   dv.MLX5DV_FLOW_ACTION_COUNTERS_DEVX,
+                                   dv.MLX5DV_FLOW_ACTION_COUNTERS_DEVX_WITH_OFFSET]):
             raise PyverbsUserError(f'Action attr of type {self.attr.type} doesn\'t have a devx_obj')
         self.devx_obj = devx_obj
-        self.attr.obj = devx_obj.obj
+        if self.attr.type == dv.MLX5DV_FLOW_ACTION_COUNTERS_DEVX_WITH_OFFSET:
+            self.attr.bulk_obj.obj = devx_obj.obj
+        else:
+            self.attr.obj = devx_obj.obj
 
     @property
     def action(self):
@@ -275,6 +286,18 @@ cdef class Mlx5FlowActionAttr(PyverbsObject):
             raise PyverbsUserError(f'Action attr of type {self.attr.type} doesn\'t have an action')
         self.action = action
         self.attr.action = action.action
+
+    @property
+    def offset(self):
+        if self.attr.type != dv.MLX5DV_FLOW_ACTION_COUNTERS_DEVX_WITH_OFFSET:
+            raise PyverbsUserError(f'Action attr of type {self.attr.type} doesn\'t have an offset')
+        return self.attr.bulk_obj.offset
+
+    @offset.setter
+    def offset(self, int offset):
+        if self.attr.type != dv.MLX5DV_FLOW_ACTION_COUNTERS_DEVX_WITH_OFFSET:
+            raise PyverbsUserError(f'Action attr of type {self.attr.type} doesn\'t have an offset')
+        self.attr.bulk_obj.offset = offset
 
 
 cdef class Mlx5Flow(Flow):
@@ -305,7 +328,8 @@ cdef class Mlx5Flow(Flow):
                 (<QP>(attr.qp)).add_ref(self)
                 self.qp = (<Mlx5FlowActionAttr>attr).qp
             elif (<Mlx5FlowActionAttr>attr).attr.type in [dv.MLX5DV_FLOW_ACTION_DEST_DEVX,
-                                                          dv.MLX5DV_FLOW_ACTION_COUNTERS_DEVX]:
+                                                dv.MLX5DV_FLOW_ACTION_COUNTERS_DEVX,
+                                                dv.MLX5DV_FLOW_ACTION_COUNTERS_DEVX_WITH_OFFSET]:
                 self.devx_obj = (<Mlx5FlowActionAttr>attr).devx_obj
             elif (<Mlx5FlowActionAttr>attr).attr.type not in [dv.MLX5DV_FLOW_ACTION_IBV_FLOW_ACTION]:
                raise PyverbsUserError(f'Unsupported action type: '
