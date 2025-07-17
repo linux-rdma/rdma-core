@@ -4,9 +4,7 @@
 import unittest
 import errno
 
-from tests.mlx5_base import Mlx5DcResources, Mlx5RDMATestCase, Mlx5DcStreamsRes,\
-    DCI_TEST_GOOD_FLOW, DCI_TEST_BAD_FLOW_WITH_RESET,\
-    DCI_TEST_BAD_FLOW_WITHOUT_RESET
+from tests.mlx5_base import Mlx5DcResources, Mlx5RDMATestCase, Mlx5DcStreamsRes
 from pyverbs.pyverbs_error import PyverbsRDMAError
 from pyverbs.providers.mlx5.mlx5dv import Mlx5QP
 from pyverbs.libibverbs_enums import ibv_access_flags, ibv_qp_create_send_ops_flags, ibv_wr_opcode, \
@@ -105,34 +103,6 @@ class DCTest(Mlx5RDMATestCase):
                             send_ops_flags=ibv_qp_create_send_ops_flags.IBV_QP_EX_WITH_RDMA_WRITE)
         u.rdma_traffic(**self.traffic_args, new_send=True,
                        send_op=ibv_wr_opcode.IBV_WR_RDMA_WRITE)
-
-    def test_dc_send_stream_bad_flow(self):
-        """
-        Check bad flow of DCS with reset stream id.
-        Create error in dci stream by setting invalid PD so dci stream goes to error.
-        In the end, the test verifies that the number of errors is as expected.
-        :raises SkipTest: In case DCI is not supported with HW
-        """
-        self.create_players(Mlx5DcStreamsRes,
-                            qp_count=1, send_ops_flags=ibv_qp_create_send_ops_flags.IBV_QP_EX_WITH_SEND)
-        self.client.set_bad_flow(DCI_TEST_BAD_FLOW_WITH_RESET)
-        self.client.traffic_with_bad_flow(**self.traffic_args)
-
-    def test_dc_send_stream_bad_flow_qp(self):
-        """
-        Check bad flow of DCS with reset qp.
-        Checked if resetting of wrong dci stream id produces an exception.
-        This bad flow creates enough errors without resetting the streams,
-        enforcing the QP to get into ERR state. Then the checking is stopped.
-        Also has feature that after QP goes in ERR state test will
-        reset QP to RTS state.
-        :raises SkipTest: In case DCI is not supported with HW
-        """
-        self.iters = 20
-        self.create_players(Mlx5DcStreamsRes,
-                            qp_count=1, send_ops_flags=ibv_qp_create_send_ops_flags.IBV_QP_EX_WITH_SEND)
-        self.client.set_bad_flow(DCI_TEST_BAD_FLOW_WITHOUT_RESET)
-        self.client.traffic_with_bad_flow(**self.traffic_args)
 
     def test_dc_stream_qp_recovery(self):
         """

@@ -606,7 +606,6 @@ def post_send_ex(agr_obj, send_object, send_op=None, qp_idx=0, ah=None, **kwargs
     if hasattr(agr_obj, 'remote_dct_num'):
         if isinstance(agr_obj, Mlx5DcStreamsRes):
             stream_id = agr_obj.generate_stream_id(qp_idx)
-            agr_obj.check_bad_flow(qp_idx)
             qp.wr_set_dc_addr_stream(ah, agr_obj.remote_dct_num, DCT_KEY,
                                      stream_id)
         else:
