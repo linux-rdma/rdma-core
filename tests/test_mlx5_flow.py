@@ -132,6 +132,31 @@ class Mlx5CounterFlowResources(Mlx5FlowResources):
         except PyverbsRDMAError:
             raise unittest.SkipTest('Opening mlx5 context is not supported')
 
+    def query_bulk_counter_cap(self):
+        """
+        Query the device for the maximum allowed bulk allocation size for flow counters.
+        This method queries the HCA capabilities to determine the maximum log2 bulk size
+        that can be allocated for flow counters. It first checks for general HCA capabilities,
+        then queries HCA_CAP_2 for the specific flow_counter_bulk_log_max_alloc field.
+        :return: The maximum log2 bulk allocation size for flow counters.
+        """
+        from tests.mlx5_prm_structs import QueryCmdHcaCap2Out, \
+            QueryHcaCapIn, QueryCmdHcaCapOut, QueryHcaCapOp, QueryHcaCapMod
+        query_cap_in = QueryHcaCapIn(op_mod=0x1)
+        query_cap_out = QueryCmdHcaCapOut(self.ctx.devx_general_cmd(
+            query_cap_in, len(QueryCmdHcaCapOut())))
+        if query_cap_out.status:
+            raise PyverbsRDMAError('Failed to query general HCA CAPs with syndrome '
+                                   f'({query_cap_out.syndrome}')
+
+        if not query_cap_out.capability.hca_cap_2:
+            raise unittest.SkipTest('The device doesn\'t support general HCA CAPs 2')
+        query_cap2_in = QueryHcaCapIn(op_mod=(QueryHcaCapOp.HCA_CAP_2 << 0x1) | \
+                                              QueryHcaCapMod.CURRENT)
+        query_cap2_out = QueryCmdHcaCap2Out(self.ctx.devx_general_cmd(
+            query_cap2_in, len(QueryCmdHcaCap2Out())))
+        return query_cap2_out.capability.flow_counter_bulk_log_max_alloc
+
     @staticmethod
     def create_counter(ctx):
         """
@@ -141,6 +166,26 @@ class Mlx5CounterFlowResources(Mlx5FlowResources):
         """
         from tests.mlx5_prm_structs import AllocFlowCounterIn, AllocFlowCounterOut
         counter = Mlx5DevxObj(ctx, AllocFlowCounterIn(), len(AllocFlowCounterOut()))
+        flow_counter_id = AllocFlowCounterOut(counter.out_view).flow_counter_id
+        return counter, flow_counter_id
+
+    def create_bulk_counter(self, ctx, bulk_size=0):
+        """
+        Create flow bulk counter.
+        :param ctx: The player context to create the counter on.
+        :param bulk_size: The bulk size to use for the counter.
+        :return: The counter object and the flow counter ID .
+        """
+        from tests.mlx5_prm_structs import AllocFlowCounterIn, AllocFlowCounterOut
+        bulk_log_max_alloc = self.query_bulk_counter_cap()
+        if bulk_log_max_alloc > 0:
+            # Bulk size is log2 of the number of counters eg. if bulk_size is 9, then there
+            # are 512 counters
+            cmd_in = AllocFlowCounterIn(flow_counter_bulk_log_size=bulk_size)
+        else:
+            # If bulk_log_max_alloc=0 then use old bitmask field, 0b100 means 512 counters
+            cmd_in = AllocFlowCounterIn(flow_counter_bulk=0b100)
+        counter = Mlx5DevxObj(ctx, cmd_in, len(AllocFlowCounterOut()))
         flow_counter_id = AllocFlowCounterOut(counter.out_view).flow_counter_id
         return counter, flow_counter_id
 
@@ -156,6 +201,23 @@ class Mlx5CounterFlowResources(Mlx5FlowResources):
         query_in = QueryFlowCounterIn(flow_counter_id=flow_counter_id)
         counter_out = QueryFlowCounterOut(counter.query(query_in, len(QueryFlowCounterOut())))
         return counter_out.flow_statistics.packets
+
+    @staticmethod
+    def query_bulk_counter(counter, flow_counter_id, num_of_counters=1):
+        """
+        Query flow counter packets count for bulk counters.
+        :param counter: The counter for the query.
+        :param flow_counter_id: The flow counter ID for the query.
+        :param num_of_counters: Number of counters to query.
+        :return: Counter statistics.
+        """
+        from tests.mlx5_prm_structs import QueryFlowCounterIn, QueryBulkFlowCounterOut
+        query_in = QueryFlowCounterIn(flow_counter_id=flow_counter_id,
+                                      num_of_counters=num_of_counters)
+        counter_out = QueryBulkFlowCounterOut(counter.query(query_in,
+                                                            len(QueryBulkFlowCounterOut(
+                                                                num_statistics=num_of_counters))))
+        return counter_out.flow_statistics
 
 
 class Mlx5RCFlowResources(Mlx5RcResources):
@@ -431,6 +493,50 @@ class Mlx5MatcherTest(Mlx5RDMATestCase):
         u.raw_traffic(self.client, self.server, self.iters)
         sent_packets = self.server.query_counter_packets(counter, flow_counter_id)
         self.assertEqual(sent_packets, self.iters, 'Counter of metadata missed some sent packets')
+
+    @u.skip_unsupported
+    def test_counters_bulk_flow(self):
+        """
+        Flow action counters with bulk size.
+        Creates 4 flows with different dst ip addresses.
+        Sends 10 packets to each flow.
+        Verifies each flow get a hit and goes to QP final destination and counter is incremented
+        accordingly.
+        """
+        from tests.mlx5_prm_structs import FlowTableEntryMatchSetLyr24, FlowTableEntryMatchParam
+
+        self.create_players(Mlx5CounterFlowResources)
+        outer_header = FlowTableEntryMatchSetLyr24(ethertype=0xffff, ip_version=0xf,
+                                                   src_ip_mask=0xffffffff)
+        mask = FlowTableEntryMatchParam(outer_headers=outer_header)
+        matcher = self.server.create_matcher(mask, u.MatchCriteriaEnable.OUTER)
+        action_qp_attr = Mlx5FlowActionAttr(
+            action_type=mlx5dv_flow_action_type.MLX5DV_FLOW_ACTION_DEST_IBV_QP,
+            qp=self.server.qp)
+        # Create a counter with bulk_size=2 means there are 4 counters in the bulk.
+        counter, flow_counter_id = self.server.create_bulk_counter(self.server.ctx, bulk_size=2)
+        action_type = mlx5dv_flow_action_type.MLX5DV_FLOW_ACTION_COUNTERS_DEVX_WITH_OFFSET
+        flows = []
+        flows_num = 4
+
+        for flow_idx in range(flows_num):
+            src_ip = f'{flow_idx + 2}.{flow_idx + 2}.{flow_idx + 2}.{flow_idx + 2}'
+            packet = u.gen_packet(self.client.msg_size, ip_version=4, src_ipv4=src_ip)
+            # Each offset is different counter
+            action_counter_attr = Mlx5FlowActionAttr(action_type=action_type, obj=counter,
+                                                     offset=flow_idx)
+            outer_header = FlowTableEntryMatchSetLyr24(ethertype=PacketConsts.ETHER_TYPE_IPV4,
+                                                       ip_version=4, src_ip4=src_ip)
+            value_param = Mlx5FlowMatchParameters(len(outer_header), outer_header)
+            flows.append(Mlx5Flow(matcher, value_param, [action_counter_attr, action_qp_attr], 2))
+            u.raw_traffic(self.client, self.server, self.iters, packet_to_send=packet)
+            ctr_stats = self.server.query_bulk_counter(counter, flow_counter_id,
+                                                       num_of_counters=flows_num)
+            # Verify counters
+            for j in range(flows_num):
+                exp_num_pkts = self.iters if j <= flow_idx else 0
+                self.assertEqual(ctr_stats[j].packets, exp_num_pkts,
+                                 f'Counter {j} in metadata missed some sent packets')
 
     @requires_reformat_support
     @u.requires_encap_disabled_if_eswitch_on
