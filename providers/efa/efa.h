@@ -99,6 +99,7 @@ struct efa_cq {
 	struct efa_wq *cur_wq;
 	struct efa_io_cdesc_common *cur_cqe;
 	struct ibv_device *dev;
+	struct efa_parent_domain *parent_domain;
 	struct efa_sub_cq sub_cq_arr[];
 };
 
@@ -120,6 +121,7 @@ struct efa_wq {
 	int max_sge;
 	int phase;
 	pthread_spinlock_t wqlock;
+	bool need_lock;
 
 	uint32_t *db;
 	uint16_t sub_cq_idx;
@@ -158,6 +160,7 @@ struct efa_qp {
 	int sq_sig_all;
 	int wr_session_err;
 	struct ibv_device *dev;
+	struct efa_parent_domain *parent_domain;
 };
 
 struct efa_mr {
