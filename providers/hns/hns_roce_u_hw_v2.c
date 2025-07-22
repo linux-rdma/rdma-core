@@ -38,7 +38,11 @@
 #include "hns_roce_u.h"
 #include "hns_roce_u_db.h"
 #include "hns_roce_u_hw_v2.h"
+
+#define LTTNG_UST_TRACEPOINT_DEFINE
+#define LTTNG_UST_TRACEPOINT_PROBE_DYNAMIC_LINKAGE
 #include "hns_roce_u_trace.h"
+#include <infiniband/trace.h>
 
 #define HR_IBV_OPC_MAP(ib_key, hr_key) \
 		[IBV_WR_ ## ib_key] = HNS_ROCE_WQE_OP_ ## hr_key

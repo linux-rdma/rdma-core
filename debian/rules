@@ -37,6 +37,7 @@ DH_AUTO_CONFIGURE := "--" \
 		     "-DCMAKE_INSTALL_UDEV_RULESDIR:PATH=/lib/udev/rules.d" \
 		     "-DCMAKE_INSTALL_PERLDIR:PATH=/usr/share/perl5" \
 		     "-DENABLE_STATIC=1" \
+		     "-DENABLE_LTTNG=1" \
 		     $(EXTRA_CMAKE_FLAGS)
 
 override_dh_auto_configure:
@@ -48,7 +49,6 @@ override_dh_auto_configure:
 		dh_auto_configure $(DH_AUTO_CONFIGURE) \
 			        -DNO_PYVERBS=1; \
 	fi
-
 
 override_dh_auto_build:
 	ninja -C build-deb -v

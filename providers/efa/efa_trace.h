@@ -103,8 +103,6 @@ LTTNG_UST_TRACEPOINT_EVENT(
 	)
 )
 
-#define rdma_tracepoint(arg...) lttng_ust_tracepoint(arg)
-
 #endif /* __EFA_TRACE_H__*/
 
 #include <lttng/tracepoint-event.h>
@@ -113,8 +111,6 @@ LTTNG_UST_TRACEPOINT_EVENT(
 
 #ifndef __EFA_TRACE_H__
 #define __EFA_TRACE_H__
-
-#define rdma_tracepoint(arg...)
 
 #endif /* __EFA_TRACE_H__*/
 
