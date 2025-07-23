@@ -173,6 +173,9 @@ static const struct verbs_context_ops mlx5_ctx_common_ops = {
 	.unimport_mr = mlx5_unimport_mr,
 	.unimport_pd = mlx5_unimport_pd,
 	.query_qp_data_in_order = mlx5_query_qp_data_in_order,
+	.alloc_dmah = mlx5_alloc_dmah,
+	.dealloc_dmah = mlx5_dealloc_dmah,
+	.reg_mr_ex = mlx5_reg_mr_ex,
 };
 
 static const struct verbs_context_ops mlx5_ctx_cqev1_ops = {

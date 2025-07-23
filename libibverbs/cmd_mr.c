@@ -156,3 +156,82 @@ int ibv_cmd_reg_dmabuf_mr(struct ibv_pd *pd, uint64_t offset, size_t length,
 	vmr->mr_type = IBV_MR_TYPE_DMABUF_MR;
 	return 0;
 }
+
+int ibv_cmd_reg_mr_ex(struct ibv_pd *pd, struct verbs_mr *vmr,
+		      struct ibv_reg_mr_in *in)
+{
+	DECLARE_COMMAND_BUFFER(cmdb, UVERBS_OBJECT_MR,
+			       UVERBS_METHOD_REG_MR, 11);
+	bool fd_based = (in->comp_mask & IBV_REG_MR_MASK_FD);
+	struct ib_uverbs_attr *handle;
+	uint64_t length = in->length;
+	uint32_t lkey, rkey;
+	int ret;
+
+	if (fd_based) {
+		if (!(in->comp_mask & IBV_REG_MR_MASK_FD_OFFSET) ||
+		    (in->comp_mask & IBV_REG_MR_MASK_ADDR)) {
+			errno = EINVAL;
+			return EINVAL;
+		}
+		fill_attr_in_uint64(cmdb, UVERBS_ATTR_REG_MR_FD_OFFSET, in->fd_offset);
+		fill_attr_in_fd(cmdb, UVERBS_ATTR_REG_MR_FD,
+				in->fd);
+	} else {
+		if ((in->comp_mask & IBV_REG_MR_MASK_FD_OFFSET) ||
+		    !(in->comp_mask & IBV_REG_MR_MASK_ADDR)) {
+			errno = EINVAL;
+			return EINVAL;
+		}
+
+		fill_attr_in_uint64(cmdb, UVERBS_ATTR_REG_MR_ADDR, (uintptr_t)in->addr);
+		if (in->access & IBV_ACCESS_ON_DEMAND) {
+			if (in->length == SIZE_MAX && in->addr) {
+				errno = EINVAL;
+				return EINVAL;
+			}
+			if (in->length == SIZE_MAX)
+				length = UINT64_MAX;
+		}
+	}
+
+	if (in->comp_mask & IBV_REG_MR_MASK_IOVA) {
+		fill_attr_in_uint64(cmdb, UVERBS_ATTR_REG_MR_IOVA, in->iova);
+	} else {
+		if (!fd_based) {
+			fill_attr_in_uint64(cmdb, UVERBS_ATTR_REG_MR_IOVA,
+					    (uintptr_t)in->addr);
+		} else {
+			/* iova is a must from kernel point of view */
+			errno = EINVAL;
+			return EINVAL;
+		}
+	}
+
+	handle = fill_attr_out_obj(cmdb, UVERBS_ATTR_REG_MR_HANDLE);
+	fill_attr_out_ptr(cmdb, UVERBS_ATTR_REG_MR_RESP_LKEY, &lkey);
+	fill_attr_out_ptr(cmdb, UVERBS_ATTR_REG_MR_RESP_RKEY, &rkey);
+	fill_attr_in_obj(cmdb, UVERBS_ATTR_REG_MR_PD_HANDLE, pd->handle);
+	fill_attr_in_uint64(cmdb, UVERBS_ATTR_REG_MR_LENGTH, length);
+	fill_attr_in_uint32(cmdb, UVERBS_ATTR_REG_MR_ACCESS_FLAGS, in->access);
+
+	if (in->comp_mask & IBV_REG_MR_MASK_DMAH)
+		fill_attr_in_obj(cmdb, UVERBS_ATTR_REG_MR_DMA_HANDLE,
+				 verbs_get_dmah(in->dmah)->handle);
+
+	ret = execute_ioctl(pd->context, cmdb);
+	if (ret)
+		return errno;
+
+	vmr->ibv_mr.handle = read_attr_obj(UVERBS_ATTR_REG_MR_HANDLE,
+					   handle);
+	vmr->ibv_mr.context = pd->context;
+	vmr->ibv_mr.lkey = lkey;
+	vmr->ibv_mr.rkey = rkey;
+	if (fd_based)
+		vmr->mr_type = IBV_MR_TYPE_DMABUF_MR;
+	else
+		vmr->mr_type = IBV_MR_TYPE_MR;
+
+	return 0;
+}
