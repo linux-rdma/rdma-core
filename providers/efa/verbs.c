@@ -175,6 +175,9 @@ int efadv_query_device(struct ibv_context *ibvctx,
 
 		if (EFA_DEV_CAP(ctx, UNSOLICITED_WRITE_RECV))
 			attr->device_caps |= EFADV_DEVICE_ATTR_CAPS_UNSOLICITED_WRITE_RECV;
+
+		if (EFA_DEV_CAP(ctx, CQ_WITH_EXT_MEM))
+			attr->device_caps |= EFADV_DEVICE_ATTR_CAPS_CQ_WITH_EXT_MEM_DMABUF;
 	}
 
 	if (vext_field_avail(typeof(*attr), max_rdma_size, inlen)) {
@@ -879,9 +882,9 @@ static void efa_cq_fill_pfns(struct efa_cq *cq,
 	if (attr->wc_flags & IBV_WC_EX_WITH_DLID_PATH_BITS)
 		ibvcqx->read_dlid_path_bits = efa_wc_read_dlid_path_bits;
 
-	if (efa_attr && (efa_attr->wc_flags & EFADV_WC_EX_WITH_SGID))
+	if (efa_attr->wc_flags & EFADV_WC_EX_WITH_SGID)
 		cq->dv_cq.wc_read_sgid = efa_wc_read_sgid;
-	if (efa_attr && (efa_attr->wc_flags & EFADV_WC_EX_WITH_IS_UNSOLICITED))
+	if (efa_attr->wc_flags & EFADV_WC_EX_WITH_IS_UNSOLICITED)
 		cq->dv_cq.wc_is_unsolicited = efa_wc_is_unsolicited;
 }
 
@@ -900,9 +903,11 @@ static struct ibv_cq_ex *create_cq(struct ibv_context *ibvctx,
 				   struct efadv_cq_init_attr *efa_attr)
 {
 	struct efa_context *ctx = to_efa_context(ibvctx);
+	struct verbs_create_cq_prov_attr prov_attr = {};
 	uint16_t cqe_size = ctx->ex_cqe_size;
 	struct efa_create_cq_resp resp = {};
 	struct efa_create_cq cmd = {};
+	uint32_t cmd_flags = 0;
 	uint16_t num_sub_cqs;
 	struct efa_cq *cq;
 	int sub_buf_size;
@@ -930,19 +935,27 @@ static struct ibv_cq_ex *create_cq(struct ibv_context *ibvctx,
 	if (!cq)
 		return NULL;
 
-	if (efa_attr && (efa_attr->wc_flags & EFADV_WC_EX_WITH_SGID))
+	if (efa_attr->wc_flags & EFADV_WC_EX_WITH_SGID)
 		cmd.flags |= EFA_CREATE_CQ_WITH_SGID;
 
 	num_sub_cqs = ctx->sub_cqs_per_cq;
 	cmd.num_sub_cqs = num_sub_cqs;
 	cmd.cq_entry_size = cqe_size;
+
+	if (efa_attr->flags & EFADV_CQ_INIT_FLAGS_EXT_MEM_DMABUF) {
+		prov_attr.buffer.length = efa_attr->ext_mem_dmabuf.length;
+		prov_attr.buffer.dmabuf.offset = efa_attr->ext_mem_dmabuf.offset;
+		prov_attr.buffer.dmabuf.fd = efa_attr->ext_mem_dmabuf.fd;
+		cmd_flags = CREATE_CQ_CMD_FLAGS_WITH_MEM_DMABUF;
+	}
+
 	if (attr->channel)
 		cmd.flags |= EFA_CREATE_CQ_WITH_COMPLETION_CHANNEL;
 
 	attr->cqe = roundup_pow_of_two(attr->cqe);
-	err = ibv_cmd_create_cq_ex(ibvctx, attr, &cq->verbs_cq,
+	err = ibv_cmd_create_cq_ex(ibvctx, attr, &prov_attr, &cq->verbs_cq,
 				   &cmd.ibv_cmd, sizeof(cmd),
-				   &resp.ibv_resp, sizeof(resp), 0);
+				   &resp.ibv_resp, sizeof(resp), cmd_flags);
 	if (err) {
 		errno = err;
 		goto err_free_cq;
@@ -950,22 +963,30 @@ static struct ibv_cq_ex *create_cq(struct ibv_context *ibvctx,
 
 	sub_cq_size = cq->verbs_cq.cq.cqe;
 	cq->cqn = resp.cq_idx;
-	cq->buf_size = resp.q_mmap_size;
 	cq->num_sub_cqs = num_sub_cqs;
 	cq->cqe_size = cqe_size;
 	cq->dev = ibvctx->device;
 
-	cq->buf = mmap(NULL, cq->buf_size, PROT_READ, MAP_SHARED,
-		       ibvctx->cmd_fd, resp.q_mmap_key);
-	if (cq->buf == MAP_FAILED)
-		goto err_destroy_cq;
+	if (efa_attr->flags & EFADV_CQ_INIT_FLAGS_EXT_MEM_DMABUF) {
+		cq->buf_size = efa_attr->ext_mem_dmabuf.length;
+		cq->buf = efa_attr->ext_mem_dmabuf.buffer;
+	} else {
+		cq->buf_size = resp.q_mmap_size;
+		cq->buf = mmap(NULL, cq->buf_size, PROT_READ, MAP_SHARED, ibvctx->cmd_fd,
+			       resp.q_mmap_key);
+		if (cq->buf == MAP_FAILED)
+			goto err_destroy_cq;
 
-	buf = cq->buf;
-	sub_buf_size = cq->cqe_size * sub_cq_size;
-	for (i = 0; i < num_sub_cqs; i++) {
-		efa_sub_cq_initialize(&cq->sub_cq_arr[i], buf, sub_cq_size,
-				      cq->cqe_size);
-		buf += sub_buf_size;
+		cq->buf_mmaped = true;
+	}
+
+	if (cq->buf) {
+		buf = cq->buf;
+		sub_buf_size = cq->cqe_size * sub_cq_size;
+		for (i = 0; i < num_sub_cqs; i++) {
+			efa_sub_cq_initialize(&cq->sub_cq_arr[i], buf, sub_cq_size, cq->cqe_size);
+			buf += sub_buf_size;
+		}
 	}
 
 	if (resp.comp_mask & EFA_CREATE_CQ_RESP_DB_OFF) {
@@ -984,7 +1005,8 @@ static struct ibv_cq_ex *create_cq(struct ibv_context *ibvctx,
 	return &cq->verbs_cq.cq_ex;
 
 err_unmap_cq:
-	munmap(cq->buf, cq->buf_size);
+	if (cq->buf_mmaped)
+		munmap(cq->buf, cq->buf_size);
 err_destroy_cq:
 	ibv_cmd_destroy_cq(&cq->verbs_cq.cq);
 err_free_cq:
@@ -996,6 +1018,7 @@ err_free_cq:
 struct ibv_cq *efa_create_cq(struct ibv_context *ibvctx, int ncqe,
 			     struct ibv_comp_channel *channel, int vec)
 {
+	struct efadv_cq_init_attr efa_attr = {};
 	struct ibv_cq_init_attr_ex attr_ex = {
 		.cqe = ncqe,
 		.channel = channel,
@@ -1003,7 +1026,7 @@ struct ibv_cq *efa_create_cq(struct ibv_context *ibvctx, int ncqe,
 	};
 	struct ibv_cq_ex *ibvcqx;
 
-	ibvcqx = create_cq(ibvctx, &attr_ex, NULL);
+	ibvcqx = create_cq(ibvctx, &attr_ex, &efa_attr);
 
 	return ibvcqx ? ibv_cq_ex_to_cq(ibvcqx) : NULL;
 }
@@ -1011,7 +1034,9 @@ struct ibv_cq *efa_create_cq(struct ibv_context *ibvctx, int ncqe,
 struct ibv_cq_ex *efa_create_cq_ex(struct ibv_context *ibvctx,
 				   struct ibv_cq_init_attr_ex *attr_ex)
 {
-	return create_cq(ibvctx, attr_ex, NULL);
+	struct efadv_cq_init_attr efa_attr = {};
+
+	return create_cq(ibvctx, attr_ex, &efa_attr);
 }
 
 struct ibv_cq_ex *efadv_create_cq(struct ibv_context *ibvctx,
@@ -1019,6 +1044,7 @@ struct ibv_cq_ex *efadv_create_cq(struct ibv_context *ibvctx,
 				  struct efadv_cq_init_attr *efa_attr,
 				  uint32_t inlen)
 {
+	struct efadv_cq_init_attr local_efa_attr = {};
 	uint64_t supp_wc_flags = 0;
 	struct efa_context *ctx;
 
@@ -1048,7 +1074,30 @@ struct ibv_cq_ex *efadv_create_cq(struct ibv_context *ibvctx,
 		return NULL;
 	}
 
-	return create_cq(ibvctx, attr_ex, efa_attr);
+	memcpy(&local_efa_attr, efa_attr, min_t(uint32_t, inlen, sizeof(local_efa_attr)));
+	return create_cq(ibvctx, attr_ex, &local_efa_attr);
+}
+
+int efadv_query_cq(struct ibv_cq *ibvcq, struct efadv_cq_attr *attr, uint32_t inlen)
+{
+	struct efa_cq *cq = to_efa_cq(ibvcq);
+
+	if (!is_efa_dev(ibvcq->context->device)) {
+		verbs_err(verbs_get_ctx(ibvcq->context), "Not an EFA device\n");
+		return EOPNOTSUPP;
+	}
+
+	if (!vext_field_avail(typeof(*attr), num_entries, inlen)) {
+		verbs_err(verbs_get_ctx(ibvcq->context), "Compatibility issues\n");
+		return EINVAL;
+	}
+
+	attr->comp_mask = 0;
+	attr->buffer = cq->buf;
+	attr->entry_size = cq->cqe_size;
+	attr->num_entries = ibvcq->cqe;
+
+	return 0;
 }
 
 struct efadv_cq *efadv_cq_from_ibv_cq_ex(struct ibv_cq_ex *ibvcqx)
@@ -1071,7 +1120,8 @@ int efa_destroy_cq(struct ibv_cq *ibvcq)
 	}
 
 	munmap(cq->db_mmap_addr, to_efa_dev(cq->dev)->pg_sz);
-	munmap(cq->buf, cq->buf_size);
+	if (cq->buf_mmaped)
+		munmap(cq->buf, cq->buf_size);
 
 	pthread_spin_destroy(&cq->lock);
 
@@ -1627,7 +1677,7 @@ struct ibv_qp *efadv_create_qp_ex(struct ibv_context *ibvctx,
 	    !vext_field_avail(struct efadv_qp_init_attr,
 			      driver_qp_type, inlen) ||
 	    efa_attr->comp_mask ||
-	    !is_reserved_cleared(efa_attr->reserved) ||
+	    efa_attr->reserved ||
 	    (inlen > sizeof(*efa_attr) && !is_ext_cleared(efa_attr, inlen))) {
 		verbs_err(verbs_get_ctx(ibvctx), "Compatibility issues\n");
 		errno = EINVAL;
@@ -1669,6 +1719,38 @@ int efa_query_qp(struct ibv_qp *ibvqp, struct ibv_qp_attr *attr,
 
 	return ibv_cmd_query_qp(ibvqp, attr, attr_mask, init_attr,
 				&cmd, sizeof(cmd));
+}
+
+int efadv_query_qp_wqs(struct ibv_qp *ibvqp, struct efadv_wq_attr *sq_attr,
+		       struct efadv_wq_attr *rq_attr, uint32_t inlen)
+{
+	struct efa_qp *qp = to_efa_qp(ibvqp);
+
+	if (!is_efa_dev(ibvqp->context->device)) {
+		verbs_err(verbs_get_ctx(ibvqp->context), "Not an EFA device\n");
+		return EOPNOTSUPP;
+	}
+
+	if (!vext_field_avail(typeof(*sq_attr), max_batch, inlen)) {
+		verbs_err(verbs_get_ctx(ibvqp->context), "Compatibility issues\n");
+		return EINVAL;
+	}
+
+	sq_attr->comp_mask = 0;
+	sq_attr->buffer = qp->sq.desc;
+	sq_attr->entry_size = sizeof(struct efa_io_tx_wqe);
+	sq_attr->num_entries = qp->sq.wq.wqe_cnt;
+	sq_attr->doorbell = qp->sq.wq.db;
+	sq_attr->max_batch = qp->sq.max_batch_wr;
+
+	rq_attr->comp_mask = 0;
+	rq_attr->buffer = qp->rq.buf;
+	rq_attr->entry_size = sizeof(struct efa_io_rx_desc);
+	rq_attr->num_entries = qp->rq.wq.desc_mask + 1;
+	rq_attr->doorbell = qp->rq.wq.db;
+	rq_attr->max_batch = rq_attr->num_entries;
+
+	return 0;
 }
 
 int efa_query_qp_data_in_order(struct ibv_qp *ibvqp, enum ibv_wr_opcode op,

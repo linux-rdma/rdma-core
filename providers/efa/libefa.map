@@ -23,3 +23,9 @@ EFA_1.3 {
 	global:
 		efadv_query_mr;
 } EFA_1.2;
+
+EFA_1.4 {
+	global:
+		efadv_query_qp_wqs;
+		efadv_query_cq;
+} EFA_1.3;

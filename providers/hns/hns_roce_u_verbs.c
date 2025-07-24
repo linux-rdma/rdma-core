@@ -433,7 +433,7 @@ static int exec_cq_create_cmd(struct ibv_context *context,
 	cmd_drv->db_addr = (uintptr_t)cq->db;
 	cmd_drv->cqe_size = (uintptr_t)cq->cqe_size;
 
-	ret = ibv_cmd_create_cq_ex(context, attr, &cq->verbs_cq,
+	ret = ibv_cmd_create_cq_ex(context, attr, NULL, &cq->verbs_cq,
 				   &cmd_ex.ibv_cmd, sizeof(cmd_ex),
 				   &resp_ex.ibv_resp, sizeof(resp_ex), 0);
 	if (ret) {

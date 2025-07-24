@@ -85,6 +85,10 @@ struct efadv_device_attr {
 		requests in order to receive RDMA write with immediate and a WC generated for such
 		receive will be marked as unsolicited.
 
+	EFADV_DEVICE_ATTR_CAPS_CQ_WITH_EXT_MEM_DMABUF:
+		Indicates that creating CQs with external memory buffers by passing dmabuf is
+		supported.
+
 *max_rdma_size*
 :	Maximum RDMA transfer size in bytes.
 
