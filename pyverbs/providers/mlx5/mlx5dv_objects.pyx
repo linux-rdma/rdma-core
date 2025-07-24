@@ -182,7 +182,7 @@ cdef class Mlx5DvObj(PyverbsObject):
             self.dv_qp = dv_qp
         if pd:
             dv_pd = Mlx5DvPD()
-            self.obj.pd.in_ = <v.ibv_pd*>pd.pd
+            self.obj.pd.in_ = <v.ibv_pd*><uintptr_t>pd.pd
             self.obj.pd.out = &(dv_pd.dv_pd)
             self.dv_pd = dv_pd
         if srq:

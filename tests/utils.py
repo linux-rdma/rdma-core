@@ -1492,8 +1492,12 @@ def requires_root():
 def requires_no_sriov():
     def outer(func):
         def inner(instance):
-            path = '/sys/class/infiniband/{instance.dev_name}/device/sriov_totalvfs'
-            if os.path.isfile(path):
+            physfn_path = f'/sys/class/infiniband/{instance.dev_name}/device/physfn'
+            if os.path.isdir(physfn_path):
+                sriov_path = f'{physfn_path}/sriov_totalvfs'
+            else:
+                sriov_path = f'/sys/class/infiniband/{instance.dev_name}/device/sriov_totalvfs'
+            if os.path.isfile(sriov_path):
                 raise unittest.SkipTest('Virtual Functions are present on the device')
             return func(instance)
         return inner
