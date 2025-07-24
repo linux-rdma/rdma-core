@@ -3,6 +3,7 @@
 
 import multiprocessing as mp
 import subprocess
+import functools
 import unittest
 import tempfile
 import random
@@ -532,7 +533,35 @@ class RDMACMBaseTest(RDMATestCase):
         sys.exit(2)
 
 
-class BaseResources(object):
+def catch_skiptest(func):
+    """
+    Decorator to catch unittest.SkipTest in __init__ resource functions.
+    It gracefully closes the context and all of its underlying resources.
+    """
+    @functools.wraps(func)
+    def wrapper(self, *args, **kwargs):
+        try:
+            func(self, *args, **kwargs)
+        except unittest.SkipTest as e:
+            if hasattr(self, 'ctx') and self.ctx:
+               self.ctx.close()
+            raise e
+    return wrapper
+
+
+class SkipTestMeta(type):
+    """
+    Metaclass to automatically wrap __init__ in catch_skiptest.
+    It should only be used in resource classes, such as those inheriting from
+    BaseResources.
+    """
+    def __new__(cls, name, bases, dct):
+        if "__init__" in dct:
+            dct["__init__"] = catch_skiptest(dct["__init__"])
+        return super().__new__(cls, name, bases, dct)
+
+
+class BaseResources(object, metaclass=SkipTestMeta):
     """
     BaseResources class is a base aggregator object which contains basic
     resources like Context and PD. It opens a context over the given device
@@ -548,6 +577,7 @@ class BaseResources(object):
         self.dev_name = dev_name
         self.gid_index = gid_index
         self.ib_port = ib_port
+        self.ctx = None
         self.create_context()
         self.create_pd()
 
