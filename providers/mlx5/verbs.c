@@ -448,6 +448,7 @@ static void mlx5_detach_dedicated_uar(struct ibv_context *context, struct mlx5_b
 
 struct ibv_td *mlx5_alloc_td(struct ibv_context *context, struct ibv_td_init_attr *init_attr)
 {
+	struct mlx5_context *ctx = to_mctx(context);
 	struct mlx5_td	*td;
 
 	if (init_attr->comp_mask) {
@@ -461,7 +462,12 @@ struct ibv_td *mlx5_alloc_td(struct ibv_context *context, struct ibv_td_init_att
 		return NULL;
 	}
 
-	td->bf = mlx5_attach_dedicated_uar(context, 0);
+	/* Check whether BlueFlame is supported on the device */
+	if (ctx->bf_reg_size)
+		td->bf = mlx5_attach_dedicated_uar(context, 0);
+	else
+		td->bf = ctx->nc_uar;
+
 	if (!td->bf) {
 		free(td);
 		return NULL;
@@ -481,7 +487,8 @@ int mlx5_dealloc_td(struct ibv_td *ib_td)
 	if (atomic_load(&td->refcount) > 1)
 		return EBUSY;
 
-	mlx5_detach_dedicated_uar(ib_td->context, td->bf);
+	if (!td->bf->singleton)
+		mlx5_detach_dedicated_uar(ib_td->context, td->bf);
 	free(td);
 
 	return 0;
