@@ -138,6 +138,10 @@ enum ibv_qp_msg_order {
 	IBV_ORDER_WAW = (1 << 16),
 };
 
+enum ibv_qp_use_flags {
+	IBV_QP_USAGE_IMM_DATA_RQ = (1 << 0),
+};
+
 struct ibv_qp_semantics {
 	uint32_t comp_mask;
 	uint32_t msg_order;
@@ -145,6 +149,8 @@ struct ibv_qp_semantics {
 	uint32_t max_rdma_war_size;
 	uint32_t max_rdma_waw_size;
 	uint32_t max_pdu;
+	uint8_t imm_data_size;
+	unsigned int usage_flags;
 };
 
 enum ibv_device_cap_flags {
