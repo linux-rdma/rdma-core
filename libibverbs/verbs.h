@@ -114,6 +114,39 @@ enum ibv_transport_type {
 	IBV_TRANSPORT_UNSPECIFIED,
 };
 
+enum ibv_qp_msg_order {
+	/* Atomic-Atomic Rd/Wr ordering */
+	IBV_ORDER_ATOMIC_RAR = (1 << 0),
+	IBV_ORDER_ATOMIC_RAW = (1 << 1),
+	IBV_ORDER_ATOMIC_WAR = (1 << 2),
+	IBV_ORDER_ATOMIC_WAW = (1 << 3),
+	/* RDMA-RDMA Rd/Wr ordering */
+	IBV_ORDER_RDMA_RAR = (1 << 4),
+	IBV_ORDER_RDMA_RAW = (1 << 5),
+	IBV_ORDER_RDMA_WAR = (1 << 6),
+	IBV_ORDER_RDMA_WAW = (1 << 7),
+	/* Send ordering wrt Atomic and RDMA Rd/Wr */
+	IBV_ORDER_RAS = (1 << 8),
+	IBV_ORDER_SAR = (1 << 9),
+	IBV_ORDER_SAS = (1 << 10),
+	IBV_ORDER_SAW = (1 << 11),
+	IBV_ORDER_WAS = (1 << 12),
+	/* Atomic and RDMA Rd/Wr ordering */
+	IBV_ORDER_RAR = (1 << 13),
+	IBV_ORDER_RAW = (1 << 14),
+	IBV_ORDER_WAR = (1 << 15),
+	IBV_ORDER_WAW = (1 << 16),
+};
+
+struct ibv_qp_semantics {
+	uint32_t comp_mask;
+	uint32_t msg_order;
+	uint32_t max_rdma_raw_size;
+	uint32_t max_rdma_war_size;
+	uint32_t max_rdma_waw_size;
+	uint32_t max_pdu;
+};
+
 enum ibv_device_cap_flags {
 	IBV_DEVICE_RESIZE_MAX_WR	= 1,
 	IBV_DEVICE_BAD_PKEY_CNTR	= 1 <<  1,
@@ -971,6 +1004,7 @@ enum ibv_qp_init_attr_mask {
 	IBV_QP_INIT_ATTR_RX_HASH	= 1 << 5,
 	IBV_QP_INIT_ATTR_SEND_OPS_FLAGS = 1 << 6,
 	IBV_QP_INIT_ATTR_QP_ATTR	= 1 << 7,
+	IBV_QP_INIT_ATTR_QP_SEMANTICS	= 1 << 8,
 };
 
 enum ibv_qp_create_flags {
@@ -1028,6 +1062,7 @@ struct ibv_qp_init_attr_ex {
 
 	struct ibv_qp_attr	*qp_attr;
 	int			qp_attr_mask;
+	struct ibv_qp_semantics	*qp_semantics;
 };
 
 enum ibv_qp_open_attr_mask {
@@ -2316,6 +2351,11 @@ struct ibv_values_ex {
 
 struct verbs_context {
 	/*  "grows up" - new fields go here */
+	int (*query_qp_semantics)(struct ibv_context *context,
+				 enum ibv_qp_type qp_type,
+				 struct ibv_ah_attr *ah_attr,
+				 struct ibv_qp_semantics *qp_semantics,
+				size_t qp_semantic_len);
 	struct ibv_mr *(*reg_mr_ex)(struct ibv_pd *pd,
 				    struct ibv_mr_init_attr *mr_init_attr);
 	int (*dealloc_dmah)(struct ibv_dmah *dmah);
@@ -2657,6 +2697,21 @@ int ibv_query_pkey(struct ibv_context *context, uint8_t port_num,
  */
 int ibv_get_pkey_index(struct ibv_context *context, uint8_t port_num,
 		       __be16 pkey);
+
+static inline int ibv_query_qp_semantics(struct ibv_context *context,
+					 enum ibv_qp_type qp_type,
+					 struct ibv_ah_attr *ah_attr,
+					 struct ibv_qp_semantics *qp_semantics,
+					 size_t qp_semantic_len)
+{
+	struct verbs_context *vctx = verbs_get_ctx_op(context, query_qp_semantics);
+
+	if (!vctx)
+		return EOPNOTSUPP;
+
+	return vctx->query_qp_semantics(context, qp_type, ah_attr,
+					qp_semantics, qp_semantic_len);
+}
 
 /**
  * ibv_alloc_pd - Allocate a protection domain
