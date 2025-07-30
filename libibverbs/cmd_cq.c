@@ -40,7 +40,7 @@ static int ibv_icmd_create_cq(struct ibv_context *context, int cqe,
 			      struct ibv_command_buffer *link,
 			      uint32_t cmd_flags)
 {
-	DECLARE_FBCMD_BUFFER(cmdb, UVERBS_OBJECT_CQ, UVERBS_METHOD_CQ_CREATE, 8, link);
+	DECLARE_FBCMD_BUFFER(cmdb, UVERBS_OBJECT_CQ, UVERBS_METHOD_CQ_CREATE, 11, link);
 	struct verbs_ex_private *priv = get_priv(context);
 	struct ib_uverbs_attr *handle;
 	struct ib_uverbs_attr *async_fd_attr;
