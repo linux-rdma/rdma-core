@@ -1,6 +1,6 @@
 /* SPDX-License-Identifier: GPL-2.0 OR BSD-2-Clause */
 /*
- * Copyright 2019-2023 Amazon.com, Inc. or its affiliates. All rights reserved.
+ * Copyright 2019-2025 Amazon.com, Inc. or its affiliates. All rights reserved.
  */
 
 #ifndef __EFA_VERBS_H__
@@ -16,6 +16,8 @@ int efa_query_device_ex(struct ibv_context *context,
 			const struct ibv_query_device_ex_input *input,
 			struct ibv_device_attr_ex *attr, size_t attr_size);
 struct ibv_pd *efa_alloc_pd(struct ibv_context *uctx);
+struct ibv_pd *efa_alloc_parent_domain(struct ibv_context *ibvctx,
+				       struct ibv_parent_domain_init_attr *attr);
 int efa_dealloc_pd(struct ibv_pd *ibvpd);
 struct ibv_mr *efa_reg_dmabuf_mr(struct ibv_pd *pd, uint64_t offset,
 				 size_t length, uint64_t iova, int fd, int acc);
@@ -50,5 +52,7 @@ int efa_post_recv(struct ibv_qp *ibvqp, struct ibv_recv_wr *wr,
 
 struct ibv_ah *efa_create_ah(struct ibv_pd *ibvpd, struct ibv_ah_attr *attr);
 int efa_destroy_ah(struct ibv_ah *ibvah);
+struct ibv_td *efa_alloc_td(struct ibv_context *ibvctx, struct ibv_td_init_attr *init_attr);
+int efa_dealloc_td(struct ibv_td *ibvtd);
 
 #endif /* __EFA_VERBS_H__ */
