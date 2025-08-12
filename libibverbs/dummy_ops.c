@@ -461,7 +461,8 @@ static struct ibv_mr *reg_mr(struct ibv_pd *pd, void *addr, size_t length,
 	return NULL;
 }
 
-static struct ibv_mr *reg_mr_ex(struct ibv_pd *pd, struct ibv_reg_mr_in *in)
+static struct ibv_mr *reg_mr_ex(struct ibv_pd *pd,
+				struct ibv_mr_init_attr *mr_init_attr)
 {
 	errno = EOPNOTSUPP;
 	return NULL;

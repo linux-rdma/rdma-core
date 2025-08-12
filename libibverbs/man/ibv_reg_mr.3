@@ -19,7 +19,7 @@ ibv_reg_mr, ibv_reg_mr_iova, ibv_reg_dmabuf_mr, ibv_reg_mr_ex, ibv_dereg_mr \- r
 .BI "                                 size_t " "length" ", uint64_t " "iova" ,
 .BI "                                 int " "fd" ", int " "access" );
 .sp
-.BI "struct ibv_mr *ibv_reg_mr_ex(struct ibv_pd " "*pd" ", struct ibv_reg_mr_in " in" );
+.BI "struct ibv_mr *ibv_reg_mr_ex(struct ibv_pd " "*pd" ", struct ibv_mr_init_attr "*mr_init_attr" );
 .sp
 .BI "int ibv_dereg_mr(struct ibv_mr " "*mr" );
 .fi

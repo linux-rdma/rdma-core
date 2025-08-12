@@ -1143,7 +1143,7 @@ struct ibv_mr *mlx5_reg_mr(struct ibv_pd *pd, void *addr, size_t length,
 			   uint64_t hca_va, int access);
 struct ibv_mr *mlx5_reg_dmabuf_mr(struct ibv_pd *pd, uint64_t offset, size_t length,
 				  uint64_t iova, int fd, int access);
-struct ibv_mr *mlx5_reg_mr_ex(struct ibv_pd *pd, struct ibv_reg_mr_in *in);
+struct ibv_mr *mlx5_reg_mr_ex(struct ibv_pd *pd, struct ibv_mr_init_attr *mr_init_attr);
 int mlx5_rereg_mr(struct verbs_mr *mr, int flags, struct ibv_pd *pd, void *addr,
 		  size_t length, int access);
 int mlx5_dereg_mr(struct verbs_mr *mr);
