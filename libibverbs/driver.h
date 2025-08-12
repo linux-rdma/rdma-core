@@ -466,7 +466,8 @@ struct verbs_context_ops {
 					int fd, int access);
 	struct ibv_mr *(*reg_mr)(struct ibv_pd *pd, void *addr, size_t length,
 				 uint64_t hca_va, int access);
-	struct ibv_mr *(*reg_mr_ex)(struct ibv_pd *pd, struct ibv_reg_mr_in *in);
+	struct ibv_mr *(*reg_mr_ex)(struct ibv_pd *pd,
+				    struct ibv_mr_init_attr *mr_init_attr);
 	int (*req_notify_cq)(struct ibv_cq *cq, int solicited_only);
 	int (*rereg_mr)(struct verbs_mr *vmr, int flags, struct ibv_pd *pd,
 			void *addr, size_t length, int access);
@@ -590,7 +591,7 @@ int ibv_cmd_reg_dmabuf_mr(struct ibv_pd *pd, uint64_t offset, size_t length,
 			  struct verbs_mr *vmr,
 			  struct ibv_command_buffer *driver);
 int ibv_cmd_reg_mr_ex(struct ibv_pd *pd, struct verbs_mr *vmr,
-		      struct ibv_reg_mr_in *in);
+		      struct ibv_mr_init_attr *mr_init_attr);
 int ibv_cmd_alloc_mw(struct ibv_pd *pd, enum ibv_mw_type type,
 		     struct ibv_mw *mw, struct ibv_alloc_mw *cmd,
 		     size_t cmd_size,

@@ -19,7 +19,7 @@ ibv_reg_mr, ibv_reg_mr_iova, ibv_reg_dmabuf_mr, ibv_reg_mr_ex, ibv_dereg_mr \- r
 .BI "                                 size_t " "length" ", uint64_t " "iova" ,
 .BI "                                 int " "fd" ", int " "access" );
 .sp
-.BI "struct ibv_mr *ibv_reg_mr_ex(struct ibv_pd " "*pd" ", struct ibv_reg_mr_in " in" );
+.BI "struct ibv_mr *ibv_reg_mr_ex(struct ibv_pd " "*pd" ", struct ibv_mr_init_attr "*mr_init_attr" );
 .sp
 .BI "int ibv_dereg_mr(struct ibv_mr " "*mr" );
 .fi
@@ -124,10 +124,10 @@ describes the desired memory protection attributes; it is similar to the ibv_reg
 .B ibv_reg_mr_ex()
 ibv_reg_mr_ex is a an API that enables all the variants of the other ibv_reg_mr_xxx() that desecibed in that man page.
 It has the
-.I in->comp_mask
+.I mr_init_attr->comp_mask
 field to let application mark which fields are applicable.
 In addition, it includes the
-.I in->dmah
+.I mr_init_attr->dmah
 which can be used to include an ibv_dmah object that will be used for that MR.
 The other fields on the input pointer have the same meaning as of the fields that described in that man page for the other verbs.
 .PP
@@ -153,7 +153,7 @@ returns 0 on success, or the value of errno on failure (which indicates the fail
 .B ibv_dereg_mr()
 fails if any memory window is still bound to this MR.
 .B ibv_dereg_mr_ex()
-One among in->fd and in->addr is required, both can't come together.
+One among mr_init_attr->fd and mr_init_attr->addr is required, both can't come together.
 .SH "SEE ALSO"
 .BR ibv_alloc_pd (3),
 .BR ibv_post_send (3),

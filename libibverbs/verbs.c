@@ -430,37 +430,38 @@ struct ibv_mr *ibv_reg_dmabuf_mr(struct ibv_pd *pd, uint64_t offset,
 	return mr;
 }
 
-struct ibv_mr *ibv_reg_mr_ex(struct ibv_pd *pd, struct ibv_reg_mr_in *in)
+/* Note: mr_init_attr may be modified during this call */
+struct ibv_mr *ibv_reg_mr_ex(struct ibv_pd *pd, struct ibv_mr_init_attr *mr_init_attr)
 {
 	struct verbs_device *device = verbs_get_device(pd->context->device);
 	struct ibv_mr *mr;
-	int in_access = in->access;
-	bool need_fork = !((in->access & IBV_ACCESS_ON_DEMAND) ||
-			   (in->comp_mask & IBV_REG_MR_MASK_FD));
+	int in_access = mr_init_attr->access;
+	bool need_fork = !((mr_init_attr->access & IBV_ACCESS_ON_DEMAND) ||
+			   (mr_init_attr->comp_mask & IBV_REG_MR_MASK_FD));
 
-	if (need_fork && ibv_dontfork_range(in->addr, in->length))
+	if (need_fork && ibv_dontfork_range(mr_init_attr->addr, mr_init_attr->length))
 		return NULL;
 
 	if (!(device->core_support & IB_UVERBS_CORE_SUPPORT_OPTIONAL_MR_ACCESS))
-		in->access &= ~IBV_ACCESS_OPTIONAL_RANGE;
+		mr_init_attr->access &= ~IBV_ACCESS_OPTIONAL_RANGE;
 
-	mr = get_ops(pd->context)->reg_mr_ex(pd, in);
+	mr = get_ops(pd->context)->reg_mr_ex(pd, mr_init_attr);
 	if (mr) {
 		mr->context = pd->context;
-		mr->length = in->length;
+		mr->length = mr_init_attr->length;
 		mr->pd = pd;
-		if (in->comp_mask & IBV_REG_MR_MASK_ADDR)
-			mr->addr = in->addr;
+		if (mr_init_attr->comp_mask & IBV_REG_MR_MASK_ADDR)
+			mr->addr = mr_init_attr->addr;
 		else
 			/* Follows ibv_reg_dmabuf_mr logic */
-			mr->addr = (void *)(uintptr_t)in->fd_offset;
+			mr->addr = (void *)(uintptr_t) mr_init_attr->fd_offset;
 	} else {
 		if (need_fork)
-			ibv_dofork_range(in->addr, in->length);
+			ibv_dofork_range(mr_init_attr->addr, mr_init_attr->length);
 	}
 
 	/* restore the input access flags */
-	in->access = in_access;
+	mr_init_attr->access = in_access;
 	return mr;
 }
 

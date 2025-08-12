@@ -651,7 +651,7 @@ struct ibv_mr *mlx5_reg_mr(struct ibv_pd *pd, void *addr, size_t length,
 	return &mr->vmr.ibv_mr;
 }
 
-struct ibv_mr *mlx5_reg_mr_ex(struct ibv_pd *pd, struct ibv_reg_mr_in *in)
+struct ibv_mr *mlx5_reg_mr_ex(struct ibv_pd *pd, struct ibv_mr_init_attr *mr_init_attr)
 {
 	struct mlx5_mr *mr;
 	int ret;
@@ -660,12 +660,12 @@ struct ibv_mr *mlx5_reg_mr_ex(struct ibv_pd *pd, struct ibv_reg_mr_in *in)
 	if (!mr)
 		return NULL;
 
-	ret = ibv_cmd_reg_mr_ex(pd, &mr->vmr, in);
+	ret = ibv_cmd_reg_mr_ex(pd, &mr->vmr, mr_init_attr);
 	if (ret) {
 		free(mr);
 		return NULL;
 	}
-	mr->alloc_flags = in->access;
+	mr->alloc_flags = mr_init_attr->access;
 
 	return &mr->vmr.ibv_mr;
 }

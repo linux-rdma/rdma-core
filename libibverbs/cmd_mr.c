@@ -158,49 +158,51 @@ int ibv_cmd_reg_dmabuf_mr(struct ibv_pd *pd, uint64_t offset, size_t length,
 }
 
 int ibv_cmd_reg_mr_ex(struct ibv_pd *pd, struct verbs_mr *vmr,
-		      struct ibv_reg_mr_in *in)
+		      struct ibv_mr_init_attr *mr_init_attr)
 {
 	DECLARE_COMMAND_BUFFER(cmdb, UVERBS_OBJECT_MR,
 			       UVERBS_METHOD_REG_MR, 11);
-	bool fd_based = (in->comp_mask & IBV_REG_MR_MASK_FD);
+	bool fd_based = (mr_init_attr->comp_mask & IBV_REG_MR_MASK_FD);
 	struct ib_uverbs_attr *handle;
-	uint64_t length = in->length;
+	uint64_t length = mr_init_attr->length;
 	uint32_t lkey, rkey;
 	int ret;
 
 	if (fd_based) {
-		if (!(in->comp_mask & IBV_REG_MR_MASK_FD_OFFSET) ||
-		    (in->comp_mask & IBV_REG_MR_MASK_ADDR)) {
+		if (!(mr_init_attr->comp_mask & IBV_REG_MR_MASK_FD_OFFSET) ||
+		    (mr_init_attr->comp_mask & IBV_REG_MR_MASK_ADDR)) {
 			errno = EINVAL;
 			return EINVAL;
 		}
-		fill_attr_in_uint64(cmdb, UVERBS_ATTR_REG_MR_FD_OFFSET, in->fd_offset);
+		fill_attr_in_uint64(cmdb, UVERBS_ATTR_REG_MR_FD_OFFSET,
+				    mr_init_attr->fd_offset);
 		fill_attr_in_fd(cmdb, UVERBS_ATTR_REG_MR_FD,
-				in->fd);
+				mr_init_attr->fd);
 	} else {
-		if ((in->comp_mask & IBV_REG_MR_MASK_FD_OFFSET) ||
-		    !(in->comp_mask & IBV_REG_MR_MASK_ADDR)) {
+		if ((mr_init_attr->comp_mask & IBV_REG_MR_MASK_FD_OFFSET) ||
+		    !(mr_init_attr->comp_mask & IBV_REG_MR_MASK_ADDR)) {
 			errno = EINVAL;
 			return EINVAL;
 		}
 
-		fill_attr_in_uint64(cmdb, UVERBS_ATTR_REG_MR_ADDR, (uintptr_t)in->addr);
-		if (in->access & IBV_ACCESS_ON_DEMAND) {
-			if (in->length == SIZE_MAX && in->addr) {
+		fill_attr_in_uint64(cmdb, UVERBS_ATTR_REG_MR_ADDR,
+				    (uintptr_t) mr_init_attr->addr);
+		if (mr_init_attr->access & IBV_ACCESS_ON_DEMAND) {
+			if (mr_init_attr->length == SIZE_MAX && mr_init_attr->addr) {
 				errno = EINVAL;
 				return EINVAL;
 			}
-			if (in->length == SIZE_MAX)
+			if (mr_init_attr->length == SIZE_MAX)
 				length = UINT64_MAX;
 		}
 	}
 
-	if (in->comp_mask & IBV_REG_MR_MASK_IOVA) {
-		fill_attr_in_uint64(cmdb, UVERBS_ATTR_REG_MR_IOVA, in->iova);
+	if (mr_init_attr->comp_mask & IBV_REG_MR_MASK_IOVA) {
+		fill_attr_in_uint64(cmdb, UVERBS_ATTR_REG_MR_IOVA, mr_init_attr->iova);
 	} else {
 		if (!fd_based) {
 			fill_attr_in_uint64(cmdb, UVERBS_ATTR_REG_MR_IOVA,
-					    (uintptr_t)in->addr);
+					    (uintptr_t) mr_init_attr->addr);
 		} else {
 			/* iova is a must from kernel point of view */
 			errno = EINVAL;
@@ -213,11 +215,12 @@ int ibv_cmd_reg_mr_ex(struct ibv_pd *pd, struct verbs_mr *vmr,
 	fill_attr_out_ptr(cmdb, UVERBS_ATTR_REG_MR_RESP_RKEY, &rkey);
 	fill_attr_in_obj(cmdb, UVERBS_ATTR_REG_MR_PD_HANDLE, pd->handle);
 	fill_attr_in_uint64(cmdb, UVERBS_ATTR_REG_MR_LENGTH, length);
-	fill_attr_in_uint32(cmdb, UVERBS_ATTR_REG_MR_ACCESS_FLAGS, in->access);
+	fill_attr_in_uint32(cmdb, UVERBS_ATTR_REG_MR_ACCESS_FLAGS,
+			    mr_init_attr->access);
 
-	if (in->comp_mask & IBV_REG_MR_MASK_DMAH)
+	if (mr_init_attr->comp_mask & IBV_REG_MR_MASK_DMAH)
 		fill_attr_in_obj(cmdb, UVERBS_ATTR_REG_MR_DMA_HANDLE,
-				 verbs_get_dmah(in->dmah)->handle);
+				 verbs_get_dmah(mr_init_attr->dmah)->handle);
 
 	ret = execute_ioctl(pd->context, cmdb);
 	if (ret)
