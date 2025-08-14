@@ -51,15 +51,18 @@ rdma_man_pages(
   rdma_post_ud_send.3
   rdma_post_write.3
   rdma_post_writev.3
+  rdma_query_addrinfo.3.in.rst
   rdma_reg_msgs.3
   rdma_reg_read.3
   rdma_reg_write.3
   rdma_reject.3
   rdma_resolve_addr.3
+  rdma_resolve_addrinfo.3.in.rst
   rdma_resolve_route.3
   rdma_server.1
   rdma_set_local_ece.3.md
   rdma_set_option.3
+  rdma_write_cm_event.3.in.rst
   rdma_xclient.1
   rdma_xserver.1
   riostream.1
