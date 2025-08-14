@@ -86,7 +86,8 @@ def check_rdma_transport_domain_caps(agr_obj):
     query_adv_rdma_cap_out = QueryAdvRdmaCapOut(agr_obj.ctx.devx_general_cmd(
         query_adv_rdma_cap_in, len(QueryAdvRdmaCapOut())))
 
-    if not query_adv_rdma_cap_out.capability.rdma_transport_rx_flow_table_properties.ft_support:
+    if not query_adv_rdma_cap_out.capability.rdma_transport_rx_flow_table_properties.ft_support or \
+       not query_adv_rdma_cap_out.capability.rdma_transport_tx_flow_table_properties.ft_support:
         raise unittest.SkipTest("The device doesn't support the RDMA transport domain")
 
 
