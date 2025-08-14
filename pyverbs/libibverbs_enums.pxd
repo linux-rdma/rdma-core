@@ -504,6 +504,23 @@ cdef extern from '<infiniband/verbs.h>':
         IBV_FLUSH_MR
         IBV_FLUSH_RANGE
 
+    cpdef enum ibv_tph_mem_type:
+        IBV_TPH_MEM_TYPE_VM
+        IBV_TPH_MEM_TYPE_PM
+
+    cpdef enum ibv_dmah_init_attr_mask:
+        IBV_DMAH_INIT_ATTR_MASK_CPU_ID
+        IBV_DMAH_INIT_ATTR_MASK_PH
+        IBV_DMAH_INIT_ATTR_MASK_TPH_MEM_TYPE
+
+    cpdef enum ibv_mr_init_attr_mask:
+        IBV_REG_MR_MASK_IOVA
+        IBV_REG_MR_MASK_ADDR
+        IBV_REG_MR_MASK_FD
+        IBV_REG_MR_MASK_FD_OFFSET
+        IBV_REG_MR_MASK_DMAH
+
+
 cdef extern from "<infiniband/verbs_api.h>":
     cdef unsigned long long IBV_ADVISE_MR_ADVICE_PREFETCH
     cdef unsigned long long IBV_ADVISE_MR_ADVICE_PREFETCH_WRITE

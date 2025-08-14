@@ -17,8 +17,8 @@ from pyverbs.providers.mlx5.dr_action import DrActionQp, DrActionModify, \
     DrActionDefMiss, DrActionVPort, DrActionIBPort, DrActionDestTir, DrActionPacketReformat,\
     DrFlowSamplerAttr, DrActionFlowSample, DrFlowMeterAttr, DrActionFlowMeter
 from pyverbs.providers.mlx5.mlx5dv import Mlx5DevxObj, Mlx5Context, Mlx5DVContextAttr
-from tests.utils import skip_unsupported, requires_root_on_eth, requires_eswitch_on, \
-    PacketConsts
+from tests.utils import skip_unsupported, requires_eswitch_on, PacketConsts, requires_cap_net_raw,\
+    requires_eth, requires_root
 from tests.mlx5_base import Mlx5RDMATestCase, PyverbsAPITestCase, MELLANOX_VENDOR_ID
 from pyverbs.providers.mlx5.mlx5dv_flow import Mlx5FlowMatchParameters
 from pyverbs.pyverbs_error import PyverbsRDMAError, PyverbsUserError
@@ -128,7 +128,8 @@ class Mlx5DrResources(RawResources):
         super().__init__(dev_name=dev_name, ib_port=ib_port, gid_index=gid_index,
                          msg_size=msg_size, qp_count=qp_count)
 
-    @requires_root_on_eth()
+    @requires_cap_net_raw()
+    @requires_eth()
     def create_qps(self):
         super().create_qps()
 
@@ -173,7 +174,8 @@ class Mlx5DrTirResources(Mlx5DrResources):
     def create_cq(self):
         self.cq = CQ(self.ctx, cqe=self.num_msgs)
 
-    @requires_root_on_eth()
+    @requires_cap_net_raw()
+    @requires_eth()
     def create_qps(self):
         if not self.server:
             super().create_qps()
@@ -445,6 +447,7 @@ class Mlx5DrTest(Mlx5RDMATestCase):
         self.create_rx_recv_rules(smac_value, [self.qp_action], root_only=root_only)
         u.raw_traffic(self.client, self.server, self.iters)
 
+    @requires_root()
     def test_tbl_qp_rule(self):
         """
         Creates RX domain, SW table with matcher on source mac. Creates QP action
@@ -494,6 +497,7 @@ class Mlx5DrTest(Mlx5RDMATestCase):
         u.raw_traffic(self.client, self.server, self.iters, expected_packet=exp_packet)
 
     @skip_unsupported
+    @requires_root()
     def test_tbl_modify_header_rule(self):
         """
         Creates TX domain, SW table with matcher on source mac and modify the smac.
@@ -512,6 +516,7 @@ class Mlx5DrTest(Mlx5RDMATestCase):
         self.modify_tx_smac_and_send_pkts(root_only=True)
 
     @skip_unsupported
+    @requires_root()
     def test_metadata_modify_action_set_copy_match(self):
         """
         Verify modify header with set and copy actions.
@@ -611,6 +616,7 @@ class Mlx5DrTest(Mlx5RDMATestCase):
         self.add_counter_action_and_send_pkts(root_only=True)
 
     @skip_unsupported
+    @requires_root()
     def test_tbl_counter_action(self):
         """
         Create flow counter object, on non-root table attach it to a rule using counter action
@@ -621,6 +627,7 @@ class Mlx5DrTest(Mlx5RDMATestCase):
 
 
     @skip_unsupported
+    @requires_root()
     def test_prevent_duplicate_rule(self):
         """
         Creates RX domain, sets duplicate rule to be not allowed on that domain,
@@ -692,6 +699,7 @@ class Mlx5DrTest(Mlx5RDMATestCase):
         self._drop_action(root_only=True)
 
     @skip_unsupported
+    @requires_root()
     def test_tbl_drop_action(self):
         """
         Create non-root drop actions on TX and RX. Verify using counter on the server RX that
@@ -720,6 +728,7 @@ class Mlx5DrTest(Mlx5RDMATestCase):
         self.assertEqual(self.server.cq.read_flow_tag(), tag, 'Wrong tag value')
 
     @skip_unsupported
+    @requires_root()
     def test_tbl_qp_tag_rule(self):
         """
         Creates RX domain, non-root table with matcher on source mac. Creates QP action
@@ -738,6 +747,7 @@ class Mlx5DrTest(Mlx5RDMATestCase):
         self.add_qp_tag_rule_and_send_pkts(root_only=True)
 
     @skip_unsupported
+    @requires_root()
     def test_set_matcher_layout(self):
         """
         Creates a non root matcher and sets its size. Creates a rule on that
@@ -754,6 +764,7 @@ class Mlx5DrTest(Mlx5RDMATestCase):
         u.raw_traffic(self.client, self.server, self.iters)
 
     @skip_unsupported
+    @requires_root()
     def test_push_vlan(self):
         """
         Creates RX domain, root table with matcher on source mac. Create a rule to forward
@@ -779,6 +790,7 @@ class Mlx5DrTest(Mlx5RDMATestCase):
         u.raw_traffic(self.client, self.server, self.iters, expected_packet=exp_packet)
 
     @skip_unsupported
+    @requires_root()
     def test_pop_vlan(self):
         """
         Creates RX domain, root table with matcher on source mac. Create a rule to forward
@@ -833,6 +845,7 @@ class Mlx5DrTest(Mlx5RDMATestCase):
         u.raw_traffic(self.client, self.server, self.iters)
 
     @skip_unsupported
+    @requires_root()
     def test_root_dest_array(self):
         """
         Creates RX domain, root table with matcher on source mac.on root table
@@ -843,6 +856,7 @@ class Mlx5DrTest(Mlx5RDMATestCase):
         self.dest_array(root_only=True)
 
     @skip_unsupported
+    @requires_root()
     def test_dest_array(self):
         """
         Creates RX domain, non-root table with matcher on source mac. Create a rule
@@ -854,6 +868,7 @@ class Mlx5DrTest(Mlx5RDMATestCase):
         self.dest_array()
 
     @skip_unsupported
+    @requires_root()
     def test_tx_def_miss_action(self):
         """
         Create TX root table and forward all traffic to next SW steering table,
@@ -892,6 +907,7 @@ class Mlx5DrTest(Mlx5RDMATestCase):
         u.raw_traffic(self.client, self.server, self.iters)
 
     @skip_unsupported
+    @requires_root()
     def test_dest_tir(self):
         self.add_dest_tir_action_send_pkts()
 
@@ -953,6 +969,7 @@ class Mlx5DrTest(Mlx5RDMATestCase):
         u.raw_traffic(self.client, self.server, self.iters)
 
     @skip_unsupported
+    @requires_root()
     def test_flow_sampler(self):
         """
         Flow sampler has a default table (all the packets are forwarded to it)
@@ -1044,6 +1061,7 @@ class Mlx5DrTest(Mlx5RDMATestCase):
         self.geneve_match_rx(root_only=True)
 
     @requires_geneve_fields_rx_support
+    @requires_root()
     def test_geneve_match_rx(self):
         """
         Creates matcher on RX non-root table to match on Geneve related
@@ -1159,6 +1177,7 @@ class Mlx5DrTest(Mlx5RDMATestCase):
         self.roce_bth_match(domain_flag=mlx5dv_dr_domain_type.MLX5DV_DR_DOMAIN_TYPE_NIC_TX)
 
     @skip_unsupported
+    @requires_root()
     def test_packet_reformat_l2_gre(self):
         """
         Creates GRE packet with non-root l2 to l2 reformat actions on TX (encap)
@@ -1181,6 +1200,7 @@ class Mlx5DrTest(Mlx5RDMATestCase):
         self.packet_reformat_actions(outer=encap_header, root_only=True)
 
     @skip_unsupported
+    @requires_root()
     def test_packet_reformat_l3_gre(self):
         """
         Creates GRE packet with non-root l2 to l3 reformat actions on TX (encap)
@@ -1203,6 +1223,7 @@ class Mlx5DrTest(Mlx5RDMATestCase):
         self.packet_reformat_actions(outer=encap_header, root_only=True, l2_ref_type=False)
 
     @skip_unsupported
+    @requires_root()
     def test_packet_reformat_l2_geneve(self):
         """
         Creates Geneve packet with non-root l2 to l2 reformat actions on TX
@@ -1225,6 +1246,7 @@ class Mlx5DrTest(Mlx5RDMATestCase):
         self.packet_reformat_actions(outer=encap_header, root_only=True)
 
     @skip_unsupported
+    @requires_root()
     def test_packet_reformat_l3_geneve(self):
         """
         Creates Geneve packet with non-root l2 to l3 tunnel reformat actions on
@@ -1247,6 +1269,7 @@ class Mlx5DrTest(Mlx5RDMATestCase):
         self.packet_reformat_actions(outer=encap_header, root_only=True, l2_ref_type=False)
 
     @skip_unsupported
+    @requires_root()
     def test_flow_meter(self):
         """
         Create flow meter actions on TX and RX non-root tables. Add green and
@@ -1393,6 +1416,7 @@ class Mlx5DrTest(Mlx5RDMATestCase):
         self.reuse_action_and_matcher(root_only=True)
 
     @skip_unsupported
+    @requires_root()
     def test_reuse_action_and_matcher(self):
         """
         Create non-root rules on TX and RX that use the same matcher and actions

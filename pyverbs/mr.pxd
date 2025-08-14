@@ -4,7 +4,7 @@
 
 #cython: language_level=3
 
-from pyverbs.base cimport PyverbsCM
+from pyverbs.base cimport PyverbsCM, PyverbsObject
 cimport pyverbs.librdmacm as cm
 from . cimport libibverbs as v
 
@@ -18,7 +18,12 @@ cdef class MR(PyverbsCM):
     cdef object is_user_addr
     cdef void *buf
     cdef object _is_imported
+    cdef void _allocate_buffer(self, size_t length, bint is_huge, int *mmap_length)
+    cdef void _free_buffer(self, bint is_huge, int mmap_length)
     cpdef read(self, length, offset)
+
+cdef class MREx(MR):
+    cdef object dmah
 
 cdef class MWBindInfo(PyverbsCM):
     cdef v.ibv_mw_bind_info info
@@ -39,3 +44,12 @@ cdef class DmaBufMR(MR):
     cdef object dmabuf
     cdef unsigned long offset
     cdef object is_dmabuf_internal
+
+cdef class DmaHandleInitAttr(PyverbsObject):
+    cdef v.ibv_dmah_init_attr init_attr
+
+cdef class DMAHandle(PyverbsCM):
+    cdef v.ibv_dmah *dmah
+    cdef object mrs
+    cdef object ctx
+    cdef add_ref(self, obj)

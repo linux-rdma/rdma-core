@@ -21,7 +21,8 @@ class LagRawQP(BaseResources):
     def create_cq(self):
         return CQ(self.ctx, 100)
 
-    @u.requires_root_on_eth()
+    @u.requires_cap_net_raw()
+    @u.requires_eth()
     def create_qp(self):
         qia = QPInitAttr(ibv_qp_type.IBV_QPT_RAW_PACKET, rcq=self.cq, scq=self.cq,
                          cap=QPCap())
