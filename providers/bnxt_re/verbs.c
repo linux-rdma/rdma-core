@@ -1138,6 +1138,11 @@ static int bnxt_re_check_qp_limits(struct bnxt_re_context *cntx,
 	rdev = cntx->rdev;
 	devattr = &rdev->devattr;
 
+	if (attr->qp_type != IBV_QPT_RC &&
+	    attr->qp_type != IBV_QPT_UD &&
+	    attr->qp_type != IBV_QPT_RAW_PACKET)
+		return EINVAL;
+
 	if (attr->cap.max_send_sge > devattr->max_sge)
 		return EINVAL;
 	if (attr->cap.max_recv_sge > devattr->max_sge)
