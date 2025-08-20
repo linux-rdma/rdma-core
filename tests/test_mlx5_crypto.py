@@ -55,8 +55,8 @@ def check_crypto_caps(dev_name):
     :param dev_name: The device name.
     """
     mlx5dv_attr = Mlx5DVContextAttr()
-    ctx = Mlx5Context(mlx5dv_attr, name=dev_name)
-    crypto_caps = ctx.query_mlx5_device().crypto_caps
+    with Mlx5Context(mlx5dv_attr, name=dev_name) as ctx:
+        crypto_caps = ctx.query_mlx5_device().crypto_caps
     failed_selftests = crypto_caps['failed_selftests']
     if failed_selftests:
         raise unittest.SkipTest(f'The device crypto selftest failed ({failed_selftests})')
