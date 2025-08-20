@@ -58,8 +58,8 @@ def check_crypto_caps(dev_name, is_wrapped_dek_mode):
     :param is_wrapped_dek_mode: True when wrapped_dek and False when plaintext .
     """
     mlx5dv_attr = Mlx5DVContextAttr()
-    ctx = Mlx5Context(mlx5dv_attr, name=dev_name)
-    crypto_caps = ctx.query_mlx5_device().crypto_caps
+    with Mlx5Context(mlx5dv_attr, name=dev_name) as ctx:
+        crypto_caps = ctx.query_mlx5_device().crypto_caps
     failed_selftests = crypto_caps['failed_selftests']
     if failed_selftests:
         raise unittest.SkipTest(f'The device crypto selftest failed ({failed_selftests})')
