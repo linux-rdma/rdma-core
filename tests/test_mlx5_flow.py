@@ -18,8 +18,8 @@ from pyverbs.providers.mlx5.mlx5_enums import mlx5dv_flow_matcher_attr_mask, mlx
     MLX5DV_FLOW_ACTION_PACKET_REFORMAT_TYPE_L2_TO_L2_TUNNEL_
 from pyverbs.libibverbs_enums import ibv_flow_flags
 from tests.mlx5_base import Mlx5RDMATestCase, create_privileged_context, Mlx5RcResources
-from tests.utils import requires_root_on_eth, PacketConsts, is_eth, requires_root, \
-    requires_no_sriov
+from tests.utils import PacketConsts, is_eth, requires_no_sriov, requires_eth,\
+    requires_cap_net_raw, requires_root
 from tests.base import RawResources
 import tests.utils as u
 import struct
@@ -115,9 +115,109 @@ class Mlx5FlowResources(RawResources):
             raise ex
         return matcher
 
-    @requires_root_on_eth()
+    @requires_cap_net_raw()
+    @requires_eth()
     def create_qps(self):
         super().create_qps()
+
+
+class Mlx5CounterFlowResources(Mlx5FlowResources):
+
+    def create_context(self):
+        mlx5dv_attr = Mlx5DVContextAttr()
+        try:
+            self.ctx = Mlx5Context(mlx5dv_attr, name=self.dev_name)
+        except PyverbsUserError as ex:
+            raise unittest.SkipTest(f'Could not open mlx5 context ({ex})')
+        except PyverbsRDMAError:
+            raise unittest.SkipTest('Opening mlx5 context is not supported')
+
+    def query_bulk_counter_cap(self):
+        """
+        Query the device for the maximum allowed bulk allocation size for flow counters.
+        This method queries the HCA capabilities to determine the maximum log2 bulk size
+        that can be allocated for flow counters. It first checks for general HCA capabilities,
+        then queries HCA_CAP_2 for the specific flow_counter_bulk_log_max_alloc field.
+        :return: The maximum log2 bulk allocation size for flow counters.
+        """
+        from tests.mlx5_prm_structs import QueryCmdHcaCap2Out, \
+            QueryHcaCapIn, QueryCmdHcaCapOut, QueryHcaCapOp, QueryHcaCapMod
+        query_cap_in = QueryHcaCapIn(op_mod=0x1)
+        query_cap_out = QueryCmdHcaCapOut(self.ctx.devx_general_cmd(
+            query_cap_in, len(QueryCmdHcaCapOut())))
+        if query_cap_out.status:
+            raise PyverbsRDMAError('Failed to query general HCA CAPs with syndrome '
+                                   f'({query_cap_out.syndrome}')
+
+        if not query_cap_out.capability.hca_cap_2:
+            raise unittest.SkipTest('The device doesn\'t support general HCA CAPs 2')
+        query_cap2_in = QueryHcaCapIn(op_mod=(QueryHcaCapOp.HCA_CAP_2 << 0x1) | \
+                                              QueryHcaCapMod.CURRENT)
+        query_cap2_out = QueryCmdHcaCap2Out(self.ctx.devx_general_cmd(
+            query_cap2_in, len(QueryCmdHcaCap2Out())))
+        return query_cap2_out.capability.flow_counter_bulk_log_max_alloc
+
+    @staticmethod
+    def create_counter(ctx):
+        """
+        Create flow counter.
+        :param ctx: The player context to create the counter on.
+        :return: The counter object and the flow counter ID .
+        """
+        from tests.mlx5_prm_structs import AllocFlowCounterIn, AllocFlowCounterOut
+        counter = Mlx5DevxObj(ctx, AllocFlowCounterIn(), len(AllocFlowCounterOut()))
+        flow_counter_id = AllocFlowCounterOut(counter.out_view).flow_counter_id
+        return counter, flow_counter_id
+
+    def create_bulk_counter(self, ctx, bulk_size=0):
+        """
+        Create flow bulk counter.
+        :param ctx: The player context to create the counter on.
+        :param bulk_size: The bulk size to use for the counter.
+        :return: The counter object and the flow counter ID .
+        """
+        from tests.mlx5_prm_structs import AllocFlowCounterIn, AllocFlowCounterOut
+        bulk_log_max_alloc = self.query_bulk_counter_cap()
+        if bulk_log_max_alloc > 0:
+            # Bulk size is log2 of the number of counters eg. if bulk_size is 9, then there
+            # are 512 counters
+            cmd_in = AllocFlowCounterIn(flow_counter_bulk_log_size=bulk_size)
+        else:
+            # If bulk_log_max_alloc=0 then use old bitmask field, 0b100 means 512 counters
+            cmd_in = AllocFlowCounterIn(flow_counter_bulk=0b100)
+        counter = Mlx5DevxObj(ctx, cmd_in, len(AllocFlowCounterOut()))
+        flow_counter_id = AllocFlowCounterOut(counter.out_view).flow_counter_id
+        return counter, flow_counter_id
+
+    @staticmethod
+    def query_counter_packets(counter, flow_counter_id):
+        """
+        Query flow counter packets count.
+        :param counter: The counter for the query.
+        :param flow_counter_id: The flow counter ID for the query.
+        :return: Number of packets on this counter.
+        """
+        from tests.mlx5_prm_structs import QueryFlowCounterIn, QueryFlowCounterOut
+        query_in = QueryFlowCounterIn(flow_counter_id=flow_counter_id)
+        counter_out = QueryFlowCounterOut(counter.query(query_in, len(QueryFlowCounterOut())))
+        return counter_out.flow_statistics.packets
+
+    @staticmethod
+    def query_bulk_counter(counter, flow_counter_id, num_of_counters=1):
+        """
+        Query flow counter packets count for bulk counters.
+        :param counter: The counter for the query.
+        :param flow_counter_id: The flow counter ID for the query.
+        :param num_of_counters: Number of counters to query.
+        :return: Counter statistics.
+        """
+        from tests.mlx5_prm_structs import QueryFlowCounterIn, QueryBulkFlowCounterOut
+        query_in = QueryFlowCounterIn(flow_counter_id=flow_counter_id,
+                                      num_of_counters=num_of_counters)
+        counter_out = QueryBulkFlowCounterOut(counter.query(query_in,
+                                                            len(QueryBulkFlowCounterOut(
+                                                                num_statistics=num_of_counters))))
+        return counter_out.flow_statistics
 
 
 class Mlx5RCFlowResources(Mlx5RcResources):
@@ -147,16 +247,17 @@ class Mlx5RCFlowResources(Mlx5RcResources):
                 obj.close()
 
     def create_matcher(self, mask, match_criteria_enable, flags=0,
-                       ft_type=MLX5DV_FLOW_TABLE_TYPE_NIC_RX_, ib_port=1):
+                       ft_type=MLX5DV_FLOW_TABLE_TYPE_NIC_RX_, ib_port=1, priority=0):
         """
         Creates a matcher from a provided mask.
         :param mask: The mask to match on (in bytes)
         :param match_criteria_enable: Bitmask representing which of the
                                       headers and parameters in match_criteria
                                       are used
-        :param flags: Flow matcher flags
-        :param ft_type: Flow table type
+        :param flags: Flow matcher flags.
+        :param ft_type: Flow table type.
         :param ib_port: Specify its corresponding port.
+        :param priority: Priority value for the matcher.
         :return: Resulting matcher
         """
         try:
@@ -173,7 +274,7 @@ class Mlx5RCFlowResources(Mlx5RcResources):
             attr = Mlx5FlowMatcherAttr(match_mask=flow_match_param,
                                        match_criteria_enable=match_criteria_enable,
                                        flags=flags, ft_type=ft_type, comp_mask=comp_mask,
-                                       ib_port=ib_port)
+                                       ib_port=ib_port, priority=priority)
             matcher = Mlx5FlowMatcher(self.ctx, attr)
         except PyverbsRDMAError as ex:
             if ex.error_code in [errno.EOPNOTSUPP, errno.EPROTONOSUPPORT]:
@@ -271,9 +372,9 @@ class Mlx5MatcherTest(Mlx5RDMATestCase):
         self.res.create_matcher(smac_mask, u.MatchCriteriaEnable.OUTER)
 
     def generic_test_mlx5_flow_table(self, flow_table_type_mapping, action, ib_port=1,
-                                     traffic=False):
+                                     traffic=False, priority=0):
         """
-        This function performs the following steps:
+        This function performs the following steps on the server side:
         1. Creates a DEVX flow table with the specified table type.
         2. Creates a flow group in the DEVX flow table.
         3. Inserts a flow table entry (FTE) into the flow table group.
@@ -285,6 +386,7 @@ class Mlx5MatcherTest(Mlx5RDMATestCase):
         :param action: Specifies the action to be performed on the matched packets.
         :param ib_port: The port for flow matching.
         :param traffic: Boolean flag indicating whether RDMA traffic should run.
+        :param priority: Priority value for the matcher.
         """
         empty_mask = bytes(MAX_MATCH_PARAM_SIZE)
 
@@ -292,7 +394,8 @@ class Mlx5MatcherTest(Mlx5RDMATestCase):
             devx_table_obj, table_id = self.server.create_devx_flow_table(table_type,
                                                                           level=TABLE_LEVEL)
             matcher = self.server.create_matcher(empty_mask, u.MatchCriteriaEnable.NONE,
-                                                 ft_type=ft_type, ib_port=ib_port)
+                                                 ft_type=ft_type, ib_port=ib_port,
+                                                 priority=priority)
             self.server.store_for_cleanup_stage(matcher)
             group_id = self.server.create_devx_flow_group(table_id, table_type)
             self.server.create_devx_flow_entry(table_id, group_id, action, table_type)
@@ -306,8 +409,8 @@ class Mlx5MatcherTest(Mlx5RDMATestCase):
                           gid_idx=self.gid_index, port=self.ib_port, is_cq_ex=True)
 
     @u.skip_unsupported
-    @requires_root()
     @requires_no_sriov()
+    @requires_cap_net_raw()
     def test_flow_table_drop(self):
         """
         Creates rules with DevX objects for RDMA RX and TX tables.
@@ -328,6 +431,21 @@ class Mlx5MatcherTest(Mlx5RDMATestCase):
         Creates a devx table object with the RDMA transport domain,
         Verifies that the traffic passes successfully.
         """
+        self.rdma_transport_domain_test(priority=0)
+
+    @u.skip_unsupported
+    @requires_root()
+    def test_priority_rdma_transport_domain_traffic(self):
+        """
+        Creates a devx table object with the RDMA transport domain with priority,
+        Verifies that the traffic passes successfully.
+        """
+        self.rdma_transport_domain_test(priority=1)
+
+    def rdma_transport_domain_test(self, priority):
+        """
+        :param priority: Priority value for the flow table matcher.
+        """
         self.client = Mlx5RcResources(**self.dev_info)
         self.server = Mlx5RCFlowResources(is_privileged_ctx=True, **self.dev_info)
         self.pre_run()
@@ -336,7 +454,7 @@ class Mlx5MatcherTest(Mlx5RDMATestCase):
             MLX5DV_FLOW_TABLE_TYPE_RDMA_TRANSPORT_RX_: RDMA_TRANSPORT_RX,
             MLX5DV_FLOW_TABLE_TYPE_RDMA_TRANSPORT_TX_: RDMA_TRANSPORT_TX}
         self.generic_test_mlx5_flow_table(flow_table_type_mapping, action=ALLOW_ACTION, ib_port=1,
-                                          traffic=True)
+                                          traffic=True, priority=priority)
 
     @u.skip_unsupported
     def test_smac_matcher_to_qp_flow(self):
@@ -355,6 +473,70 @@ class Mlx5MatcherTest(Mlx5RDMATestCase):
                                        qp=self.server.qp)
         self.server.flow = Mlx5Flow(matcher, value_param, [action_qp], 1)
         u.raw_traffic(self.client, self.server, self.iters)
+
+    @u.skip_unsupported
+    def test_counter_qp_flow(self):
+        """
+        Creates a matcher to match on outer source mac and a flow that forwards
+        packets to QP when matching on source mac.
+        """
+        self.create_players(Mlx5CounterFlowResources)
+        empty_bytes_arr = bytes(MAX_MATCH_PARAM_SIZE)
+        empty_value_param = Mlx5FlowMatchParameters(len(empty_bytes_arr), empty_bytes_arr)
+        matcher = self.server.create_matcher(empty_bytes_arr, u.MatchCriteriaEnable.NONE)
+        qp_attr = Mlx5FlowActionAttr(action_type=mlx5dv_flow_action_type.MLX5DV_FLOW_ACTION_DEST_IBV_QP,
+                                     qp=self.server.qp)
+        counter, flow_counter_id = self.server.create_counter(self.server.ctx)
+        ctr_attr = Mlx5FlowActionAttr(action_type=mlx5dv_flow_action_type.MLX5DV_FLOW_ACTION_COUNTERS_DEVX,
+                                      obj=counter)
+        self.server.flow = Mlx5Flow(matcher, empty_value_param, [ctr_attr, qp_attr], 2)
+        u.raw_traffic(self.client, self.server, self.iters)
+        sent_packets = self.server.query_counter_packets(counter, flow_counter_id)
+        self.assertEqual(sent_packets, self.iters, 'Counter of metadata missed some sent packets')
+
+    @u.skip_unsupported
+    def test_counters_bulk_flow(self):
+        """
+        Flow action counters with bulk size.
+        Creates 4 flows with different dst ip addresses.
+        Sends 10 packets to each flow.
+        Verifies each flow get a hit and goes to QP final destination and counter is incremented
+        accordingly.
+        """
+        from tests.mlx5_prm_structs import FlowTableEntryMatchSetLyr24, FlowTableEntryMatchParam
+
+        self.create_players(Mlx5CounterFlowResources)
+        outer_header = FlowTableEntryMatchSetLyr24(ethertype=0xffff, ip_version=0xf,
+                                                   src_ip_mask=0xffffffff)
+        mask = FlowTableEntryMatchParam(outer_headers=outer_header)
+        matcher = self.server.create_matcher(mask, u.MatchCriteriaEnable.OUTER)
+        action_qp_attr = Mlx5FlowActionAttr(
+            action_type=mlx5dv_flow_action_type.MLX5DV_FLOW_ACTION_DEST_IBV_QP,
+            qp=self.server.qp)
+        # Create a counter with bulk_size=2 means there are 4 counters in the bulk.
+        counter, flow_counter_id = self.server.create_bulk_counter(self.server.ctx, bulk_size=2)
+        action_type = mlx5dv_flow_action_type.MLX5DV_FLOW_ACTION_COUNTERS_DEVX_WITH_OFFSET
+        flows = []
+        flows_num = 4
+
+        for flow_idx in range(flows_num):
+            src_ip = f'{flow_idx + 2}.{flow_idx + 2}.{flow_idx + 2}.{flow_idx + 2}'
+            packet = u.gen_packet(self.client.msg_size, ip_version=4, src_ipv4=src_ip)
+            # Each offset is different counter
+            action_counter_attr = Mlx5FlowActionAttr(action_type=action_type, obj=counter,
+                                                     offset=flow_idx)
+            outer_header = FlowTableEntryMatchSetLyr24(ethertype=PacketConsts.ETHER_TYPE_IPV4,
+                                                       ip_version=4, src_ip4=src_ip)
+            value_param = Mlx5FlowMatchParameters(len(outer_header), outer_header)
+            flows.append(Mlx5Flow(matcher, value_param, [action_counter_attr, action_qp_attr], 2))
+            u.raw_traffic(self.client, self.server, self.iters, packet_to_send=packet)
+            ctr_stats = self.server.query_bulk_counter(counter, flow_counter_id,
+                                                       num_of_counters=flows_num)
+            # Verify counters
+            for j in range(flows_num):
+                exp_num_pkts = self.iters if j <= flow_idx else 0
+                self.assertEqual(ctr_stats[j].packets, exp_num_pkts,
+                                 f'Counter {j} in metadata missed some sent packets')
 
     @requires_reformat_support
     @u.requires_encap_disabled_if_eswitch_on

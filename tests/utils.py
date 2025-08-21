@@ -35,8 +35,9 @@ from pyverbs.libibverbs_enums import ibv_access_flags, ibv_odp_general_caps, ibv
     ibv_wr_opcode, ibv_send_flags, ibv_mw_type, ibv_wc_status, ibv_wc_flags, ibv_wc_opcode, \
     ibv_selectivity_level, ibv_odp_general_caps, ibv_qp_state, ibv_qp_attr_mask, ibv_qp_create_send_ops_flags, \
     IBV_LINK_LAYER_ETHERNET, _IBV_DEVICE_RAW_SCATTER_FCS, _IBV_DEVICE_PCI_WRITE_END_PADDING, \
-    _IBV_ADVISE_MR_FLAG_FLUSH, _IBV_ADVISE_MR_ADVICE_PREFETCH_WRITE
-from pyverbs.mr import MR
+    _IBV_ADVISE_MR_FLAG_FLUSH, _IBV_ADVISE_MR_ADVICE_PREFETCH_WRITE, ibv_tph_mem_type, \
+    ibv_dmah_init_attr_mask
+from pyverbs.mr import MR, MREx, DmaHandleInitAttr
 
 
 MAX_MR_SIZE = 4194304
@@ -119,6 +120,24 @@ class PacketConsts:
     BTH_PARTITION_KEY = 0xffff
     BTH_BECN = 1
     ROCE_PORT = 4791
+
+
+def create_dmah_init_attr(cpu_id=0, tph_mem_type=ibv_tph_mem_type.IBV_TPH_MEM_TYPE_VM, ph=0):
+    """
+    Helper function to create DmaHandleInitAttr with standard parameters.
+
+    :param cpu_id: CPU ID (default: 0)
+    :param tph_mem_type: TPH memory type (default: IBV_TPH_MEM_TYPE_VM)
+    :param ph: Processing hint (default: 0)
+    :return: DmaHandleInitAttr object
+    """
+    return DmaHandleInitAttr(
+        comp_mask=(ibv_dmah_init_attr_mask.IBV_DMAH_INIT_ATTR_MASK_CPU_ID |
+                   ibv_dmah_init_attr_mask.IBV_DMAH_INIT_ATTR_MASK_TPH_MEM_TYPE |
+                   ibv_dmah_init_attr_mask.IBV_DMAH_INIT_ATTR_MASK_PH),
+        cpu_id=cpu_id,
+        tph_mem_type=tph_mem_type,
+        ph=ph)
 
 
 def get_mr_length():
@@ -418,7 +437,7 @@ def wc_status_to_str(status):
         return 'Unknown WC status ({s})'.format(s=status)
 
 
-def create_custom_mr(agr_obj, additional_access_flags=0, size=None, user_addr=None):
+def create_custom_mr(agr_obj, additional_access_flags=0, size=None, user_addr=None, mr_ex=False):
     """
     Creates a memory region using the aggregation object's PD.
     If size is None, the agr_obj's message size is used to set the MR's size.
@@ -427,9 +446,14 @@ def create_custom_mr(agr_obj, additional_access_flags=0, size=None, user_addr=No
     :param additional_access_flags: Addition access flags to set in the MR
     :param size: MR's length. If None, agr_obj.msg_size is used.
     :param user_addr: The MR's buffer address. If None, the buffer will be allocated by pyverbs.
+    :param mr_ex: Whether to create an MREx MR instead of a regular MR
     """
     mr_length = size if size else agr_obj.msg_size
     try:
+        if mr_ex:
+            return MREx(agr_obj.pd, mr_length,
+                        ibv_access_flags.IBV_ACCESS_LOCAL_WRITE | additional_access_flags,
+                        address=user_addr)
         return MR(agr_obj.pd, mr_length,
                   ibv_access_flags.IBV_ACCESS_LOCAL_WRITE | additional_access_flags, address=user_addr)
     except PyverbsRDMAError as ex:
@@ -1504,11 +1528,11 @@ def requires_no_sriov():
     return outer
 
 
-def requires_root_on_eth(port_num=1):
+def requires_eth(port_num=1):
     def outer(func):
         def inner(instance):
-            if not (is_eth(instance.ctx, port_num) and is_root()):
-                raise unittest.SkipTest('Must be run by root on Ethernet link layer')
+            if not is_eth(instance.ctx, port_num):
+                raise unittest.SkipTest('Must be run on Ethernet link layer')
             return func(instance)
         return inner
     return outer
@@ -1742,6 +1766,32 @@ def is_datagram_qp(agr_obj):
 
 def is_root():
     return os.geteuid() == 0
+
+
+def has_cap_net_raw():
+    """
+    Check if the current process has CAP_NET_RAW capability.
+    """
+    try:
+        with open('/proc/self/status', 'r') as f:
+            for line in f:
+                if line.startswith('CapEff:'):
+                    # Parse the effective capabilities (hex format)
+                    cap_eff = int(line.split()[1], 16)
+                    return bool(cap_eff & 1 << 13)
+    except (IOError, ValueError, IndexError):
+        pass
+    return False
+
+
+def requires_cap_net_raw():
+    def outer(func):
+        def inner(instance):
+            if not has_cap_net_raw():
+                raise unittest.SkipTest('The process must have CAP_NET_RAW set')
+            return func(instance)
+        return inner
+    return outer
 
 
 def post_rq_state_bad_flow(test_obj):

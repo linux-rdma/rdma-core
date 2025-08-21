@@ -15,6 +15,7 @@ cdef class Mlx5Context(Context):
     cdef object devx_umems
     cdef object devx_objs
     cdef object devx_eqs
+    cdef object cmd_comps
     cdef add_ref(self, obj)
     cpdef close(self)
 
@@ -108,3 +109,7 @@ cdef class Mlx5DevxEq(PyverbsCM):
     cdef dv.mlx5dv_devx_eq *eq
     cdef Context context
     cdef object out_view
+
+cdef class Mlx5DevxCmdComp(PyverbsCM):
+    cdef dv.mlx5dv_devx_cmd_comp *cmd_comp
+    cdef Context context

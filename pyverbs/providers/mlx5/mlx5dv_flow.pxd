@@ -25,9 +25,13 @@ cdef class Mlx5FlowActionAttr(PyverbsObject):
     cdef dv.mlx5dv_flow_action_attr attr
     cdef object qp
     cdef object action
+    cdef object devx_obj
 
 cdef class Mlx5Flow(Flow):
-    pass
+    cdef object devx_obj
 
 cdef class Mlx5PacketReformatFlowAction(FlowAction):
+    pass
+
+cdef class Mlx5ModifyFlowAction(FlowAction):
     pass
