@@ -448,6 +448,7 @@ static void mlx5_detach_dedicated_uar(struct ibv_context *context, struct mlx5_b
 
 struct ibv_td *mlx5_alloc_td(struct ibv_context *context, struct ibv_td_init_attr *init_attr)
 {
+	struct mlx5_context *ctx = to_mctx(context);
 	struct mlx5_td	*td;
 
 	if (init_attr->comp_mask) {
@@ -461,7 +462,12 @@ struct ibv_td *mlx5_alloc_td(struct ibv_context *context, struct ibv_td_init_att
 		return NULL;
 	}
 
-	td->bf = mlx5_attach_dedicated_uar(context, 0);
+	/* Check whether BlueFlame is supported on the device */
+	if (ctx->bf_reg_size)
+		td->bf = mlx5_attach_dedicated_uar(context, 0);
+	else
+		td->bf = ctx->nc_uar;
+
 	if (!td->bf) {
 		free(td);
 		return NULL;
@@ -481,7 +487,8 @@ int mlx5_dealloc_td(struct ibv_td *ib_td)
 	if (atomic_load(&td->refcount) > 1)
 		return EBUSY;
 
-	mlx5_detach_dedicated_uar(ib_td->context, td->bf);
+	if (!td->bf->singleton)
+		mlx5_detach_dedicated_uar(ib_td->context, td->bf);
 	free(td);
 
 	return 0;
@@ -5615,8 +5622,7 @@ struct ibv_flow *
 _mlx5dv_create_flow(struct mlx5dv_flow_matcher *flow_matcher,
 		    struct mlx5dv_flow_match_parameters *match_value,
 		    size_t num_actions,
-		    struct mlx5dv_flow_action_attr actions_attr[],
-		    struct mlx5_flow_action_attr_aux actions_attr_aux[])
+		    struct mlx5dv_flow_action_attr actions_attr[])
 {
 	uint32_t flow_actions[CREATE_FLOW_MAX_FLOW_ACTIONS_SUPPORTED];
 	struct verbs_flow_action *vaction;
@@ -5626,6 +5632,7 @@ _mlx5dv_create_flow(struct mlx5dv_flow_matcher *flow_matcher,
 	bool have_dest_devx = false;
 	bool have_flow_tag = false;
 	bool have_counter = false;
+	bool have_bulk_counter = false;
 	bool have_default = false;
 	bool have_drop = false;
 	int ret;
@@ -5695,20 +5702,13 @@ _mlx5dv_create_flow(struct mlx5dv_flow_matcher *flow_matcher,
 			have_flow_tag = true;
 			break;
 		case MLX5DV_FLOW_ACTION_COUNTERS_DEVX:
-			if (have_counter) {
+			if (have_counter || have_bulk_counter) {
 				errno = EOPNOTSUPP;
 				goto err;
 			}
 			fill_attr_in_objs_arr(cmd,
 					      MLX5_IB_ATTR_CREATE_FLOW_ARR_COUNTERS_DEVX,
 					      &actions_attr[i].obj->handle, 1);
-
-			if (actions_attr_aux &&
-			    actions_attr_aux[i].type == MLX5_FLOW_ACTION_COUNTER_OFFSET)
-				fill_attr_in_ptr_array(cmd,
-						       MLX5_IB_ATTR_CREATE_FLOW_ARR_COUNTERS_DEVX_OFFSET,
-						       &actions_attr_aux[i].offset, 1);
-
 			have_counter = true;
 			break;
 		case MLX5DV_FLOW_ACTION_DEFAULT_MISS:
@@ -5732,6 +5732,19 @@ _mlx5dv_create_flow(struct mlx5dv_flow_matcher *flow_matcher,
 					    MLX5_IB_ATTR_CREATE_FLOW_FLAGS,
 					    MLX5_IB_ATTR_CREATE_FLOW_FLAGS_DROP);
 			have_drop = true;
+			break;
+		case MLX5DV_FLOW_ACTION_COUNTERS_DEVX_WITH_OFFSET:
+			if (have_counter || have_bulk_counter) {
+				errno = EOPNOTSUPP;
+				goto err;
+			}
+			fill_attr_in_objs_arr(cmd,
+					      MLX5_IB_ATTR_CREATE_FLOW_ARR_COUNTERS_DEVX,
+					      &actions_attr[i].bulk_obj.obj->handle, 1);
+			fill_attr_in_ptr_array(cmd,
+					       MLX5_IB_ATTR_CREATE_FLOW_ARR_COUNTERS_DEVX_OFFSET,
+					       &actions_attr[i].bulk_obj.offset, 1);
+			have_bulk_counter = true;
 			break;
 		default:
 			errno = EOPNOTSUPP;
@@ -5772,8 +5785,7 @@ mlx5dv_create_flow(struct mlx5dv_flow_matcher *flow_matcher,
 	return dvops->create_flow(flow_matcher,
 				  match_value,
 				  num_actions,
-				  actions_attr,
-				  NULL);
+				  actions_attr);
 }
 
 static struct mlx5dv_steering_anchor *
