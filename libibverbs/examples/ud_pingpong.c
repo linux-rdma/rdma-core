@@ -109,7 +109,7 @@ static int pp_connect_ctx(struct pingpong_context *ctx, int port, int my_psn,
 
 	if (dest->gid.global.interface_id) {
 		ah_attr.is_global = 1;
-		ah_attr.grh.hop_limit = 1;
+		ah_attr.grh.hop_limit = 64;
 		ah_attr.grh.dgid = dest->gid;
 		ah_attr.grh.sgid_index = sgid_idx;
 	}
