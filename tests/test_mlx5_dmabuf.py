@@ -72,11 +72,13 @@ class Mlx5DmabufCudaRes(RCResources):
             int(self.cuda_addr)))
 
         cuda_flag = cuda.CUmemRangeHandleType.CU_MEM_RANGE_HANDLE_TYPE_DMA_BUF_FD
+        cuda_dma_mapping_type = cuda.CUmemRangeFlags.CU_MEM_RANGE_FLAG_DMA_BUF_MAPPING_TYPE_PCIE \
+                if self.mlx5_access else 0
         dmabuf_fd = cu.check_cuda_errors(
             cuda.cuMemGetHandleForAddressRange(self.cuda_addr,
                                                GPU_PAGE_SIZE,
                                                cuda_flag,
-                                               0))
+                                               cuda_dma_mapping_type))
         try:
             self.mr = Mlx5DmaBufMR(self.pd, offset=0, length=self.msg_size, access=self.mr_access,
                                    fd=dmabuf_fd, mlx5_access=self.mlx5_access)
