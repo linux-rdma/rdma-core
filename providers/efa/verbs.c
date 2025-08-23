@@ -884,18 +884,40 @@ int efa_poll_cq(struct ibv_cq *ibvcq, int nwc, struct ibv_wc *wc)
 	return i ?: -ret;
 }
 
-static int efa_start_poll(struct ibv_cq_ex *ibvcqx,
-			  struct ibv_poll_cq_attr *attr)
+static inline int efa_start_poll_comp_check(struct ibv_cq_ex *ibvcqx,
+					    struct ibv_poll_cq_attr *attr) ALWAYS_INLINE;
+static inline int efa_start_poll_comp_check(struct ibv_cq_ex *ibvcqx,
+					    struct ibv_poll_cq_attr *attr)
 {
-	struct efa_cq *cq = to_efa_cq_ex(ibvcqx);
-	int ret;
-
 	if (unlikely(attr->comp_mask)) {
 		verbs_err(verbs_get_ctx(ibvcqx->context),
 			  "Invalid comp_mask %u\n",
 			  attr->comp_mask);
 		return EINVAL;
 	}
+
+	return 0;
+}
+
+static inline void efa_end_poll_common(struct efa_cq *cq) ALWAYS_INLINE;
+static inline void efa_end_poll_common(struct efa_cq *cq)
+{
+	if (cq->cur_cqe) {
+		if (cq->cur_wq)
+			efa_wq_put_wrid_idx_unlocked(cq->cur_wq, cq->cur_cqe->req_id);
+		if (cq->db)
+			efa_update_cq_doorbell(cq, false);
+	}
+}
+
+static int efa_start_poll(struct ibv_cq_ex *ibvcqx,
+			  struct ibv_poll_cq_attr *attr)
+{
+	struct efa_cq *cq = to_efa_cq_ex(ibvcqx);
+	int ret;
+
+	if (efa_start_poll_comp_check(ibvcqx, attr))
+		return EINVAL;
 
 	pthread_spin_lock(&cq->lock);
 
@@ -922,25 +944,126 @@ static void efa_end_poll(struct ibv_cq_ex *ibvcqx)
 {
 	struct efa_cq *cq = to_efa_cq_ex(ibvcqx);
 
-	if (cq->cur_cqe) {
-		if (cq->cur_wq)
-			efa_wq_put_wrid_idx_unlocked(cq->cur_wq, cq->cur_cqe->req_id);
-		if (cq->db)
-			efa_update_cq_doorbell(cq, false);
-	}
-
+	efa_end_poll_common(cq);
 	pthread_spin_unlock(&cq->lock);
 }
+
+static int efa_start_poll_single_sub_cq(struct ibv_cq_ex *ibvcqx,
+					struct ibv_poll_cq_attr *attr)
+{
+	struct efa_cq *cq = to_efa_cq_ex(ibvcqx);
+	struct efa_qp *qp = NULL;
+	int ret;
+
+	if (efa_start_poll_comp_check(ibvcqx, attr))
+		return EINVAL;
+
+	pthread_spin_lock(&cq->lock);
+	ret = efa_poll_sub_cq(cq, cq->sub_cq_arr, &qp, NULL, true);
+	if (ret != ENOENT)
+		cq->cc++;
+
+	if (ret)
+		pthread_spin_unlock(&cq->lock);
+
+	return ret;
+}
+
+static int efa_next_poll_single_sub_cq(struct ibv_cq_ex *ibvcqx)
+{
+	struct efa_cq *cq = to_efa_cq_ex(ibvcqx);
+	struct efa_qp *qp = NULL;
+	int ret;
+
+	if (cq->cur_wq)
+		efa_wq_put_wrid_idx_unlocked(cq->cur_wq, cq->cur_cqe->req_id);
+
+	ret = efa_poll_sub_cq(cq, cq->sub_cq_arr, &qp, NULL, true);
+	if (ret != ENOENT)
+		cq->cc++;
+
+	return ret;
+}
+
+static int efa_start_poll_single_thread(struct ibv_cq_ex *ibvcqx,
+					struct ibv_poll_cq_attr *attr)
+{
+	struct efa_cq *cq = to_efa_cq_ex(ibvcqx);
+
+	if (efa_start_poll_comp_check(ibvcqx, attr))
+		return EINVAL;
+
+	return efa_poll_sub_cqs(cq, NULL, true);
+}
+
+static void efa_end_poll_single_thread(struct ibv_cq_ex *ibvcqx)
+{
+	struct efa_cq *cq = to_efa_cq_ex(ibvcqx);
+
+	efa_end_poll_common(cq);
+}
+
+static int efa_start_poll_single_sub_cq_single_thread(struct ibv_cq_ex *ibvcqx,
+						      struct ibv_poll_cq_attr *attr)
+{
+	struct efa_cq *cq = to_efa_cq_ex(ibvcqx);
+	struct efa_qp *qp = NULL;
+	int ret;
+
+	if (efa_start_poll_comp_check(ibvcqx, attr))
+		return EINVAL;
+
+	ret = efa_poll_sub_cq(cq, cq->sub_cq_arr, &qp, NULL, true);
+	if (ret != ENOENT)
+		cq->cc++;
+
+	return ret;
+}
+
+enum cq_pfns_attr {
+	SINGLE_SUB_CQ_PFNS = BIT(0),
+	SINGLE_THREAD_PFNS = BIT(1),
+};
+
+#define efa_start_poll_name(single_sub_cq, single_thread) efa_start_poll##single_sub_cq##single_thread
+#define efa_next_poll_name(single_sub_cq) efa_next_poll##single_sub_cq
+#define efa_end_poll_name(single_thread) efa_end_poll##single_thread
+
+#define POLL_FN_ENTRY(single_sub_cq, single_thread) { \
+		.start_poll = efa_start_poll_name(single_sub_cq, single_thread), \
+		.next_poll = efa_next_poll_name(single_sub_cq), \
+		.end_poll = efa_end_poll_name(single_thread), \
+	}
+
+struct cq_base_ops {
+	int (*start_poll)(struct ibv_cq_ex *ibcq, struct ibv_poll_cq_attr *attr);
+	int (*next_poll)(struct ibv_cq_ex *ibcq);
+	void (*end_poll)(struct ibv_cq_ex *ibcq);
+} base_ops[] = {
+	[0] = POLL_FN_ENTRY(,),
+	[SINGLE_SUB_CQ_PFNS] = POLL_FN_ENTRY(_single_sub_cq,),
+	[SINGLE_THREAD_PFNS] = POLL_FN_ENTRY(, _single_thread),
+	[SINGLE_SUB_CQ_PFNS | SINGLE_THREAD_PFNS] = POLL_FN_ENTRY(_single_sub_cq, _single_thread)
+};
 
 static void efa_cq_fill_pfns(struct efa_cq *cq,
 			     struct ibv_cq_init_attr_ex *attr,
 			     struct efadv_cq_init_attr *efa_attr)
 {
 	struct ibv_cq_ex *ibvcqx = &cq->verbs_cq.cq_ex;
+	const struct cq_base_ops *cq_ops;
+	uint32_t cq_pfns_mask = 0;
 
-	ibvcqx->start_poll = efa_start_poll;
-	ibvcqx->end_poll = efa_end_poll;
-	ibvcqx->next_poll = efa_next_poll;
+	if (cq->num_sub_cqs == 1)
+		cq_pfns_mask |= SINGLE_SUB_CQ_PFNS;
+
+	if (attr->flags & IBV_CREATE_CQ_ATTR_SINGLE_THREADED)
+		cq_pfns_mask |= SINGLE_THREAD_PFNS;
+
+	cq_ops = &base_ops[cq_pfns_mask];
+	ibvcqx->start_poll = cq_ops->start_poll;
+	ibvcqx->next_poll = cq_ops->next_poll;
+	ibvcqx->end_poll = cq_ops->end_poll;
 
 	ibvcqx->read_opcode = efa_wc_read_opcode;
 	ibvcqx->read_vendor_err = efa_wc_read_vendor_err;
@@ -997,10 +1120,21 @@ static struct ibv_cq_ex *create_cq(struct ibv_context *ibvctx,
 	int err;
 	int i;
 
-	if (!check_comp_mask(attr->comp_mask, IBV_CQ_INIT_ATTR_MASK_PD) ||
+#define EFA_CREATE_CQ_SUPP_ATTR_MASK \
+	(IBV_CQ_INIT_ATTR_MASK_PD | IBV_CQ_INIT_ATTR_MASK_FLAGS)
+
+	if (!check_comp_mask(attr->comp_mask, EFA_CREATE_CQ_SUPP_ATTR_MASK) ||
 	    !check_comp_mask(attr->wc_flags, IBV_WC_STANDARD_FLAGS)) {
 		verbs_err(verbs_get_ctx(ibvctx),
 			  "Invalid comp_mask or wc_flags\n");
+		errno = EOPNOTSUPP;
+		return NULL;
+	}
+
+	if (attr->comp_mask & IBV_CQ_INIT_ATTR_MASK_FLAGS &&
+	    !check_comp_mask(attr->flags, IBV_CREATE_CQ_ATTR_SINGLE_THREADED)) {
+		verbs_err(verbs_get_ctx(ibvctx),
+			  "Invalid flags\n");
 		errno = EOPNOTSUPP;
 		return NULL;
 	}
