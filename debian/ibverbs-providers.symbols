@@ -191,3 +191,13 @@ libmana.so.1 ibverbs-providers #MINVER#
  MANA_1.0@MANA_1.0 41
  manadv_init_obj@MANA_1.0 41
  manadv_set_context_attr@MANA_1.0 41
+* Build-Depends-Package: libibverbs-dev
+ZRDMA_1.0@ZRDMA_1.0 57
+ zxdh_get_log_trace_switch@ZRDMA_1.0 57
+ZRDMA_1.1@ZRDMA_1.1 57
+ zxdh_set_log_trace_switch@ZRDMA_1.1 57
+ zxdh_modify_qp_udp_sport@ZRDMA_1.1 57
+ zxdh_query_qpc@ZRDMA_1.1 57
+ zxdh_modify_qpc@ZRDMA_1.1 57
+ zxdh_reset_qp@ZRDMA_1.1 57
+
