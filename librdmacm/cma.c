@@ -115,6 +115,9 @@ struct cma_id_private {
 	uint8_t			responder_resources;
 	struct ibv_ece		local_ece;
 	struct ibv_ece		remote_ece;
+	bool			resolving_ai;
+	struct rdma_addrinfo	*resolved_ai;
+
 };
 
 struct cma_multicast {
@@ -712,6 +715,8 @@ static void ucma_free_id(struct cma_id_private *id_priv)
 		rdma_destroy_event_channel(id_priv->id.channel);
 	if (id_priv->connect_len)
 		free(id_priv->connect);
+	if (id_priv->resolved_ai)
+		rdma_freeaddrinfo(id_priv->resolved_ai);
 	free(id_priv);
 }
 
@@ -2483,6 +2488,122 @@ static void ucma_copy_ud_event(struct cma_event *event,
 	dst->qkey = src->qkey;
 }
 
+static struct rdma_addrinfo *
+ucma_convert_service_recs(struct ucma_user_service_rec *recs, int num_recs)
+{
+	struct rdma_addrinfo *head = NULL, *prev = NULL, *ai;
+	struct sockaddr_ib *sib;
+	int i;
+
+	for (i = 0; i < num_recs; i++) {
+		ai = calloc(1, sizeof(*ai));
+		if (!ai)
+			goto fail;
+		if (!head)
+			head = ai;
+
+		sib = calloc(1, sizeof(*sib));
+		if (!sib)
+			goto fail;
+		ai->ai_dst_addr = (struct sockaddr *) sib;
+		ai->ai_dst_len = sizeof(*sib);
+
+		ai->ai_flags = RAI_SA;
+		ai->ai_family = AF_IB;
+		ai->ai_port_space = RDMA_PS_IB;
+
+		sib->sib_family = AF_IB;
+		sib->sib_pkey = recs[i].pkey;
+		memcpy(&sib->sib_addr, &recs[i].gid, sizeof(sib->sib_addr));
+		sib->sib_sid = recs[i].id;
+		sib->sib_sid_mask = htobe64(~0ULL);
+
+		if (prev)
+			prev->ai_next = ai;
+
+		prev = ai;
+	}
+
+	return head;
+
+fail:
+	if (head)
+		rdma_freeaddrinfo(head);
+
+	return NULL;
+}
+
+static struct rdma_addrinfo *ucma_query_ib_service(struct cma_id_private *id_priv)
+{
+	struct ucma_abi_query_ib_service_resp *resp;
+	struct rdma_addrinfo *rai = NULL;
+	struct ucma_abi_query cmd;
+	int ret, size, num = 6;
+
+retry:
+	size = sizeof(*resp) + sizeof(struct ucma_user_service_rec) * num;
+	resp = calloc(1, size);
+	if (!resp)
+		return NULL;
+
+	CMA_INIT_CMD_RESP(&cmd, sizeof(cmd), QUERY, resp, size);
+	cmd.id = id_priv->handle;
+	cmd.option = UCMA_QUERY_IB_SERVICE;
+
+	ret = write(id_priv->id.channel->fd, &cmd, sizeof(cmd));
+	if (ret != sizeof(cmd))
+		goto out;
+
+	VALGRIND_MAKE_MEM_DEFINED(resp, size);
+
+	if (!resp->num_service_recs) {
+		errno = ENOENT;
+		goto out;
+	}
+
+	if (resp->num_service_recs > num) {
+		num = resp->num_service_recs;
+		free(resp);
+		goto retry;
+	}
+
+	ret = ucma_query_addr(&id_priv->id);
+	if (ret)
+		goto out;
+
+	rai = ucma_convert_service_recs(resp->recs, resp->num_service_recs);
+	if (!rai)
+		goto out;
+
+out:
+	free(resp);
+	return rai;
+}
+
+static void clear_resolving_ai_flag(struct cma_id_private *id_priv)
+{
+	pthread_mutex_lock(&id_priv->mut);
+	id_priv->resolving_ai = false;
+	pthread_mutex_unlock(&id_priv->mut);
+}
+
+static void ucma_process_addrinfo_resolved(struct cma_event *evt)
+{
+	struct rdma_addrinfo *rai;
+
+	rai = ucma_query_ib_service(evt->id_priv);
+	if (!rai) {
+		evt->event.event = RDMA_CM_EVENT_ADDRINFO_ERROR;
+		evt->event.status = errno;
+		clear_resolving_ai_flag(evt->id_priv);
+		return;
+	}
+
+	pthread_mutex_lock(&evt->id_priv->mut);
+	evt->id_priv->resolved_ai = rai;
+	pthread_mutex_unlock(&evt->id_priv->mut);
+}
+
 int rdma_establish(struct rdma_cm_id *id)
 {
 	if (id->qp)
@@ -2625,6 +2746,12 @@ retry:
 		evt->event.id = &evt->id_priv->id;
 		evt->event.param.ud.private_data = evt->mc->context;
 		break;
+	case RDMA_CM_EVENT_ADDRINFO_RESOLVED:
+		ucma_process_addrinfo_resolved(evt);
+		break;
+	case RDMA_CM_EVENT_ADDRINFO_ERROR:
+		clear_resolving_ai_flag(evt->id_priv);
+		break;
 	default:
 		evt->id_priv = (void *) (uintptr_t) resp.uid;
 		evt->event.id = &evt->id_priv->id;
@@ -2675,6 +2802,10 @@ const char *rdma_event_str(enum rdma_cm_event_type event)
 		return "RDMA_CM_EVENT_ADDR_CHANGE";
 	case RDMA_CM_EVENT_TIMEWAIT_EXIT:
 		return "RDMA_CM_EVENT_TIMEWAIT_EXIT";
+	case RDMA_CM_EVENT_ADDRINFO_RESOLVED:
+		return "RDMA_CM_EVENT_ADDRINFO_RESOLVED";
+	case RDMA_CM_EVENT_ADDRINFO_ERROR:
+		return "RDMA_CM_EVENT_ADDRINFO_ERROR";
 	default:
 		return "UNKNOWN EVENT";
 	}
@@ -2938,5 +3069,107 @@ int rdma_get_remote_ece(struct rdma_cm_id *id, struct ibv_ece *ece)
 	ece->options = id_priv->remote_ece.options;
 	ece->comp_mask = 0;
 
+	return 0;
+}
+
+static void resolve_ai_set_cmd_service(const char *service,
+				       struct ucma_abi_ib_service *ibs)
+{
+	char *endptr = NULL;
+
+	errno = 0;
+	ibs->service_id = strtoull(service, &endptr, 0);
+	if ((errno != 0) || (endptr == service) || *endptr) {
+		ibs->service_id = 0;
+		ibs->flags |= UCMA_IB_SERVICE_FLAG_NAME;
+		strncpy((char *)ibs->service_name, service,
+			sizeof(ibs->service_name) - 1);
+	} else {
+		ibs->flags |= UCMA_IB_SERVICE_FLAG_ID;
+	}
+}
+
+static int resolve_ai_sa(struct cma_id_private *id_priv, const char *service)
+{
+	struct ucma_abi_resolve_ib_service cmd;
+	int ret;
+
+	if (!service)
+		return ERR(EINVAL);
+
+	CMA_INIT_CMD(&cmd, sizeof(cmd), RESOLVE_IB_SERVICE);
+	cmd.id = id_priv->handle;
+	resolve_ai_set_cmd_service(service, &cmd.ibs);
+
+	ret = write(id_priv->id.channel->fd, &cmd, sizeof(cmd));
+	if (ret != sizeof(cmd))
+		return (ret >= 0) ? ERR(ENODATA) : -1;
+
+	return ucma_complete(&id_priv->id);
+}
+
+static int __rdma_resolve_addrinfo(struct cma_id_private *id_priv,
+				   const char *node, const char *service,
+				   const struct rdma_addrinfo *hints)
+{
+	if (hints->ai_flags & RAI_SA) {
+		if (node)
+			return ENOTSUP;
+		return resolve_ai_sa(id_priv, service);
+	}
+
+	return EINVAL;
+}
+
+int rdma_resolve_addrinfo(struct rdma_cm_id *id, const char *node,
+			  const char *service,
+			  const struct rdma_addrinfo *hints)
+{
+	struct cma_id_private *id_priv;
+	int ret = 0;
+
+	if (!id || !hints)
+		return ERR(EINVAL);
+
+	id_priv = container_of(id, struct cma_id_private, id);
+
+	pthread_mutex_lock(&id_priv->mut);
+	if (id_priv->resolving_ai) {
+		pthread_mutex_unlock(&id_priv->mut);
+		return ERR(EBUSY);
+	}
+
+	ret = __rdma_resolve_addrinfo(id_priv, node, service, hints);
+	if (ret)
+		goto fail;
+
+	id_priv->resolving_ai = true;
+	pthread_mutex_unlock(&id_priv->mut);
+	return 0;
+
+fail:
+	pthread_mutex_unlock(&id_priv->mut);
+	return ERR(ret);
+}
+
+int rdma_query_addrinfo(struct rdma_cm_id *id, struct rdma_addrinfo **info)
+{
+	struct cma_id_private *id_priv;
+
+	if (!id || !info)
+		return ERR(EINVAL);
+
+	id_priv = container_of(id, struct cma_id_private, id);
+	pthread_mutex_lock(&id_priv->mut);
+	if (!id_priv->resolving_ai || !id_priv->resolved_ai) {
+		pthread_mutex_unlock(&id_priv->mut);
+		return ERR(ENOENT);
+	}
+
+	*info = id_priv->resolved_ai;
+	id_priv->resolved_ai = NULL;
+	id_priv->resolving_ai = false;
+
+	pthread_mutex_unlock(&id_priv->mut);
 	return 0;
 }
