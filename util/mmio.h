@@ -124,7 +124,53 @@ static inline uint8_t mmio_read8(const void *addr)
 	return res;
 }
 
-#else /* __s390x__ */
+#elif defined(__riscv)
+
+#define MAKE_WRITE(_NAME_, _SZ_)                                        \
+	static inline void _NAME_##_be(void *addr, __be##_SZ_ val)  \
+	{                                                                     \
+		__atomic_thread_fence(__ATOMIC_RELEASE);                            \
+		*(volatile uint##_SZ_##_t *)addr = (uint##_SZ_##_t) val;            \
+		__atomic_thread_fence(__ATOMIC_SEQ_CST);                            \
+	}                                                                     \
+	static inline void _NAME_##_le(void *addr, __le##_SZ_ val)  \
+	{                                                                     \
+		__atomic_thread_fence(__ATOMIC_RELEASE);                            \
+		*(volatile uint##_SZ_##_t *)addr = (uint##_SZ_##_t) val;            \
+		__atomic_thread_fence(__ATOMIC_SEQ_CST);                            \
+	}
+
+#define MAKE_READ(_NAME_, _SZ_)                                         \
+	static inline __be##_SZ_ _NAME_##_be(const void *addr)      \
+	{                                                                     \
+		__atomic_thread_fence(__ATOMIC_RELEASE);                            \
+		__be##_SZ_ val = *(const uint##_SZ_##_t *)addr;           \
+		__atomic_thread_fence(__ATOMIC_SEQ_CST);                            \
+		return val;                                                         \
+	}                                                                     \
+	static inline __le##_SZ_ _NAME_##_le(const void *addr)      \
+	{                                                                     \
+		__atomic_thread_fence(__ATOMIC_RELEASE);                            \
+		__le##_SZ_ val = *(const uint##_SZ_##_t *)addr;           \
+		__atomic_thread_fence(__ATOMIC_SEQ_CST);                            \
+		return val;                                                         \
+	}
+
+static inline void mmio_write8(void *addr, uint8_t val)
+{
+	__atomic_thread_fence(__ATOMIC_RELEASE);
+	*(uint8_t *)addr = val;
+	__atomic_thread_fence(__ATOMIC_SEQ_CST);
+}
+static inline uint8_t mmio_read8(const void *addr)
+{
+	__atomic_thread_fence(__ATOMIC_RELEASE);
+	uint8_t val = *(uint8_t *)addr;
+	__atomic_thread_fence(__ATOMIC_SEQ_CST);
+	return val;
+}
+
+#else
 
 #define MAKE_WRITE(_NAME_, _SZ_)                                               \
 	static inline void _NAME_##_be(void *addr, __be##_SZ_ value)           \
@@ -161,7 +207,7 @@ static inline uint8_t mmio_read8(const void *addr)
 	return atomic_load_explicit((_Atomic(uint8_t) *)addr,
 				    memory_order_relaxed);
 }
-#endif /* __s390x__ */
+#endif
 
 MAKE_WRITE(mmio_write16, 16)
 MAKE_WRITE(mmio_write32, 32)
