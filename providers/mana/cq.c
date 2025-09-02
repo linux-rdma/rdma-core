@@ -383,6 +383,10 @@ static enum ibv_wc_status vendor_error_to_wc_error(uint32_t vendor_error)
 	case VENDOR_ERR_RX_NOT_EMPTY_ON_DISABLE:
 	case VENDOR_ERR_SW_FLUSHED:
 		return IBV_WC_WR_FLUSH_ERR;
+	case VENDOR_ERR_TX_RETRY_LIMIT_EXCEEDED:
+		return IBV_WC_RETRY_EXC_ERR;
+	case VENDOR_ERR_RX_RNR_NAK:
+		return IBV_WC_RNR_RETRY_EXC_ERR;
 	default:
 		return IBV_WC_GENERAL_ERR;
 	}
