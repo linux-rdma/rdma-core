@@ -1065,6 +1065,7 @@ enum ibv_qp_attr_mask {
 
 enum ibv_query_qp_data_in_order_flags {
 	IBV_QUERY_QP_DATA_IN_ORDER_RETURN_CAPS = 1 << 0,
+	IBV_QUERY_QP_DATA_IN_ORDER_DEVICE_ONLY = 1 << 1,
 };
 
 enum ibv_query_qp_data_in_order_caps {
