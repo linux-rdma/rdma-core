@@ -645,6 +645,25 @@ cdef extern from 'infiniband/verbs.h':
         ibv_wq   **ind_tbl
         uint32_t comp_mask
 
+    cdef struct ibv_dmah_init_attr:
+        uint32_t comp_mask
+        uint32_t cpu_id
+        uint8_t ph
+        uint8_t tph_mem_type
+
+    cdef struct ibv_dmah:
+        ibv_context *context
+
+    cdef struct ibv_mr_init_attr:
+        size_t length
+        int access
+        uint64_t comp_mask
+        uint64_t iova
+        void *addr
+        int fd
+        uint64_t fd_offset
+        ibv_dmah *dmah
+
     ibv_device **ibv_get_device_list(int *n)
     int ibv_get_device_index(ibv_device *device);
     void ibv_free_device_list(ibv_device **list)
@@ -671,6 +690,9 @@ cdef extern from 'infiniband/verbs.h':
     int ibv_dereg_mr(ibv_mr *mr)
     int ibv_advise_mr(ibv_pd *pd, uint32_t advice, uint32_t flags,
                       ibv_sge *sg_list, uint32_t num_sge)
+    ibv_dmah *ibv_alloc_dmah(ibv_context *context, ibv_dmah_init_attr *attr)
+    int ibv_dealloc_dmah(ibv_dmah *dmah)
+    ibv_mr *ibv_reg_mr_ex(ibv_pd *pd, ibv_mr_init_attr *mr_init_attr)
     ibv_mw *ibv_alloc_mw(ibv_pd *pd, ibv_mw_type type)
     int ibv_dealloc_mw(ibv_mw *mw)
     ibv_dm *ibv_alloc_dm(ibv_context *context, ibv_alloc_dm_attr *attr)

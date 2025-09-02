@@ -62,6 +62,7 @@ MLX5_DEVS = {
     0x101f,  # ConnectX-6 LX
     0x1021,  # ConnectX-7
     0x1023,  # ConnectX-8
+    0x1025,  # ConnectX-9
     0xa2d2,  # BlueField integrated ConnectX-5 network controller
     0xa2d3,  # BlueField integrated ConnectX-5 network controller VF
     0xa2d6,  # BlueField-2 integrated ConnectX-6 Dx network controller
@@ -751,14 +752,14 @@ class Mlx5DevxRcResources(BaseResources):
         qp_size = (qp_size + pg_size - 1) & ~(pg_size - 1)
         self.umems['qp'] = self.create_umem(size=qp_size)
         self.umems['qp_dbr'] = self.create_umem(size=8, alignment=8)
-        log_rq_size = int(math.log2(self.qattr.rq.wqe_num - 1)) + 1
+        self.log_rq_size = int(math.log2(self.qattr.rq.wqe_num - 1)) + 1
         # Size of a receive WQE is 16*pow(2, log_rq_stride)
         log_rq_stride = self.qattr.rq.wqe_shift - 4
         log_sq_size = int(math.log2(self.qattr.sq.wqe_num - 1)) + 1
         cqn = CreateCqOut(self.cq.out_view).cqn
         qpc = SwQpc(st=DevxOps.MLX5_QPC_ST_RC, pd=self.dv_pd.pdn,
                     pm_state=DevxOps.MLX5_QPC_PM_STATE_MIGRATED,
-                    log_rq_size=log_rq_size, log_sq_size=log_sq_size, ts_format=0x1,
+                    log_rq_size=self.log_rq_size, log_sq_size=log_sq_size, ts_format=0x1,
                     log_rq_stride=log_rq_stride, uar_page=self.uar['qp'].page_id,
                     cqn_snd=cqn, cqn_rcv=cqn, dbr_umem_id=self.umems['qp_dbr'].umem_id,
                     dbr_umem_valid=1, send_dbr_mode=self.send_dbr_mode)

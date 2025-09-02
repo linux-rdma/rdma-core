@@ -3,7 +3,7 @@ import random
 import errno
 
 from pyverbs.wq import WQInitAttr, WQAttr, WQ, RwqIndTableInitAttr, RwqIndTable, RxHashConf
-from tests.utils import requires_root_on_eth, PacketConsts
+from tests.utils import requires_cap_net_raw, PacketConsts, requires_eth
 from tests.base import RDMATestCase, PyverbsRDMAError, MLNX_VENDOR_ID, \
     CX3_MLNX_PART_ID, CX3Pro_MLNX_PART_ID
 from pyverbs.qp import QPInitAttrEx, QPEx
@@ -55,7 +55,8 @@ class RssRes(FlowRes):
     def create_cq(self):
         self.cqs = [CQ(self.ctx, WRS_PER_ROUND) for _ in range(CQS_NUM)]
 
-    @requires_root_on_eth()
+    @requires_cap_net_raw()
+    @requires_eth()
     def create_qps(self):
         """
         Initializes self.qps with RSS QPs.

@@ -19,6 +19,7 @@ rdma_python_test(tests
   test_cqex.py
   test_cuda_dmabuf.py
   test_device.py
+  test_dmah.py
   test_efa_srd.py
   test_efadv.py
   test_flow.py
@@ -28,6 +29,7 @@ rdma_python_test(tests
   test_mlx5_cuda_umem.py
   test_mlx5_dc.py
   test_mlx5_devx.py
+  test_mlx5_devx_async_events.py
   test_mlx5_dm_ops.py
   test_mlx5_dma_memcpy.py
   test_mlx5_dmabuf.py
