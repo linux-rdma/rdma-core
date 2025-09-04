@@ -2,6 +2,7 @@
 # Copyright (c) 2019 Mellanox Technologies, Inc. All rights reserved.
 
 from libc.stdlib cimport malloc, free
+from libc.stdint cimport uintptr_t
 from libc.string cimport memcpy
 import weakref
 
@@ -1264,6 +1265,10 @@ cdef class QP(PyverbsCM):
     @property
     def qp_num(self):
         return self.qp.qp_num
+
+    @property
+    def qp(self):
+        return <uintptr_t>self.qp
 
     def __str__(self):
         print_format = '{:22}: {:<20}\n'

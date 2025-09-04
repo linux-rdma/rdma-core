@@ -1,6 +1,7 @@
 # SPDX-License-Identifier: (GPL-2.0 OR Linux-OpenIB)
 # Copyright (c) 2019, Mellanox Technologies. All rights reserved.
 import weakref
+from libc.stdint cimport uintptr_t
 
 from pyverbs.pyverbs_error import PyverbsError, PyverbsRDMAError
 from pyverbs.base import PyverbsRDMAErrno
@@ -214,7 +215,7 @@ cdef class CQ(PyverbsCM):
 
     @property
     def cq(self):
-       return <object>self.cq
+       return <uintptr_t>self.cq
 
 
 cdef class CqInitAttrEx(PyverbsObject):
