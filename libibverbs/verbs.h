@@ -471,6 +471,7 @@ enum ibv_event_type {
 	IBV_EVENT_CLIENT_REREGISTER,
 	IBV_EVENT_GID_CHANGE,
 	IBV_EVENT_WQ_FATAL,
+	IBV_EVENT_DEVICE_SPEED_CHANGE,
 };
 
 struct ibv_async_event {

@@ -89,10 +89,11 @@ const char *ibv_event_type_str(enum ibv_event_type event)
 		[IBV_EVENT_QP_LAST_WQE_REACHED]	= "last WQE reached",
 		[IBV_EVENT_CLIENT_REREGISTER]	= "client reregistration",
 		[IBV_EVENT_GID_CHANGE]		= "GID table change",
-		[IBV_EVENT_WQ_FATAL]		= "WQ fatal"
+		[IBV_EVENT_WQ_FATAL]		= "WQ fatal",
+		[IBV_EVENT_DEVICE_SPEED_CHANGE]	= "Device link speed change"
 	};
 
-	if (event < IBV_EVENT_CQ_ERR || event > IBV_EVENT_WQ_FATAL)
+	if (event < IBV_EVENT_CQ_ERR || event > IBV_EVENT_DEVICE_SPEED_CHANGE)
 		return "unknown";
 
 	return event_type_str[event];
