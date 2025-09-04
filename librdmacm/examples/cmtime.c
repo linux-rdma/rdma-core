@@ -1135,7 +1135,7 @@ int main(int argc, char **argv)
 	bool socktest = false;
 	int op, ret;
 
-	while ((op = getopt(argc, argv, "B:b:C:c:Lm:n:P:p:q:r:Ss:t:")) != -1) {
+	while ((op = getopt(argc, argv, "B:b:C:c:Lm:n:P:p:q:r:S:t:")) != -1) {
 		switch (op) {
 		case 'B':
 			if (src_addr)
