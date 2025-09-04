@@ -38,8 +38,8 @@
 
 
 #include <errno.h>
+#include <infiniband/mad.h>
 #include <infiniband/umad.h>
-#include "../libibmad/mad_internal.h"
 
 #include "ibdiag_common.h"
 #include "ibdiag_sa.h"
@@ -78,8 +78,8 @@ struct sa_handle *sa_get_handle(char *ca_name)
 	if (!handle->dport.qkey)
 		handle->dport.qkey = IB_DEFAULT_QP1_QKEY;
 
-	handle->fd = srcports->gsi.port->port_id;
-	handle->agent = srcports->gsi.port->class_agents[IB_SA_CLASS];
+	handle->fd = mad_rpc_portid(srcports->gsi.port);
+	handle->agent = mad_rpc_class_agent(srcports->gsi.port, IB_SA_CLASS);
 
 	return handle;
 
