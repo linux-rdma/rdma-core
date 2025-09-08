@@ -63,6 +63,7 @@ MLX5_DEVS = {
     0x1021,  # ConnectX-7
     0x1023,  # ConnectX-8
     0x1025,  # ConnectX-9
+    0x1027,  # ConnectX-10
     0xa2d2,  # BlueField integrated ConnectX-5 network controller
     0xa2d3,  # BlueField integrated ConnectX-5 network controller VF
     0xa2d6,  # BlueField-2 integrated ConnectX-6 Dx network controller
