@@ -1035,7 +1035,7 @@ enum cq_pfns_attr {
 		.end_poll = efa_end_poll_name(single_thread), \
 	}
 
-struct cq_base_ops {
+static struct cq_base_ops {
 	int (*start_poll)(struct ibv_cq_ex *ibcq, struct ibv_poll_cq_attr *attr);
 	int (*next_poll)(struct ibv_cq_ex *ibcq);
 	void (*end_poll)(struct ibv_cq_ex *ibcq);
