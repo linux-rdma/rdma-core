@@ -2,6 +2,7 @@ usr/include/infiniband/arch.h
 usr/include/infiniband/efadv.h
 usr/include/infiniband/hnsdv.h
 usr/include/infiniband/ib_user_ioctl_verbs.h
+usr/include/infiniband/ionic_dv.h
 usr/include/infiniband/manadv.h
 usr/include/infiniband/mlx4dv.h
 usr/include/infiniband/mlx5_api.h
@@ -20,6 +21,8 @@ usr/lib/*/libhns.a
 usr/lib/*/libhns.so
 usr/lib/*/libibverbs*.so
 usr/lib/*/libibverbs.a
+usr/lib/*/libionic.a
+usr/lib/*/libionic.so*
 usr/lib/*/libmana.a
 usr/lib/*/libmana.so
 usr/lib/*/libmlx4.a
@@ -29,6 +32,7 @@ usr/lib/*/libmlx5.so
 usr/lib/*/pkgconfig/libefa.pc
 usr/lib/*/pkgconfig/libhns.pc
 usr/lib/*/pkgconfig/libibverbs.pc
+usr/lib/*/pkgconfig/libionic.pc
 usr/lib/*/pkgconfig/libmana.pc
 usr/lib/*/pkgconfig/libmlx4.pc
 usr/lib/*/pkgconfig/libmlx5.pc

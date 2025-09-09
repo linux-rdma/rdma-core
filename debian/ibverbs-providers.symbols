@@ -191,3 +191,12 @@ libmana.so.1 ibverbs-providers #MINVER#
  MANA_1.0@MANA_1.0 41
  manadv_init_obj@MANA_1.0 41
  manadv_set_context_attr@MANA_1.0 41
+libionic.so.1 ibverbs-providers #MINVER#
+* Build-Depends-Package: libibverbs-dev
+ IONIC_1.0@IONIC_1.0 59
+ ionic_dv_ctx_get_udma_count@IONIC_1.0 59
+ ionic_dv_ctx_get_udma_mask@IONIC_1.0 59
+ ionic_dv_pd_get_udma_mask@IONIC_1.0 59
+ ionic_dv_pd_set_udma_mask@IONIC_1.0 59
+ ionic_dv_pd_set_sqcmb@IONIC_1.0 59
+ ionic_dv_pd_set_rqcmb@IONIC_1.0 59
