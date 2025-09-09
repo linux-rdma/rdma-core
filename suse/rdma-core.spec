@@ -36,6 +36,7 @@ Group:          Productivity/Networking/Other
 
 %define efa_so_major    1
 %define hns_so_major    1
+%define ionic_so_major  1
 %define verbs_so_major  1
 %define rdmacm_so_major 1
 %define umad_so_major   3
@@ -47,6 +48,7 @@ Group:          Productivity/Networking/Other
 
 %define  efa_lname    libefa%{efa_so_major}
 %define  hns_lname    libhns%{hns_so_major}
+%define  ionic_lname  libionic%{ionic_so_major}
 %define  verbs_lname  libibverbs%{verbs_so_major}
 %define  rdmacm_lname librdmacm%{rdmacm_so_major}
 %define  umad_lname   libibumad%{umad_so_major}
@@ -162,6 +164,7 @@ Requires:       %{verbs_lname} = %{version}-%{release}
 %if 0%{?dma_coherent}
 Requires:       %{efa_lname} = %{version}-%{release}
 Requires:       %{hns_lname} = %{version}-%{release}
+Requires:       %{ionic_lname} = %{version}-%{release}
 Requires:       %{mana_lname} = %{version}-%{release}
 Requires:       %{mlx4_lname} = %{version}-%{release}
 Requires:       %{mlx5_lname} = %{version}-%{release}
@@ -204,6 +207,7 @@ Obsoletes:      libcxgb4-rdmav2 < %{version}-%{release}
 Obsoletes:      libefa-rdmav2 < %{version}-%{release}
 Obsoletes:      libhfi1verbs-rdmav2 < %{version}-%{release}
 Obsoletes:      libhns-rdmav2 < %{version}-%{release}
+Obsoletes:      libionic-rdmav2 < %{version}-%{release}
 Obsoletes:      libipathverbs-rdmav2 < %{version}-%{release}
 Obsoletes:      libmana-rdmav2 < %{version}-%{release}
 Obsoletes:      libmlx4-rdmav2 < %{version}-%{release}
@@ -214,6 +218,7 @@ Obsoletes:      librxe-rdmav2 < %{version}-%{release}
 %if 0%{?dma_coherent}
 Requires:       %{efa_lname} = %{version}-%{release}
 Requires:       %{hns_lname} = %{version}-%{release}
+Requires:       %{ionic_lname} = %{version}-%{release}
 Requires:       %{mana_lname} = %{version}-%{release}
 Requires:       %{mlx4_lname} = %{version}-%{release}
 Requires:       %{mlx5_lname} = %{version}-%{release}
@@ -234,6 +239,7 @@ Device-specific plug-in ibverbs userspace drivers are included:
 - libefa: Amazon Elastic Fabric Adapter
 - libhfi1: Intel Omni-Path HFI
 - libhns: HiSilicon Hip08+ SoC
+- libionic: AMD Pensando Distributed Services Card (DSC) RDMA/RoCE Support
 - libipathverbs: QLogic InfiniPath HCA
 - libirdma: Intel Ethernet Connection RDMA
 - libmana: Microsoft Azure Network Adapter
@@ -267,6 +273,13 @@ Group:          System/Libraries
 
 %description -n %hns_lname
 This package contains the hns runtime library.
+
+%package -n %ionic_lname
+Summary:        IONIC runtime library
+Group:          System/Libraries
+
+%description -n %ionic_lname
+This package contains the ionic runtime library.
 
 %package -n %mana_lname
 Summary:        MANA runtime library
@@ -525,6 +538,9 @@ rm -rf %{buildroot}/%{_sbindir}/srp_daemon.sh
 %post -n %hns_lname -p /sbin/ldconfig
 %postun -n %hns_lname -p /sbin/ldconfig
 
+%post -n %ionic_lname -p /sbin/ldconfig
+%postun -n %ionic_lname -p /sbin/ldconfig
+
 %post -n %mana_lname -p /sbin/ldconfig
 %postun -n %mana_lname -p /sbin/ldconfig
 
@@ -724,6 +740,9 @@ done
 %files -n %hns_lname
 %defattr(-,root,root)
 %{_libdir}/libhns*.so.*
+
+%files -n %ionic_lname
+%{_libdir}/libionic*.so.*
 
 %files -n %mana_lname
 %{_libdir}/libmana*.so.*

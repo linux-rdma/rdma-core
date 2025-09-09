@@ -88,6 +88,7 @@ Description: User space provider drivers for libibverbs
   - erdma: Alibaba Elastic RDMA (iWarp) Adapter
   - hfi1verbs: Intel Omni-Path HFI
   - hns: HiSilicon Hip06 SoC
+  - ionic: AMD Pensando Distributed Services Card (DSC) RDMA/RoCE Support
   - ipathverbs: QLogic InfiniPath HCAs
   - irdma: Intel Ethernet Connection RDMA
   - mana: Microsoft Azure Network Adapter

@@ -177,6 +177,10 @@ Copyright: 2006-2010, QLogic Corp.
            2013, Intel Corporation
 License: BSD-MIT or GPL-2
 
+Files: providers/ionic/*
+Copyright: 2018-2025, Advanced Micro Devices, Inc.
+License: BSD-MIT or GPL-2
+
 Files: providers/irdma/*
 Copyright: 2015-2023, Intel Corporation.
 License: BSD-MIT or GPL-2

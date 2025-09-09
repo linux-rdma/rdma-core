@@ -160,6 +160,8 @@ Provides: libhfi1 = %{version}-%{release}
 Obsoletes: libhfi1 < %{version}-%{release}
 Provides: libhns = %{version}-%{release}
 Obsoletes: libhns < %{version}-%{release}
+Provides: libionic = %{version}-%{release}
+Obsoletes: libionic < %{version}-%{release}
 Provides: libipathverbs = %{version}-%{release}
 Obsoletes: libipathverbs < %{version}-%{release}
 Provides: libirdma = %{version}-%{release}
@@ -191,6 +193,7 @@ Device-specific plug-in ibverbs userspace drivers are included:
 - liberdma: Alibaba Elastic RDMA (iWarp) Adapter
 - libhfi1: Intel Omni-Path HFI
 - libhns: HiSilicon Hip08+ SoC
+- libionic: AMD Pensando Distributed Services Card (DSC) RDMA/RoCE Support
 - libipathverbs: QLogic InfiniPath HCA
 - libirdma: Intel Ethernet Connection RDMA
 - libmana: Microsoft Azure Network Adapter
@@ -594,6 +597,7 @@ fi
 %{_libdir}/libhns.so.*
 %{_libdir}/libibverbs*.so.*
 %{_libdir}/libibverbs/*.so
+%{_libdir}/libionic.so.*
 %{_libdir}/libmana.so.*
 %{_libdir}/libmlx5.so.*
 %{_libdir}/libmlx4.so.*
