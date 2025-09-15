@@ -63,7 +63,11 @@ enum rdma_cm_event_type {
 	RDMA_CM_EVENT_MULTICAST_JOIN,
 	RDMA_CM_EVENT_MULTICAST_ERROR,
 	RDMA_CM_EVENT_ADDR_CHANGE,
-	RDMA_CM_EVENT_TIMEWAIT_EXIT
+	RDMA_CM_EVENT_TIMEWAIT_EXIT,
+	RDMA_CM_EVENT_ADDRINFO_RESOLVED,
+	RDMA_CM_EVENT_ADDRINFO_ERROR,
+	RDMA_CM_EVENT_USER,
+	RDMA_CM_EVENT_INTERNAL,
 };
 
 enum rdma_port_space {
@@ -171,6 +175,7 @@ struct rdma_cm_event {
 	union {
 		struct rdma_conn_param conn;
 		struct rdma_ud_param   ud;
+		uint64_t arg;
 	} param;
 };
 
@@ -178,6 +183,8 @@ struct rdma_cm_event {
 #define RAI_NUMERICHOST		0x00000002
 #define RAI_NOROUTE		0x00000004
 #define RAI_FAMILY		0x00000008
+#define RAI_SA			0x00000010
+#define RAI_DNS			0x00000020 /* Mutual-exclusive with RAI_SA */
 
 struct rdma_addrinfo {
 	int			ai_flags;
@@ -777,6 +784,30 @@ int rdma_set_local_ece(struct rdma_cm_id *id, struct ibv_ece *ece);
  * @ece: ECE parameters
  */
 int rdma_get_remote_ece(struct rdma_cm_id *id, struct ibv_ece *ece);
+
+/**
+ * rdma_resolve_addrinfo - Resolve address information asynchronously
+ * @id: Communication identifier
+ * @node: The host to resolve
+ * @service: The service to resolve which supports IB
+ * @hints: An addrinfo structure that specifies criteria for selecting the
+ * returned addresses
+ */
+int rdma_resolve_addrinfo(struct rdma_cm_id *id, const char *node,
+			  const char *service,
+			  const struct rdma_addrinfo *hints);
+
+/**
+ * rdma_query_addrinfo - Query the resolved address information
+ */
+int rdma_query_addrinfo(struct rdma_cm_id *id, struct rdma_addrinfo **info);
+
+/**
+ * rdma_write_cm_event - Write an event into a cm channel.
+ */
+int rdma_write_cm_event(struct rdma_cm_id *id, enum rdma_cm_event_type event,
+			int status, uint64_t arg);
+
 #ifdef __cplusplus
 }
 #endif

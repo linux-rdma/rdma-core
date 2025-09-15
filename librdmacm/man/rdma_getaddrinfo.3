@@ -81,6 +81,14 @@ If set, this flag suppresses any lengthy route resolution.
 .IP "RAI_FAMILY" 12
 If set, the ai_family setting should be used as an input hint for interpretting
 the node parameter.
+.IP "RAI_DNS" 12
+Indicates that address resolution should use DNS to map the node and service
+names to addresses. Flag is mutually exclusive with RAI_SA. DNS resolution
+is the default option.
+.IP "RAI_SA" 12
+Indicates that address resolution should query the Infiniband SA to map node
+and service names to addresses. Flag is mutually exclusive with RAI_DNS. SA
+resolution only applies to Infiniband ports. Non-Infiniband ports will be skipped.
 .IP "ai_family" 12
 Address family for the source and destination address.  Supported families
 are: AF_INET, AF_INET6, and AF_IB.
@@ -131,4 +139,5 @@ Pointer to the next rdma_addrinfo structure in the list.  Will be NULL
 if no more structures exist.
 .SH "SEE ALSO"
 rdma_create_id(3), rdma_resolve_route(3), rdma_connect(3), rdma_create_qp(3),
-rdma_bind_addr(3), rdma_create_ep(3), rdma_freeaddrinfo(3)
+rdma_bind_addr(3), rdma_create_ep(3), rdma_freeaddrinfo(3),
+rdma_resolve_addrinfo(3),rdma_query_addrinfo(3)
