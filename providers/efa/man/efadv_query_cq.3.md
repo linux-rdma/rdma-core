@@ -33,6 +33,7 @@ struct efadv_cq_attr {
 	uint8_t *buffer;
 	uint32_t entry_size;
 	uint32_t num_entries;
+	uint32_t *doorbell;
 };
 ```
 
@@ -50,6 +51,10 @@ struct efadv_cq_attr {
 
 *num_entries*
 :	Maximal number of entries in the completion queue.
+
+*doorbell*
+:	Reverse doorbell used to update the device of polled entries and to
+	request notifications. NULL when not in use for this Completion Queue.
 
 # RETURN VALUE
 
