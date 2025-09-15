@@ -719,6 +719,7 @@ static void bnxt_re_poll_success_rcqe(struct bnxt_re_qp *qp,
 {
 	uint8_t flags, is_imm, is_rdma;
 	struct bnxt_re_rc_cqe *rcqe;
+	uint8_t qp_type = qp->qptyp;
 	struct bnxt_re_wrid *swque;
 	struct bnxt_re_queue *rq;
 	uint32_t rcqe_len;
@@ -747,31 +748,34 @@ static void bnxt_re_poll_success_rcqe(struct bnxt_re_qp *qp,
 	ibvwc->status = IBV_WC_SUCCESS;
 	ibvwc->qp_num = qp->qpid;
 	rcqe_len = le32toh(rcqe->length);
-	ibvwc->byte_len = (qp->qptyp == IBV_QPT_UD) ?
-		rcqe_len & BNXT_RE_UD_CQE_LEN_MASK: rcqe_len ;
+	ibvwc->byte_len = (qp_type == IBV_QPT_UD ||
+			   qp_type == IBV_QPT_RAW_PACKET) ?
+			rcqe_len & BNXT_RE_UD_CQE_LEN_MASK : rcqe_len;
 	ibvwc->opcode = IBV_WC_RECV;
 
-	flags = (le32toh(hdr->flg_st_typ_ph) >> BNXT_RE_BCQE_FLAGS_SHIFT) &
-		 BNXT_RE_BCQE_FLAGS_MASK;
-	is_imm = (flags & BNXT_RE_RC_FLAGS_IMM_MASK) >>
-		     BNXT_RE_RC_FLAGS_IMM_SHIFT;
-	is_rdma = (flags & BNXT_RE_RC_FLAGS_RDMA_MASK) >>
-		   BNXT_RE_RC_FLAGS_RDMA_SHIFT;
-	ibvwc->wc_flags = 0;
-	if (is_imm) {
-		ibvwc->wc_flags |= IBV_WC_WITH_IMM;
-		/* Completion reports the raw-data in LE format, While
-		 * user expects it in BE format. Thus, swapping on outgoing
-		 * data is needed. On a BE platform le32toh will do the swap
-		 * while on LE platform htobe32 will do the job.
-		 */
-		ibvwc->imm_data = htobe32(le32toh(rcqe->imm_key));
-		if (is_rdma)
-			ibvwc->opcode = IBV_WC_RECV_RDMA_WITH_IMM;
-	}
+	if (qp_type == IBV_QPT_UD || qp_type == IBV_QPT_RC) {
+		flags = (le32toh(hdr->flg_st_typ_ph) >> BNXT_RE_BCQE_FLAGS_SHIFT) &
+			 BNXT_RE_BCQE_FLAGS_MASK;
+		is_imm = (flags & BNXT_RE_RC_FLAGS_IMM_MASK) >>
+			     BNXT_RE_RC_FLAGS_IMM_SHIFT;
+		is_rdma = (flags & BNXT_RE_RC_FLAGS_RDMA_MASK) >>
+			   BNXT_RE_RC_FLAGS_RDMA_SHIFT;
+		ibvwc->wc_flags = 0;
+		if (is_imm) {
+			ibvwc->wc_flags |= IBV_WC_WITH_IMM;
+			/* Completion reports the raw-data in LE format, While
+			 * user expects it in BE format. Thus, swapping on outgoing
+			 * data is needed. On a BE platform le32toh will do the swap
+			 * while on LE platform htobe32 will do the job.
+			 */
+			ibvwc->imm_data = htobe32(le32toh(rcqe->imm_key));
+			if (is_rdma)
+				ibvwc->opcode = IBV_WC_RECV_RDMA_WITH_IMM;
+		}
 
-	if (qp->qptyp == IBV_QPT_UD)
-		bnxt_re_fill_ud_cqe(ibvwc, hdr, cqe, flags);
+		if (qp_type == IBV_QPT_UD)
+			bnxt_re_fill_ud_cqe(ibvwc, hdr, cqe, flags);
+	}
 
 	if (!qp->srq)
 		bnxt_re_jqq_mod_last(qp->jrqq, head);
@@ -872,6 +876,7 @@ static int bnxt_re_poll_one(struct bnxt_re_cq *cq, int nwc, struct ibv_wc *wc,
 			break;
 		case BNXT_RE_WC_TYPE_RECV_RC:
 		case BNXT_RE_WC_TYPE_RECV_UD:
+		case BNXT_RE_WC_TYPE_RECV_RAW:
 			rcqe = cqe;
 			qp_handle = (uint64_t *)&rcqe->qp_handle;
 			qp = (struct bnxt_re_qp *)
@@ -879,8 +884,6 @@ static int bnxt_re_poll_one(struct bnxt_re_cq *cq, int nwc, struct ibv_wc *wc,
 			if (!qp)
 				break; /*stale cqe. should be rung.*/
 			pcqe = bnxt_re_poll_rcqe(qp, wc, cqe, &cnt);
-			break;
-		case BNXT_RE_WC_TYPE_RECV_RAW:
 			break;
 		case BNXT_RE_WC_TYPE_TERM:
 			scqe = cqe;
@@ -1134,6 +1137,11 @@ static int bnxt_re_check_qp_limits(struct bnxt_re_context *cntx,
 
 	rdev = cntx->rdev;
 	devattr = &rdev->devattr;
+
+	if (attr->qp_type != IBV_QPT_RC &&
+	    attr->qp_type != IBV_QPT_UD &&
+	    attr->qp_type != IBV_QPT_RAW_PACKET)
+		return EINVAL;
 
 	if (attr->cap.max_send_sge > devattr->max_sge)
 		return EINVAL;
@@ -2955,4 +2963,33 @@ int bnxt_re_destroy_ah(struct ibv_ah *ibvah)
 	free(ah);
 
 	return 0;
+}
+
+struct ibv_flow *bnxt_re_create_flow(struct ibv_qp *qp,
+				     struct ibv_flow_attr *attr)
+{
+	struct ibv_flow *flow;
+	int ret;
+
+	flow = calloc(1, sizeof(*flow));
+	if (!flow)
+		return NULL;
+
+	ret = ibv_cmd_create_flow(qp, flow, attr, NULL, 0);
+	if (ret) {
+		free(flow);
+		flow = NULL;
+	}
+
+	return flow;
+}
+
+int bnxt_re_destroy_flow(struct ibv_flow *flow)
+{
+	int ret;
+
+	ret = ibv_cmd_destroy_flow(flow);
+
+	free(flow);
+	return ret;
 }
