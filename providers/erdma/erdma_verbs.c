@@ -193,6 +193,7 @@ struct ibv_cq *erdma_create_cq(struct ibv_context *ctx, int num_cqe,
 	}
 
 	memset(cq->queue, 0, cq_size);
+	cq->qbuf_size = cq_size;
 
 	db_records = erdma_alloc_dbrecords(ectx);
 	if (!db_records) {
@@ -262,7 +263,7 @@ int erdma_destroy_cq(struct ibv_cq *base_cq)
 		erdma_dealloc_dbrecords(ctx, cq->db_record);
 
 	if (cq->queue) {
-		ibv_dofork_range(cq->queue, cq->depth << CQE_SHIFT);
+		ibv_dofork_range(cq->queue, cq->qbuf_size);
 		free(cq->queue);
 	}
 

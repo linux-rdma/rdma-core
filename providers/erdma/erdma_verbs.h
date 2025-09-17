@@ -63,6 +63,7 @@ struct erdma_cq {
 	uint32_t depth;
 	uint32_t ci;
 	struct erdma_cqe *queue;
+	size_t qbuf_size;
 
 	void *db;
 	uint16_t db_offset;
