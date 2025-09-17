@@ -36,6 +36,7 @@ Group:          Productivity/Networking/Other
 
 %define efa_so_major    1
 %define hns_so_major    1
+%define zrdma_so_major  1
 %define verbs_so_major  1
 %define rdmacm_so_major 1
 %define umad_so_major   3
@@ -47,6 +48,7 @@ Group:          Productivity/Networking/Other
 
 %define  efa_lname    libefa%{efa_so_major}
 %define  hns_lname    libhns%{hns_so_major}
+%define  zrdma_lname  libzrdma%{zrdma_so_major}
 %define  verbs_lname  libibverbs%{verbs_so_major}
 %define  rdmacm_lname librdmacm%{rdmacm_so_major}
 %define  umad_lname   libibumad%{umad_so_major}
@@ -162,6 +164,7 @@ Requires:       %{verbs_lname} = %{version}-%{release}
 %if 0%{?dma_coherent}
 Requires:       %{efa_lname} = %{version}-%{release}
 Requires:       %{hns_lname} = %{version}-%{release}
+Requires:       %{zrdma_lname} = %{version}-%{release}
 Requires:       %{mana_lname} = %{version}-%{release}
 Requires:       %{mlx4_lname} = %{version}-%{release}
 Requires:       %{mlx5_lname} = %{version}-%{release}
@@ -204,6 +207,7 @@ Obsoletes:      libcxgb4-rdmav2 < %{version}-%{release}
 Obsoletes:      libefa-rdmav2 < %{version}-%{release}
 Obsoletes:      libhfi1verbs-rdmav2 < %{version}-%{release}
 Obsoletes:      libhns-rdmav2 < %{version}-%{release}
+Obsoletes:      libzrdma-rdmav2 < %{version}-%{release}
 Obsoletes:      libipathverbs-rdmav2 < %{version}-%{release}
 Obsoletes:      libmana-rdmav2 < %{version}-%{release}
 Obsoletes:      libmlx4-rdmav2 < %{version}-%{release}
@@ -214,6 +218,7 @@ Obsoletes:      librxe-rdmav2 < %{version}-%{release}
 %if 0%{?dma_coherent}
 Requires:       %{efa_lname} = %{version}-%{release}
 Requires:       %{hns_lname} = %{version}-%{release}
+Requires:       %{zrdma_lname} = %{version}-%{release}
 Requires:       %{mana_lname} = %{version}-%{release}
 Requires:       %{mlx4_lname} = %{version}-%{release}
 Requires:       %{mlx5_lname} = %{version}-%{release}
@@ -245,6 +250,7 @@ Device-specific plug-in ibverbs userspace drivers are included:
 - librxe: A software implementation of the RoCE protocol
 - libsiw: A software implementation of the iWarp protocol
 - libvmw_pvrdma: VMware paravirtual RDMA device
+- libzrdma: ZTE NX series RDMA device
 
 %package -n %verbs_lname
 Summary:        Ibverbs runtime library
@@ -268,9 +274,17 @@ Group:          System/Libraries
 %description -n %hns_lname
 This package contains the hns runtime library.
 
+%package -n %zrdma_lname
+Summary:        ZRDMA runtime library
+Group:          System/Libraries
+
+%description -n %zrdma_lname
+This package contains the zrdma runtime library.
+
 %package -n %mana_lname
 Summary:        MANA runtime library
 Group:          System/Libraries
+
 
 %description -n %mana_lname
 This package contains the mana runtime library.
@@ -525,6 +539,9 @@ rm -rf %{buildroot}/%{_sbindir}/srp_daemon.sh
 %post -n %hns_lname -p /sbin/ldconfig
 %postun -n %hns_lname -p /sbin/ldconfig
 
+%post -n %zrdma_lname -p /sbin/ldconfig
+%postun -n %zrdma_lname -p /sbin/ldconfig
+
 %post -n %mana_lname -p /sbin/ldconfig
 %postun -n %mana_lname -p /sbin/ldconfig
 
@@ -724,6 +741,10 @@ done
 %files -n %hns_lname
 %defattr(-,root,root)
 %{_libdir}/libhns*.so.*
+
+%files -n %zrdma_lname
+%defattr(-,root,root)
+%{_libdir}/libzrdma*.so.*
 
 %files -n %mana_lname
 %{_libdir}/libmana*.so.*
