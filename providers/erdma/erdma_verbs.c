@@ -637,7 +637,7 @@ static int erdma_push_one_sqe(struct erdma_qp *qp, struct ibv_send_wr *wr,
 				htole64(wr->wr.atomic.compare_add);
 		} else {
 			sqe_hdr |= FIELD_PREP(ERDMA_SQE_HDR_OPCODE_MASK,
-					      ERDMA_OP_ATOMIC_FAD);
+					      ERDMA_OP_ATOMIC_FAA);
 			atomic_sqe->fetchadd_swap_data =
 				htole64(wr->wr.atomic.compare_add);
 		}
@@ -879,7 +879,7 @@ static const enum ibv_wc_opcode wc_mapping_table[ERDMA_NUM_OPCODES] = {
 	[ERDMA_OP_SEND_WITH_INV] = IBV_WC_SEND,
 	[ERDMA_OP_READ_WITH_INV] = IBV_WC_RDMA_READ,
 	[ERDMA_OP_ATOMIC_CAS] = IBV_WC_COMP_SWAP,
-	[ERDMA_OP_ATOMIC_FAD] = IBV_WC_FETCH_ADD,
+	[ERDMA_OP_ATOMIC_FAA] = IBV_WC_FETCH_ADD,
 };
 
 static const struct {
