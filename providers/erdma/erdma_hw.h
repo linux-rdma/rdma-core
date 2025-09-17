@@ -61,7 +61,7 @@ enum erdma_opcode {
 	ERDMA_OP_LOCAL_INV = 15,
 	ERDMA_OP_READ_WITH_INV = 16,
 	ERDMA_OP_ATOMIC_CAS = 17,
-	ERDMA_OP_ATOMIC_FAD = 18,
+	ERDMA_OP_ATOMIC_FAA = 18,
 	ERDMA_NUM_OPCODES = 19,
 	ERDMA_OP_INVALID = ERDMA_NUM_OPCODES + 1
 };
@@ -185,7 +185,10 @@ struct erdma_write_sqe {
 
 struct erdma_send_sqe {
 	__le64 hdr;
-	__be32 imm_data;
+	union {
+		__be32 imm_data;
+		__le32 invalid_stag;
+	};
 	__le32 length;
 	struct erdma_sge sgl[];
 };

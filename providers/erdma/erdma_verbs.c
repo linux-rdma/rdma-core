@@ -193,6 +193,7 @@ struct ibv_cq *erdma_create_cq(struct ibv_context *ctx, int num_cqe,
 	}
 
 	memset(cq->queue, 0, cq_size);
+	cq->qbuf_size = cq_size;
 
 	db_records = erdma_alloc_dbrecords(ectx);
 	if (!db_records) {
@@ -262,7 +263,7 @@ int erdma_destroy_cq(struct ibv_cq *base_cq)
 		erdma_dealloc_dbrecords(ctx, cq->db_record);
 
 	if (cq->queue) {
-		ibv_dofork_range(cq->queue, cq->depth << CQE_SHIFT);
+		ibv_dofork_range(cq->queue, cq->qbuf_size);
 		free(cq->queue);
 	}
 
@@ -583,13 +584,19 @@ static int erdma_push_one_sqe(struct erdma_qp *qp, struct ibv_send_wr *wr,
 		break;
 	case IBV_WR_SEND:
 	case IBV_WR_SEND_WITH_IMM:
+	case IBV_WR_SEND_WITH_INV:
 		if (wr->opcode == IBV_WR_SEND)
 			opcode = ERDMA_OP_SEND;
-		else
+		else if (wr->opcode == IBV_WR_SEND_WITH_IMM)
 			opcode = ERDMA_OP_SEND_WITH_IMM;
+		else
+			opcode = ERDMA_OP_SEND_WITH_INV;
 		sqe_hdr |= FIELD_PREP(ERDMA_SQE_HDR_OPCODE_MASK, opcode);
 		send_sqe = sqe;
-		send_sqe->imm_data = wr->imm_data;
+		if (wr->opcode == IBV_WR_SEND_WITH_INV)
+			send_sqe->invalid_stag = htole32(wr->invalidate_rkey);
+		else
+			send_sqe->imm_data = wr->imm_data;
 
 		length_field = &send_sqe->length;
 		/* sgl is in the half of current wqebb (offset 16Byte) */
@@ -631,7 +638,7 @@ static int erdma_push_one_sqe(struct erdma_qp *qp, struct ibv_send_wr *wr,
 				htole64(wr->wr.atomic.compare_add);
 		} else {
 			sqe_hdr |= FIELD_PREP(ERDMA_SQE_HDR_OPCODE_MASK,
-					      ERDMA_OP_ATOMIC_FAD);
+					      ERDMA_OP_ATOMIC_FAA);
 			atomic_sqe->fetchadd_swap_data =
 				htole64(wr->wr.atomic.compare_add);
 		}
@@ -873,7 +880,7 @@ static const enum ibv_wc_opcode wc_mapping_table[ERDMA_NUM_OPCODES] = {
 	[ERDMA_OP_SEND_WITH_INV] = IBV_WC_SEND,
 	[ERDMA_OP_READ_WITH_INV] = IBV_WC_RDMA_READ,
 	[ERDMA_OP_ATOMIC_CAS] = IBV_WC_COMP_SWAP,
-	[ERDMA_OP_ATOMIC_FAD] = IBV_WC_FETCH_ADD,
+	[ERDMA_OP_ATOMIC_FAA] = IBV_WC_FETCH_ADD,
 };
 
 static const struct {
