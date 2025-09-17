@@ -185,7 +185,10 @@ struct erdma_write_sqe {
 
 struct erdma_send_sqe {
 	__le64 hdr;
-	__be32 imm_data;
+	union {
+		__be32 imm_data;
+		__le32 invalid_stag;
+	};
 	__le32 length;
 	struct erdma_sge sgl[];
 };

@@ -583,13 +583,19 @@ static int erdma_push_one_sqe(struct erdma_qp *qp, struct ibv_send_wr *wr,
 		break;
 	case IBV_WR_SEND:
 	case IBV_WR_SEND_WITH_IMM:
+	case IBV_WR_SEND_WITH_INV:
 		if (wr->opcode == IBV_WR_SEND)
 			opcode = ERDMA_OP_SEND;
-		else
+		else if (wr->opcode == IBV_WR_SEND_WITH_IMM)
 			opcode = ERDMA_OP_SEND_WITH_IMM;
+		else
+			opcode = ERDMA_OP_SEND_WITH_INV;
 		sqe_hdr |= FIELD_PREP(ERDMA_SQE_HDR_OPCODE_MASK, opcode);
 		send_sqe = sqe;
-		send_sqe->imm_data = wr->imm_data;
+		if (wr->opcode == IBV_WR_SEND_WITH_INV)
+			send_sqe->invalid_stag = htole32(wr->invalidate_rkey);
+		else
+			send_sqe->imm_data = wr->imm_data;
 
 		length_field = &send_sqe->length;
 		/* sgl is in the half of current wqebb (offset 16Byte) */
