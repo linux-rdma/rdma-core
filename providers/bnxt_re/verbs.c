@@ -794,8 +794,6 @@ static int bnxt_re_check_qp_limits(struct bnxt_re_context *cntx,
 		return EINVAL;
 	if (attr->cap.max_recv_sge > devattr->max_sge)
 		return EINVAL;
-	if (attr->cap.max_inline_data > BNXT_RE_MAX_INLINE_SIZE)
-		return EINVAL;
 	if (attr->cap.max_send_wr > devattr->max_qp_wr)
 		attr->cap.max_send_wr = devattr->max_qp_wr;
 	if (attr->cap.max_recv_wr > devattr->max_qp_wr)
