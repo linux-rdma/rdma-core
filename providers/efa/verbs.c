@@ -1326,6 +1326,9 @@ int efadv_query_cq(struct ibv_cq *ibvcq, struct efadv_cq_attr *attr, uint32_t in
 	attr->entry_size = cq->cqe_size;
 	attr->num_entries = ibvcq->cqe;
 
+	if (vext_field_avail(typeof(*attr), doorbell, inlen))
+		attr->doorbell = cq->db;
+
 	return 0;
 }
 
