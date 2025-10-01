@@ -18,6 +18,8 @@
 #include <netlink/attr.h>
 #include <linux/pci_regs.h>
 #include <util/rdma_nl.h>
+#include <libgen.h>
+#include <limits.h>
 
 /*
  * Rename modes:
@@ -68,26 +70,104 @@ static bool debug_mode;
 			syslog(LOG_ERR, ##args);                               \
 	} while (0)
 
+static bool match_subsystem_type(char *subsystem, const char *subs_type)
+{
+	char buf[256] = {};
+	char *subs;
+	int ret;
+
+	ret = readlink(subsystem, buf, sizeof(buf)-1);
+	if (ret == -1 || ret == sizeof(buf)) {
+		return false;
+	}
+	buf[ret] = 0;
+	subs = basename(buf);
+
+	return !strcmp(subs, subs_type)? true: false;
+}
+
+static char *get_auxdev_path(struct data *d)
+{
+	char buf[PATH_MAX] = {};
+	char aux_buf[256] = {};
+	char *dev_path = NULL;
+	char *aux_dev = NULL;
+	char *aux_path = NULL;
+	char *real_path, *aux_name;
+	int ret;
+
+	ret = asprintf(&aux_dev, "/sys/class/infiniband/%s/device", d->curr);
+	if (ret < 0)
+		goto out;
+
+	ret = readlink(aux_dev, aux_buf, sizeof(aux_buf)-1);
+	if (ret == -1 || ret == sizeof(aux_buf))
+		goto out;
+
+	aux_buf[ret] = 0;
+	aux_name = basename(aux_buf);
+	ret = asprintf(&aux_path, "/sys/bus/auxiliary/devices/%s", aux_name);
+	if (ret < 0)
+		goto out;
+
+	real_path = realpath(aux_path, buf);
+	if (!real_path)
+		goto out;
+
+	ret = asprintf(&dev_path, "%s", dirname(buf));
+	if (ret < 0)
+		dev_path = NULL;
+out:
+	free(aux_dev);
+	free(aux_path);
+	return dev_path;
+}
+
 #define ONBOARD_INDEX_MAX (16*1024-1)
 static int by_onboard(struct data *d)
 {
+	char *subsystem = NULL;
+	char *dev_path = NULL;
 	char *index = NULL;
 	char *acpi = NULL;
 	unsigned int o;
 	FILE *fp;
 	int ret;
 
+	ret = asprintf(&subsystem, "/sys/class/infiniband/%s/device/subsystem",
+		       d->curr);
+	if (ret < 0)
+		return -ENOMEM;
+
+	if (match_subsystem_type(subsystem, "auxiliary")) {
+		dev_path = get_auxdev_path(d);
+		if (!dev_path) {
+			ret = -EINVAL;
+			pr_dbg("%s: Unable to find an auxiliary device\n", d->curr);
+			goto out;
+		}
+	} else {
+		ret = asprintf(&dev_path, "/sys/class/infiniband/%s/device", d->curr);
+		if (ret < 0) {
+			dev_path = NULL;
+			ret = -ENOMEM;
+			goto out;
+		}
+	}
+
 	/*
 	 * ACPI_DSM - device specific method for naming
 	 * PCI or PCI Express device
 	 */
-	ret = asprintf(&acpi, "/sys/class/infiniband/%s/device/acpi_index",
-		      d->curr);
-	if (ret < 0)
-		return -ENOMEM;
+	ret = asprintf(&acpi, "%s/acpi_index", dev_path);
+	if (ret < 0) {
+		acpi = NULL;
+		ret = -ENOMEM;
+		goto out;
+	}
 
 	/* SMBIOS type 41 - Onboard Devices Extended Information */
-	ret = asprintf(&index, "/sys/class/infiniband/%s/device/index", d->curr);
+	ret = asprintf(&index, "%s/index", dev_path);
 	if (ret < 0) {
 		index = NULL;
 		ret = -ENOMEM;
@@ -122,6 +202,8 @@ static int by_onboard(struct data *d)
 	}
 	ret = 0;
 out:
+	free(subsystem);
+	free(dev_path);
 	free(index);
 	free(acpi);
 	return ret;
@@ -248,19 +330,22 @@ struct pci_info {
 	bool valid_vf;
 };
 
-static int fill_pci_info(struct data *d, struct pci_info *p)
+static int fill_pci_info(struct data *d, struct pci_info *p, bool aux)
 {
 	char buf[256] = {};
 	char *pci;
 	int ret;
 
-	ret = readlink(p->pcidev, buf, sizeof(buf)-1);
-	if (ret == -1 || ret == sizeof(buf))
-		return -EINVAL;
+	if (aux) {
+		pci = basename(p->pcidev);
+	} else {
+		ret = readlink(p->pcidev, buf, sizeof(buf)-1);
+		if (ret == -1 || ret == sizeof(buf))
+			return -EINVAL;
 
-	buf[ret] = 0;
-
-	pci = basename(buf);
+		buf[ret] = 0;
+		pci = basename(buf);
+	}
 	/*
 	 * pci = 0000:00:0c.0
 	 */
@@ -290,7 +375,7 @@ static int fill_pci_info(struct data *d, struct pci_info *p)
 	return 0;
 }
 
-static int get_virtfn_info(struct data *d, struct pci_info *p)
+static int get_virtfn_info(struct data *d, struct pci_info *p, bool aux)
 {
 	struct pci_info vf = {};
 	char *physfn_pcidev;
@@ -316,7 +401,7 @@ static int get_virtfn_info(struct data *d, struct pci_info *p)
 
 	p->valid_vf = true;
 	vf.pcidev = p->pcidev;
-	ret = fill_pci_info(d, &vf);
+	ret = fill_pci_info(d, &vf, aux);
 	if (ret)
 		goto err_dir;
 
@@ -333,7 +418,7 @@ static int get_virtfn_info(struct data *d, struct pci_info *p)
 			ret = -ENOMEM;
 			goto err_dir;
 		}
-		ret = fill_pci_info(d, &v);
+		ret = fill_pci_info(d, &v, aux);
 		free(v.pcidev);
 		if (ret) {
 			ret = -ENOMEM;
@@ -363,42 +448,57 @@ static int by_pci(struct data *d)
 	struct pci_info p = {};
 	char *subsystem;
 	char buf[256] = {};
-	char *subs;
+	bool aux = false;
 	int ret;
 
 	ret = asprintf(&subsystem, "/sys/class/infiniband/%s/device/subsystem",
-		      d->curr);
+		       d->curr);
 	if (ret < 0)
 		return -ENOMEM;
 
-	ret = readlink(subsystem, buf, sizeof(buf)-1);
-	if (ret == -1 || ret == sizeof(buf)) {
-		ret = -EINVAL;
-		goto out;
-	}
-	buf[ret] = 0;
+	if (match_subsystem_type(subsystem, "pci")) {
+		/* Real devices */
+		ret = asprintf(&p.pcidev, "/sys/class/infiniband/%s/device", d->curr);
+		if (ret < 0) {
+			ret = -ENOMEM;
+			p.pcidev = NULL;
+			goto out;
+		}
 
-	subs = basename(buf);
-	if (strcmp(subs, "pci")) {
+	} else if (match_subsystem_type(subsystem, "auxiliary")) {
+		aux = true;
+		p.pcidev = get_auxdev_path(d);
+		if (!p.pcidev) {
+			pr_dbg("%s: Unable to find auxiliary device\n", d->curr);
+			ret = -EINVAL;
+			goto out;
+		}
+
+		free(subsystem);
+		ret = asprintf(&subsystem, "%s/subsystem", p.pcidev);
+		if (ret < 0) {
+			subsystem = NULL;
+			ret = -ENOMEM;
+			goto out;
+		}
+
+		if (!match_subsystem_type(subsystem, "pci")) {
+			pr_dbg("%s: Non-PCI device was detected\n", d->curr);
+			ret = -EINVAL;
+			goto out;
+		}
+	} else {
 		/* Ball out virtual devices */
-		pr_dbg("%s: Non-PCI device (%s) was detected\n", d->curr, subs);
+		pr_dbg("%s: Non-PCI device (%s) was detected\n", d->curr, subsystem);
 		ret = -EINVAL;
 		goto out;
 	}
 
-	/* Real devices */
-	ret = asprintf(&p.pcidev, "/sys/class/infiniband/%s/device", d->curr);
-	if (ret < 0) {
-		ret = -ENOMEM;
-		p.pcidev = NULL;
-		goto out;
-	}
-
-	ret = get_virtfn_info(d, &p);
+	ret = get_virtfn_info(d, &p, aux);
 	if (ret)
 		goto out;
 
-	ret = fill_pci_info(d, &p);
+	ret = fill_pci_info(d, &p, aux);
 	if (ret) {
 		pr_err("%s: Failed to fill PCI device information\n", d->curr);
 		goto out;
