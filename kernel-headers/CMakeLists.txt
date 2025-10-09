@@ -9,6 +9,7 @@ publish_internal_headers(rdma
   rdma/ib_user_mad.h
   rdma/ib_user_sa.h
   rdma/ib_user_verbs.h
+  rdma/ionic-abi.h
   rdma/irdma-abi.h
   rdma/mana-abi.h
   rdma/mlx4-abi.h
