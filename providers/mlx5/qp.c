@@ -2099,7 +2099,7 @@ static int umr_sg_list_create(struct mlx5_qp *qp,
 			      uint64_t *reglen)
 {
 	struct mlx5_wqe_data_seg *dseg;
-	int byte_count = 0;
+	uint64_t byte_count = 0;
 	int i;
 	size_t tmp;
 
