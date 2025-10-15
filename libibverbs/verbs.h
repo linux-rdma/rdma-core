@@ -686,6 +686,7 @@ struct ibv_mr {
 	uint32_t		handle;
 	uint32_t		lkey;
 	uint32_t		rkey;
+	uint64_t		rkey64;
 };
 
 enum ibv_mr_init_attr_mask {
@@ -694,6 +695,7 @@ enum ibv_mr_init_attr_mask {
 	IBV_REG_MR_MASK_FD = 1 << 2,
 	IBV_REG_MR_MASK_FD_OFFSET = 1 << 3,
 	IBV_REG_MR_MASK_DMAH = 1 << 4,
+	IBV_REG_MR_MASK_JKEY = 1 << 5,
 };
 
 struct ibv_mr_init_attr {
@@ -705,6 +707,7 @@ struct ibv_mr_init_attr {
 	int fd;
 	uint64_t fd_offset;
 	struct ibv_dmah *dmah;
+	struct ibv_job_key *jkey;
 };
 
 enum ibv_mw_type {
