@@ -1,5 +1,5 @@
 # SPDX-License-Identifier: (GPL-2.0 OR Linux-OpenIB)
-# Copyright 2020-2023 Amazon.com, Inc. or its affiliates. All rights reserved.
+# Copyright 2020-2025 Amazon.com, Inc. or its affiliates. All rights reserved.
 
 import unittest
 import random
@@ -49,9 +49,20 @@ class SRDResources(TrafficResources):
     SRD_QKEY = 0x11111111
     SRD_PKEY_INDEX = 0
     def __init__(self, dev_name, ib_port, gid_index, send_ops_flags,
-                 qp_count=1):
+                 qp_count=1, required_dev_cap=None, wc_flags=0, qp_flags=0):
         self.send_ops_flags = send_ops_flags
+        self.qp_flags = qp_flags
+        self.required_dev_cap = required_dev_cap
+        self.efa_wc_flags = wc_flags
         super().__init__(dev_name, ib_port, gid_index, qp_count=qp_count)
+
+    def create_context(self):
+        super().create_context()
+        if self.required_dev_cap:
+            with efa.EfaContext(name=self.ctx.name) as efa_ctx:
+                if not efa_ctx.query_efa_device().device_caps & self.required_dev_cap:
+                    miss_caps = efa.dev_cap_to_str(self.required_dev_cap)
+                    raise unittest.SkipTest(f"Device caps doesn't support {miss_caps}")
 
     def create_qp_attr(self):
         attr = QPAttr(port_num=self.ib_port)
@@ -96,34 +107,15 @@ class SRDResources(TrafficResources):
             additional_access_flags = ibv_access_flags.IBV_ACCESS_REMOTE_WRITE
         self.mr = tests.utils.create_custom_mr(self, additional_access_flags)
 
-
-class EfaCQRes(SRDResources):
-    def __init__(self, dev_name, ib_port, gid_index, send_ops_flags,
-                 qp_count=1, requested_dev_cap=None, wc_flags=None):
-        """
-        Initialize EFA DV CQ based on SRD resources.
-        :param requested_dev_cap: A necessary device cap. If it's not supported
-                                  by the device, the test will be skipped.
-        :param wc_flags: WC flags for EFA DV CQ.
-        """
-        self.requested_dev_cap = requested_dev_cap
-        self.efa_wc_flags = wc_flags
-        super().__init__(dev_name, ib_port, gid_index, send_ops_flags, qp_count=qp_count)
-
-    def create_context(self):
-        super().create_context()
-        if self.requested_dev_cap:
-            with efa.EfaContext(name=self.ctx.name) as efa_ctx:
-                if not efa_ctx.query_efa_device().device_caps & self.requested_dev_cap:
-                    miss_caps = efa.dev_cap_to_str(self.requested_dev_cap)
-                    raise unittest.SkipTest(f'Device caps doesn\'t support {miss_caps}')
-
     def create_cq(self):
-        cia = CqInitAttrEx(wc_flags=IBV_WC_STANDARD_FLAGS)
-        efa_cia = efa.EfaDVCQInitAttr(self.efa_wc_flags)
-        try:
-            self.cq = efa.EfaCQ(self.ctx, cia, efa_cia)
-        except PyverbsRDMAError as ex:
-            if ex.error_code == errno.EOPNOTSUPP:
-                raise unittest.SkipTest('Create EFA DV CQ is not supported')
-            raise ex
+        if self.efa_wc_flags == 0:
+            super().create_cq()
+        else:
+            cia = CqInitAttrEx(wc_flags=IBV_WC_STANDARD_FLAGS)
+            efa_cia = efa.EfaDVCQInitAttr(wc_flags=self.efa_wc_flags)
+            try:
+                self.cq = efa.EfaCQ(self.ctx, cia, efa_cia)
+            except PyverbsRDMAError as ex:
+                if ex.error_code == errno.EOPNOTSUPP:
+                    raise unittest.SkipTest('Create EFA DV CQ is not supported')
+                raise ex
