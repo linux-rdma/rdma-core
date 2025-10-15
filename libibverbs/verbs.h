@@ -140,6 +140,7 @@ enum ibv_qp_msg_order {
 
 enum ibv_qp_use_flags {
 	IBV_QP_USAGE_IMM_DATA_RQ = (1 << 0),
+	IBV_QP_USAGE_ATTACH_MR = (1 << 1),
 };
 
 struct ibv_qp_semantics {
@@ -2357,6 +2358,8 @@ struct ibv_values_ex {
 
 struct verbs_context {
 	/*  "grows up" - new fields go here */
+	int (*attach_mr)(struct ibv_qp *qp, struct ibv_mr *mr);
+	int (*detach_mr)(struct ibv_qp *qp, struct ibv_mr *mr);
 	int (*query_qp_semantics)(struct ibv_context *context,
 				 enum ibv_qp_type qp_type,
 				 struct ibv_ah_attr *ah_attr,
@@ -2923,6 +2926,22 @@ static inline struct ibv_mw *ibv_alloc_mw(struct ibv_pd *pd,
 static inline int ibv_dealloc_mw(struct ibv_mw *mw)
 {
 	return mw->context->ops.dealloc_mw(mw);
+}
+
+static inline int ibv_attach_mr(struct ibv_qp *qp, struct ibv_mr *mr)
+{
+	struct verbs_context *vctx = verbs_get_ctx_op(qp->context, attach_mr);
+
+	if (!vctx)
+		return EOPNOTSUPP;
+
+	return vctx->attach_mr(qp, mr);
+}
+
+static inline int ibv_detach_mr(struct ibv_qp *qp, struct ibv_mr *mr)
+{
+	struct verbs_context *vctx = verbs_get_ctx_op(qp->context, attach_mr);
+	return vctx->detach_mr(qp, mr);
 }
 
 /**
