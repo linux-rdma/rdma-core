@@ -193,6 +193,7 @@ enum ibv_fork_status {
  */
 #define IBV_DEVICE_RAW_SCATTER_FCS (1ULL << 34)
 #define IBV_DEVICE_PCI_WRITE_END_PADDING (1ULL << 36)
+#define IBV_DEVICE_USER_RKEY (1ULL << 37)
 
 enum ibv_atomic_cap {
 	IBV_ATOMIC_NONE,
@@ -736,6 +737,7 @@ enum ibv_mr_init_attr_mask {
 	IBV_REG_MR_MASK_FD_OFFSET = 1 << 3,
 	IBV_REG_MR_MASK_DMAH = 1 << 4,
 	IBV_REG_MR_MASK_JKEY = 1 << 5,
+	IBV_REG_MR_MASK_RKEY = 1 << 6,
 };
 
 struct ibv_mr_init_attr {
@@ -748,6 +750,7 @@ struct ibv_mr_init_attr {
 	uint64_t fd_offset;
 	struct ibv_dmah *dmah;
 	struct ibv_job_key *jkey;
+	uint64_t rkey;
 };
 
 enum ibv_mw_type {
