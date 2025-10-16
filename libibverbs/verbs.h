@@ -407,6 +407,7 @@ struct ibv_device_attr_ex {
 	uint32_t max_job_ids;
 	uint32_t max_addr_entries;
 	uint32_t max_jkeys_per_pd;
+	uint16_t max_rwq_per_qp;
 };
 
 enum ibv_mtu {
@@ -906,6 +907,7 @@ enum ibv_wq_type {
 enum ibv_wq_init_attr_mask {
 	IBV_WQ_INIT_ATTR_FLAGS		= 1 << 0,
 	IBV_WQ_INIT_ATTR_RESERVED	= 1 << 1,
+	IBV_WQ_INIT_ATTR_WQ_NUM		= 1 << 2,
 };
 
 enum ibv_wq_flags {
@@ -925,6 +927,7 @@ struct ibv_wq_init_attr {
 	struct	ibv_cq	       *cq;
 	uint32_t		comp_mask; /* Use ibv_wq_init_attr_mask */
 	uint32_t		create_flags; /* use ibv_wq_flags */
+	uint32_t		wq_num;
 };
 
 enum ibv_wq_state {
