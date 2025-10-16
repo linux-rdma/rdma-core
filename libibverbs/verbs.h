@@ -1019,6 +1019,7 @@ enum ibv_qp_init_attr_mask {
 	IBV_QP_INIT_ATTR_SEND_OPS_FLAGS = 1 << 6,
 	IBV_QP_INIT_ATTR_QP_ATTR	= 1 << 7,
 	IBV_QP_INIT_ATTR_QP_SEMANTICS	= 1 << 8,
+	IBV_QP_INIT_ATTR_SRC_ID		= 1 << 9,
 };
 
 enum ibv_qp_create_flags {
@@ -1077,6 +1078,7 @@ struct ibv_qp_init_attr_ex {
 	struct ibv_qp_attr	*qp_attr;
 	int			qp_attr_mask;
 	struct ibv_qp_semantics	*qp_semantics;
+	uint32_t		src_id;
 };
 
 enum ibv_qp_open_attr_mask {
