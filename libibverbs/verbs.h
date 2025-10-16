@@ -738,6 +738,8 @@ enum ibv_mr_init_attr_mask {
 	IBV_REG_MR_MASK_DMAH = 1 << 4,
 	IBV_REG_MR_MASK_JKEY = 1 << 5,
 	IBV_REG_MR_MASK_RKEY = 1 << 6,
+	IBV_REG_MR_MASK_CUR_MR = 1 << 7,
+	IBV_REG_MR_MASK_DERIVE_CNT = 1 << 8,
 };
 
 struct ibv_mr_init_attr {
@@ -751,6 +753,8 @@ struct ibv_mr_init_attr {
 	struct ibv_dmah *dmah;
 	struct ibv_job_key *jkey;
 	uint64_t rkey;
+	struct ibv_mr *cur_mr;
+	uint32_t derive_cnt;
 };
 
 enum ibv_mw_type {
