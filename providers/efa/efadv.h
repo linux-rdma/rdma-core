@@ -127,6 +127,7 @@ struct efadv_cq_attr {
 	uint8_t *buffer;
 	uint32_t entry_size;
 	uint32_t num_entries;
+	uint32_t *doorbell;
 };
 
 int efadv_query_cq(struct ibv_cq *ibvcq, struct efadv_cq_attr *attr, uint32_t inlen);
