@@ -3217,17 +3217,16 @@ int rdma_resolve_addrinfo(struct rdma_cm_id *id, const char *node,
 		return ERR(EBUSY);
 	}
 
-	ret = __rdma_resolve_addrinfo(id_priv, node, service, hints);
-	if (ret)
-		goto fail;
-
 	id_priv->resolving_ai = true;
 	pthread_mutex_unlock(&id_priv->mut);
-	return 0;
 
-fail:
-	pthread_mutex_unlock(&id_priv->mut);
-	return ERR(ret);
+	ret = __rdma_resolve_addrinfo(id_priv, node, service, hints);
+	if (ret) {
+		id_priv->resolving_ai = false;
+		return ERR(ret);
+	}
+
+	return 0;
 }
 
 int rdma_query_addrinfo(struct rdma_cm_id *id, struct rdma_addrinfo **info)
