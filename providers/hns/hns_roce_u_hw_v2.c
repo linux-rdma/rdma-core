@@ -2047,7 +2047,6 @@ static void wr_set_sge_list_rc(struct ibv_qp_ex *ibv_qp, size_t num_sge,
 		return;
 	}
 
-
 	hr_reg_write(wqe, RCWQE_MSG_START_SGE_IDX,
 		     qp->sge_info.start_idx & (qp->ex_sge.sge_cnt - 1));
 
