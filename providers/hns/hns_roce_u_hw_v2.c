@@ -1370,6 +1370,9 @@ int hns_roce_u_v2_post_send(struct ibv_qp *ibvqp, struct ibv_send_wr *wr,
 		wqe = get_send_wqe(qp, wqe_idx);
 		qp->sq.wrid[wqe_idx] = wr->wr_id;
 
+		/* RC and UD share the same DirectWQE field layout */
+		((struct hns_roce_rc_sq_wqe *)wqe)->byte_4 = 0;
+
 		switch (ibvqp->qp_type) {
 		case IBV_QPT_XRC_SEND:
 			hr_reg_write(wqe, RCWQE_XRC_SRQN,
@@ -2195,7 +2198,6 @@ static void wr_set_sge_list_rc(struct ibv_qp_ex *ibv_qp, size_t num_sge,
 		qp->err = EINVAL;
 		return;
 	}
-
 
 	hr_reg_write(wqe, RCWQE_MSG_START_SGE_IDX,
 		     qp->sge_info.start_idx & (qp->ex_sge.sge_cnt - 1));
