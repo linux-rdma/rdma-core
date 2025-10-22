@@ -109,7 +109,7 @@ cdef extern from '<rdma/rdma_cma.h>':
     int rdma_destroy_id(rdma_cm_id *id)
     int rdma_get_remote_ece(rdma_cm_id *id, ibv_ece *ece)
     int rdma_set_local_ece(rdma_cm_id *id, ibv_ece *ece)
-    int rdma_get_request(rdma_cm_id *listen, rdma_cm_id **id)
+    int rdma_get_request(rdma_cm_id *listen, rdma_cm_id **id) nogil
     int rdma_bind_addr(rdma_cm_id *id, sockaddr *addr)
     int rdma_resolve_addr(rdma_cm_id *id, sockaddr *src_addr,
                           sockaddr *dst_addr, int timeout_ms)
@@ -149,8 +149,8 @@ cdef extern from '<rdma/rdma_verbs.h>':
     int rdma_post_write(rdma_cm_id *id, void *context, void *addr,
                         size_t length, ibv_mr *mr, int flags,
                         uint64_t remote_addr, uint32_t rkey)
-    int rdma_get_send_comp(rdma_cm_id *id, ibv_wc *wc)
-    int rdma_get_recv_comp(rdma_cm_id *id, ibv_wc *wc)
+    int rdma_get_send_comp(rdma_cm_id *id, ibv_wc *wc) nogil
+    int rdma_get_recv_comp(rdma_cm_id *id, ibv_wc *wc) nogil
     ibv_mr *rdma_reg_msgs(rdma_cm_id *id, void *addr, size_t length)
     ibv_mr *rdma_reg_read(rdma_cm_id *id, void *addr, size_t length)
     ibv_mr *rdma_reg_write(rdma_cm_id *id, void *addr, size_t length)
