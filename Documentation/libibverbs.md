@@ -349,3 +349,29 @@ Items are ordered conceptually.
   Applications may interact directly with the async_fd, such as waiting
   on the fd via select/poll, to receive notifications when an async event
   has been reported.
+
+*Job ID*
+: A job ID identifies a single distributed application.  The job object
+  is a device-level object that maps to a job ID and may be shared between
+  processes.  The configuration of a job object, such as assigning its
+  job ID value, is considered a privileged operation.
+
+  Multiple job objects, each assigned the same job ID value, may be needed
+  to represent a single, higher-level logical job running on the network.
+  This may be nessary for jobs that span multiple RDMA devices, for
+  example, where each job object may be configured for different source
+  addressing.
+
+*Job Key*
+: A job key associates a job object with a specific protection domain.  This
+  provides secure access to the actual job ID value stored with the job
+  object, while restricting which memory regions data transfers to / from
+  that job may access.
+
+*Address Table*
+: An address table is a virtual address array associated with a job object.
+  The address table allows local processes that belong to the same job to
+  share addressing and scalable encryption information to peer QPs.
+
+  The address table is an optional but integrated component to a job
+  object.
