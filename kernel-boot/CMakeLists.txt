@@ -41,6 +41,9 @@ rdma_subst_install(FILES "persistent-ipoib.rules.in"
   DESTINATION "${CMAKE_INSTALL_DOCDIR}"
   PERMISSIONS OWNER_WRITE OWNER_READ GROUP_READ WORLD_READ)
 
+install(PROGRAMS "rdma_topo"
+  DESTINATION "${CMAKE_INSTALL_SBINDIR}")
+
 set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS}")
 
 # Create an installed executable (under /usr/lib/udev)
