@@ -189,3 +189,12 @@ PYVERBS
 M:	Edward Srouji <edwards@mellanox.com>
 S:	Supported
 F:	pyverbs/
+
+XSCALE USERSPACE PROVIDER (for xsc_ib.ko)
+M:	Wei Honggang <weihg@yunsilicon.com>
+M:	Zhao Qianwei <zhaoqw@yunsilicon.com>
+M:	Li Qiang <liq@yunsilicon.com>
+M:	Tian Xin <tianx@yunsilicon.com>
+M:	Yan Lei <jacky@yunsilicon.com>
+S:	Supported
+F:	providers/xscale/
