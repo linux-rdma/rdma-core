@@ -446,7 +446,8 @@ cdef class CMID(PyverbsCM):
         :return: New CMID representing the connection request.
         """
         to_conn = CMID()
-        ret = cm.rdma_get_request(self.id, &to_conn.id)
+        with nogil:
+            ret = cm.rdma_get_request(self.id, &to_conn.id)
         if ret != 0:
             raise PyverbsRDMAErrno('Failed to get request, no connection established')
         self.ctx = Context(cmid=to_conn)
@@ -776,7 +777,8 @@ cdef class CMID(PyverbsCM):
         :return: The retrieved WC or None if there is no completions
         """
         cdef v.ibv_wc wc
-        ret = cm.rdma_get_recv_comp(self.id, &wc)
+        with nogil:
+            ret = cm.rdma_get_recv_comp(self.id, &wc)
         if ret < 0:
             raise PyverbsRDMAErrno('Failed to retrieve receive completion')
         elif ret == 0:
@@ -794,7 +796,8 @@ cdef class CMID(PyverbsCM):
         :return: The retrieved WC or None if there is no completions
         """
         cdef v.ibv_wc wc
-        ret = cm.rdma_get_send_comp(self.id, &wc)
+        with nogil:
+            ret = cm.rdma_get_send_comp(self.id, &wc)
         if ret < 0:
             raise PyverbsRDMAErrno('Failed to retrieve send completion')
         elif ret == 0:
