@@ -60,7 +60,8 @@ class SRDResources(TrafficResources):
         super().create_context()
         if self.required_dev_cap:
             with efa.EfaContext(name=self.ctx.name) as efa_ctx:
-                if not efa_ctx.query_efa_device().device_caps & self.required_dev_cap:
+                device_caps = efa_ctx.query_efa_device().device_caps
+                if (device_caps & self.required_dev_cap) != self.required_dev_cap:
                     miss_caps = efa.dev_cap_to_str(self.required_dev_cap)
                     raise unittest.SkipTest(f"Device caps doesn't support {miss_caps}")
 
