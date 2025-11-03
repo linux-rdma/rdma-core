@@ -8,7 +8,7 @@ import errno
 from pyverbs.pyverbs_error import PyverbsRDMAError
 from pyverbs.cq import CqInitAttrEx
 from pyverbs.qp import QPAttr, QPCap, QPInitAttrEx
-import pyverbs.providers.efa.efa_enums as efa_e
+import pyverbs.providers.efa.efa_enums as efa_enums
 import pyverbs.providers.efa.efadv as efa
 import pyverbs.device as d
 from pyverbs.libibverbs_enums import ibv_qp_init_attr_mask, ibv_qp_type, ibv_qp_create_send_ops_flags,\
@@ -87,7 +87,8 @@ class SRDResources(TrafficResources):
                                        rcq=self.cq, pd=self.pd, send_ops_flags=self.send_ops_flags,
                                        comp_mask=comp_mask)
         efa_init_attr_ex = efa.EfaQPInitAttr()
-        efa_init_attr_ex.driver_qp_type = efa_e.EFADV_QP_DRIVER_TYPE_SRD
+        efa_init_attr_ex.driver_qp_type = efa_enums.EFADV_QP_DRIVER_TYPE_SRD
+        efa_init_attr_ex.flags |= self.qp_flags
         try:
             for _ in range(self.qp_count):
                 qp = efa.SRDQPEx(self.ctx, qp_init_attr_ex, efa_init_attr_ex)
