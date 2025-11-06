@@ -937,7 +937,7 @@ struct ibv_cq_ex *efadv_create_cq(struct ibv_context *ibvctx,
 
 	if (!vext_field_avail(struct efadv_cq_init_attr, wc_flags, inlen) ||
 	    efa_attr->comp_mask ||
-	    (inlen > sizeof(efa_attr) && !is_ext_cleared(efa_attr, inlen))) {
+	    (inlen > sizeof(*efa_attr) && !is_ext_cleared(efa_attr, inlen))) {
 		verbs_err(verbs_get_ctx(ibvctx), "Compatibility issues\n");
 		errno = EINVAL;
 		return NULL;
