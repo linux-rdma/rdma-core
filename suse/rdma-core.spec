@@ -679,6 +679,7 @@ done
 %{_modprobedir}/50-libmlx4.conf
 %{_libexecdir}/mlx4-setup.sh
 %{_libexecdir}/truescale-serdes.cmds
+%{_sbindir}/rdma_topo
 %license COPYING.*
 %if 0%{?suse_version} < 1600
 %{_sbindir}/rcrdma

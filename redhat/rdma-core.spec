@@ -449,6 +449,7 @@ fi
 %{_libexecdir}/truescale-serdes.cmds
 %{_sbindir}/rdma-ndd
 %{_unitdir}/rdma-ndd.service
+%{_sbindir}/rdma_topo
 %{_mandir}/man7/rxe*
 %{_mandir}/man8/rdma-ndd.*
 %license COPYING.*
