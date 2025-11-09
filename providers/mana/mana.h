@@ -182,7 +182,8 @@ struct mana_parent_domain {
 
 struct mana_context *to_mctx(struct ibv_context *ibctx);
 
-void *mana_alloc_mem(uint32_t size);
+void *mana_alloc_mem(size_t size);
+void mana_dealloc_mem(void *buf, size_t size);
 
 int mana_query_device_ex(struct ibv_context *context,
 			 const struct ibv_query_device_ex_input *input,

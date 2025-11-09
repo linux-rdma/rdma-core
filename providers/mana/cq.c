@@ -100,7 +100,7 @@ free_mem:
 	if (cq->buf_external)
 		ctx->extern_alloc.free(cq->buf, ctx->extern_alloc.data);
 	else
-		munmap(cq->buf, cq_size);
+		mana_dealloc_mem(cq->buf, cq_size);
 free_cq:
 	free(cq);
 	return NULL;
@@ -125,7 +125,7 @@ int mana_destroy_cq(struct ibv_cq *ibcq)
 	if (cq->buf_external)
 		ctx->extern_alloc.free(cq->buf, ctx->extern_alloc.data);
 	else
-		munmap(cq->buf, cq->cqe * COMP_ENTRY_SIZE);
+		mana_dealloc_mem(cq->buf, cq->cqe * COMP_ENTRY_SIZE);
 
 	free(cq);
 

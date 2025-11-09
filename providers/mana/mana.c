@@ -35,7 +35,7 @@ struct mana_context *to_mctx(struct ibv_context *ibctx)
 	return container_of(ibctx, struct mana_context, ibv_ctx.context);
 }
 
-void *mana_alloc_mem(uint32_t size)
+void *mana_alloc_mem(size_t size)
 {
 	void *buf;
 
@@ -44,7 +44,44 @@ void *mana_alloc_mem(uint32_t size)
 
 	if (buf == MAP_FAILED)
 		return NULL;
+
+	if (ibv_dontfork_range(buf, size))
+		goto unmap;
+
 	return buf;
+
+unmap:
+	munmap(buf, size);
+	return NULL;
+}
+
+void mana_dealloc_mem(void *buf, size_t size)
+{
+	ibv_dofork_range(buf, size);
+	munmap(buf, size);
+}
+
+int create_shadow_queue(struct shadow_queue *queue, uint32_t length, uint32_t stride)
+{
+	length = roundup_pow_of_two(length);
+	stride = align(stride, 8);
+
+	queue->buffer = mana_alloc_mem(stride * length);
+	if (!queue->buffer)
+		return -1;
+
+	queue->length = length;
+	queue->stride = stride;
+	reset_shadow_queue(queue);
+	return 0;
+}
+
+void destroy_shadow_queue(struct shadow_queue *queue)
+{
+	if (queue->buffer) {
+		mana_dealloc_mem(queue->buffer, queue->stride * queue->length);
+		queue->buffer = NULL;
+	}
 }
 
 int mana_query_device_ex(struct ibv_context *context,
