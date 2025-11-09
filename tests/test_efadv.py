@@ -1,5 +1,5 @@
 # SPDX-License-Identifier: (GPL-2.0 OR Linux-OpenIB)
-# Copyright 2020-2024 Amazon.com, Inc. or its affiliates. All rights reserved.
+# Copyright 2020-2025 Amazon.com, Inc. or its affiliates. All rights reserved.
 """
 Test module for efa direct-verbs.
 """
@@ -18,7 +18,7 @@ from pyverbs.libibverbs_enums import ibv_qp_type, ibv_qp_create_send_ops_flags, 
     ibv_wr_opcode, ibv_access_flags
 from pyverbs.pd import PD
 
-from tests.efa_base import EfaAPITestCase, EfaRDMATestCase, EfaCQRes
+from tests.efa_base import EfaAPITestCase, EfaRDMATestCase, SRDResources
 import tests.utils as u
 
 
@@ -138,8 +138,8 @@ class EfaCqTest(EfaRDMATestCase):
         self.client = None
 
     def create_players(self, dev_cap, wc_flags, send_ops_flags, qp_count=8):
-        super().create_players(EfaCQRes, send_ops_flags=send_ops_flags, qp_count=qp_count,
-                               requested_dev_cap=dev_cap, wc_flags=wc_flags)
+        super().create_players(SRDResources, send_ops_flags=send_ops_flags, qp_count=qp_count,
+                               required_dev_cap=dev_cap, wc_flags=wc_flags)
         self.server.remote_gid = self.client.ctx.query_gid(self.client.ib_port, self.client.gid_index)
 
     def test_dv_cq_ex_with_sgid(self):
