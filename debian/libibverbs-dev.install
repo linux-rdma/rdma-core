@@ -22,7 +22,7 @@ usr/lib/*/libhns.so
 usr/lib/*/libibverbs*.so
 usr/lib/*/libibverbs.a
 usr/lib/*/libionic.a
-usr/lib/*/libionic.so*
+usr/lib/*/libionic.so
 usr/lib/*/libmana.a
 usr/lib/*/libmana.so
 usr/lib/*/libmlx4.a
