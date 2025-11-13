@@ -1568,12 +1568,22 @@ static int umad_find_active(struct umad_ca_pair *ca_pair, const umad_ca_t *ca, b
 	return 1;
 }
 
-static int find_preferred_ports(struct umad_ca_pair *ca_pair, const umad_ca_t *ca, bool is_gsi, int portnum)
+static int find_preferred_ports(struct umad_ca_pair *ca_pair, const umad_ca_t *ca, bool is_gsi, int portnum, const char *name)
 {
-	if (portnum) {
+	if (ca && ca->numports == 1) {
+		size_t i = 0;
+		for (i = 0; i < (size_t)ca->numports + 1; ++i) {
+			if (ca->ports[i]) {
+				portnum = ca->ports[i]->portnum;
+				break;
+			}
+		}
+	}
+	if (portnum || (portnum == 0 && ca && ca->node_type == 2)) {
 		//in case we have same device, use same port for smi/gsi
 		if (!strncmp(ca_pair->gsi_name, ca_pair->smi_name, UMAD_CA_NAME_LEN)) {
-			if (!umad_check_active(ca, portnum)) {
+			//in case of explicit portnum and device name, no need to check active device
+			if ((name) || !umad_check_active(ca, portnum)) {
 				ca_pair->gsi_preferred_port = portnum;
 				ca_pair->smi_preferred_port = portnum;
 				return 0;
@@ -1583,9 +1593,11 @@ static int find_preferred_ports(struct umad_ca_pair *ca_pair, const umad_ca_t *c
 		uint32_t *port_to_set = is_gsi ?
 					&ca_pair->gsi_preferred_port :
 					&ca_pair->smi_preferred_port;
-		if (!umad_check_active(ca, portnum)) {
+		if ((name) || !umad_check_active(ca, portnum)) {
 			*port_to_set = portnum;
-			return umad_find_active(ca_pair, ca, !is_gsi);
+			//if find active device falis, do not fail if user chose explicit device name and portnum
+			int rc = umad_find_active(ca_pair, ca, !is_gsi);
+			return name ? 0 : rc;
 		}
 		return 1;
 	}
@@ -1648,7 +1660,7 @@ int umad_get_smi_gsi_pair_by_ca_name(const char *name, uint8_t portnum, struct u
 
 		// fill candidate
 		*ca_pair = cas_pair[i];
-		rc = find_preferred_ports(ca_pair, &ca, is_gsi, portnum);
+		rc = find_preferred_ports(ca_pair, &ca, is_gsi, portnum, name);
 		umad_release_ca(&ca);
 
 		if (!rc)
