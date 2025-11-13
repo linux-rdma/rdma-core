@@ -122,6 +122,12 @@ int mlx5_query_port(struct ibv_context *context, uint8_t port,
 	return ibv_cmd_query_port(context, port, attr, &cmd, sizeof cmd);
 }
 
+int mlx5_query_port_speed(struct ibv_context *context, uint32_t port,
+			  uint64_t *speed)
+{
+	return ibv_cmd_query_port_speed(context, port, speed);
+}
+
 void mlx5_async_event(struct ibv_context *context,
 		      struct ibv_async_event *event)
 {
