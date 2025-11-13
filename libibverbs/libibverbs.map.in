@@ -239,6 +239,7 @@ IBVERBS_PRIVATE_@IBVERBS_PABI_VERSION@ {
 		ibv_cmd_query_device_any;
 		ibv_cmd_query_mr;
 		ibv_cmd_query_port;
+		ibv_cmd_query_port_speed;
 		ibv_cmd_query_qp;
 		ibv_cmd_query_srq;
 		ibv_cmd_read_counters;
