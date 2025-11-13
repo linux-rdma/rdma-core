@@ -2171,7 +2171,7 @@ static void efa_set_common_ctrl_flags(struct efa_io_tx_meta_desc *desc,
 	EFA_SET(&desc->ctrl2, EFA_IO_TX_META_DESC_COMP_REQ, 1);
 }
 
-#ifdef LTTNG_ENABLED
+#if defined(LTTNG_ENABLED) || defined(USDT_ENABLED)
 static uint32_t efa_get_wqe_length(struct efa_io_tx_wqe *tx_wqe)
 {
 	enum efa_io_send_op_type op_type;
