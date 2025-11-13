@@ -107,6 +107,18 @@ int ibv_cmd_query_port(struct ibv_context *context, uint8_t port_num,
 	return 0;
 }
 
+int ibv_cmd_query_port_speed(struct ibv_context *context, uint32_t port_num,
+			     uint64_t *speed)
+{
+	DECLARE_COMMAND_BUFFER(cmdb, UVERBS_OBJECT_DEVICE,
+			       UVERBS_METHOD_QUERY_PORT_SPEED, 2);
+
+	fill_attr_const_in(cmdb, UVERBS_ATTR_QUERY_PORT_SPEED_PORT_NUM, port_num);
+	fill_attr_out_ptr(cmdb, UVERBS_ATTR_QUERY_PORT_SPEED_RESP, speed);
+
+	return execute_ioctl(context, cmdb);
+}
+
 int ibv_cmd_alloc_async_fd(struct ibv_context *context)
 {
 	DECLARE_COMMAND_BUFFER(cmdb, UVERBS_OBJECT_ASYNC_EVENT,

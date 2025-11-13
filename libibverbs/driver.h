@@ -559,6 +559,8 @@ int ibv_cmd_query_device_any(struct ibv_context *context,
 int ibv_cmd_query_port(struct ibv_context *context, uint8_t port_num,
 		       struct ibv_port_attr *port_attr,
 		       struct ibv_query_port *cmd, size_t cmd_size);
+int ibv_cmd_query_port_speed(struct ibv_context *context, uint32_t port_num,
+			     uint64_t *speed);
 int ibv_cmd_alloc_async_fd(struct ibv_context *context);
 int ibv_cmd_alloc_pd(struct ibv_context *context, struct ibv_pd *pd,
 		     struct ibv_alloc_pd *cmd, size_t cmd_size,
