@@ -3,7 +3,11 @@
  * Copyright 2023 Bytedance.com, Inc. or its affiliates. All rights reserved.
  */
 
-#if defined(LTTNG_ENABLED)
+#if defined(LTTNG_ENABLED) && defined(USDT_ENABLED)
+
+#error "Only one of LTTNG_ENABLED and USDT_ENABLED allowed"
+
+#elif defined(LTTNG_ENABLED)
 
 #undef LTTNG_UST_TRACEPOINT_PROVIDER
 #define LTTNG_UST_TRACEPOINT_PROVIDER rdma_core_rxe
@@ -47,7 +51,18 @@ LTTNG_UST_TRACEPOINT_EVENT(
 
 #include <lttng/tracepoint-event.h>
 
-#else
+#elif defined(USDT_ENABLED)
+
+#ifndef __RXE_TRACE_H__
+#define __RXE_TRACE_H__
+
+#include <util/usdt.h>
+
+#define rdma_tracepoint(arg...) USDT(arg)
+
+#endif /* __RXE_TRACE_H__*/
+
+#else /* !defined(LTTNG_ENABLED) && !defined(USDT_ENABLED) */
 
 #ifndef __RXE_TRACE_H__
 #define __RXE_TRACE_H__
@@ -56,4 +71,4 @@ LTTNG_UST_TRACEPOINT_EVENT(
 
 #endif /* __RXE_TRACE_H__*/
 
-#endif /* defined(LTTNG_ENABLED) */
+#endif /* defined(LTTNG_ENABLED) || defined(USDT_ENABLED) */
