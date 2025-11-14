@@ -3,7 +3,7 @@
 check() {
     [ -n "$hostonly" ] && [ -e /sys/class/infiniband_verbs/uverbs0 ] && return 0
     [ -n "$hostonly" ] && return 255
-    return 0
+    return 255
 }
 
 depends() {
