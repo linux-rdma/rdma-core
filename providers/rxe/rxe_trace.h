@@ -47,13 +47,19 @@ LTTNG_UST_TRACEPOINT_EVENT(
 
 #include <lttng/tracepoint-event.h>
 
-#else
+#elif defined(USDT_ENABLED)
 
 #ifndef __RXE_TRACE_H__
 #define __RXE_TRACE_H__
+
+#include <util/usdt.h>
+
+#define rdma_tracepoint(arg...) USDT(arg)
+
+#else
 
 #define rdma_tracepoint(arg...)
 
 #endif /* __RXE_TRACE_H__*/
 
-#endif /* defined(LTTNG_ENABLED) */
+#endif /* defined(LTTNG_ENABLED) || defined(USDT_ENABLED) */
