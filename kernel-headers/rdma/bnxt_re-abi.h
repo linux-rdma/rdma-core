@@ -162,6 +162,10 @@ enum bnxt_re_objects {
 	BNXT_RE_OBJECT_ALLOC_PAGE = (1U << UVERBS_ID_NS_SHIFT),
 	BNXT_RE_OBJECT_NOTIFY_DRV,
 	BNXT_RE_OBJECT_GET_TOGGLE_MEM,
+	BNXT_RE_OBJECT_DBR,
+	BNXT_RE_OBJECT_UMEM,
+	BNXT_RE_OBJECT_DV_CQ,
+	BNXT_RE_OBJECT_DV_QP,
 };
 
 enum bnxt_re_alloc_page_type {
@@ -215,4 +219,142 @@ enum bnxt_re_toggle_mem_methods {
 	BNXT_RE_METHOD_GET_TOGGLE_MEM = (1U << UVERBS_ID_NS_SHIFT),
 	BNXT_RE_METHOD_RELEASE_TOGGLE_MEM,
 };
+
+struct bnxt_re_dv_db_region {
+	__u32 dbr_handle;
+	__u32 dpi;
+	__u64 umdbr;
+	void *dbr;
+	__aligned_u64 comp_mask;
+};
+
+enum bnxt_re_obj_dbr_alloc_attrs {
+	BNXT_RE_DV_ALLOC_DBR_HANDLE = (1U << UVERBS_ID_NS_SHIFT),
+	BNXT_RE_DV_ALLOC_DBR_ATTR,
+	BNXT_RE_DV_ALLOC_DBR_OFFSET,
+};
+
+enum bnxt_re_obj_dbr_free_attrs {
+	BNXT_RE_DV_FREE_DBR_HANDLE = (1U << UVERBS_ID_NS_SHIFT),
+};
+
+enum bnxt_re_obj_dbr_query_attrs {
+	BNXT_RE_DV_QUERY_DBR_ATTR = (1U << UVERBS_ID_NS_SHIFT),
+};
+
+enum bnxt_re_obj_dpi_methods {
+	BNXT_RE_METHOD_DBR_ALLOC = (1U << UVERBS_ID_NS_SHIFT),
+	BNXT_RE_METHOD_DBR_FREE,
+	BNXT_RE_METHOD_DBR_QUERY,
+};
+
+enum bnxt_re_dv_umem_reg_attrs {
+	BNXT_RE_UMEM_OBJ_REG_HANDLE = (1U << UVERBS_ID_NS_SHIFT),
+	BNXT_RE_UMEM_OBJ_REG_ADDR,
+	BNXT_RE_UMEM_OBJ_REG_LEN,
+	BNXT_RE_UMEM_OBJ_REG_ACCESS,
+	BNXT_RE_UMEM_OBJ_REG_DMABUF_FD,
+	BNXT_RE_UMEM_OBJ_REG_PGSZ_BITMAP,
+};
+
+enum bnxt_re_dv_umem_dereg_attrs {
+	BNXT_RE_UMEM_OBJ_DEREG_HANDLE = (1U << UVERBS_ID_NS_SHIFT),
+};
+
+enum bnxt_re_dv_umem_methods {
+	BNXT_RE_METHOD_UMEM_REG = (1U << UVERBS_ID_NS_SHIFT),
+	BNXT_RE_METHOD_UMEM_DEREG,
+};
+
+struct bnxt_re_dv_cq_req {
+	__u32 ncqe;
+	__aligned_u64 va;
+	__aligned_u64 comp_mask;
+};
+
+struct bnxt_re_dv_cq_resp {
+	__u32 cqid;
+	__u32 tail;
+	__u32 phase;
+	__u32 rsvd;
+	__aligned_u64 comp_mask;
+};
+
+enum bnxt_re_dv_create_cq_attrs {
+	BNXT_RE_DV_CREATE_CQ_HANDLE = (1U << UVERBS_ID_NS_SHIFT),
+	BNXT_RE_DV_CREATE_CQ_REQ,
+	BNXT_RE_DV_CREATE_CQ_UMEM_HANDLE,
+	BNXT_RE_DV_CREATE_CQ_UMEM_OFFSET,
+	BNXT_RE_DV_CREATE_CQ_RESP,
+};
+
+enum bnxt_re_dv_cq_methods {
+	BNXT_RE_METHOD_DV_CREATE_CQ = (1U << UVERBS_ID_NS_SHIFT),
+	BNXT_RE_METHOD_DV_DESTROY_CQ,
+};
+
+enum bnxt_re_dv_destroy_cq_attrs {
+	BNXT_RE_DV_DESTROY_CQ_HANDLE = (1U << UVERBS_ID_NS_SHIFT),
+};
+
+struct bnxt_re_dv_create_qp_req {
+	int qp_type;
+	__u32 max_send_wr;
+	__u32 max_recv_wr;
+	__u32 max_send_sge;
+	__u32 max_recv_sge;
+	__u32 max_inline_data;
+	__u32 pd_id;
+	__aligned_u64 qp_handle;
+	__aligned_u64 sq_va;
+	__u32 sq_umem_offset;
+	__u32 sq_len;   /* total len including MSN area */
+	__u32 sq_slots;
+	__u32 sq_wqe_sz;
+	__u32 sq_psn_sz;
+	__u32 sq_npsn;
+	__aligned_u64 rq_va;
+	__u32 rq_umem_offset;
+	__u32 rq_len;
+	__u32 rq_slots; /* == max_recv_wr */
+	__u32 rq_wqe_sz;
+};
+
+struct bnxt_re_dv_create_qp_resp {
+	__u32 qpid;
+};
+
+enum bnxt_re_dv_create_qp_attrs {
+	BNXT_RE_DV_CREATE_QP_HANDLE = (1U << UVERBS_ID_NS_SHIFT),
+	BNXT_RE_DV_CREATE_QP_REQ,
+	BNXT_RE_DV_CREATE_QP_SEND_CQ_HANDLE,
+	BNXT_RE_DV_CREATE_QP_RECV_CQ_HANDLE,
+	BNXT_RE_DV_CREATE_QP_SQ_UMEM_HANDLE,
+	BNXT_RE_DV_CREATE_QP_RQ_UMEM_HANDLE,
+	BNXT_RE_DV_CREATE_QP_SRQ_HANDLE,
+	BNXT_RE_DV_CREATE_QP_DBR_HANDLE,
+	BNXT_RE_DV_CREATE_QP_RESP
+};
+
+enum bnxt_re_dv_qp_methods {
+	BNXT_RE_METHOD_DV_CREATE_QP = (1U << UVERBS_ID_NS_SHIFT),
+	BNXT_RE_METHOD_DV_DESTROY_QP,
+	BNXT_RE_METHOD_DV_MODIFY_QP,
+	BNXT_RE_METHOD_DV_QUERY_QP,
+};
+
+enum bnxt_re_dv_destroy_qp_attrs {
+	BNXT_RE_DV_DESTROY_QP_HANDLE = (1U << UVERBS_ID_NS_SHIFT),
+};
+
+enum bnxt_re_var_dv_modify_qp_attrs {
+	BNXT_RE_DV_MODIFY_QP_HANDLE = (1U << UVERBS_ID_NS_SHIFT),
+	BNXT_RE_DV_MODIFY_QP_REQ,
+};
+
+enum bnxt_re_dv_query_qp_attrs {
+	BNXT_RE_DV_QUERY_QP_HANDLE = (1U << UVERBS_ID_NS_SHIFT),
+	BNXT_RE_DV_QUERY_QP_ATTR,
+};
+
 #endif /* __BNXT_RE_UVERBS_ABI_H__*/

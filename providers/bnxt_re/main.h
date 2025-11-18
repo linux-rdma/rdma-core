@@ -45,6 +45,8 @@
 #include <endian.h>
 #include <pthread.h>
 #include <sys/param.h>
+#include <stdio.h>
+#include <stdarg.h>
 
 #include <util/mmio.h>
 #include <util/util.h>
@@ -89,6 +91,11 @@ struct bnxt_re_pd {
 	uint32_t pdid;
 };
 
+enum bnxt_dv_cq_flags {
+	BNXT_DV_CQ_FLAGS_NONE = 0,
+	BNXT_DV_CQ_FLAGS_VALID = 0x1,
+};
+
 struct bnxt_re_cq {
 	struct ibv_cq ibvcq;
 	uint32_t cqid;
@@ -109,6 +116,8 @@ struct bnxt_re_cq {
 	uint8_t resize_tog;
 	bool deffered_db_sup;
 	uint32_t hw_cqes;
+	struct bnxt_re_dv_umem_internal *cq_umem;
+	int dv_cq_flags;
 };
 
 struct bnxt_re_push_buffer {
@@ -233,6 +242,9 @@ struct bnxt_re_qp {
 	uint8_t qptyp;
 	struct bnxt_re_mem *mem;
 	struct bnxt_re_wr_send_qp wr_sq;
+	struct bnxt_re_pd *re_pd;
+	struct bnxt_re_dpi dv_dpi;
+	uint32_t qp_handle;
 };
 
 struct bnxt_re_mr {
@@ -270,6 +282,7 @@ struct bnxt_re_context {
 	uint32_t wc_handle;
 	void *dbr_page;
 	void *bar_map;
+	FILE	*dbg_fp;
 };
 
 struct bnxt_re_pacing_data {
@@ -320,6 +333,45 @@ int bnxt_re_notify_drv(struct ibv_context *ibvctx);
 int bnxt_re_get_toggle_mem(struct ibv_context *ibvctx,
 			   struct bnxt_re_mmap_info *minfo,
 			   uint32_t *page_handle);
+
+extern uint32_t bnxt_debug_mask;
+enum {
+	BNXT_DUMP_DV			= 1 << 0,
+};
+
+#define LEN_50		50
+#define bnxt_trace_dv(cntx, fmt, ...)		\
+{							\
+	if (bnxt_debug_mask & BNXT_DUMP_DV)		\
+		bnxt_err(cntx, fmt, ##__VA_ARGS__);	\
+}
+
+static inline void bnxt_err(struct bnxt_re_context *cntx, const char *fmt, ...)
+	__attribute__((format(printf, 2, 3)));
+
+static inline void bnxt_err(struct bnxt_re_context *cntx, const char *fmt, ...)
+{
+	FILE *fp = cntx ? cntx->dbg_fp : stderr;
+	char prefix[LEN_50] = {};
+	char timestamp[LEN_50];
+	struct tm *timeinfo;
+	time_t rawtime;
+	va_list args;
+
+	time(&rawtime);
+	timeinfo = localtime(&rawtime);
+
+	strftime(timestamp, LEN_50, "%b %d %X", timeinfo);
+	sprintf(prefix, " %s: ", "libbnxt_re");
+
+	if (!fp)
+		return;
+	va_start(args, fmt);
+	fprintf(fp, "%s", timestamp);
+	fprintf(fp, "%s", prefix);
+	vfprintf(fp, fmt, args);
+	va_end(args);
+}
 
 /* pointer conversion functions*/
 static inline struct bnxt_re_dev *to_bnxt_re_dev(struct ibv_device *ibvdev)
