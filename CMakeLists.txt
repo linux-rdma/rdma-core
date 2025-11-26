@@ -24,7 +24,7 @@
 #      Use the historical search path for providers, in the standard system library.
 #  -DNO_COMPAT_SYMS=1 (default disabled)
 #      Do not generate backwards compatibility symbols in the shared
-#      libraries. This may is necessary if using a dynmic linker that does
+#      libraries. This may be necessary if using a dynamic linker that does
 #      not support symbol versions, such as uclibc.
 #  -DIOCTL_MODE=write (default both)
 #      Disable new kABI ioctl() support and support only the legacy write
@@ -52,8 +52,10 @@
 #      Disable man pages. Allows rdma-core to be built and installed
 #      (without man pages) when neither pandoc/rst2man nor the pandoc-prebuilt
 #      directory are available.
-#   -DENABLE_LTTNG (default, no tracing support)
+#   -DENABLE_LTTNG (default, no LTTng tracing support)
 #      Enable LTTng tracing.
+#   -DENABLE_USDT (default, no USDT tracing support)
+#      Enable USDT tracing.
 
 if (${CMAKE_VERSION} VERSION_LESS "3.18.1")
 	# Centos 7 support
@@ -571,6 +573,14 @@ endif()
 if (DEFINED ENABLE_LTTNG)
   include(FindLTTngUST REQUIRED)
   add_definitions(-DLTTNG_ENABLED)
+endif()
+
+# User Static-Defined Tracing (USDT) support
+if (NOT DEFINED ENABLE_USDT)
+  set(ENABLE_USDT "OFF" CACHE BOOL "Enable USDT tracing support")
+endif()
+if (ENABLE_USDT)
+  add_definitions(-DUSDT_ENABLED)
 endif()
 
 #-------------------------
