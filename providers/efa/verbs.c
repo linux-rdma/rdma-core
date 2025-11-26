@@ -2290,6 +2290,8 @@ int efa_post_send(struct ibv_qp *ibvqp, struct ibv_send_wr *wr,
 
 	if (wq->need_lock)
 		mmio_wc_spinlock(&wq->wqlock);
+	else
+		mmio_wc_start();
 
 	while (wr) {
 		err = efa_post_send_validate_wr(qp, wr);
@@ -2636,6 +2638,8 @@ static void efa_send_wr_start(struct ibv_qp_ex *ibvqpx)
 
 	if (qp->sq.wq.need_lock)
 		mmio_wc_spinlock(&qp->sq.wq.wqlock);
+	else
+		mmio_wc_start();
 
 	qp->wr_session_err = 0;
 	sq->num_wqe_pending = 0;
