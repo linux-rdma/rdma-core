@@ -1209,7 +1209,7 @@ static int bnxt_re_get_sq_slots(struct bnxt_re_dev *rdev,
 	if (ilsize) {
 		cal_ils = hdr_sz + ilsize;
 		wqe_size = MAX(cal_ils, wqe_size);
-		wqe_size = align(wqe_size, hdr_sz);
+		wqe_size = align(wqe_size, stride);
 	}
 	if (wqe_size > max_wqesz)
 		return -EINVAL;
