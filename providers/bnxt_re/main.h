@@ -329,13 +329,6 @@ static inline struct bnxt_re_ah *to_bnxt_re_ah(struct ibv_ah *ibvah)
         return container_of(ibvah, struct bnxt_re_ah, ibvah);
 }
 
-static inline uint32_t bnxt_re_get_sqe_sz(void)
-{
-	return sizeof(struct bnxt_re_bsqe) +
-	       sizeof(struct bnxt_re_send) +
-	       BNXT_RE_MAX_INLINE_SIZE;
-}
-
 static inline uint32_t bnxt_re_get_sqe_hdr_sz(void)
 {
 	return sizeof(struct bnxt_re_bsqe) + sizeof(struct bnxt_re_send);
