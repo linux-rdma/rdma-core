@@ -91,6 +91,8 @@ static const struct verbs_match_ent cna_table[] = {
 	{}
 };
 
+uint32_t bnxt_debug_mask;
+
 static const struct verbs_context_ops bnxt_re_cntx_ops = {
 	.query_device_ex = bnxt_re_query_device,
 	.query_port    = bnxt_re_query_port,
@@ -181,6 +183,39 @@ static int bnxt_re_alloc_map_dbr_bar_page(struct ibv_context *ibvctx)
 	return 0;
 }
 
+static void bnxt_open_debug_file(FILE **dbg_fp)
+{
+	FILE *default_dbg_fp = NULL;
+	const char *env;
+
+	env = getenv("BNXT_DEBUG_FILE");
+
+	if (!env)
+		env = "/var/log/messages";
+
+	*dbg_fp = fopen(env, "aw+");
+	if (!*dbg_fp) {
+		*dbg_fp = default_dbg_fp;
+		bnxt_err(NULL, "Failed opening debug file %s\n", env);
+		return;
+	}
+}
+
+static void bnxt_close_debug_file(FILE *dbg_fp)
+{
+	if (dbg_fp && dbg_fp != stderr)
+		fclose(dbg_fp);
+}
+
+static void bnxt_set_debug_mask(void)
+{
+	char *env;
+
+	env = getenv("BNXT_DEBUG_MASK");
+	if (env)
+		bnxt_debug_mask = strtol(env, NULL, 0);
+}
+
 /* Context Init functions */
 static struct verbs_context *bnxt_re_alloc_context(struct ibv_device *vdev,
 						   int cmd_fd,
@@ -261,6 +296,9 @@ static struct verbs_context *bnxt_re_alloc_context(struct ibv_device *vdev,
 	if (ret)
 		goto failed;
 
+	bnxt_open_debug_file(&cntx->dbg_fp);
+	bnxt_set_debug_mask();
+
 	return &cntx->ibvctx;
 
 failed:
@@ -273,6 +311,8 @@ static void bnxt_re_free_context(struct ibv_context *ibvctx)
 {
 	struct bnxt_re_context *cntx = to_bnxt_re_context(ibvctx);
 	struct bnxt_re_dev *rdev = to_bnxt_re_dev(ibvctx->device);
+
+	bnxt_close_debug_file(cntx->dbg_fp);
 
 	/* Unmap if anything device specific was mapped in init_context. */
 	pthread_mutex_destroy(&cntx->shlock);
