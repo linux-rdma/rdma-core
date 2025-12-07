@@ -5066,8 +5066,10 @@ static void *dm_mmap(struct ibv_context *context, struct mlx5_dm *mdm,
 
 	set_command(MLX5_IB_MMAP_DEVICE_MEM, &offset);
 	set_extended_index(page_idx, &offset);
+	mdm->pg_off = page_size * offset;
+
 	return mmap(NULL, act_size, PROT_READ | PROT_WRITE, MAP_SHARED,
-		    context->cmd_fd, page_size * offset);
+		    context->cmd_fd, mdm->pg_off);
 }
 
 static void *_mlx5dv_dm_map_op_addr(struct ibv_dm *dm, uint8_t op)
@@ -5388,6 +5390,11 @@ struct ibv_dm *mlx5_alloc_dm(struct ibv_context *context,
 	struct mlx5dv_alloc_dm_attr mlx5_attr = { .type = MLX5DV_DM_TYPE_MEMIC };
 
 	return mlx5dv_alloc_dm(context, dm_attr, &mlx5_attr);
+}
+
+int mlx5_dm_export_dmabuf_fd(struct ibv_dm *ibdm)
+{
+	return ibv_cmd_export_dmabuf_fd(ibdm->context, to_mdm(ibdm)->pg_off);
 }
 
 struct ibv_counters *mlx5_create_counters(struct ibv_context *context,
