@@ -285,6 +285,12 @@ static int detach_mcast(struct ibv_qp *qp, const union ibv_gid *gid,
 	return EOPNOTSUPP;
 }
 
+static int dm_export_dmabuf_fd(struct ibv_dm *dm)
+{
+	errno = EOPNOTSUPP;
+	return -1;
+}
+
 static void free_context(struct ibv_context *ctx)
 {
 	return;
@@ -569,6 +575,7 @@ const struct verbs_context_ops verbs_dummy_ops = {
 	destroy_srq,
 	destroy_wq,
 	detach_mcast,
+	dm_export_dmabuf_fd,
 	free_context,
 	free_dm,
 	get_srq_num,
@@ -698,6 +705,7 @@ void verbs_set_ops(struct verbs_context *vctx,
 	SET_PRIV_OP(ctx, destroy_srq);
 	SET_OP(vctx, destroy_wq);
 	SET_PRIV_OP(ctx, detach_mcast);
+	SET_OP(vctx, dm_export_dmabuf_fd);
 	SET_PRIV_OP_IC(ctx, free_context);
 	SET_OP(vctx, free_dm);
 	SET_OP(vctx, get_srq_num);
