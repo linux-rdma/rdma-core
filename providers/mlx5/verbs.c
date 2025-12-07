@@ -6396,6 +6396,29 @@ void mlx5dv_devx_free_uar(struct mlx5dv_devx_uar *dv_devx_uar)
 	dvops->devx_free_uar(dv_devx_uar);
 }
 
+static int
+_mlx5dv_devx_uar_export_dmabuf_fd(struct mlx5dv_devx_uar *dv_devx_uar)
+{
+	struct mlx5_devx_uar *uar = container_of(dv_devx_uar, struct mlx5_devx_uar,
+						 dv_devx_uar);
+
+	return ibv_cmd_export_dmabuf_fd(uar->context, dv_devx_uar->mmap_off);
+}
+
+int mlx5dv_devx_uar_export_dmabuf_fd(struct mlx5dv_devx_uar *dv_devx_uar)
+{
+	struct mlx5_devx_uar *uar = container_of(dv_devx_uar, struct mlx5_devx_uar,
+						 dv_devx_uar);
+	struct mlx5_dv_context_ops *dvops = mlx5_get_dv_ops(uar->context);
+
+	if (!dvops || !dvops->devx_uar_export_dmabuf_fd) {
+		errno = EOPNOTSUPP;
+		return -1;
+	}
+
+	return dvops->devx_uar_export_dmabuf_fd(dv_devx_uar);
+}
+
 static int _mlx5dv_devx_query_eqn(struct ibv_context *context,
 				   uint32_t vector, uint32_t *eqn)
 {
@@ -8161,6 +8184,7 @@ void mlx5_set_dv_ctx_ops(struct mlx5_dv_context_ops *ops)
 
 	ops->devx_alloc_uar = _mlx5dv_devx_alloc_uar;
 	ops->devx_free_uar = _mlx5dv_devx_free_uar;
+	ops->devx_uar_export_dmabuf_fd = _mlx5dv_devx_uar_export_dmabuf_fd;
 
 	ops->devx_umem_reg = _mlx5dv_devx_umem_reg;
 	ops->devx_umem_reg_ex = _mlx5dv_devx_umem_reg_ex;

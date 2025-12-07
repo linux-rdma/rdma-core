@@ -1819,6 +1819,7 @@ struct mlx5dv_devx_uar *mlx5dv_devx_alloc_uar(struct ibv_context *context,
 					      uint32_t flags);
 void mlx5dv_devx_free_uar(struct mlx5dv_devx_uar *devx_uar);
 
+int mlx5dv_devx_uar_export_dmabuf_fd(struct mlx5dv_devx_uar *devx_uar);
 
 struct mlx5dv_var {
 	uint32_t page_id;
