@@ -1922,12 +1922,71 @@ static void ionic_qp_sq_destroy(struct ionic_qp *qp)
 	ionic_queue_destroy(&qp->sq.queue);
 }
 
-static int ionic_qp_rq_init(struct ionic_ctx *ctx, struct ionic_qp *qp, struct ionic_pd *pd,
-			    int max_wr, int max_sge)
+static int ionic_init_rq(struct ionic_ctx *ctx, struct ionic_rq *rq, struct ionic_pd *pd,
+			 uint64_t pd_tag, int max_wr, int max_sge)
 {
 	uint32_t wqe_size;
-	uint64_t pd_tag;
 	int rc, i;
+
+	rq->spec = ionic_v1_use_spec_sge(max_sge, ctx->spec);
+	wqe_size = ionic_v1_recv_wqe_min_size(max_sge, rq->spec, false);
+
+	if (rq->cmb & IONIC_CMB_EXPDB) {
+		uint32_t expdb_size = ionic_v1_recv_wqe_min_size(max_sge, rq->spec, true);
+
+		if (ionic_expdb_wqe_size_supported(ctx, expdb_size))
+			wqe_size = expdb_size;
+		else
+			rq->cmb &= ~IONIC_CMB_EXPDB;
+	}
+
+	rc = ionic_queue_init(&rq->queue, pd, pd_tag, ctx->pg_shift, max_wr, wqe_size);
+	if (rc)
+		return rc;
+
+	rq->cmb_ptr = NULL;
+	rq->cmb_prod = 0;
+
+	rq->meta = calloc((uint32_t)rq->queue.mask + 1, sizeof(*rq->meta));
+	if (!rq->meta) {
+		rc = ENOMEM;
+		goto err_rq_meta;
+	}
+
+	for (i = 0; i < rq->queue.mask; ++i)
+		rq->meta[i].next = &rq->meta[i + 1];
+
+	rq->meta[i].next = IONIC_META_LAST;
+	rq->meta_head = &rq->meta[0];
+
+	rq->meta_idx = calloc((uint32_t)rq->queue.mask + 1,
+			      sizeof(*rq->meta_idx));
+	if (!rq->meta_idx) {
+		rc = ENOMEM;
+		goto err_rq_meta_idx;
+	}
+
+	return 0;
+
+err_rq_meta_idx:
+	free(rq->meta);
+err_rq_meta:
+	ionic_queue_destroy(&rq->queue);
+
+	return rc;
+}
+
+static void ionic_rq_destroy(struct ionic_rq *rq)
+{
+	free(rq->meta_idx);
+	free(rq->meta);
+	ionic_queue_destroy(&rq->queue);
+}
+
+static int ionic_qp_rq_init(struct ionic_ctx *ctx, struct ionic_qp *qp,
+			    struct ionic_pd *pd, int max_wr, int max_sge)
+{
+	uint64_t pd_tag;
 
 	if (!qp->has_rq)
 		return 0;
@@ -1945,54 +2004,8 @@ static int ionic_qp_rq_init(struct ionic_ctx *ctx, struct ionic_qp *qp, struct i
 	} else {
 		pd_tag = IONIC_PD_TAG_RQ;
 	}
-	qp->rq.spec = ionic_v1_use_spec_sge(max_sge, ctx->spec);
 
-	wqe_size = ionic_v1_recv_wqe_min_size(max_sge, qp->rq.spec, false);
-
-	if (qp->rq.cmb & IONIC_CMB_EXPDB) {
-		uint32_t expdb_size = ionic_v1_recv_wqe_min_size(max_sge, qp->rq.spec, true);
-
-		if (ionic_expdb_wqe_size_supported(ctx, expdb_size))
-			wqe_size = expdb_size;
-		else
-			qp->rq.cmb &= ~IONIC_CMB_EXPDB;
-	}
-
-	rc = ionic_queue_init(&qp->rq.queue, pd, pd_tag, ctx->pg_shift, max_wr, wqe_size);
-	if (rc)
-		goto err_rq;
-
-	qp->rq.cmb_ptr = NULL;
-	qp->rq.cmb_prod = 0;
-
-	qp->rq.meta = calloc((uint32_t)qp->rq.queue.mask + 1,
-			     sizeof(*qp->rq.meta));
-	if (!qp->rq.meta) {
-		rc = ENOMEM;
-		goto err_rq_meta;
-	}
-
-	for (i = 0; i < qp->rq.queue.mask; ++i)
-		qp->rq.meta[i].next = &qp->rq.meta[i + 1];
-
-	qp->rq.meta[i].next = IONIC_META_LAST;
-	qp->rq.meta_head = &qp->rq.meta[0];
-
-	qp->rq.meta_idx = calloc((uint32_t)qp->rq.queue.mask + 1,
-				 sizeof(*qp->rq.meta_idx));
-	if (!qp->rq.meta_idx) {
-		rc = ENOMEM;
-		goto err_rq_meta_idx;
-	}
-
-	return 0;
-
-err_rq_meta_idx:
-	free(qp->rq.meta);
-err_rq_meta:
-	ionic_queue_destroy(&qp->rq.queue);
-err_rq:
-	return rc;
+	return ionic_init_rq(ctx, &qp->rq, pd, pd_tag, max_wr, max_sge);
 }
 
 static void ionic_qp_rq_destroy(struct ionic_qp *qp)
@@ -2000,9 +2013,7 @@ static void ionic_qp_rq_destroy(struct ionic_qp *qp)
 	if (!qp->has_rq)
 		return;
 
-	free(qp->rq.meta_idx);
-	free(qp->rq.meta);
-	ionic_queue_destroy(&qp->rq.queue);
+	ionic_rq_destroy(&qp->rq);
 }
 
 static void ionic_wr_start(struct ibv_qp_ex *ibqp_ex)
