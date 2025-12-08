@@ -17,6 +17,7 @@ cdef extern from 'infiniband/efadv.h':
 
     cpdef enum:
         EFADV_QP_FLAGS_UNSOLICITED_WRITE_RECV
+        EFADV_QP_FLAGS_INLINE_WRITE
 
     cpdef enum:
         EFADV_WC_EX_WITH_SGID

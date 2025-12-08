@@ -158,6 +158,7 @@ struct efa_sq {
 	size_t max_wr_rdma_sge;
 	uint16_t max_batch_wr;
 	uint16_t wqe_size;
+	bool inline_write_enabled;
 
 	/* Buffer for pending WR entries in the current session */
 	uint8_t *local_queue;

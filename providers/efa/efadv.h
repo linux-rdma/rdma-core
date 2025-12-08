@@ -1,6 +1,6 @@
 /* SPDX-License-Identifier: GPL-2.0 OR BSD-2-Clause */
 /*
- * Copyright 2019-2025 Amazon.com, Inc. or its affiliates. All rights reserved.
+ * Copyright 2019-2026 Amazon.com, Inc. or its affiliates. All rights reserved.
  */
 
 #ifndef __EFADV_H__
@@ -61,6 +61,7 @@ struct ibv_qp *efadv_create_driver_qp(struct ibv_pd *ibvpd,
 
 enum {
 	EFADV_QP_FLAGS_UNSOLICITED_WRITE_RECV = 1 << 0,
+	EFADV_QP_FLAGS_INLINE_WRITE = 1 << 1,
 };
 
 struct efadv_qp_init_attr {
