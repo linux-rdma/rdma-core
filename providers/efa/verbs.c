@@ -1768,6 +1768,13 @@ static int efa_check_qp_limits(struct efa_context *ctx,
 		return EINVAL;
 	}
 
+	if (attr->cap.max_inline_data > ctx->inline_buf_size_ex) {
+		verbs_err(&ctx->ibvctx,
+			  "Max inline data %u > %u\n", attr->cap.max_inline_data,
+			  ctx->inline_buf_size_ex);
+		return EINVAL;
+	}
+
 	return 0;
 }
 
