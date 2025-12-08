@@ -221,6 +221,7 @@ IBVERBS_PRIVATE_@IBVERBS_PABI_VERSION@ {
 		ibv_cmd_destroy_srq;
 		ibv_cmd_destroy_wq;
 		ibv_cmd_detach_mcast;
+		ibv_cmd_export_dmabuf_fd;
 		ibv_cmd_free_dm;
 		ibv_cmd_free_dmah;
 		ibv_cmd_get_context;
