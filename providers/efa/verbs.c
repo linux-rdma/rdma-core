@@ -1488,7 +1488,7 @@ static int efa_sq_initialize(struct efa_qp *qp,
 	}
 
 	sq->desc_offset = resp->llq_desc_offset;
-	desc_ring_size = sq->wq.wqe_cnt * sizeof(struct efa_io_tx_wqe);
+	desc_ring_size = sq->wq.wqe_cnt * sq->wqe_size;
 	sq->desc_ring_mmap_size = align(desc_ring_size + sq->desc_offset,
 					qp->page_size);
 	sq->max_inline_data = attr->cap.max_inline_data;
@@ -1512,7 +1512,7 @@ static int efa_sq_initialize(struct efa_qp *qp,
 	sq->max_wr_rdma_sge = min_t(uint16_t, ctx->max_wr_rdma_sge,
 				    EFA_IO_TX_DESC_NUM_RDMA_BUFS);
 	sq->max_batch_wr = ctx->max_tx_batch ?
-		(ctx->max_tx_batch * 64) / sizeof(struct efa_io_tx_wqe) :
+		(ctx->max_tx_batch * 64) / sq->wqe_size :
 		UINT16_MAX;
 	if (ctx->min_sq_wr) {
 		/* The device can't accept a doorbell for the whole SQ at once,
@@ -1603,6 +1603,11 @@ static void efa_qp_init_indices(struct efa_qp *qp)
 	qp->rq.wq.wrid_idx_pool_next = 0;
 }
 
+static int efa_calc_sq_wqe_size(struct ibv_qp_cap *cap)
+{
+	return sizeof(struct efa_io_tx_wqe);
+}
+
 static void efa_setup_qp(struct efa_context *ctx,
 			 struct efa_qp *qp,
 			 struct ibv_qp_cap *cap,
@@ -1612,6 +1617,7 @@ static void efa_setup_qp(struct efa_context *ctx,
 
 	efa_qp_init_indices(qp);
 
+	qp->sq.wqe_size = efa_calc_sq_wqe_size(cap);
 	qp->sq.wq.wqe_cnt = roundup_pow_of_two(max_t(uint32_t, cap->max_send_wr,
 						     ctx->min_sq_wr));
 	qp->sq.wq.max_sge = cap->max_send_sge;
@@ -1740,6 +1746,8 @@ static int efa_check_qp_attr(struct efa_context *ctx,
 static int efa_check_qp_limits(struct efa_context *ctx,
 			       struct ibv_qp_init_attr_ex *attr)
 {
+	int sq_wqe_size;
+
 	if (attr->cap.max_send_sge > ctx->max_sq_sge) {
 		verbs_err(&ctx->ibvctx,
 			  "Max send SGE %u > %u\n", attr->cap.max_send_sge,
@@ -1754,10 +1762,11 @@ static int efa_check_qp_limits(struct efa_context *ctx,
 		return EINVAL;
 	}
 
-	if (attr->cap.max_send_wr > ctx->max_sq_wr) {
+	sq_wqe_size = efa_calc_sq_wqe_size(&attr->cap);
+	if (attr->cap.max_send_wr * sq_wqe_size > ctx->max_llq_size) {
 		verbs_err(&ctx->ibvctx,
-			  "Max send WR %u > %u\n", attr->cap.max_send_wr,
-			  ctx->max_sq_wr);
+			  "Max Send WR %u > %u\n", attr->cap.max_send_wr,
+			  ctx->max_llq_size / sq_wqe_size);
 		return EINVAL;
 	}
 
@@ -1813,8 +1822,7 @@ static struct ibv_qp *create_qp(struct ibv_context *ibvctx,
 
 	req.rq_ring_size = (qp->rq.wq.desc_mask + 1) *
 		sizeof(struct efa_io_rx_desc);
-	req.sq_ring_size = (attr->cap.max_send_wr) *
-		sizeof(struct efa_io_tx_wqe);
+	req.sq_ring_size = attr->cap.max_send_wr * qp->sq.wqe_size;
 	if (attr->qp_type == IBV_QPT_DRIVER)
 		req.driver_qp_type = efa_attr->driver_qp_type;
 	if (efa_attr->flags & EFADV_QP_FLAGS_UNSOLICITED_WRITE_RECV)
@@ -2021,7 +2029,7 @@ int efadv_query_qp_wqs(struct ibv_qp *ibvqp, struct efadv_wq_attr *sq_attr,
 
 	sq_attr->comp_mask = 0;
 	sq_attr->buffer = qp->sq.desc;
-	sq_attr->entry_size = sizeof(struct efa_io_tx_wqe);
+	sq_attr->entry_size = qp->sq.wqe_size;
 	sq_attr->num_entries = qp->sq.wq.wqe_cnt;
 	sq_attr->doorbell = qp->sq.wq.db;
 	sq_attr->max_batch = qp->sq.max_batch_wr;
@@ -2312,7 +2320,7 @@ int efa_post_send(struct ibv_qp *ibvqp, struct ibv_send_wr *wr,
 			goto ring_db;
 		}
 
-		memset(&tx_wqe, 0, sizeof(tx_wqe));
+		memset(&tx_wqe, 0, sq->wqe_size);
 		meta_desc = &tx_wqe.meta;
 		ah = to_efa_ah(wr->wr.ud.ah);
 
@@ -2337,10 +2345,8 @@ int efa_post_send(struct ibv_qp *ibvqp, struct ibv_send_wr *wr,
 		meta_desc->qkey = wr->wr.ud.remote_qkey;
 
 		/* Copy descriptor */
-		sq_desc_offset = (wq->pc & wq->desc_mask) *
-				 sizeof(tx_wqe);
-		mmio_memcpy_x64(sq->desc + sq_desc_offset, &tx_wqe,
-				sizeof(tx_wqe));
+		sq_desc_offset = (wq->pc & wq->desc_mask) * sq->wqe_size;
+		mmio_memcpy_x64(sq->desc + sq_desc_offset, &tx_wqe, sq->wqe_size);
 
 		/* advance index and change phase */
 		efa_sq_advance_post_idx(sq);
@@ -2391,8 +2397,8 @@ static struct efa_io_tx_wqe *efa_send_wr_common(struct ibv_qp_ex *ibvqpx,
 		return NULL;
 	}
 
-	sq->curr_tx_wqe = (struct efa_io_tx_wqe *)sq->local_queue +
-			  sq->num_wqe_pending;
+	sq->curr_tx_wqe = (struct efa_io_tx_wqe *)(sq->local_queue +
+			  sq->num_wqe_pending * sq->wqe_size);
 	memset(sq->curr_tx_wqe, 0, sizeof(*sq->curr_tx_wqe));
 
 	meta_desc = &sq->curr_tx_wqe->meta;
@@ -2689,11 +2695,9 @@ static int efa_send_wr_complete(struct ibv_qp_ex *ibvqpx)
 		num_wqe_to_copy = min3(sq->num_wqe_pending,
 				       sq->wq.wqe_cnt - sq_desc_idx,
 				       max_txbatch - curbatch);
-		mmio_memcpy_x64((struct efa_io_tx_wqe *)sq->desc +
-							sq_desc_idx,
-				(struct efa_io_tx_wqe *)sq->local_queue +
-							local_idx,
-				num_wqe_to_copy * sizeof(struct efa_io_tx_wqe));
+		mmio_memcpy_x64(sq->desc + sq_desc_idx * sq->wqe_size,
+				sq->local_queue + local_idx * sq->wqe_size,
+				num_wqe_to_copy * sq->wqe_size);
 
 		sq->num_wqe_pending -= num_wqe_to_copy;
 		local_idx += num_wqe_to_copy;
