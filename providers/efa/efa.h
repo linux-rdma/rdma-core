@@ -134,6 +134,21 @@ struct efa_rq {
 	size_t buf_size;
 };
 
+struct efa_tx_wqe_ctx {
+	/* wqe buffer */
+	void *buff;
+	/* wqe meta descriptor */
+	struct efa_io_tx_meta_desc *md;
+	/* wqe local memory / SGL */
+	struct efa_io_tx_buf_desc *local_mem;
+	/* wqe remote memory - RDMA only */
+	struct efa_io_remote_mem_addr *remote_mem;
+	/* wqe inline data buffer */
+	uint8_t *inline_data;
+	/* max sge allowed for this wqe */
+	uint8_t max_sge;
+};
+
 struct efa_sq {
 	struct efa_wq wq;
 	uint8_t *desc;
@@ -151,7 +166,7 @@ struct efa_sq {
 	/* Phase before current session */
 	int phase_rb;
 	/* Current wqe being built */
-	struct efa_io_tx_wqe *curr_tx_wqe;
+	struct efa_tx_wqe_ctx curr_tx_wqe;
 };
 
 struct efa_qp {
