@@ -36,12 +36,11 @@ cdef close_weakrefs(iterables):
     for it in iterables:
         if it is None:
             continue
-        while True:
-            try:
-                tmp = it.pop()
-                tmp.close()
-            except KeyError: # popping an empty set
-                break
+        items = list(it)
+        it.clear()
+        for item in items:
+            if item is not None:
+                item.close()
 
 
 cdef class PyverbsObject(object):
