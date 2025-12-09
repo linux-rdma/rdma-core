@@ -868,9 +868,6 @@ static int ionic_destroy_cq(struct ibv_cq *ibcq)
 static int ionic_flush_recv(struct ionic_qp *qp, struct ibv_wc *wc)
 {
 	struct ionic_rq_meta *meta;
-	struct ionic_v1_wqe *wqe;
-	struct ionic_ctx *ctx;
-	uint64_t wqe_idx;
 
 	if (!qp->rq.flush)
 		return 0;
@@ -878,23 +875,7 @@ static int ionic_flush_recv(struct ionic_qp *qp, struct ibv_wc *wc)
 	if (ionic_queue_empty(&qp->rq.queue))
 		return 0;
 
-	wqe = ionic_queue_at_cons(&qp->rq.queue);
-	wqe_idx = le64toh(wqe->base.wqe_idx);
-	ctx = to_ionic_ctx(qp->vqp.qp.context);
-
-	/* wqe_idx must be a valid queue index */
-	if (unlikely(wqe_idx >> qp->rq.queue.depth_log2)) {
-		verbs_err(&ctx->vctx, "invalid id %#lx", (unsigned long)wqe_idx);
-		return -EIO;
-	}
-
-	/* wqe_idx must indicate a request that is outstanding */
-	meta = &qp->rq.meta[wqe_idx];
-	if (unlikely(meta->next != IONIC_META_POSTED)) {
-		verbs_err(&ctx->vctx, "wqe not posted %#lx", (unsigned long)wqe_idx);
-		return -EIO;
-	}
-
+	meta = &qp->rq.meta[qp->rq.queue.cons];
 	ionic_queue_consume(&qp->rq.queue);
 
 	memset(wc, 0, sizeof(*wc));
@@ -902,9 +883,6 @@ static int ionic_flush_recv(struct ionic_qp *qp, struct ibv_wc *wc)
 	wc->status = IBV_WC_WR_FLUSH_ERR;
 	wc->wr_id = meta->wrid;
 	wc->qp_num = qp->qpid;
-
-	meta->next = qp->rq.meta_head;
-	qp->rq.meta_head = meta;
 
 	return 1;
 }
@@ -1002,25 +980,13 @@ static int ionic_poll_recv(struct ionic_ctx *ctx, struct ionic_cq *cq,
 	wqe_idx_timestamp = le64toh(cqe->recv.wqe_idx_timestamp);
 	wqe_idx = wqe_idx_timestamp & IONIC_V1_CQE_WQE_IDX_MASK;
 
-	/* wqe_idx must be a valid queue index */
-	if (unlikely(wqe_idx >> qp->rq.queue.depth_log2)) {
-		verbs_err(&ctx->vctx, "invalid id %#lx", (unsigned long)wqe_idx);
+	if (unlikely(wqe_idx > rq->queue.mask)) {
+		verbs_err(&ctx->vctx, "invalid wqe_idx %#lx mask %#x",
+			  (unsigned long)wqe_idx, rq->queue.mask);
 		return -EIO;
 	}
 
-	/* wqe_idx must indicate a request that is outstanding */
-	meta = &qp->rq.meta[qp->rq.meta_idx[wqe_idx]];
-	if (unlikely(meta->next != IONIC_META_POSTED)) {
-		verbs_err(&ctx->vctx, "wqe is not posted for idx %lu meta_idx %u qpid %u rq.prod %u rq.cons %u cqid %u",
-			  (unsigned long)wqe_idx,
-			  qp->rq.meta_idx[wqe_idx],
-			  qp->qpid, qp->rq.queue.prod,
-			  qp->rq.queue.cons, cq->cqid);
-		return -EIO;
-	}
-
-	meta->next = qp->rq.meta_head;
-	qp->rq.meta_head = meta;
+	meta = &qp->rq.meta[wqe_idx];
 	cq->vcq->cur_wc_timestamp = wqe_idx_timestamp >> IONIC_V1_CQE_TIMESTAMP_SHIFT;
 
 	memset(wc, 0, sizeof(*wc));
@@ -1785,7 +1751,7 @@ static int ionic_init_rq(struct ionic_ctx *ctx, struct ionic_rq *rq, struct ioni
 			 uint64_t pd_tag, int max_wr, int max_sge)
 {
 	uint32_t wqe_size;
-	int rc, i;
+	int rc;
 
 	rq->spec = ionic_v1_use_spec_sge(max_sge, ctx->spec);
 
@@ -1809,36 +1775,15 @@ static int ionic_init_rq(struct ionic_ctx *ctx, struct ionic_rq *rq, struct ioni
 
 	rq->meta = calloc((uint32_t)rq->queue.mask + 1, sizeof(*rq->meta));
 	if (!rq->meta) {
-		rc = ENOMEM;
-		goto err_rq_meta;
-	}
-
-	for (i = 0; i < rq->queue.mask; ++i)
-		rq->meta[i].next = &rq->meta[i + 1];
-
-	rq->meta[i].next = IONIC_META_LAST;
-	rq->meta_head = &rq->meta[0];
-
-	rq->meta_idx = calloc((uint32_t)rq->queue.mask + 1,
-			      sizeof(*rq->meta_idx));
-	if (!rq->meta_idx) {
-		rc = ENOMEM;
-		goto err_rq_meta_idx;
+		ionic_queue_destroy(&rq->queue);
+		return ENOMEM;
 	}
 
 	return 0;
-
-err_rq_meta_idx:
-	free(rq->meta);
-err_rq_meta:
-	ionic_queue_destroy(&rq->queue);
-
-	return rc;
 }
 
 static void ionic_rq_destroy(struct ionic_rq *rq)
 {
-	free(rq->meta_idx);
 	free(rq->meta);
 	ionic_queue_destroy(&rq->queue);
 }
@@ -2381,7 +2326,6 @@ static void ionic_flush_qp(struct ionic_ctx *ctx, struct ionic_qp *qp)
 static void ionic_reset_qp(struct ionic_ctx *ctx, struct ionic_qp *qp)
 {
 	struct ionic_cq *cq;
-	int i;
 
 	if (qp->vqp.qp.send_cq) {
 		cq = to_ionic_vcq_cq(qp->vqp.qp.send_cq, qp->udma_idx);
@@ -2417,10 +2361,6 @@ static void ionic_reset_qp(struct ionic_ctx *ctx, struct ionic_qp *qp)
 		qp->rq.queue.cons = 0;
 		qp->rq.cmb_prod = 0;
 		qp->rq.old_prod = 0;
-		for (i = 0; i < qp->rq.queue.mask; ++i)
-			qp->rq.meta[i].next = &qp->rq.meta[i + 1];
-		qp->rq.meta[i].next = IONIC_META_LAST;
-		qp->rq.meta_head = &qp->rq.meta[0];
 		ionic_rq_spin_unlock(qp);
 	}
 }
@@ -3219,11 +3159,7 @@ static int ionic_v1_prep_recv(struct ionic_qp *qp,
 	if (wqe->base.flags & htobe16(IONIC_V1_FLAG_FENCE))
 		return -EAGAIN;
 
-	meta = qp->rq.meta_head;
-	if (unlikely(meta == IONIC_META_LAST) ||
-	    unlikely(meta == IONIC_META_POSTED))
-		return -EIO;
-
+	meta = &qp->rq.meta[qp->rq.queue.prod];
 	ionic_prep_rq_wqe(qp, wqe);
 
 	mval = ionic_v1_recv_wqe_max_sge(qp->rq.queue.stride_log2,
@@ -3239,8 +3175,6 @@ static int ionic_v1_prep_recv(struct ionic_qp *qp,
 	wqe->base.wqe_idx = htole64(qp->rq.queue.prod);
 	wqe->base.num_sge_key = wr->num_sge;
 
-	qp->rq.meta_idx[qp->rq.queue.prod] = meta - qp->rq.meta;
-
 	/* total length for recv goes in base imm_data_key */
 	wqe->base.imm_data_key = htobe32(signed_len);
 
@@ -3248,9 +3182,6 @@ static int ionic_v1_prep_recv(struct ionic_qp *qp,
 		    qp->qpid, qp->rq.queue.prod);
 	ionic_dbg_xdump(ctx, "wqe", wqe, 1u << qp->rq.queue.stride_log2);
 	ionic_queue_produce(&qp->rq.queue);
-
-	qp->rq.meta_head = meta->next;
-	meta->next = IONIC_META_POSTED;
 
 	return 0;
 }

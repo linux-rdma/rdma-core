@@ -31,9 +31,6 @@
 #define IONIC_MIN_RDMA_VERSION	1
 #define IONIC_MAX_RDMA_VERSION	2
 
-#define IONIC_META_LAST ((void *)1ul)
-#define IONIC_META_POSTED ((void *)2ul)
-
 #define IONIC_CQ_GRACE 100
 #define IONIC_PAGE_SIZE 4096
 
@@ -194,7 +191,6 @@ struct ionic_sq_meta {
 };
 
 struct ionic_rq_meta {
-	struct ionic_rq_meta	*next;
 	uint64_t		wrid;
 };
 
@@ -204,8 +200,6 @@ struct ionic_rq {
 
 	void			*cmb_ptr;
 	struct ionic_rq_meta	*meta;
-	struct ionic_rq_meta	*meta_head;
-	uint16_t		*meta_idx;
 
 	int			spec;
 	uint16_t		old_prod;
