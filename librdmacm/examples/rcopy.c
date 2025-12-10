@@ -63,6 +63,7 @@ static struct timeval start, end;
 static uint64_t bytes;
 static int fd;
 static void *file_addr;
+static char *client_bond_ip = NULL;
 
 enum {
 	CMD_NOOP,
@@ -407,6 +408,21 @@ static int client_connect(void)
 		goto free;
 	}
 
+	// 设置本地地址
+	if (client_bond_ip != NULL) {
+		struct sockaddr_in local_addr;
+		memset(&local_addr, 0, sizeof(local_addr));
+		local_addr.sin_family = AF_INET;
+		local_addr.sin_addr.s_addr = inet_addr(client_bond_ip); // 设置绑定的IP地址
+		local_addr.sin_port = 0; // 0表示由系统自动分配端口号
+
+		ret = rs_bind(rs, (struct sockaddr *)&local_addr, sizeof(local_addr));
+		if (ret < 0) {
+			printf("rs_bind failed: %s\n", strerror(errno));
+			goto close;
+		}
+	}
+
 	ret = rconnect(rs, res->ai_addr, res->ai_addrlen);
 	if (ret) {
 		perror("rconnect failed\n");
@@ -417,6 +433,9 @@ static int client_connect(void)
 free:
 	freeaddrinfo(res);
 	return rs;
+close:
+	rclose(rs);
+	goto free;
 }
 
 static int client_open(int rs)
@@ -600,6 +619,8 @@ static void client_opts(int argc, char **argv)
 	}
 	if (!dst_file)
 		dst_file = src_file;
+
+	client_bond_ip = argv[3];
 
 	while ((op = getopt(argc, argv, "p:")) != -1) {
 		switch (op) {
