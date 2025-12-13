@@ -110,7 +110,7 @@ static int bnxt_re_alloc_page(struct ibv_context *ibvctx,
 	DECLARE_COMMAND_BUFFER(cmd,
 			       BNXT_RE_OBJECT_ALLOC_PAGE,
 			       BNXT_RE_METHOD_ALLOC_PAGE,
-			       4);
+			       5);
 	struct ib_uverbs_attr *handle;
 	int ret;
 
