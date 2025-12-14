@@ -97,8 +97,13 @@ cdef extern from 'infiniband/mlx5dv.h':
     cdef struct mlx5dv_var:
         uint32_t    page_id
         uint32_t    length
-        long        mmap_off
+        off_t       mmap_off
         uint64_t    comp_mask
+
+    cdef struct mlx5dv_export_sizes:
+        uint32_t var_attrs_size
+        uint32_t devx_umem_attrs_size
+        uint32_t devx_obj_attrs_size
 
     cdef struct mlx5dv_pp:
         uint16_t index
@@ -454,6 +459,10 @@ cdef extern from 'infiniband/mlx5dv.h':
     void mlx5dv_wr_raw_wqe(mlx5dv_qp_ex *mqp_ex, const void *wqe)
     mlx5dv_var *mlx5dv_alloc_var(v.ibv_context *context, uint32_t flags)
     void mlx5dv_free_var(mlx5dv_var *dv_var)
+    int mlx5dv_var_export(mlx5dv_var *dv_var, void *data)
+    mlx5dv_var *mlx5dv_var_import(v.ibv_context *context, void *data)
+    void mlx5dv_var_unimport(mlx5dv_var *dv_var)
+    void mlx5dv_get_export_sizes(mlx5dv_export_sizes *sizes)
     mlx5dv_pp *mlx5dv_pp_alloc(v.ibv_context *context, size_t pp_context_sz,
                                const void *pp_context, uint32_t flags)
     void mlx5dv_pp_free(mlx5dv_pp *pp)

@@ -3,7 +3,7 @@
 
 from libc.stdint cimport uintptr_t, uint8_t, uint16_t, uint32_t, uint64_t
 from libc.string cimport memcpy, memset
-from libc.stdlib cimport calloc, free ,malloc
+from libc.stdlib cimport calloc, free, malloc
 from posix.mman cimport munmap
 import logging
 import weakref
@@ -269,6 +269,15 @@ cdef class Mlx5DevxObj(PyverbsCM):
             self.dest_tir_actions.add(obj)
         else:
             raise PyverbsError('Unrecognized object type')
+
+    @staticmethod
+    def get_export_size():
+        """
+        :return: Buffer size in bytes required for DevX object export/import.
+        """
+        cdef dv.mlx5dv_export_sizes sizes
+        dv.mlx5dv_get_export_sizes(&sizes)
+        return sizes.devx_obj_attrs_size
 
     @property
     def out_view(self):
@@ -1335,11 +1344,15 @@ def send_ops_flags_to_str(flags):
 
 
 cdef class Mlx5VAR(PyverbsObject):
+    """
+    Represents mlx5dv_var struct
+    """
     def __init__(self, Context context not None, flags=0):
         self.context = context
         self.var = dv.mlx5dv_alloc_var(context.context, flags)
         if self.var == NULL:
             raise PyverbsRDMAErrno('Failed to allocate VAR')
+        self.imported = False
         context.vars.add(self)
 
     def __dealloc__(self):
@@ -1347,8 +1360,48 @@ cdef class Mlx5VAR(PyverbsObject):
 
     cpdef close(self):
         if self.var != NULL:
+            if self.imported:
+                self.unimport_var()
+            else:
+                self.free()
+
+    def free(self):
+        """Free the allocated VAR."""
+        if self.var != NULL:
             dv.mlx5dv_free_var(self.var)
             self.var = NULL
+
+    def unimport_var(self):
+        """Release an imported VAR without freeing the underlying object."""
+        if self.var != NULL:
+            dv.mlx5dv_var_unimport(self.var)
+            self.var = NULL
+
+    @staticmethod
+    def get_export_size():
+        """
+        :return: Buffer size in bytes required for VAR export/import.
+        """
+        cdef dv.mlx5dv_export_sizes sizes
+        dv.mlx5dv_get_export_sizes(&sizes)
+        return sizes.var_attrs_size
+
+    def export(self):
+        """
+        Export the VAR into an opaque data buffer for cross-process sharing.
+        :return: A bytes object containing the exported VAR data.
+        """
+        cdef uint32_t sz = Mlx5VAR.get_export_size()
+        cdef void *buf = malloc(sz)
+        if buf == NULL:
+            raise MemoryError('Failed to allocate export buffer')
+        rc = dv.mlx5dv_var_export(self.var, buf)
+        if rc != 0:
+            free(buf)
+            raise PyverbsRDMAError('Failed to export VAR', rc)
+        cdef bytes data = (<char *>buf)[:sz]
+        free(buf)
+        return data
 
     def __str__(self):
         print_format = '{:20}: {:<20}\n'
@@ -1356,6 +1409,24 @@ cdef class Mlx5VAR(PyverbsObject):
                print_format.format('length', self.var.length) +\
                print_format.format('mmap offset', self.var.mmap_off) +\
                print_format.format('compatibility mask', self.var.comp_mask)
+
+    @staticmethod
+    def import_var(Context context not None, bytes data not None):
+        """
+        Import a VAR from an opaque data buffer (e.g. from export()).
+        :param context: Device context for the VAR import.
+        :param data: Bytes buffer previously returned by Mlx5VAR.export().
+        :return: An Mlx5VAR object representing the imported VAR.
+        """
+        cdef Mlx5VAR var_obj = Mlx5VAR.__new__(Mlx5VAR)
+        cdef char *buf = data
+        var_obj.context = context
+        var_obj.var = dv.mlx5dv_var_import(context.context, <void *>buf)
+        if var_obj.var == NULL:
+            raise PyverbsRDMAErrno('Failed to import VAR')
+        var_obj.imported = True
+        context.vars.add(var_obj)
+        return var_obj
 
     @property
     def page_id(self):
@@ -1800,6 +1871,15 @@ cdef class Mlx5UMEM(PyverbsCM):
         print_format = '{:20}: {:<20}\n'
         return print_format.format('umem id', self.umem_id) + \
                print_format.format('reg addr', self.umem_addr)
+
+    @staticmethod
+    def get_export_size():
+        """
+        :return: Buffer size in bytes required for DEVX UMEM export/import.
+        """
+        cdef dv.mlx5dv_export_sizes sizes
+        dv.mlx5dv_get_export_sizes(&sizes)
+        return sizes.devx_umem_attrs_size
 
     @property
     def umem_id(self):

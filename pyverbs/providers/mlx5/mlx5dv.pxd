@@ -50,6 +50,7 @@ cdef class Mlx5CQ(CQEX):
 cdef class Mlx5VAR(PyverbsObject):
     cdef dv.mlx5dv_var *var
     cdef object context
+    cdef bint imported
     cpdef close(self)
 
 cdef class Mlx5PP(PyverbsObject):
