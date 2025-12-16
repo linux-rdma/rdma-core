@@ -90,6 +90,9 @@ struct guid_ca_pairs_mapping {
 	struct umad_ca_pair *ca_pair;
 };
 
+typedef struct { char _ca_names_arr[UMAD_MAX_DEVICES][UMAD_CA_NAME_LEN]; } ca_names_t;
+
+
 #define IBWARN(fmt, args...) fprintf(stderr, "ibwarn: [%d] %s: " fmt "\n", getpid(), __func__, ## args)
 
 #define TRACE	if (umaddebug)	IBWARN
@@ -1476,24 +1479,28 @@ static int count_ports_by_guid(char legacy_ca_names[][UMAD_CA_NAME_LEN], size_t 
 int umad_get_smi_gsi_pairs(struct umad_ca_pair cas[], size_t max)
 {
 	size_t added_devices = 0, added_mappings = 0;
-	char legacy_ca_names[UMAD_MAX_DEVICES][UMAD_CA_NAME_LEN] = {};
+	ca_names_t *legacy_ca_names = malloc(sizeof(ca_names_t));
+	if (!legacy_ca_names)
+		return -1;
 	struct port_guid_port_count counts[UMAD_MAX_PORTS] = {};
 	struct guid_ca_pairs_mapping mapping[UMAD_MAX_PORTS] = {};
 
 	memset(cas, 0, sizeof(struct umad_ca_pair) * max);
-	int cas_found = umad_get_cas_names(legacy_ca_names, UMAD_MAX_DEVICES);
+	int cas_found = umad_get_cas_names(legacy_ca_names->_ca_names_arr, UMAD_MAX_DEVICES);
 
-	if (cas_found < 0)
+	if (cas_found < 0) {
+		free(legacy_ca_names);
 		return 0;
+	}
 
-	count_ports_by_guid(legacy_ca_names, cas_found, counts, UMAD_MAX_PORTS);
+	count_ports_by_guid(legacy_ca_names->_ca_names_arr, cas_found, counts, UMAD_MAX_PORTS);
 
 	size_t c_idx = 0;
 
 	for (c_idx = 0; c_idx < (size_t)cas_found; ++c_idx) {
 		umad_ca_t curr_ca;
 
-		if (umad_get_ca(legacy_ca_names[c_idx], &curr_ca) < 0)
+		if (umad_get_ca(legacy_ca_names->_ca_names_arr[c_idx], &curr_ca) < 0)
 			continue;
 
 		size_t p_idx = 0;
@@ -1525,6 +1532,7 @@ int umad_get_smi_gsi_pairs(struct umad_ca_pair cas[], size_t max)
 				break;
 			} else {
 				umad_release_ca(&curr_ca);
+				free(legacy_ca_names);
 				return -1;
 			}
 		}
@@ -1532,6 +1540,7 @@ int umad_get_smi_gsi_pairs(struct umad_ca_pair cas[], size_t max)
 		umad_release_ca(&curr_ca);
 	}
 
+	free(legacy_ca_names);
 	return added_devices;
 }
 
