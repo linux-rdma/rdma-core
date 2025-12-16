@@ -816,7 +816,7 @@ static inline int efa_poll_sub_cq(struct efa_cq *cq, struct efa_sub_cq *sub_cq,
 		 * from the table.
 		 */
 		*cur_qp = ctx->qp_table[qpn & ctx->qp_table_sz_m1];
-		if (!*cur_qp) {
+		if (!*cur_qp || qpn != (*cur_qp)->verbs_qp.qp.qp_num) {
 			cq->cur_wq = NULL;
 			verbs_err(&ctx->ibvctx,
 				  "QP[%u] does not exist in QP table\n",
