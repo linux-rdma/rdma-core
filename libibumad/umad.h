@@ -62,7 +62,7 @@ union umad_gid {
 	} global;
 } __attribute__((aligned(4))) __attribute__((packed));
 
-#define UMAD_MAX_DEVICES 32
+#define UMAD_MAX_DEVICES 128
 #define UMAD_ANY_PORT	0
 typedef struct ib_mad_addr {
 	__be32 qpn;
