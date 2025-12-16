@@ -1147,8 +1147,6 @@ static int bnxt_re_check_qp_limits(struct bnxt_re_context *cntx,
 		return EINVAL;
 	if (attr->cap.max_recv_sge > devattr->max_sge)
 		return EINVAL;
-	if (attr->cap.max_inline_data > BNXT_RE_MAX_INLINE_SIZE)
-		return EINVAL;
 	if (attr->cap.max_send_wr > devattr->max_qp_wr)
 		return EINVAL;
 	if (attr->cap.max_recv_wr > devattr->max_qp_wr)
@@ -1217,7 +1215,7 @@ static int bnxt_re_get_sq_slots(struct bnxt_re_dev *rdev,
 	if (ilsize) {
 		cal_ils = hdr_sz + ilsize;
 		wqe_size = MAX(cal_ils, wqe_size);
-		wqe_size = align(wqe_size, hdr_sz);
+		wqe_size = align(wqe_size, stride);
 	}
 	if (wqe_size > max_wqesz)
 		return -EINVAL;
