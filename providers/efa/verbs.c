@@ -1057,7 +1057,8 @@ static void efa_cq_fill_pfns(struct efa_cq *cq,
 	if (cq->num_sub_cqs == 1)
 		cq_pfns_mask |= SINGLE_SUB_CQ_PFNS;
 
-	if (attr->flags & IBV_CREATE_CQ_ATTR_SINGLE_THREADED)
+	if ((cq->parent_domain && cq->parent_domain->td) ||
+	    attr->flags & IBV_CREATE_CQ_ATTR_SINGLE_THREADED)
 		cq_pfns_mask |= SINGLE_THREAD_PFNS;
 
 	cq_ops = &base_ops[cq_pfns_mask];
