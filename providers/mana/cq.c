@@ -249,8 +249,8 @@ static inline bool get_next_signal_psn(struct mana_qp *qp, uint32_t *psn)
 static inline int advance_send_completions(struct mana_qp *qp, uint32_t psn,
 					   struct ibv_wc *wc, int nwc)
 {
-	struct mana_gdma_queue *recv_queue = &qp->rc_qp.queues[USER_RC_RECV_QUEUE_REQUESTER];
-	struct mana_gdma_queue *send_queue = &qp->rc_qp.queues[USER_RC_SEND_QUEUE_REQUESTER];
+	struct mana_gdma_queue *recv_queue = mana_ib_get_rreq(qp);
+	struct mana_gdma_queue *send_queue = mana_ib_get_sreq(qp);
 	struct rc_sq_shadow_wqe *shadow_wqe;
 	int produced = 0;
 
@@ -285,9 +285,9 @@ static inline int advance_send_completions(struct mana_qp *qp, uint32_t psn,
 }
 
 static inline int handle_rc_requester_cqe(struct mana_qp *qp, struct gdma_cqe *cqe,
-				  struct ibv_wc *wc, int nwc, bool *consumed)
+					  struct ibv_wc *wc, int nwc, bool *consumed)
 {
-	struct mana_gdma_queue *recv_queue = &qp->rc_qp.queues[USER_RC_RECV_QUEUE_REQUESTER];
+	struct mana_gdma_queue *recv_queue = mana_ib_get_rreq(qp);
 	uint32_t syndrome = cqe->rdma_cqe.rc_armed_completion.syndrome;
 	uint32_t psn = cqe->rdma_cqe.rc_armed_completion.psn;
 	uint32_t arm_psn;
@@ -313,10 +313,10 @@ static inline int handle_rc_requester_cqe(struct mana_qp *qp, struct gdma_cqe *c
 	return produced;
 }
 
-static inline int handle_rc_responder_cqe(struct mana_qp *qp, struct gdma_cqe *cqe,
-					  struct ibv_wc *wc)
+static inline int handle_responder_cqe(struct mana_qp *qp, struct gdma_cqe *cqe,
+				       struct ibv_wc *wc)
 {
-	struct mana_gdma_queue *recv_queue = &qp->rc_qp.queues[USER_RC_RECV_QUEUE_RESPONDER];
+	struct mana_gdma_queue *recv_queue = mana_ib_get_rresp(qp);
 	struct rc_rq_shadow_wqe *shadow_wqe;
 
 	shadow_wqe = (struct rc_rq_shadow_wqe *)shadow_queue_get_next_to_consume(&qp->shadow_rq);
@@ -360,16 +360,12 @@ static inline int handle_rc_responder_cqe(struct mana_qp *qp, struct gdma_cqe *c
 	return 1;
 }
 
-static inline bool error_cqe_is_send(struct mana_qp *qp, struct gdma_cqe *cqe)
+static inline bool error_cqe_is_send(struct gdma_cqe *cqe)
 {
-	if (cqe->is_sq &&
-	    qp->rc_qp.queues[USER_RC_SEND_QUEUE_REQUESTER].id == cqe->wqid)
-		return true;
-	if (!cqe->is_sq &&
-	    qp->rc_qp.queues[USER_RC_RECV_QUEUE_REQUESTER].id == cqe->wqid)
-		return true;
+	if (cqe->is_sq)
+		return ((cqe->wqid & QUEUE_TYPE_MASK) != QUEUE_TYPE_SRESP);
 
-	return false;
+	return ((cqe->wqid & QUEUE_TYPE_MASK) == QUEUE_TYPE_RREQ);
 }
 
 static inline uint32_t error_cqe_get_psn(struct gdma_cqe *cqe)
@@ -377,10 +373,10 @@ static inline uint32_t error_cqe_get_psn(struct gdma_cqe *cqe)
 	return cqe->rdma_cqe.error.psn;
 }
 
-static inline int handle_rc_error_cqe(struct mana_qp *qp, struct gdma_cqe *cqe,
-				      struct ibv_wc *wc, int nwc, bool *consumed)
+static inline int handle_error_cqe(struct mana_qp *qp, struct gdma_cqe *cqe,
+				   struct ibv_wc *wc, int nwc, bool *consumed)
 {
-	bool is_send_error = error_cqe_is_send(qp, cqe);
+	bool is_send_error = error_cqe_is_send(cqe);
 	uint32_t psn = error_cqe_get_psn(cqe);
 	struct shadow_queue *queue_with_error;
 	struct shadow_wqe_header *shadow_wqe;
@@ -438,17 +434,17 @@ out:
 static inline int mana_handle_cqe(struct mana_context *ctx, struct gdma_cqe *cqe,
 				  struct ibv_wc *wc, int nwc, bool *consumed)
 {
-	struct mana_qp *qp = mana_get_qp(ctx, cqe->wqid, cqe->is_sq);
+	struct mana_qp *qp = mana_get_qp(ctx, cqe->wqid & (~QUEUE_TYPE_MASK), cqe->is_sq);
 
 	if (unlikely(!qp))
 		return 0;
 
 	if (cqe->rdma_cqe.cqe_type == CQE_TYPE_ERROR)
-		return handle_rc_error_cqe(qp, cqe, wc, nwc, consumed);
+		return handle_error_cqe(qp, cqe, wc, nwc, consumed);
 	else if (cqe->rdma_cqe.cqe_type == CQE_TYPE_ARMED_CMPL)
 		return handle_rc_requester_cqe(qp, cqe, wc, nwc, consumed);
 	else
-		return handle_rc_responder_cqe(qp, cqe, wc);
+		return handle_responder_cqe(qp, cqe, wc);
 }
 
 static inline int gdma_read_cqe(struct mana_cq *cq, struct gdma_cqe *cqe)

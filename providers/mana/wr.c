@@ -139,7 +139,7 @@ static int mana_ib_rc_post_recv(struct ibv_qp *ibqp, struct ibv_recv_wr *wr,
 	struct mana_context *mc = container_of(verbs_get_ctx(ibqp->context),
 					struct mana_context, ibv_ctx);
 	struct mana_qp *qp = container_of(ibqp, struct mana_qp, ibqp.qp);
-	struct mana_gdma_queue *wq = &qp->rc_qp.queues[USER_RC_RECV_QUEUE_RESPONDER];
+	struct mana_gdma_queue *wq = mana_ib_get_rresp(qp);
 	struct shadow_wqe_header *shadow_wqe;
 	struct gdma_wqe wqe_info;
 	uint8_t wqe_cnt = 0;
@@ -282,6 +282,7 @@ mana_ib_rc_post_send_request(struct mana_qp *qp, struct ibv_send_wr *wr,
 {
 	bool signaled = ((wr->send_flags & IBV_SEND_SIGNALED) != 0) || qp->sq_sig_all;
 	enum  gdma_work_req_flags flags = GDMA_WORK_REQ_NONE;
+	struct mana_gdma_queue *wq = mana_ib_get_sreq(qp);
 	struct extra_large_wqe extra_wqe = {0};
 	struct rdma_send_oob send_oob = {0};
 	struct gdma_wqe gdma_wqe = {0};
@@ -297,7 +298,7 @@ mana_ib_rc_post_send_request(struct mana_qp *qp, struct ibv_send_wr *wr,
 		struct rdma_recv_oob recv_oob = {0};
 
 		recv_oob.psn_start = qp->rc_qp.sq_psn;
-		ret = gdma_post_rq_wqe(&qp->rc_qp.queues[USER_RC_RECV_QUEUE_REQUESTER], wr->sg_list,
+		ret = gdma_post_rq_wqe(mana_ib_get_rreq(qp), wr->sg_list,
 				       &recv_oob, num_sge, GDMA_WORK_REQ_CHECK_SN, &gdma_wqe);
 		if (ret) {
 			verbs_err(verbs_get_ctx(qp->ibqp.qp.context),
@@ -305,7 +306,7 @@ mana_ib_rc_post_send_request(struct mana_qp *qp, struct ibv_send_wr *wr,
 			goto cleanup;
 		}
 		shadow_wqe->read_posted_wqe_size_in_bu = gdma_wqe.size_in_bu;
-		gdma_ring_recv_doorbell(&qp->rc_qp.queues[USER_RC_RECV_QUEUE_REQUESTER], 1);
+		gdma_ring_recv_doorbell(mana_ib_get_rreq(qp), 1);
 		// for reads no sge to use dummy sgl
 		num_sge = 0;
 	}
@@ -345,7 +346,7 @@ mana_ib_rc_post_send_request(struct mana_qp *qp, struct ibv_send_wr *wr,
 		goto cleanup;
 	}
 
-	ret = gdma_post_sq_wqe(&qp->rc_qp.queues[USER_RC_SEND_QUEUE_REQUESTER], wr->sg_list,
+	ret = gdma_post_sq_wqe(wq, wr->sg_list,
 			       &send_oob, oob_sge, num_sge, MTU_SIZE(qp->mtu), flags, &gdma_wqe);
 	if (ret) {
 		verbs_err(verbs_get_ctx(qp->ibqp.qp.context),
@@ -416,7 +417,7 @@ static int mana_ib_rc_post_send(struct ibv_qp *ibqp, struct ibv_send_wr *wr,
 
 cleanup:
 	if (ring)
-		gdma_ring_send_doorbell(&qp->rc_qp.queues[USER_RC_SEND_QUEUE_REQUESTER]);
+		gdma_ring_send_doorbell(mana_ib_get_sreq(qp));
 	pthread_spin_unlock(&qp->sq_lock);
 	if (bad_wr && ret)
 		*bad_wr = wr;

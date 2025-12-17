@@ -160,35 +160,25 @@ static void mana_remove_qid(struct mana_table *qp_table, uint32_t qid)
 
 static int mana_store_qp(struct mana_context *ctx, struct mana_qp *qp)
 {
-	uint32_t sreq = qp->rc_qp.queues[USER_RC_SEND_QUEUE_REQUESTER].id;
-	uint32_t srep = qp->rc_qp.queues[USER_RC_SEND_QUEUE_RESPONDER].id;
-	uint32_t rreq = qp->rc_qp.queues[USER_RC_RECV_QUEUE_REQUESTER].id;
-	uint32_t rrep = qp->rc_qp.queues[USER_RC_RECV_QUEUE_RESPONDER].id;
+	struct mana_gdma_queue *sq = mana_ib_get_sreq(qp);
+	struct mana_gdma_queue *rq = mana_ib_get_rresp(qp);
+	uint32_t sqid = sq->id & (~QUEUE_TYPE_MASK);
+	uint32_t rqid = rq->id & (~QUEUE_TYPE_MASK);
 	int ret;
 
 	pthread_mutex_lock(&ctx->qp_table_mutex);
-	ret = mana_store_qid(ctx->qp_stable, qp, sreq);
+	ret = mana_store_qid(ctx->qp_stable, qp, sqid);
 	if (ret)
 		goto error;
-	ret = mana_store_qid(ctx->qp_stable, qp, srep);
+	ret = mana_store_qid(ctx->qp_rtable, qp, rqid);
 	if (ret)
 		goto remove_sreq;
-	ret = mana_store_qid(ctx->qp_rtable, qp, rreq);
-	if (ret)
-		goto remove_srep;
-	ret = mana_store_qid(ctx->qp_rtable, qp, rrep);
-	if (ret)
-		goto remove_rreq;
 
 	pthread_mutex_unlock(&ctx->qp_table_mutex);
 	return 0;
 
-remove_rreq:
-	mana_remove_qid(ctx->qp_rtable, rreq);
-remove_srep:
-	mana_remove_qid(ctx->qp_stable, srep);
 remove_sreq:
-	mana_remove_qid(ctx->qp_stable, sreq);
+	mana_remove_qid(ctx->qp_stable, sqid);
 error:
 	pthread_mutex_unlock(&ctx->qp_table_mutex);
 	return ret;
@@ -196,16 +186,14 @@ error:
 
 static void mana_remove_qp(struct mana_context *ctx, struct mana_qp *qp)
 {
-	uint32_t sreq = qp->rc_qp.queues[USER_RC_SEND_QUEUE_REQUESTER].id;
-	uint32_t srep = qp->rc_qp.queues[USER_RC_SEND_QUEUE_RESPONDER].id;
-	uint32_t rreq = qp->rc_qp.queues[USER_RC_RECV_QUEUE_REQUESTER].id;
-	uint32_t rrep = qp->rc_qp.queues[USER_RC_RECV_QUEUE_RESPONDER].id;
+	struct mana_gdma_queue *sq = mana_ib_get_sreq(qp);
+	struct mana_gdma_queue *rq = mana_ib_get_rresp(qp);
+	uint32_t sqid = sq->id & (~QUEUE_TYPE_MASK);
+	uint32_t rqid = rq->id & (~QUEUE_TYPE_MASK);
 
 	pthread_mutex_lock(&ctx->qp_table_mutex);
-	mana_remove_qid(ctx->qp_stable, sreq);
-	mana_remove_qid(ctx->qp_stable, srep);
-	mana_remove_qid(ctx->qp_rtable, rreq);
-	mana_remove_qid(ctx->qp_rtable, rrep);
+	mana_remove_qid(ctx->qp_stable, sqid);
+	mana_remove_qid(ctx->qp_rtable, rqid);
 	pthread_mutex_unlock(&ctx->qp_table_mutex);
 }
 
@@ -394,8 +382,7 @@ static void mana_ib_modify_rc_qp(struct mana_qp *qp, struct ibv_qp_attr *attr, i
 			if (attr_mask & IBV_QP_SQ_PSN) {
 				qp->rc_qp.sq_ssn = 1;
 				qp->rc_qp.sq_psn = attr->sq_psn;
-				gdma_arm_normal_cqe(&qp->rc_qp.queues[USER_RC_RECV_QUEUE_REQUESTER],
-						    attr->sq_psn);
+				gdma_arm_normal_cqe(mana_ib_get_rreq(qp), attr->sq_psn);
 			}
 			break;
 		default:

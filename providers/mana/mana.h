@@ -52,7 +52,12 @@ enum user_queue_types {
 	USER_RC_QUEUE_TYPE_MAX = 4,
 };
 
-
+#define QUEUE_TYPE_MASK 0x3
+#define QUEUE_TYPE_SREQ 0x0
+#define QUEUE_TYPE_SRESP 0x1
+#define QUEUE_TYPE_SMMQ 0x2
+#define QUEUE_TYPE_RRESP 0x0
+#define QUEUE_TYPE_RREQ 0x1
 
 static inline uint32_t align_hw_size(uint32_t size)
 {
@@ -141,6 +146,21 @@ struct mana_qp {
 	bool on_err_list_send;
 	bool on_err_list_recv;
 };
+
+static inline struct mana_gdma_queue *mana_ib_get_rresp(struct mana_qp *qp)
+{
+	return &qp->rc_qp.queues[USER_RC_RECV_QUEUE_RESPONDER];
+}
+
+static inline struct mana_gdma_queue *mana_ib_get_rreq(struct mana_qp *qp)
+{
+	return &qp->rc_qp.queues[USER_RC_RECV_QUEUE_REQUESTER];
+}
+
+static inline struct mana_gdma_queue *mana_ib_get_sreq(struct mana_qp *qp)
+{
+	return &qp->rc_qp.queues[USER_RC_SEND_QUEUE_REQUESTER];
+}
 
 struct mana_wq {
 	struct ibv_wq ibwq;
