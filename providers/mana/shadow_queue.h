@@ -30,13 +30,13 @@ struct shadow_wqe_header {
 	uint64_t wr_id;
 };
 
-struct rc_sq_shadow_wqe {
+struct rnic_sq_shadow_wqe {
 	struct  shadow_wqe_header header;
 	uint32_t end_psn;
 	uint32_t read_posted_wqe_size_in_bu;
 };
 
-struct rc_rq_shadow_wqe {
+struct rnic_rq_shadow_wqe {
 	struct shadow_wqe_header header;
 	uint32_t byte_len;
 	uint32_t imm_or_rkey;

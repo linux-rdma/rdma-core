@@ -105,7 +105,7 @@ static enum ibv_wc_status vendor_error_to_wc_error(uint32_t vendor_error)
 static void fill_verbs_from_shadow_wqe(struct mana_qp *qp, struct ibv_wc *wc,
 				       const struct shadow_wqe_header *shadow_wqe)
 {
-	const struct rc_rq_shadow_wqe *rc_wqe = (const struct rc_rq_shadow_wqe *)shadow_wqe;
+	const struct rnic_rq_shadow_wqe *rq_wqe = (const struct rnic_rq_shadow_wqe *)shadow_wqe;
 
 	wc->wr_id = shadow_wqe->wr_id;
 	wc->status = vendor_error_to_wc_error(shadow_wqe->vendor_error);
@@ -116,8 +116,8 @@ static void fill_verbs_from_shadow_wqe(struct mana_qp *qp, struct ibv_wc *wc,
 	wc->pkey_index = 0;
 
 	if (shadow_wqe->opcode & IBV_WC_RECV) {
-		wc->byte_len = rc_wqe->byte_len;
-		wc->imm_data = htobe32(rc_wqe->imm_or_rkey);
+		wc->byte_len = rq_wqe->byte_len;
+		wc->imm_data = htobe32(rq_wqe->imm_or_rkey);
 	}
 }
 
@@ -236,8 +236,8 @@ int mana_arm_cq(struct ibv_cq *ibcq, int solicited)
 
 static inline bool get_next_signal_psn(struct mana_qp *qp, uint32_t *psn)
 {
-	struct rc_sq_shadow_wqe *shadow_wqe =
-		(struct rc_sq_shadow_wqe *)shadow_queue_get_next_to_signal(&qp->shadow_sq);
+	struct rnic_sq_shadow_wqe *shadow_wqe =
+		(struct rnic_sq_shadow_wqe *)shadow_queue_get_next_to_signal(&qp->shadow_sq);
 
 	if (!shadow_wqe)
 		return false;
@@ -251,14 +251,14 @@ static inline int advance_send_completions(struct mana_qp *qp, uint32_t psn,
 {
 	struct mana_gdma_queue *recv_queue = mana_ib_get_rreq(qp);
 	struct mana_gdma_queue *send_queue = mana_ib_get_sreq(qp);
-	struct rc_sq_shadow_wqe *shadow_wqe;
+	struct rnic_sq_shadow_wqe *shadow_wqe;
 	int produced = 0;
 
-	if (!PSN_LT(psn, qp->rc_qp.sq_psn))
+	if (!PSN_LT(psn, qp->sq_psn))
 		return 0;
 
 	while (produced < nwc &&
-	       (shadow_wqe = (struct rc_sq_shadow_wqe *)
+	       (shadow_wqe = (struct rnic_sq_shadow_wqe *)
 		shadow_queue_get_next_to_consume(&qp->shadow_sq)) != NULL) {
 		if (PSN_LT(psn, shadow_wqe->end_psn))
 			break;
@@ -303,7 +303,7 @@ static inline int handle_rc_requester_cqe(struct mana_qp *qp, struct gdma_cqe *c
 
 	gdma_arm_normal_cqe(recv_queue, arm_psn);
 
-	struct rc_sq_shadow_wqe *next = (struct rc_sq_shadow_wqe *)
+	struct rnic_sq_shadow_wqe *next = (struct rnic_sq_shadow_wqe *)
 		shadow_queue_get_next_to_consume(&qp->shadow_sq);
 	if (!next)
 		*consumed = true;
@@ -317,9 +317,9 @@ static inline int handle_responder_cqe(struct mana_qp *qp, struct gdma_cqe *cqe,
 				       struct ibv_wc *wc)
 {
 	struct mana_gdma_queue *recv_queue = mana_ib_get_rresp(qp);
-	struct rc_rq_shadow_wqe *shadow_wqe;
+	struct rnic_rq_shadow_wqe *shadow_wqe;
 
-	shadow_wqe = (struct rc_rq_shadow_wqe *)shadow_queue_get_next_to_consume(&qp->shadow_rq);
+	shadow_wqe = (struct rnic_rq_shadow_wqe *)shadow_queue_get_next_to_consume(&qp->shadow_rq);
 	if (!shadow_wqe) {
 		verbs_warn_datapath(verbs_get_ctx(qp->ibqp.qp.context),
 				    "responder CQE wqid=%u qp_num=%u: shadow_wqe not found\n",
@@ -327,14 +327,14 @@ static inline int handle_responder_cqe(struct mana_qp *qp, struct gdma_cqe *cqe,
 		return 0;
 	}
 
-	uint32_t offset_cqe = cqe->rdma_cqe.rc_recv.rx_wqe_offset / GDMA_WQE_ALIGNMENT_UNIT_SIZE;
+	uint32_t offset_cqe = cqe->rdma_cqe.rnic_recv.rx_wqe_offset / GDMA_WQE_ALIGNMENT_UNIT_SIZE;
 	uint32_t offset_wqe = shadow_wqe->header.unmasked_queue_offset & GDMA_QUEUE_OFFSET_MASK;
 
 	if (offset_cqe != offset_wqe)
 		return 0;
 
-	shadow_wqe->byte_len = cqe->rdma_cqe.rc_recv.msg_len;
-	shadow_wqe->imm_or_rkey = cqe->rdma_cqe.rc_recv.imm_data;
+	shadow_wqe->byte_len = cqe->rdma_cqe.rnic_recv.msg_len;
+	shadow_wqe->imm_or_rkey = cqe->rdma_cqe.rnic_recv.imm_data;
 
 	switch (cqe->rdma_cqe.cqe_type) {
 	case CQE_TYPE_RC_WRITE_IMM:

@@ -45,11 +45,11 @@
 #define PSN_ADD(PSN, DELTA) (((PSN) + (DELTA)) & PSN_MASK)
 
 enum user_queue_types {
-	USER_RC_SEND_QUEUE_REQUESTER = 0,
-	USER_RC_SEND_QUEUE_RESPONDER = 1,
-	USER_RC_RECV_QUEUE_REQUESTER = 2,
-	USER_RC_RECV_QUEUE_RESPONDER = 3,
-	USER_RC_QUEUE_TYPE_MAX = 4,
+	USER_RNIC_SEND_QUEUE_REQUESTER = 0,
+	USER_RNIC_SEND_QUEUE_RESPONDER = 1,
+	USER_RNIC_RECV_QUEUE_REQUESTER = 2,
+	USER_RNIC_RECV_QUEUE_RESPONDER = 3,
+	USER_RNIC_QUEUE_TYPE_MAX = 4,
 };
 
 #define QUEUE_TYPE_MASK 0x3
@@ -119,20 +119,19 @@ struct mana_ib_raw_qp {
 	uint32_t tx_vp_offset;
 };
 
-struct mana_ib_rc_qp {
-	struct mana_gdma_queue queues[USER_RC_QUEUE_TYPE_MAX];
-	uint32_t sq_ssn;
-	uint32_t sq_psn;
+struct mana_ib_rnic_qp {
+	struct mana_gdma_queue queues[USER_RNIC_QUEUE_TYPE_MAX];
 };
 
 struct mana_qp {
 	struct verbs_qp ibqp;
 	pthread_spinlock_t sq_lock;
 	pthread_spinlock_t rq_lock;
-
+	uint32_t sq_ssn;
+	uint32_t sq_psn;
 	union {
 		struct mana_ib_raw_qp raw_qp;
-		struct mana_ib_rc_qp rc_qp;
+		struct mana_ib_rnic_qp rnic_qp;
 	};
 
 	enum ibv_mtu mtu;
@@ -149,17 +148,17 @@ struct mana_qp {
 
 static inline struct mana_gdma_queue *mana_ib_get_rresp(struct mana_qp *qp)
 {
-	return &qp->rc_qp.queues[USER_RC_RECV_QUEUE_RESPONDER];
+	return &qp->rnic_qp.queues[USER_RNIC_RECV_QUEUE_RESPONDER];
 }
 
 static inline struct mana_gdma_queue *mana_ib_get_rreq(struct mana_qp *qp)
 {
-	return &qp->rc_qp.queues[USER_RC_RECV_QUEUE_REQUESTER];
+	return &qp->rnic_qp.queues[USER_RNIC_RECV_QUEUE_REQUESTER];
 }
 
 static inline struct mana_gdma_queue *mana_ib_get_sreq(struct mana_qp *qp)
 {
-	return &qp->rc_qp.queues[USER_RC_SEND_QUEUE_REQUESTER];
+	return &qp->rnic_qp.queues[USER_RNIC_SEND_QUEUE_REQUESTER];
 }
 
 struct mana_wq {
