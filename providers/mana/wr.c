@@ -95,7 +95,7 @@ static inline void gdma_write_sge(struct gdma_wqe *wqe, void *oob_sge,
 		num_sge1--;
 	}
 
-	for (i = 0; i < num_sge; ++i, ++gdma_sgl) {
+	for (i = 0; i < num_sge; ++i, ++gdma_sgl, ++sge) {
 		if (i == num_sge1)
 			gdma_sgl = wqe->sgl2;
 
