@@ -1614,7 +1614,7 @@ static inline void bnxt_re_set_wr_hdr_flags(struct bnxt_re_qp *qp,
 	if (send_flags & IBV_SEND_INLINE)
 		hdrval |= ((BNXT_RE_WR_FLAGS_INLINE & BNXT_RE_HDR_FLAGS_MASK)
 				<< BNXT_RE_HDR_FLAGS_SHIFT);
-	hdrval |= ((qp->wr_sq.cur_slot_cnt) & BNXT_RE_HDR_WS_MASK) << BNXT_RE_HDR_WS_SHIFT;
+	hdrval |= ((qp->wr_sq.used_slot_cnt) & BNXT_RE_HDR_WS_MASK) << BNXT_RE_HDR_WS_SHIFT;
 	opcd = bnxt_re_ibv_to_bnxt_wr_opcd(qp->wr_sq.cur_opcode);
 	hdrval |= (opcd & BNXT_RE_HDR_WT_MASK);
 	qp->wr_sq.cur_hdr->rsv_ws_fl_wt = htole32(hdrval);
@@ -1693,7 +1693,7 @@ static inline void bnxt_re_update_swqe(struct ibv_qp_ex *ibvqp, struct bnxt_re_q
 	wrid->wrid = ibvqp->wr_id;
 	wrid->bytes = length;
 	wrid->slots = (qp->qpmode == BNXT_RE_WQE_MODE_STATIC) ?
-		STATIC_WQE_NUM_SLOTS : qp->wr_sq.cur_slot_cnt;
+		STATIC_WQE_NUM_SLOTS : qp->wr_sq.used_slot_cnt;
 	wrid->sig = (ibvqp->wr_flags & IBV_SEND_SIGNALED || qp->cap.sqsig) ?
 		IBV_SEND_SIGNALED : 0;
 	wrid->wc_opcd = bnxt_re_ibv_wr_to_wc_opcd(qp->wr_sq.cur_opcode);
@@ -1708,6 +1708,7 @@ static void bnxt_re_send_wr_start(struct ibv_qp_ex *ibvqp)
 	qp->wr_sq.cur_hdr = NULL;
 	qp->wr_sq.cur_sqe = NULL;
 	qp->wr_sq.cur_slot_cnt = 0;
+	qp->wr_sq.used_slot_cnt = 0;
 	qp->wr_sq.cur_wqe_cnt = 0;
 	qp->wr_sq.cur_opcode = 0xff;
 	qp->wr_sq.cur_push_wqe = false;
@@ -1724,7 +1725,6 @@ static int bnxt_re_send_wr_complete(struct ibv_qp_ex *ibvqp)
 
 	if (unlikely(err))
 		goto exit;
-	bnxt_re_set_wr_hdr_flags(qp, ibvqp->wr_flags);
 	qp->wqe_cnt += qp->wr_sq.cur_wqe_cnt;
 	slots = (qp->qpmode == BNXT_RE_WQE_MODE_STATIC) ?
 		STATIC_WQE_NUM_SLOTS : qp->wr_sq.cur_slot_cnt;
@@ -1775,8 +1775,10 @@ static void bnxt_re_send_wr_set_sge(struct ibv_qp_ex *ibvqp, uint32_t lkey,
 	else
 		bnxt_re_fill_psns(qp, length, *sq->dbtail, qp->wr_sq.cur_opcode);
 
+	qp->wr_sq.used_slot_cnt = 3;
 	bnxt_re_update_swqe(ibvqp, qp, length);
 	qp->wr_sq.cur_wqe_cnt++;
+	bnxt_re_set_wr_hdr_flags(qp, ibvqp->wr_flags);
 }
 
 static void bnxt_re_send_wr_set_sge_list(struct ibv_qp_ex *ibvqp, size_t nsge,
@@ -1816,8 +1818,10 @@ static void bnxt_re_send_wr_set_sge_list(struct ibv_qp_ex *ibvqp, size_t nsge,
 	else
 		bnxt_re_fill_psns(qp, len, *sq->dbtail, qp->wr_sq.cur_opcode);
 
+	qp->wr_sq.used_slot_cnt = nsge + 2;
 	bnxt_re_update_swqe(ibvqp, qp, len);
 	qp->wr_sq.cur_wqe_cnt++;
+	bnxt_re_set_wr_hdr_flags(qp, ibvqp->wr_flags);
 }
 
 static void bnxt_re_send_wr_set_inline_data(struct ibv_qp_ex *ibvqp,
@@ -1839,7 +1843,7 @@ static void bnxt_re_send_wr_set_inline_data(struct ibv_qp_ex *ibvqp,
 	}
 	ibv_buf.addr = addr;
 	ibv_buf.length = length;
-	len = bnxt_re_put_wr_inline(sq, &qp->wr_sq.cur_slot_cnt, pushb, 1, &ibv_buf, &length);
+	len = bnxt_re_put_wr_inline(sq, &qp->wr_sq.used_slot_cnt, pushb, 1, &ibv_buf, &length);
 	if (qp->qptyp == IBV_QPT_UD) {
 		qp->wr_sq.cur_hdr->lhdr.qkey_len |= htole64(len);
 	} else {
@@ -1851,9 +1855,12 @@ static void bnxt_re_send_wr_set_inline_data(struct ibv_qp_ex *ibvqp,
 		bnxt_re_fill_psns_for_msntbl(qp, len, *sq->dbtail, qp->wr_sq.cur_wqe_cnt);
 	else
 		bnxt_re_fill_psns(qp, len, *sq->dbtail, qp->wr_sq.cur_opcode);
+	qp->wr_sq.cur_slot_cnt += qp->wr_sq.used_slot_cnt;
+	qp->wr_sq.used_slot_cnt += 2;
 	bnxt_re_update_swqe(ibvqp, qp, len);
 	qp->wr_sq.cur_wqe_cnt++;
 	qp->wr_sq.cur_push_size += length;
+	bnxt_re_set_wr_hdr_flags(qp, ibvqp->wr_flags);
 }
 
 static void bnxt_re_send_wr_set_inline_data_list(struct ibv_qp_ex *ibvqp, size_t num_buf,
@@ -1894,9 +1901,11 @@ static void bnxt_re_send_wr_set_inline_data_list(struct ibv_qp_ex *ibvqp, size_t
 		bnxt_re_fill_psns_for_msntbl(qp, len, *sq->dbtail, qp->wr_sq.cur_opcode);
 	else
 		bnxt_re_fill_psns(qp, len, *sq->dbtail, qp->wr_sq.cur_opcode);
+	qp->wr_sq.used_slot_cnt = num + 2;
 	bnxt_re_update_swqe(ibvqp, qp, len);
 	qp->wr_sq.cur_wqe_cnt++;
 	qp->wr_sq.cur_push_size += msg_len;
+	bnxt_re_set_wr_hdr_flags(qp, ibvqp->wr_flags);
 }
 
 static void bnxt_re_send_wr_set_ud_addr(struct ibv_qp_ex *ibvqp, struct ibv_ah *ibah,

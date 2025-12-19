@@ -192,6 +192,7 @@ struct bnxt_re_wr_send_qp {
 	struct bnxt_re_send     *cur_sqe;
 	uint32_t                cur_wqe_cnt;
 	uint32_t                cur_slot_cnt;
+	uint32_t                used_slot_cnt;
 	uint32_t                cur_swq_idx;
 	uint8_t                 cur_opcode;
 	bool                    cur_push_wqe;
