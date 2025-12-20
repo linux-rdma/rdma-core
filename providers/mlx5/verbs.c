@@ -7918,13 +7918,13 @@ _mlx5dv_alloc_var(struct ibv_context *context, uint32_t flags)
 	DECLARE_COMMAND_BUFFER(cmd,
 			       MLX5_IB_OBJECT_VAR,
 			       MLX5_IB_METHOD_VAR_OBJ_ALLOC,
-			       4);
+			       5);
 
 	struct ib_uverbs_attr *handle;
 	struct mlx5_var_obj *obj;
 	int ret;
 
-	if (flags) {
+	if (!check_comp_mask(flags, MLX5DV_VAR_ALLOC_FLAG_TLP)) {
 		errno = EOPNOTSUPP;
 		return NULL;
 	}
@@ -7934,6 +7934,9 @@ _mlx5dv_alloc_var(struct ibv_context *context, uint32_t flags)
 		errno = ENOMEM;
 		return NULL;
 	}
+
+	if (flags)
+		fill_attr_in_uint32(cmd, MLX5_IB_ATTR_VAR_OBJ_ALLOC_FLAGS, flags);
 
 	handle = fill_attr_out_obj(cmd, MLX5_IB_ATTR_VAR_OBJ_ALLOC_HANDLE);
 	fill_attr_out_ptr(cmd, MLX5_IB_ATTR_VAR_OBJ_ALLOC_MMAP_OFFSET,
