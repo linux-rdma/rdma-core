@@ -139,6 +139,7 @@ enum mlx5_ib_var_alloc_attrs {
 	MLX5_IB_ATTR_VAR_OBJ_ALLOC_MMAP_OFFSET,
 	MLX5_IB_ATTR_VAR_OBJ_ALLOC_MMAP_LENGTH,
 	MLX5_IB_ATTR_VAR_OBJ_ALLOC_PAGE_ID,
+	MLX5_IB_ATTR_VAR_OBJ_ALLOC_FLAGS,
 };
 
 enum mlx5_ib_var_obj_destroy_attrs {
