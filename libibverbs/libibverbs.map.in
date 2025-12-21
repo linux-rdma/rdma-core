@@ -171,6 +171,11 @@ IBVERBS_1.15 {
 		ibv_reg_mr_ex;
 } IBVERBS_1.14;
 
+IBVERBS_1.16 {
+	global:
+		ibv_query_port_speed;
+} IBVERBS_1.15;
+
 /* If any symbols in this stanza change ABI then the entire staza gets a new symbol
    version. See the top level CMakeLists.txt for this setting. */
 
@@ -234,6 +239,7 @@ IBVERBS_PRIVATE_@IBVERBS_PABI_VERSION@ {
 		ibv_cmd_query_device_any;
 		ibv_cmd_query_mr;
 		ibv_cmd_query_port;
+		ibv_cmd_query_port_speed;
 		ibv_cmd_query_qp;
 		ibv_cmd_query_srq;
 		ibv_cmd_read_counters;
