@@ -28,6 +28,7 @@ from libc.string cimport memset
 from libc.stdint cimport uint64_t
 from libc.stdint cimport uint16_t
 from libc.stdint cimport uint32_t
+from libc.stdint cimport uintptr_t
 from pyverbs.utils import gid_str
 
 cdef extern from 'endian.h':
@@ -188,7 +189,7 @@ cdef class Context(PyverbsCM):
 
     @property
     def context(self):
-        return <object>self.context
+        return <uintptr_t>self.context
 
     @property
     def num_comp_vectors(self):

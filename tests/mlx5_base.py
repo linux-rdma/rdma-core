@@ -63,6 +63,7 @@ MLX5_DEVS = {
     0x1021,  # ConnectX-7
     0x1023,  # ConnectX-8
     0x1025,  # ConnectX-9
+    0x1027,  # ConnectX-10
     0xa2d2,  # BlueField integrated ConnectX-5 network controller
     0xa2d3,  # BlueField integrated ConnectX-5 network controller VF
     0xa2d6,  # BlueField-2 integrated ConnectX-6 Dx network controller
@@ -70,9 +71,6 @@ MLX5_DEVS = {
     0xa2df,  # BlueField-4 integrated ConnectX-8 network controller
 }
 
-DCI_TEST_GOOD_FLOW = 0
-DCI_TEST_BAD_FLOW_WITH_RESET = 1
-DCI_TEST_BAD_FLOW_WITHOUT_RESET = 2
 IB_SMP_ATTR_PORT_INFO = 0x0015
 IB_MGMT_CLASS_SUBN_LID_ROUTED = 0x01
 IB_MGMT_METHOD_GET = 0x01
@@ -123,9 +121,16 @@ class Mlx5RDMACMBaseTest(RDMACMBaseTest):
 
 class Mlx5DcResources(RoCETrafficResources):
     def __init__(self, dev_name, ib_port, gid_index, send_ops_flags,
-                 qp_count=1, create_flags=0):
+                 qp_count=1, create_flags=0, mr_access=None):
         self.send_ops_flags = send_ops_flags
         self.create_flags = create_flags
+        if mr_access is None:
+            self.mr_access = (ibv_access_flags.IBV_ACCESS_REMOTE_WRITE |
+                              ibv_access_flags.IBV_ACCESS_LOCAL_WRITE |
+                              ibv_access_flags.IBV_ACCESS_REMOTE_ATOMIC |
+                              ibv_access_flags.IBV_ACCESS_REMOTE_READ)
+        else:
+            self.mr_access = mr_access
         super().__init__(dev_name, ib_port, gid_index, with_srq=True,
                          qp_count=qp_count)
 
@@ -145,9 +150,7 @@ class Mlx5DcResources(RoCETrafficResources):
             raise unittest.SkipTest('Opening mlx5 context is not supported')
 
     def create_mr(self):
-        access = ibv_access_flags.IBV_ACCESS_REMOTE_WRITE | ibv_access_flags.IBV_ACCESS_LOCAL_WRITE | \
-                 ibv_access_flags.IBV_ACCESS_REMOTE_ATOMIC | ibv_access_flags.IBV_ACCESS_REMOTE_READ
-        self.mr = MR(self.pd, self.msg_size, access)
+        self.mr = MR(self.pd, self.msg_size, self.mr_access)
 
     def create_qp_cap(self):
         return QPCap(100, 0, 1, 0)
@@ -205,18 +208,14 @@ class Mlx5DcResources(RoCETrafficResources):
 
 class Mlx5DcStreamsRes(Mlx5DcResources):
     def __init__(self, dev_name, ib_port, gid_index, send_ops_flags,
-                 qp_count=1, create_flags=0):
-        self.bad_flow = 0
-        self.mr_bad_flow = False
-        self.stream_check = False
+                 qp_count=1, create_flags=0, mr_access=None):
         super().__init__(dev_name, ib_port, gid_index, send_ops_flags,
-                         qp_count, create_flags)
+                         qp_count, create_flags, mr_access)
 
     def reset_qp(self, qp_idx):
         qp_attr = QPAttr(qp_state=ibv_qp_state.IBV_QPS_RESET)
         self.qps[qp_idx].modify(qp_attr, ibv_qp_attr_mask.IBV_QP_STATE)
         self.qps[qp_idx].to_rts(qp_attr)
-        self.qp_stream_errors[qp_idx][0] = 0
 
     def get_stream_id(self, qp_idx):
         return self.current_qp_stream_id[qp_idx]
@@ -231,96 +230,6 @@ class Mlx5DcStreamsRes(Mlx5DcResources):
     def dci_reset_stream_id(self, qp_idx):
         stream_id = self.get_stream_id(qp_idx)
         Mlx5QP.modify_dci_stream_channel_id(self.qps[qp_idx], stream_id)
-        # Check once if error raised when reset wrong stream id
-        if self.stream_check:
-            try:
-                Mlx5QP.modify_dci_stream_channel_id(self.qps[qp_idx],
-                                                    stream_id+1)
-            except PyverbsRDMAError as ex:
-                self.stream_check = False
-
-    def bad_flow_handler_qp(self, qp_idx, status, reset=False):
-        str_id = self.get_stream_id(qp_idx)
-        bt_stream = (1 << str_id)
-
-        if status == ibv_wc_status.IBV_WC_LOC_PROT_ERR:
-            self.qp_stream_errors[qp_idx][1] += 1
-            if (self.qp_stream_errors[qp_idx][0] & bt_stream) != 0:
-                raise PyverbsError(f'Dublicate error from stream id {str_id}')
-            self.qp_stream_errors[qp_idx][0] |= bt_stream
-        if status == ibv_wc_status.IBV_WC_WR_FLUSH_ERR:
-            qp_attr, _ = self.qps[qp_idx].query(ibv_qp_attr_mask.IBV_QP_STATE)
-            if qp_attr.cur_qp_state == ibv_qp_state.IBV_QPS_ERR and reset:
-                if self.qp_stream_errors[qp_idx][1] != self.dcis[qp_idx]['errored']:
-                    msg = f'QP {qp_idx} in ERR state with wrong number of counter'
-                    raise PyverbsError(msg)
-                self.reset_qp(qp_idx)
-                self.qp_stream_errors[qp_idx][2] = True
-
-        return True
-
-    def bad_flow_handling(self, qp_idx, status, reset=False):
-        if self.bad_flow == DCI_TEST_GOOD_FLOW:
-            return False
-        if self.bad_flow == DCI_TEST_BAD_FLOW_WITH_RESET:
-            self.qp_stream_errors[qp_idx][1] += 1
-            if reset:
-                self.dci_reset_stream_id(qp_idx)
-            return True
-        if self.bad_flow == DCI_TEST_BAD_FLOW_WITHOUT_RESET:
-            return self.bad_flow_handler_qp(qp_idx, status, reset)
-        return False
-
-    def set_bad_flow(self, bad_flow):
-        self.bad_flow = bad_flow
-        if self.bad_flow:
-            if bad_flow == DCI_TEST_BAD_FLOW_WITH_RESET and self.log_dci_errored == 0:
-                raise unittest.SkipTest('DCS test of bad flow with reset is not '
-                                        'supported when HCA_CAP.log_dci_errored is 0')
-            self.pd_bad = PD(self.ctx)
-            self.mr_bad_flow = False
-        if bad_flow == DCI_TEST_BAD_FLOW_WITH_RESET:
-            self.stream_check = True
-
-    def is_bad_flow(self, qp_idx):
-        cnt = self.get_stream_id(qp_idx)
-        if self.bad_flow == DCI_TEST_GOOD_FLOW:
-            return False
-        if self.bad_flow == DCI_TEST_BAD_FLOW_WITH_RESET:
-            if (cnt % 3) != 0:
-                return False
-            self.qp_stream_errors[qp_idx][0] += 1
-        if self.bad_flow == DCI_TEST_BAD_FLOW_WITHOUT_RESET:
-            if self.qp_stream_errors[qp_idx][2]:
-                return False
-        return True
-
-    def check_bad_flow(self, qp_idx):
-        change_mr = False
-        if self.is_bad_flow(qp_idx):
-            if not self.mr_bad_flow:
-                self.mr_bad_flow = True
-                pd = self.pd_bad
-                change_mr = True
-        else:
-            if self.mr_bad_flow:
-                self.mr_bad_flow = False
-                pd = self.pd
-                change_mr = True
-        if change_mr:
-            self.mr.rereg(flags=ibv_rereg_mr_flags.IBV_REREG_MR_CHANGE_PD, pd=pd,
-                          addr=0, length=0, access=0)
-
-    def check_after_traffic(self):
-        if self.bad_flow == DCI_TEST_BAD_FLOW_WITH_RESET:
-            for errs in self.qp_stream_errors:
-                if errs[0] != errs[1]:
-                    msg = f'Number of qp_stream_errors {errs[0]} not same '\
-                          f'as number of catches {errs[1]}'
-                    raise PyverbsError(msg)
-            if self.stream_check:
-                msg = 'Reset of good stream id does not create exception'
-                raise PyverbsError(msg)
 
     def generate_dci_attr(self, qpn):
         # This array contains current number of log_dci_streams
@@ -347,8 +256,6 @@ class Mlx5DcStreamsRes(Mlx5DcResources):
         self.dcis = {}
         # This array contains current stream id
         self.current_qp_stream_id = {}
-        # This array counts different errors in bad_flow
-        self.qp_stream_errors = []
         comp_mask = mlx5dv_qp_init_attr_mask.MLX5DV_QP_INIT_ATTR_MASK_DC | \
                     mlx5dv_qp_init_attr_mask.MLX5DV_QP_INIT_ATTR_MASK_DCI_STREAMS
         try:
@@ -367,15 +274,6 @@ class Mlx5DcStreamsRes(Mlx5DcResources):
                 self.qps.append(qp)
                 # Different values for start point of stream id per qp
                 self.current_qp_stream_id[qpn] = qpn
-                # Array of errors for bad_flow
-                # For DCI_TEST_BAD_FLOW_WITH_RESET
-                #  First element - number of injected bad flows
-                #  Second element - number of exceptions from bad flows
-                # For DCI_TEST_BAD_FLOW_WITHOUT_RESET
-                #  First element - bitmap of bad flow streams
-                #  Second element - number of exceptions from bad flows
-                #  Third element - flag if reset of qp been executed
-                self.qp_stream_errors.append([0, 0, False])
                 self.qps_num.append(qp.qp_num)
                 self.psns.append(random.getrandbits(24))
             # Create the DCT QP.
@@ -389,49 +287,6 @@ class Mlx5DcStreamsRes(Mlx5DcResources):
             if ex.error_code in [errno.EOPNOTSUPP, errno.EPROTONOSUPPORT]:
                 raise unittest.SkipTest('Create DC QP is not supported')
             raise ex
-
-    @staticmethod
-    def traffic_with_bad_flow(client, server, iters, gid_idx, port):
-        """
-        Runs basic traffic with bad flow between two sides
-        :param client: client side, clients base class is BaseTraffic
-        :param server: server side, servers base class is BaseTraffic
-        :param iters: number of traffic iterations
-        :param gid_idx: local gid index
-        :param port: IB port
-        :return: None
-        """
-        import tests.utils as u
-        send_op = ibv_wr_opcode.IBV_WR_SEND
-        ah_client = u.get_global_ah(client, gid_idx, port)
-        s_recv_wr = u.get_recv_wr(server)
-        c_recv_wr = u.get_recv_wr(client)
-        for qp_idx in range(server.qp_count):
-            # Prepare the receive queue with RecvWR
-            u.post_recv(client, c_recv_wr, qp_idx=qp_idx)
-            u.post_recv(server, s_recv_wr, qp_idx=qp_idx)
-        read_offset = 0
-        for _ in range(iters):
-            for qp_idx in range(server.qp_count):
-                _, c_send_object = u.get_send_elements(client, False)
-                u.send(client, c_send_object, send_op, True, qp_idx,
-                       ah_client, False)
-                try:
-                    wcs = u._poll_cq(client.cq)
-                except PyverbsError as ex:
-                    if client.bad_flow_handling(qp_idx, ibv_wc_status.IBV_WC_SUCCESS, True):
-                        continue
-                    raise ex
-                else:
-                    if wcs[0].status != ibv_wc_status.IBV_WC_SUCCESS and \
-                            client.bad_flow_handling(qp_idx, wcs[0].status, True):
-                        continue
-
-                u.poll_cq(server.cq)
-                u.post_recv(server, s_recv_wr, qp_idx=qp_idx)
-                msg_received = server.mr.read(server.msg_size, read_offset)
-                u.validate(msg_received, True, server.msg_size)
-        client.check_after_traffic()
 
 
 class WqAttrs:
