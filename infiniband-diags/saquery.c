@@ -44,6 +44,7 @@
 #include <ctype.h>
 #include <string.h>
 #include <errno.h>
+#include <sys/socket.h>
 
 #define _GNU_SOURCE
 
