@@ -45,6 +45,7 @@
 #include <linux/ip.h>
 #include <dirent.h>
 #include <netinet/in.h>
+#include <linux/in6.h>
 
 #include <util/compiler.h>
 #include <util/symver.h>
