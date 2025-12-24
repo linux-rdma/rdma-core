@@ -39,6 +39,7 @@
 #include <infiniband/driver.h>
 #include <sys/socket.h>
 #include <netinet/in.h>
+#include <linux/in6.h>
 #include <rdma/rdma_user_rxe.h>
 #include "rxe-abi.h"
 
