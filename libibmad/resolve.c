@@ -37,6 +37,7 @@
 #include <string.h>
 #include <arpa/inet.h>
 #include <errno.h>
+#include <sys/socket.h>
 
 #include <infiniband/umad.h>
 #include <infiniband/mad.h>
