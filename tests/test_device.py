@@ -284,6 +284,22 @@ class DeviceTest(PyverbsAPITestCase):
                         'Successfully queried non-existing port {p}'. \
                         format(p=port))
 
+    def test_query_port_speed(self):
+        """
+        Test ibv_query_port_speed
+        """
+        for dev in self.get_device_list():
+            with d.Context(name=dev.name.decode()) as ctx:
+                try:
+                    port_speed = ctx.query_port_speed(self.ib_port)
+                except PyverbsRDMAError as ex:
+                    if ex.error_code in [errno.EOPNOTSUPP, errno.EPROTONOSUPPORT]:
+                        raise unittest.SkipTest('ibv_query_port_speed is not'
+                                                ' supported on this device')
+                    raise ex
+                self.assertGreaterEqual(port_speed, 0, 'Port speed should be positive, got'
+                                                       f' {port_speed} Mbps')
+
 
 class DMTest(PyverbsAPITestCase):
     """
