@@ -37,6 +37,7 @@
 #include <errno.h>
 #include <inttypes.h>
 #include <unistd.h>
+#include <sys/socket.h>
 
 #include <infiniband/umad.h>
 #include <infiniband/umad_sa_mcm.h>
