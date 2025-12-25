@@ -36,3 +36,17 @@ class Mlx5UarTestCase(Mlx5RDMATestCase):
         finally:
             for uar in self.uar_res.uars:
                 uar.close()
+
+    def test_uar_export_dmabuf_fd(self):
+        """Test exporting a UAR as a dmabuf FD"""
+        try:
+            self.uar_res.uars.append(Mlx5UAR(self.uar_res.ctx, _MLX5DV_UAR_ALLOC_TYPE_NC))
+            dmabuf_fd = self.uar_res.uars[-1].export_dmabuf_fd()
+            self.assertGreater(dmabuf_fd, 0, 'Expected a valid dmabuf FD greater than 0')
+        except PyverbsRDMAError as ex:
+            if ex.error_code in [errno.EPROTONOSUPPORT, errno.EOPNOTSUPP]:
+                raise unittest.SkipTest('UAR dmabuf export is not supported')
+            raise ex
+        finally:
+            for uar in self.uar_res.uars:
+                uar.close()
