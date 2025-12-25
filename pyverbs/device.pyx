@@ -866,6 +866,16 @@ cdef class DM(PyverbsCM):
         free(data)
         return res
 
+    def export_dmabuf_fd(self):
+        """
+        Export a dmabuf FD for this DM object.
+        :return: A file descriptor (int) for the dmabuf FD
+        """
+        fd = v.ibv_dm_export_dmabuf_fd(self.dm)
+        if fd < 0:
+            raise PyverbsRDMAErrno('Failed to export dmabuf FD for DM')
+        return fd
+
     @property
     def handle(self):
         return self.dm.handle
