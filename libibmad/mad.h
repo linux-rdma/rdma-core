@@ -1714,6 +1714,7 @@ extern int ibdebug;
 
 /* Misc. macros: */
 /** align value \a l to \a size (ceil) */
+#undef ALIGN
 #define ALIGN(l, size) (((l) + ((size) - 1)) / (size) * (size))
 
 /** printf style warning MACRO, includes name of function and pid */
