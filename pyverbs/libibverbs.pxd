@@ -703,6 +703,7 @@ cdef extern from 'infiniband/verbs.h':
                          size_t length)
     int ibv_memcpy_from_dm(void *host_addr,  ibv_dm *dm, unsigned long dm_offset,
                            size_t length)
+    int ibv_dm_export_dmabuf_fd(ibv_dm *dm)
     int ibv_query_port(ibv_context *context, uint8_t port_num,
                        ibv_port_attr *port_attr)
     int ibv_query_port_speed(ibv_context *context, uint8_t port_num,
