@@ -403,18 +403,8 @@ static void getenv_options(void)
 		fork_support = atoi(var);
 }
 
-static void init_preload(void)
+static void init_preload_act(void)
 {
-	static int init;
-
-	/* Quick check without lock */
-	if (init)
-		return;
-
-	pthread_mutex_lock(&mut);
-	if (init)
-		goto out;
-
 	real.socket = dlsym(RTLD_NEXT, "socket");
 	real.bind = dlsym(RTLD_NEXT, "bind");
 	real.listen = dlsym(RTLD_NEXT, "listen");
@@ -476,9 +466,13 @@ static void init_preload(void)
 
 	getenv_options();
 	scan_config();
-	init = 1;
-out:
-	pthread_mutex_unlock(&mut);
+}
+
+static void init_preload(void)
+{
+	static pthread_once_t init_preload_ctrl = PTHREAD_ONCE_INIT;
+
+	pthread_once(&init_preload_ctrl, init_preload_act);
 }
 
 /*
