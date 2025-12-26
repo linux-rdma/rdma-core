@@ -1177,8 +1177,12 @@ int fcntl(int socket, int cmd, ... /* arg */)
 	case F_GETFD:
 	case F_GETFL:
 	case F_GETOWN:
+#ifdef F_GETSIG
 	case F_GETSIG:
+#endif
+#ifdef F_GETLEASE
 	case F_GETLEASE:
+#endif
 		ret = (fd_get(socket, &fd) == fd_rsocket) ?
 			rfcntl(fd, cmd) : real.fcntl(fd, cmd);
 		break;
@@ -1187,9 +1191,15 @@ int fcntl(int socket, int cmd, ... /* arg */)
 	case F_SETFD:
 	case F_SETFL:
 	case F_SETOWN:
+#ifdef F_SETSIG
 	case F_SETSIG:
+#endif
+#ifdef F_SETLEASE
 	case F_SETLEASE:
+#endif
+#ifdef F_NOTIFY
 	case F_NOTIFY:
+#endif
 		lparam = va_arg(args, long);
 		ret = (fd_get(socket, &fd) == fd_rsocket) ?
 			rfcntl(fd, cmd, lparam) : real.fcntl(fd, cmd, lparam);
