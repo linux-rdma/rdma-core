@@ -9,7 +9,7 @@ from pyverbs.providers.mlx5.mlx5_enums import mlx5dv_dr_action_dest_type
 from pyverbs.pyverbs_error import PyverbsError
 from pyverbs.base cimport close_weakrefs
 from libc.stdlib cimport calloc, free
-from libc.stdint cimport uint32_t, uint8_t
+from libc.stdint cimport uint64_t, uint32_t, uint8_t
 from libc.string cimport memcpy
 import weakref
 import struct
@@ -18,6 +18,8 @@ import errno
 be64toh = lambda num: struct.unpack('Q'.encode(), struct.pack('!8s'.encode(), num))[0]
 ACTION_SIZE = 8
 
+cdef extern from "<linux/types.h>":
+   ctypedef uint64_t __be64
 
 cdef class DrAction(PyverbsCM):
     def __init__(self):
@@ -111,7 +113,7 @@ cdef class DrActionModify(DrAction):
         """
         super().__init__()
         action_buf_size = len(actions) * ACTION_SIZE
-        cdef unsigned long long *buf = <unsigned long long*>calloc(1, action_buf_size)
+        cdef __be64 *buf = <__be64 *>calloc(1, action_buf_size)
         if buf == NULL:
            raise MemoryError('Failed to allocate memory', errno)
 
