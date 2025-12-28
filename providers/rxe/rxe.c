@@ -1738,7 +1738,7 @@ static inline int rdma_gid2ip(sockaddr_union_t *out, union ibv_gid *gid)
 	} else {
 		memset(&out->_sockaddr_in6, 0, sizeof(out->_sockaddr_in6));
 		out->_sockaddr_in6.sin6_family = AF_INET6;
-		memcpy(&out->_sockaddr_in6.sin6_addr.s6_addr, gid->raw, 16);
+		memcpy(&out->_sockaddr_in6.sin6_addr, gid->raw, 16);
 	}
 	return 0;
 }
