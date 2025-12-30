@@ -1976,6 +1976,7 @@ init_rc_wqe(struct hns_roce_qp *qp, uint64_t wr_id, unsigned int opcode)
 	wqe_idx = qp->sq.head & (qp->sq.wqe_cnt - 1);
 	wqe = get_send_wqe(qp, wqe_idx);
 
+	wqe->byte_4 = 0;
 	hr_reg_write(wqe, RCWQE_OPCODE, opcode);
 	hr_reg_write_bool(wqe, RCWQE_CQE, send_flags & IBV_SEND_SIGNALED);
 	hr_reg_write_bool(wqe, RCWQE_FENCE, send_flags & IBV_SEND_FENCE);
@@ -2298,6 +2299,7 @@ init_ud_wqe(struct hns_roce_qp *qp, uint64_t wr_id, unsigned int opcode)
 	wqe_idx = qp->sq.head & (qp->sq.wqe_cnt - 1);
 	wqe = get_send_wqe(qp, wqe_idx);
 
+	wqe->rsv_opcode = 0;
 	hr_reg_write(wqe, UDWQE_OPCODE, opcode);
 	hr_reg_write_bool(wqe, UDWQE_CQE, send_flags & IBV_SEND_SIGNALED);
 	hr_reg_write_bool(wqe, UDWQE_SE, send_flags & IBV_SEND_SOLICITED);
