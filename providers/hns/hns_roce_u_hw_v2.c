@@ -321,14 +321,19 @@ static void hns_roce_write_dwqe(struct hns_roce_qp *qp, void *wqe)
 
 static void update_cq_db(struct hns_roce_context *ctx, struct hns_roce_cq *cq)
 {
-	struct hns_roce_db cq_db = {};
+	if (cq->flags & HNS_ROCE_CQ_FLAG_RECORD_DB) {
+		*cq->db = cq->cons_index & RECORD_DB_CI_MASK;
+	} else {
+		struct hns_roce_db cq_db = {};
 
-	hr_reg_write(&cq_db, DB_TAG, cq->cqn);
-	hr_reg_write(&cq_db, DB_CMD, HNS_ROCE_V2_CQ_DB_PTR);
-	hr_reg_write(&cq_db, DB_CQ_CI, cq->cons_index);
-	hr_reg_write(&cq_db, DB_CQ_CMD_SN, 1);
+		hr_reg_write(&cq_db, DB_TAG, cq->cqn);
+		hr_reg_write(&cq_db, DB_CMD, HNS_ROCE_V2_CQ_DB_PTR);
+		hr_reg_write(&cq_db, DB_CQ_CI, cq->cons_index);
+		hr_reg_write(&cq_db, DB_CQ_CMD_SN, 1);
 
-	hns_roce_write64(ctx->uar + ROCEE_VF_DB_CFG0_OFFSET, (__le32 *)&cq_db);
+		hns_roce_write64(ctx->uar + ROCEE_VF_DB_CFG0_OFFSET,
+				 (__le32 *)&cq_db);
+	}
 }
 
 static struct hns_roce_qp *hns_roce_v2_find_qp(struct hns_roce_context *ctx,
@@ -839,12 +844,8 @@ static int hns_roce_u_v2_poll_cq(struct ibv_cq *ibvcq, int ne,
 			break;
 	}
 
-	if (npolled || err == V2_CQ_POLL_ERR) {
-		if (cq->flags & HNS_ROCE_CQ_FLAG_RECORD_DB)
-			*cq->db = cq->cons_index & RECORD_DB_CI_MASK;
-		else
-			update_cq_db(ctx, cq);
-	}
+	if (npolled || err == V2_CQ_POLL_ERR)
+		update_cq_db(ctx, cq);
 
 	hns_roce_spin_unlock(&cq->hr_lock);
 
@@ -1926,10 +1927,7 @@ static int wc_next_poll_cq(struct ibv_cq_ex *current)
 	if (err != V2_CQ_OK)
 		return err;
 
-	if (cq->flags & HNS_ROCE_CQ_FLAG_RECORD_DB)
-		*cq->db = cq->cons_index & RECORD_DB_CI_MASK;
-	else
-		update_cq_db(ctx, cq);
+	update_cq_db(ctx, cq);
 
 	return 0;
 }
@@ -1939,11 +1937,7 @@ static void wc_end_poll_cq(struct ibv_cq_ex *current)
 	struct hns_roce_cq *cq = to_hr_cq(ibv_cq_ex_to_cq(current));
 	struct hns_roce_context *ctx = to_hr_ctx(current->context);
 
-	if (cq->flags & HNS_ROCE_CQ_FLAG_RECORD_DB)
-		*cq->db = cq->cons_index & RECORD_DB_CI_MASK;
-	else
-		update_cq_db(ctx, cq);
-
+	update_cq_db(ctx, cq);
 	hns_roce_spin_unlock(&cq->hr_lock);
 }
 
@@ -2111,6 +2105,7 @@ init_rc_wqe(struct hns_roce_qp *qp, uint64_t wr_id, unsigned int opcode)
 	wqe_idx = qp->sq.head & (qp->sq.wqe_cnt - 1);
 	wqe = get_send_wqe(qp, wqe_idx);
 
+	wqe->byte_4 = 0;
 	hr_reg_write(wqe, RCWQE_OPCODE, opcode);
 	hr_reg_write_bool(wqe, RCWQE_CQE, send_flags & IBV_SEND_SIGNALED);
 	hr_reg_write_bool(wqe, RCWQE_FENCE, send_flags & IBV_SEND_FENCE);
@@ -2453,6 +2448,7 @@ init_ud_wqe(struct hns_roce_qp *qp, uint64_t wr_id, unsigned int opcode)
 	wqe_idx = qp->sq.head & (qp->sq.wqe_cnt - 1);
 	wqe = get_send_wqe(qp, wqe_idx);
 
+	wqe->rsv_opcode = 0;
 	hr_reg_write(wqe, UDWQE_OPCODE, opcode);
 	hr_reg_write_bool(wqe, UDWQE_CQE, send_flags & IBV_SEND_SIGNALED);
 	hr_reg_write_bool(wqe, UDWQE_SE, send_flags & IBV_SEND_SOLICITED);
