@@ -703,6 +703,7 @@ static int ionic_flush_recv(struct ionic_qp *qp, struct ibv_wc *wc)
 	struct ionic_rq_meta *meta;
 	struct ionic_v1_wqe *wqe;
 	struct ionic_ctx *ctx;
+	uint64_t wqe_idx;
 
 	if (!qp->rq.flush)
 		return 0;
@@ -711,20 +712,19 @@ static int ionic_flush_recv(struct ionic_qp *qp, struct ibv_wc *wc)
 		return 0;
 
 	wqe = ionic_queue_at_cons(&qp->rq.queue);
+	wqe_idx = le64toh(wqe->base.wqe_idx);
 	ctx = to_ionic_ctx(qp->vqp.qp.context);
 
-	/* wqe_id must be a valid queue index */
-	if (unlikely(wqe->base.wqe_id >> qp->rq.queue.depth_log2)) {
-		verbs_err(&ctx->vctx, "invalid id %#lx",
-			  (unsigned long)wqe->base.wqe_id);
+	/* wqe_idx must be a valid queue index */
+	if (unlikely(wqe_idx >> qp->rq.queue.depth_log2)) {
+		verbs_err(&ctx->vctx, "invalid id %#lx", (unsigned long)wqe_idx);
 		return -EIO;
 	}
 
-	/* wqe_id must indicate a request that is outstanding */
-	meta = &qp->rq.meta[wqe->base.wqe_id];
+	/* wqe_idx must indicate a request that is outstanding */
+	meta = &qp->rq.meta[wqe_idx];
 	if (unlikely(meta->next != IONIC_META_POSTED)) {
-		verbs_err(&ctx->vctx, "wqe not posted %#lx",
-			  (unsigned long)wqe->base.wqe_id);
+		verbs_err(&ctx->vctx, "wqe not posted %#lx", (unsigned long)wqe_idx);
 		return -EIO;
 	}
 
@@ -803,8 +803,8 @@ static int ionic_poll_recv(struct ionic_ctx *ctx, struct ionic_cq *cq,
 {
 	struct ionic_qp *qp = NULL;
 	struct ionic_rq_meta *meta;
+	uint16_t vlan_tag, wqe_idx;
 	uint32_t src_qpn, st_len;
-	uint16_t vlan_tag;
 	uint8_t op;
 
 	if (cqe_qp->rq.flush)
@@ -814,7 +814,7 @@ static int ionic_poll_recv(struct ionic_ctx *ctx, struct ionic_cq *cq,
 
 	st_len = be32toh(cqe->status_length);
 
-	/* ignore wqe_id in case of flush error */
+	/* ignore wqe_idx in case of flush error */
 	if (ionic_v1_cqe_error(cqe) && st_len == IONIC_STS_WQE_FLUSHED_ERR) {
 		cqe_qp->rq.flush = true;
 		cq->flush = true;
@@ -831,19 +831,20 @@ static int ionic_poll_recv(struct ionic_ctx *ctx, struct ionic_cq *cq,
 		return -EIO;
 	}
 
-	/* wqe_id must be a valid queue index */
-	if (unlikely(cqe->recv.wqe_id >> qp->rq.queue.depth_log2)) {
-		verbs_err(&ctx->vctx, "invalid id %#lx",
-			  (unsigned long)cqe->recv.wqe_id);
+	wqe_idx = le64toh(cqe->recv.wqe_idx) & IONIC_V1_CQE_WQE_IDX_MASK;
+
+	/* wqe_idx must be a valid queue index */
+	if (unlikely(wqe_idx >> qp->rq.queue.depth_log2)) {
+		verbs_err(&ctx->vctx, "invalid id %#lx", (unsigned long)wqe_idx);
 		return -EIO;
 	}
 
-	/* wqe_id must indicate a request that is outstanding */
-	meta = &qp->rq.meta[qp->rq.meta_idx[cqe->recv.wqe_id]];
+	/* wqe_idx must indicate a request that is outstanding */
+	meta = &qp->rq.meta[qp->rq.meta_idx[wqe_idx]];
 	if (unlikely(meta->next != IONIC_META_POSTED)) {
 		verbs_err(&ctx->vctx, "wqe is not posted for idx %lu meta_idx %u qpid %u rq.prod %u rq.cons %u cqid %u",
-			  (unsigned long)cqe->recv.wqe_id,
-			  qp->rq.meta_idx[cqe->recv.wqe_id],
+			  (unsigned long)wqe_idx,
+			  qp->rq.meta_idx[wqe_idx],
 			  qp->qpid, qp->rq.queue.prod,
 			  qp->rq.queue.cons, cq->cqid);
 		return -EIO;
@@ -1086,7 +1087,7 @@ static int ionic_comp_npg(struct ionic_ctx *ctx,
 			  struct ionic_v1_cqe *cqe)
 {
 	struct ionic_sq_meta *meta;
-	uint16_t cqe_idx;
+	uint16_t wqe_idx;
 	uint32_t st_len;
 
 	if (qp->sq.flush)
@@ -1107,8 +1108,8 @@ static int ionic_comp_npg(struct ionic_ctx *ctx,
 		return 0;
 	}
 
-	cqe_idx = cqe->send.npg_wqe_id & qp->sq.queue.mask;
-	meta = &qp->sq.meta[cqe_idx];
+	wqe_idx = le64toh(cqe->send.npg_wqe_idx) & qp->sq.queue.mask;
+	meta = &qp->sq.meta[wqe_idx];
 	meta->local_comp = true;
 
 	if (ionic_v1_cqe_error(cqe)) {
@@ -2100,7 +2101,7 @@ static void ionic_v1_prep_base(struct ionic_qp *qp,
 	meta->signal = false;
 	meta->local_comp = false;
 
-	wqe->base.wqe_id = qp->sq.queue.prod;
+	wqe->base.wqe_idx = htole64(qp->sq.queue.prod);
 	if (qp->sq.color)
 		wqe->base.flags |= htobe16(IONIC_V1_FLAG_COLOR);
 
@@ -2708,7 +2709,7 @@ static int ionic_v1_prep_recv(struct ionic_qp *qp,
 
 	meta->wrid = wr->wr_id;
 
-	wqe->base.wqe_id = qp->rq.queue.prod;
+	wqe->base.wqe_idx = htole64(qp->rq.queue.prod);
 	wqe->base.num_sge_key = wr->num_sge;
 
 	qp->rq.meta_idx[qp->rq.queue.prod] = meta - qp->rq.meta;
