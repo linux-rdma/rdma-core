@@ -280,10 +280,12 @@ fill_attr_in(struct ibv_command_buffer *cmd, uint16_t attr_id, const void *data,
 		cmd->buffer_error = 1;
 
 	attr->len = len;
-	if (len <= sizeof(uint64_t))
-		memcpy(&attr->data, data, len);
-	else
+	if (len <= sizeof(uint64_t)) {
+		if (len > 0)
+			memcpy(&attr->data, data, len);
+	} else {
 		attr->data = ioctl_ptr_to_u64(data);
+	}
 
 	return attr;
 }
