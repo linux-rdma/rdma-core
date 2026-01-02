@@ -421,6 +421,12 @@ static int query_port(struct ibv_context *context, uint8_t port_num,
 	return EOPNOTSUPP;
 }
 
+static int query_port_speed(struct ibv_context *context, uint32_t port_num,
+			    uint64_t *speed)
+{
+	return EOPNOTSUPP;
+}
+
 static int query_qp(struct ibv_qp *qp, struct ibv_qp_attr *attr, int attr_mask,
 		    struct ibv_qp_init_attr *init_attr)
 {
@@ -585,6 +591,7 @@ const struct verbs_context_ops verbs_dummy_ops = {
 	query_device_ex,
 	query_ece,
 	query_port,
+	query_port_speed,
 	query_qp,
 	query_qp_data_in_order,
 	query_rt_values,
@@ -713,6 +720,7 @@ void verbs_set_ops(struct verbs_context *vctx,
 	SET_OP(vctx, query_device_ex);
 	SET_PRIV_OP_IC(vctx, query_ece);
 	SET_PRIV_OP_IC(ctx, query_port);
+	SET_PRIV_OP_IC(ctx, query_port_speed);
 	SET_PRIV_OP(ctx, query_qp);
 	SET_PRIV_OP_IC(ctx, query_qp_data_in_order);
 	SET_OP(vctx, query_rt_values);

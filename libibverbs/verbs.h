@@ -471,6 +471,7 @@ enum ibv_event_type {
 	IBV_EVENT_CLIENT_REREGISTER,
 	IBV_EVENT_GID_CHANGE,
 	IBV_EVENT_WQ_FATAL,
+	IBV_EVENT_DEVICE_SPEED_CHANGE,
 };
 
 struct ibv_async_event {
@@ -2454,6 +2455,12 @@ int ibv_query_device(struct ibv_context *context,
  */
 int ibv_query_port(struct ibv_context *context, uint8_t port_num,
 		   struct _compat_ibv_port_attr *port_attr);
+
+/**
+ * ibv_query_port_speed - Get port effective speed in 100 Mb/s granularity.
+ */
+int ibv_query_port_speed(struct ibv_context *context, uint32_t port_num,
+			 uint64_t *port_speed);
 
 static inline int ___ibv_query_port(struct ibv_context *context,
 				    uint8_t port_num,
