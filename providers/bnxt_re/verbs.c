@@ -1721,7 +1721,7 @@ static int bnxt_re_send_wr_complete(struct ibv_qp_ex *ibvqp)
 	struct bnxt_re_qp *qp = to_bnxt_re_qp((struct ibv_qp *)ibvqp);
 	struct bnxt_re_queue *sq = qp->jsqq->hwque;
 	int err = qp->wr_sq.error;
-	uint8_t slots;
+	uint32_t slots;
 
 	if (unlikely(err))
 		goto exit;
