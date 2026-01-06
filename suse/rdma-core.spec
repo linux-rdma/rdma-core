@@ -28,7 +28,7 @@
 
 %define         git_ver %{nil}
 Name:           rdma-core
-Version:        40.11
+Version:        40.12
 Release:        0
 Summary:        RDMA core userspace libraries and daemons
 License:        BSD-2-Clause OR GPL-2.0-only
