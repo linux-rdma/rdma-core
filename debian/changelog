@@ -1,3 +1,9 @@
+rdma-core (60.1-1) unstable; urgency=low
+
+  * New upstream release.
+
+ -- Nicolas Morey <nmorey@suse.com>  Tue, 06 Jan 2026 17:56:18 +0100
+
 rdma-core (60.0-1) unstable; urgency=medium
 
   * New upstream release.
