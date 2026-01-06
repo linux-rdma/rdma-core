@@ -2142,11 +2142,14 @@ struct ibv_qp *bnxt_re_create_qp(struct ibv_pd *ibvpd,
 int bnxt_re_modify_qp(struct ibv_qp *ibvqp, struct ibv_qp_attr *attr,
 		      int attr_mask)
 {
-	struct ibv_modify_qp cmd = {};
+	struct ib_uverbs_ex_modify_qp_resp resp = {};
 	struct bnxt_re_qp *qp = to_bnxt_re_qp(ibvqp);
+	struct ibv_modify_qp_ex cmd_ex = {};
 	int rc;
 
-	rc = ibv_cmd_modify_qp(ibvqp, attr, attr_mask, &cmd, sizeof(cmd));
+	rc = ibv_cmd_modify_qp_ex(ibvqp, attr, attr_mask,
+				  &cmd_ex, sizeof(cmd_ex), &resp,
+				  sizeof(resp));
 	if (!rc) {
 		if (attr_mask & IBV_QP_STATE) {
 			qp->qpst = attr->qp_state;
