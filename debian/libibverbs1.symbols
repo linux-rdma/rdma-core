@@ -13,6 +13,7 @@ libibverbs.so.1 libibverbs1 #MINVER#
  IBVERBS_1.13@IBVERBS_1.13 35
  IBVERBS_1.14@IBVERBS_1.14 36
  IBVERBS_1.15@IBVERBS_1.15 59
+ IBVERBS_1.16@IBVERBS_1.16 62
  (symver)IBVERBS_PRIVATE_59 59
  _ibv_query_gid_ex@IBVERBS_1.11 32
  _ibv_query_gid_table@IBVERBS_1.11 32
@@ -100,6 +101,7 @@ libibverbs.so.1 libibverbs1 #MINVER#
  ibv_query_pkey@IBVERBS_1.1 1.1.6
  ibv_query_port@IBVERBS_1.0 1.1.6
  ibv_query_port@IBVERBS_1.1 1.1.6
+ ibv_query_port_speed@IBVERBS_1.16 62
  ibv_query_qp@IBVERBS_1.0 1.1.6
  ibv_query_qp@IBVERBS_1.1 1.1.6
  ibv_query_qp_data_in_order@IBVERBS_1.14 36

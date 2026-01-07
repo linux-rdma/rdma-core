@@ -447,6 +447,8 @@ struct verbs_context_ops {
 	int (*query_ece)(struct ibv_qp *qp, struct ibv_ece *ece);
 	int (*query_port)(struct ibv_context *context, uint8_t port_num,
 			  struct ibv_port_attr *port_attr);
+	int (*query_port_speed)(struct ibv_context *context, uint32_t port_num,
+				uint64_t *speed);
 	int (*query_qp)(struct ibv_qp *qp, struct ibv_qp_attr *attr,
 			int attr_mask, struct ibv_qp_init_attr *init_attr);
 	int (*query_qp_data_in_order)(struct ibv_qp *qp, enum ibv_wr_opcode op,

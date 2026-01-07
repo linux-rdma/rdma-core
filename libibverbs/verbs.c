@@ -1186,3 +1186,10 @@ int ibv_query_ece(struct ibv_qp *qp, struct ibv_ece *ece)
 {
 	return get_ops(qp->context)->query_ece(qp, ece);
 }
+
+int ibv_query_port_speed(struct ibv_context *context, uint32_t port_num,
+			 uint64_t *port_speed)
+{
+	return get_ops(context)->query_port_speed(context, port_num,
+						  port_speed);
+}
