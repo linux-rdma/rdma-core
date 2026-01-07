@@ -3005,3 +3005,36 @@ int bnxt_re_destroy_flow(struct ibv_flow *flow)
 	free(flow);
 	return ret;
 }
+
+int bnxt_re_modify_qp_rate_limit(struct ibv_qp *qp,
+				 struct ibv_qp_rate_limit_attr *attr)
+{
+	struct bnxt_re_qp *re_qp = to_bnxt_re_qp(qp);
+	struct ib_uverbs_ex_modify_qp_resp resp = {};
+	struct ibv_modify_qp_ex cmd = {};
+	struct ibv_qp_attr qp_attr = {};
+	int ret;
+
+	if (attr->comp_mask)
+		return EINVAL;
+
+	if (attr->max_burst_sz ||
+	    attr->typical_pkt_sz ||
+	    !attr->rate_limit ||
+	    !(BNXT_RE_RATE_LIMIT_EN(re_qp->cntx)))
+		return EINVAL;
+
+	/* Rate limit is supported only after QP is modified to RTR or
+	 * it is modifed to RTS
+	 */
+	if (qp->state != IBV_QPS_RTR && qp->state != IBV_QPS_RTS)
+		return EINVAL;
+
+	qp_attr.rate_limit = attr->rate_limit;
+
+	ret = ibv_cmd_modify_qp_ex(qp, &qp_attr, IBV_QP_RATE_LIMIT,
+				   &cmd, sizeof(cmd),
+				   &resp, sizeof(resp));
+
+	return ret;
+}
