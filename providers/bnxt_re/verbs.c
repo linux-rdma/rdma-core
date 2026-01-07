@@ -61,19 +61,30 @@ int bnxt_re_query_device(struct ibv_context *context,
 			 const struct ibv_query_device_ex_input *input,
 			 struct ibv_device_attr_ex *attr, size_t attr_size)
 {
-	struct ib_uverbs_ex_query_device_resp resp;
+	struct ubnxt_re_query_device_ex_resp resp = {};
 	size_t resp_size = sizeof(resp);
 	uint8_t fw_ver[8];
 	int err;
 
-	err = ibv_cmd_query_device_any(context, input, attr, attr_size, &resp,
+	err = ibv_cmd_query_device_any(context, input, attr, attr_size, &resp.ibv_resp,
 				       &resp_size);
 	if (err)
 		return err;
 
-	memcpy(fw_ver, &resp.base.fw_ver, sizeof(resp.base.fw_ver));
+	memcpy(fw_ver, &resp.ibv_resp.base.fw_ver, sizeof(resp.ibv_resp.base.fw_ver));
 	snprintf(attr->orig_attr.fw_ver, 64, "%d.%d.%d.%d", fw_ver[0],
 		 fw_ver[1], fw_ver[2], fw_ver[3]);
+
+	if (attr_size >=
+	    offsetofend(struct ibv_device_attr_ex, packet_pacing_caps)) {
+		attr->packet_pacing_caps.qp_rate_limit_min =
+			resp.packet_pacing_caps.qp_rate_limit_min;
+		attr->packet_pacing_caps.qp_rate_limit_max =
+			resp.packet_pacing_caps.qp_rate_limit_max;
+		attr->packet_pacing_caps.supported_qpts =
+			resp.packet_pacing_caps.supported_qpts;
+	}
+
 	return 0;
 }
 
