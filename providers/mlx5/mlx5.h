@@ -1130,6 +1130,8 @@ struct ibv_qp *mlx5_create_qp_ex(struct ibv_context *context,
 				 struct ibv_qp_init_attr_ex *attr);
 int mlx5_query_port(struct ibv_context *context, uint8_t port,
 		     struct ibv_port_attr *attr);
+int mlx5_query_port_speed(struct ibv_context *context, uint32_t port,
+			  uint64_t *speed);
 
 struct ibv_pd *mlx5_alloc_pd(struct ibv_context *context);
 int mlx5_free_pd(struct ibv_pd *pd);
