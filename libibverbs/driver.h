@@ -407,6 +407,7 @@ struct verbs_context_ops {
 	int (*destroy_wq)(struct ibv_wq *wq);
 	int (*detach_mcast)(struct ibv_qp *qp, const union ibv_gid *gid,
 			    uint16_t lid);
+	int (*dm_export_dmabuf_fd)(struct ibv_dm *dm);
 	void (*free_context)(struct ibv_context *context);
 	int (*free_dm)(struct ibv_dm *dm);
 	int (*get_srq_num)(struct ibv_srq *srq, uint32_t *srq_num);
@@ -743,6 +744,7 @@ int ibv_cmd_alloc_dm(struct ibv_context *ctx,
 		     struct verbs_dm *dm,
 		     struct ibv_command_buffer *link);
 int ibv_cmd_free_dm(struct verbs_dm *dm);
+int ibv_cmd_export_dmabuf_fd(struct ibv_context *ctx, off_t pg_off);
 int ibv_cmd_alloc_dmah(struct ibv_context *ctx, struct verbs_dmah *st,
 		       struct ibv_dmah_init_attr *attr);
 int ibv_cmd_free_dmah(struct verbs_dmah *dmah);

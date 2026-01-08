@@ -58,6 +58,7 @@ libibverbs.so.1 libibverbs1 #MINVER#
  ibv_destroy_srq@IBVERBS_1.1 1.1.6
  ibv_detach_mcast@IBVERBS_1.0 1.1.6
  ibv_detach_mcast@IBVERBS_1.1 1.1.6
+ ibv_dm_export_dmabuf_fd@IBVERBS_1.16 62
  ibv_dofork_range@IBVERBS_1.1 1.1.6
  ibv_dontfork_range@IBVERBS_1.1 1.1.6
  ibv_event_type_str@IBVERBS_1.1 1.1.6

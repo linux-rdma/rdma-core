@@ -412,6 +412,11 @@ int ibv_dealloc_dmah(struct ibv_dmah *dmah)
 	return get_ops(dmah->context)->dealloc_dmah(dmah);
 }
 
+int ibv_dm_export_dmabuf_fd(struct ibv_dm *dm)
+{
+	return get_ops(dm->context)->dm_export_dmabuf_fd(dm);
+}
+
 struct ibv_mr *ibv_reg_dmabuf_mr(struct ibv_pd *pd, uint64_t offset,
 				 size_t length, uint64_t iova, int fd,
 				 int access)
