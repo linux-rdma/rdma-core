@@ -84,18 +84,10 @@ struct ibv_cq *mana_create_cq(struct ibv_context *context, int cqe,
 		goto free_mem;
 	}
 
-	if (flags & MANA_IB_CREATE_RNIC_CQ) {
-		cq->cqid = resp.cqid;
-		if (cq->cqid == UINT32_MAX) {
-			errno = ENODEV;
-			goto destroy_cq;
-		}
-	}
+	cq->cqid = resp.cqid;
 
 	return &cq->ibcq;
 
-destroy_cq:
-	ibv_cmd_destroy_cq(&cq->ibcq);
 free_mem:
 	if (cq->buf_external)
 		ctx->extern_alloc.free(cq->buf, ctx->extern_alloc.data);
