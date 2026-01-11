@@ -181,6 +181,25 @@ cdef class AddrInfo(PyverbsObject):
         :return: An AddrInfo object which contains information needed to
         establish communication.
         """
+        super().__init__()
+        self.addr_info = NULL
+
+        if src or dst or src_service or dst_service:
+            self.get_addrinfo(src, dst, src_service, dst_service, port_space, flags)
+
+    def get_addrinfo(self, src=None, dst=None, src_service=None, dst_service=None,
+                     port_space=0, flags=0):
+        """
+        Resolve source and destination addresses.
+        :param src: Name, dotted-decimal IPv4 or IPv6 hex address to bind to.
+        :param dst: Name, dotted-decimal IPv4 or IPv6 hex address to connect to.
+        :param src_service: The service name or port number of the source address.
+        :param dst_service: The service name or port number of the destination address.
+        :param port_space: RDMA port space used (RDMA_PS_UDP, RDMA_PS_TCP or RDMA_PS_IB).
+        :param flags: Hint flags which control the operation.
+        :raises PyverbsRDMAErrno: If fails to get Address Info.
+        :return: None
+        """
         cdef char* src_srvc = NULL
         cdef char* dst_srvc = NULL
         cdef char* src_addr = NULL
@@ -189,7 +208,6 @@ cdef class AddrInfo(PyverbsObject):
         cdef cm.rdma_addrinfo *hints_ptr = NULL
         cdef cm.rdma_addrinfo *res = NULL
 
-        super().__init__()
         if src is not None:
             if isinstance(src, str):
                 src = src.encode('utf-8')
@@ -211,6 +229,12 @@ cdef class AddrInfo(PyverbsObject):
         memset(hints_ptr, 0, sizeof(cm.rdma_addrinfo))
         hints.ai_port_space = port_space
         hints.ai_flags = flags
+
+        # Set hint fields to support GID address
+        if port_space == ce.RDMA_PS_IB:
+            hints.ai_flags |= ce.RAI_FAMILY | ce.RAI_NUMERICHOST
+            hints.ai_family = cm.AF_IB
+
         if flags & ce.RAI_PASSIVE:
             ret = cm.rdma_getaddrinfo(src_addr, src_srvc, hints_ptr,
                                       &self.addr_info)
@@ -839,3 +863,59 @@ cdef class CMID(PyverbsCM):
         ret = cm.rdma_reject(self.id, <const void*>data_ptr, data_len)
         if ret != 0:
             raise PyverbsRDMAErrno('Failed to Reject Connection')
+
+    def resolve_addrinfo(self, node=None, service=None, port_space=0, flags=0):
+        """
+        Resolve source and destination address information using RDMA CM.
+        :param node: Name, dotted-decimal IPv4 or IPv6 hex address to connect to.
+                    If None, will use hints.ai_dst_addr if set.
+        :param service: Service name or port number.
+        :param port_space: RDMA port space (RDMA_PS_TCP, RDMA_PS_UDP, or RDMA_PS_IB).
+        :param flags: Optional flags to control resolution:
+                    RAI_PASSIVE: Get address for use as server
+                    RAI_NUMERICHOST: Node name is numeric
+                    RAI_FAMILY: Use specific address family
+                    RAI_SA: Use IB SA path record lookup
+                    RAI_DNS: Use DNS lookup for IP resolution
+        :return: None
+        """
+        cdef char* srvc = NULL
+        cdef char* node_addr = NULL
+        cdef cm.rdma_addrinfo hints
+        cdef cm.rdma_addrinfo *hints_ptr = NULL
+
+        if node is not None:
+            if isinstance(node, str):
+                node = node.encode('utf-8')
+            node_addr = <char*>node
+        if service is not None:
+            if isinstance(service, str):
+                service = service.encode('utf-8')
+            srvc = <char*>service
+
+        hints_ptr = &hints
+        memset(hints_ptr, 0, sizeof(cm.rdma_addrinfo))
+        hints.ai_port_space = port_space
+        hints.ai_flags = flags
+
+        # Set hint fields to support GID address
+        if port_space == ce.RDMA_PS_IB:
+            hints.ai_flags |= ce.RAI_FAMILY | ce.RAI_NUMERICHOST
+            hints.ai_family = cm.AF_IB
+
+        ret = cm.rdma_resolve_addrinfo(self.id, node_addr, srvc, hints_ptr)
+        if ret != 0:
+            raise PyverbsRDMAErrno('Failed to Resolve AddrInfo')
+
+    def query_addrinfo(self):
+        """
+        Query the resolved address info from a CMID.
+        :return: AddrInfo object containing the resolved address information.
+        """
+        ai = AddrInfo()
+        ret = cm.rdma_query_addrinfo(self.id, &(ai.addr_info))
+
+        if ret != 0:
+            raise PyverbsRDMAErrno('Failed to Query AddrInfo')
+
+        return ai

@@ -438,18 +438,16 @@ class RDMACMBaseTest(RDMATestCase):
         for side in proc_res.keys():
             if proc_res[side] == 5:
                 raise unittest.SkipTest(f'SkipTest occurred on {side} side')
-        # Check if the test processes raise exceptions.
-        res_exception = False
-        for side in proc_res:
-            if 0 < proc_res[side] < 5:
-                res_exception = True
-        if res_exception:
-            raise Exception('Exception in active/passive side occurred')
-        # Raise exeption if the test proceses was terminate.
+       # Raise exeption if the test proceses was terminate.
         if bad_flow and not proc_killed:
             raise Exception('Bad flow: traffic passed which is not expected')
         if not bad_flow and proc_killed:
             raise Exception('RDMA CM test procces is stuck, kill the test')
+
+        # Check if the test processes raise exceptions.
+        for side in proc_res:
+            if proc_res[side] != 0:
+                raise Exception(f'Exception in {side} side occurred')
 
     def rdmacm_traffic(self, connection_resources=None, passive=None, **kwargs):
         """

@@ -21,7 +21,7 @@ class CMResources(abc.ABC):
     CMResources class is an abstract base class which contains basic resources
     for RDMA CM communication.
     """
-    def __init__(self, addr=None, passive=None, **kwargs):
+    def __init__(self, passive=None, **kwargs):
         """
         :param addr: Local address to bind to.
         :param passive: Indicate if this CM is the passive CM.
@@ -56,12 +56,7 @@ class CMResources(abc.ABC):
         self.ud_params = None
         self.child_ids = {}
         self.cmids = {}
-        if self.passive:
-            self.ai = AddrInfo(src=addr, src_service=self.port,
-                               port_space=self.port_space, flags=RAI_PASSIVE)
-        else:
-            self.ai = AddrInfo(src=addr, dst=addr, dst_service=self.port,
-                               port_space=self.port_space)
+        self.ai = AddrInfo()
 
     @property
     def child_id(self):
@@ -155,11 +150,10 @@ class AsyncCMResources(CMResources):
     """
     AsyncCMResources class contains resources for RDMA CM asynchronous
     communication.
-    :param addr: Local address to bind to.
     :param passive: Indicate if this CM is the passive CM.
     """
-    def __init__(self, addr=None, passive=None, **kwargs):
-        super(AsyncCMResources, self).__init__(addr=addr, passive=passive,
+    def __init__(self, passive=None, **kwargs):
+        super(AsyncCMResources, self).__init__(passive=passive,
                                                **kwargs)
         self.create_event_channel()
 
@@ -177,11 +171,10 @@ class SyncCMResources(CMResources):
     """
     SyncCMResources class contains resources for RDMA CM synchronous
     communication.
-    :param addr: Local address to bind to.
     :param passive: Indicate if this CM is the passive CM.
     """
-    def __init__(self, addr=None, passive=None, **kwargs):
-        super(SyncCMResources, self).__init__(addr=addr, passive=passive,
+    def __init__(self, passive=None, **kwargs):
+        super(SyncCMResources, self).__init__(passive=passive,
                                               **kwargs)
 
     def create_cmid(self, idx=0):
