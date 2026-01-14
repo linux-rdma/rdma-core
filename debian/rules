@@ -13,7 +13,6 @@ dh_params = --with python3 --builddirectory=build-deb
 
 override_dh_auto_clean:
 	dh_auto_clean
-	rm -rf build-deb
 	for package in ibverbs-providers libibverbs-dev rdma-core; do \
 		test ! -e debian/$$package.install.backup || mv debian/$$package.install.backup debian/$$package.install; \
 	done
@@ -49,10 +48,6 @@ override_dh_auto_configure:
 			        -DNO_PYVERBS=1; \
 	fi
 
-
-override_dh_auto_build:
-	ninja -C build-deb -v
-
 # upstream does not ship test cases
 override_dh_auto_test:
 
@@ -64,7 +59,7 @@ ifeq (,$(filter-out $(NON_COHERENT_DMA_ARCHS),$(DEB_HOST_ARCH)))
 	done
 	sed -i '/efa\|hns\|mana\|mlx[45]/d' debian/ibverbs-providers.install debian/libibverbs-dev.install debian/rdma-core.install
 endif
-	DESTDIR=$(CURDIR)/debian/tmp ninja -C build-deb install
+	dh_auto_install
 
 # The following files are not used on Debian (we ship our own sysvinit script)
 INST_EXCLUDE := "etc/init.d/srpd" \
