@@ -10,13 +10,14 @@ from tests.test_rdmacm import CMAsyncConnection
 from tests.mlx5_base import Mlx5PyverbsAPITestCase, Mlx5RDMACMBaseTest
 from pyverbs.pyverbs_error import PyverbsRDMAError
 from pyverbs.srq import SRQ, SrqInitAttr, SrqAttr
-import pyverbs.providers.mlx5.mlx5_enums as dve
+from pyverbs.providers.mlx5.mlx5_enums import mlx5dv_qp_init_attr_mask, mlx5dv_dc_type
 from tests.base_rdmacm import AsyncCMResources
 from pyverbs.qp import QPCap, QPInitAttrEx
 from pyverbs.cmid import ConnParam
 from tests.base import DCT_KEY
 from pyverbs.addr import AH
-import pyverbs.enums as e
+from pyverbs.libibverbs_enums import ibv_wr_opcode, ibv_qp_create_send_ops_flags, ibv_qp_init_attr_mask, \
+    ibv_qp_type, ibv_qp_state
 from pyverbs.cq import CQ
 import tests.utils as u
 
@@ -49,7 +50,7 @@ class DcCMConnection(CMAsyncConnection):
         self.syncer.wait()
         for send_idx in range(self.cm_res.num_msgs):
             dci_idx = send_idx % len(self.cm_res.qps)
-            u.post_send_ex(self.cm_res, send_wr, e.IBV_WR_SEND, ah=ah,
+            u.post_send_ex(self.cm_res, send_wr, ibv_wr_opcode.IBV_WR_SEND, ah=ah,
                            qp_idx=dci_idx)
             u.poll_cq(self.cm_res.cq)
 
@@ -88,8 +89,8 @@ class DcCMResources(AsyncCMResources):
                 # Create the DCI QPs.
                 cmid = self.cmids[conn_idx]
                 self.create_cq(cmid)
-                qp_init_attr = self.create_qp_init_attr(cmid, e.IBV_QP_EX_WITH_SEND)
-                attr = Mlx5DVQPInitAttr(comp_mask=dve.MLX5DV_QP_INIT_ATTR_MASK_DC,
+                qp_init_attr = self.create_qp_init_attr(cmid, ibv_qp_create_send_ops_flags.IBV_QP_EX_WITH_SEND)
+                attr = Mlx5DVQPInitAttr(comp_mask=mlx5dv_qp_init_attr_mask.MLX5DV_QP_INIT_ATTR_MASK_DC,
                                         dc_init_attr=Mlx5DVDCInitAttr())
                 self.qps[conn_idx] = Mlx5QP(cmid.context, qp_init_attr, attr)
 
@@ -99,9 +100,9 @@ class DcCMResources(AsyncCMResources):
                 self.create_cq(cmid)
                 self.create_srq(cmid)
                 qp_init_attr = self.create_qp_init_attr(cmid)
-                dc_attr = Mlx5DVDCInitAttr(dc_type=dve.MLX5DV_DCTYPE_DCT,
+                dc_attr = Mlx5DVDCInitAttr(dc_type=mlx5dv_dc_type.MLX5DV_DCTYPE_DCT,
                                            dct_access_key=DCT_KEY)
-                attr = Mlx5DVQPInitAttr(comp_mask=dve.MLX5DV_QP_INIT_ATTR_MASK_DC,
+                attr = Mlx5DVQPInitAttr(comp_mask=mlx5dv_qp_init_attr_mask.MLX5DV_QP_INIT_ATTR_MASK_DC,
                                         dc_init_attr=dc_attr)
                 self.qps[conn_idx] = Mlx5QP(cmid.context, qp_init_attr, attr)
         except PyverbsRDMAError as ex:
@@ -113,11 +114,11 @@ class DcCMResources(AsyncCMResources):
         return QPCap(self.num_msgs, 0, 1, 0)
 
     def create_qp_init_attr(self, cmid, send_ops_flags=0):
-        comp_mask = e.IBV_QP_INIT_ATTR_PD
+        comp_mask = ibv_qp_init_attr_mask.IBV_QP_INIT_ATTR_PD
         if send_ops_flags:
-            comp_mask |= e.IBV_QP_INIT_ATTR_SEND_OPS_FLAGS
+            comp_mask |= ibv_qp_init_attr_mask.IBV_QP_INIT_ATTR_SEND_OPS_FLAGS
         return QPInitAttrEx(cap=self.create_qp_cap(), pd=cmid.pd, scq=self.cq,
-                            rcq=self.cq, srq=self.srq, qp_type=e.IBV_QPT_DRIVER,
+                            rcq=self.cq, srq=self.srq, qp_type=ibv_qp_type.IBV_QPT_DRIVER,
                             send_ops_flags=send_ops_flags, comp_mask=comp_mask,
                             sq_sig_all=1)
 
@@ -134,14 +135,14 @@ class DcCMResources(AsyncCMResources):
         cmids = self.child_ids if self.passive else self.cmids
         if not self.passive or not conn_idx:
             qp = self.qps[conn_idx]
-            attr, _ = cmids[conn_idx].init_qp_attr(e.IBV_QPS_INIT)
+            attr, _ = cmids[conn_idx].init_qp_attr(ibv_qp_state.IBV_QPS_INIT)
             qp.to_init(attr)
-            attr, _ = cmids[conn_idx].init_qp_attr(e.IBV_QPS_RTR)
+            attr, _ = cmids[conn_idx].init_qp_attr(ibv_qp_state.IBV_QPS_RTR)
             qp.to_rtr(attr)
             if not self.passive:
                 # The passive QP is DCT which should stay in RTR state.
                 self.remote_ah = attr.ah_attr
-                attr, _ = cmids[conn_idx].init_qp_attr(e.IBV_QPS_RTS)
+                attr, _ = cmids[conn_idx].init_qp_attr(ibv_qp_state.IBV_QPS_RTS)
                 qp.to_rts(attr)
 
     def create_conn_param(self, qp_num=0, conn_idx=0):

@@ -87,3 +87,10 @@ RDMACM_1.3 {
 		rdma_reject_ece;
 		rdma_set_local_ece;
 } RDMACM_1.2;
+
+RDMACM_1.4 {
+	global:
+		rdma_query_addrinfo;
+		rdma_resolve_addrinfo;
+		rdma_write_cm_event;
+} RDMACM_1.3;

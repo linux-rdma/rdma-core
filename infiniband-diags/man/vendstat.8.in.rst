@@ -44,6 +44,7 @@ OPTIONS
 	Group 0 counter config values:
 
 ::
+
 		0 - PortXmitDataSL0-7
 		1 - PortXmitDataSL8-15
 		2 - PortRcvDataSL0-7
@@ -51,6 +52,7 @@ OPTIONS
 	Group 1 counter config values:
 
 ::
+
 		1 - PortXmitDataSL8-15
 		2 - PortRcvDataSL0-7
 		8 - PortRcvDataSL8-15
@@ -106,6 +108,7 @@ EXAMPLES
 ========
 
 ::
+
 	vendstat -N 6		# read IS3 or IS4 general information
 	vendstat -w 6		# read IS3 port xmit wait counters
 	vendstat -i 6 12	# read IS4 port 12 counter group info

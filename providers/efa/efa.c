@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: GPL-2.0 OR BSD-2-Clause
 /*
- * Copyright 2019-2024 Amazon.com, Inc. or its affiliates. All rights reserved.
+ * Copyright 2019-2025 Amazon.com, Inc. or its affiliates. All rights reserved.
  */
 
 #include <stdio.h>
@@ -28,6 +28,8 @@ static const struct verbs_match_ent efa_table[] = {
 
 static const struct verbs_context_ops efa_ctx_ops = {
 	.alloc_pd = efa_alloc_pd,
+	.alloc_parent_domain = efa_alloc_parent_domain,
+	.alloc_td = efa_alloc_td,
 	.create_ah = efa_create_ah,
 	.create_cq = efa_create_cq,
 	.create_cq_ex = efa_create_cq_ex,
@@ -35,6 +37,7 @@ static const struct verbs_context_ops efa_ctx_ops = {
 	.create_qp_ex = efa_create_qp_ex,
 	.cq_event = efa_cq_event,
 	.dealloc_pd = efa_dealloc_pd,
+	.dealloc_td = efa_dealloc_td,
 	.dereg_mr = efa_dereg_mr,
 	.destroy_ah = efa_destroy_ah,
 	.destroy_cq = efa_destroy_cq,
@@ -70,7 +73,7 @@ static struct verbs_context *efa_alloc_context(struct ibv_device *vdev,
 		return NULL;
 
 	if (ibv_cmd_get_context(&ctx->ibvctx, &cmd.ibv_cmd, sizeof(cmd),
-				&resp.ibv_resp, sizeof(resp))) {
+				NULL, &resp.ibv_resp, sizeof(resp))) {
 		verbs_err(&ctx->ibvctx, "ibv_cmd_get_context failed\n");
 		goto err_free_ctx;
 	}

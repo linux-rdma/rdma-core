@@ -266,7 +266,6 @@ static int cq_next_poll(struct ibv_cq_ex *current)
 
 	if (next_index == load_producer_index(q)) {
 		store_consumer_index(cq->queue, cq->cur_index);
-		pthread_spin_unlock(&cq->lock);
 		errno = ENOENT;
 		return errno;
 	}
@@ -430,8 +429,8 @@ static struct ibv_cq_ex *rxe_create_cq_ex(struct ibv_context *context,
 	if (!cq)
 		goto err;
 
-	ret = ibv_cmd_create_cq_ex(context, attr, &cq->vcq,
-				   NULL, 0,
+	ret = ibv_cmd_create_cq_ex(context, attr, NULL,
+				   &cq->vcq, NULL, 0,
 				   &resp.ibv_resp, sizeof(resp), 0);
 	if (ret)
 		goto err_free;
@@ -1854,6 +1853,7 @@ static const struct verbs_context_ops rxe_ctx_ops = {
 	.attach_mcast = ibv_cmd_attach_mcast,
 	.detach_mcast = ibv_cmd_detach_mcast,
 	.free_context = rxe_free_context,
+	.advise_mr = ibv_cmd_advise_mr,
 };
 
 static struct verbs_context *rxe_alloc_context(struct ibv_device *ibdev,
@@ -1870,7 +1870,7 @@ static struct verbs_context *rxe_alloc_context(struct ibv_device *ibdev,
 		return NULL;
 
 	if (ibv_cmd_get_context(&context->ibv_ctx, &cmd, sizeof(cmd),
-				&resp, sizeof(resp)))
+				NULL, &resp, sizeof(resp)))
 		goto out;
 
 	verbs_set_ops(&context->ibv_ctx, &rxe_ctx_ops);

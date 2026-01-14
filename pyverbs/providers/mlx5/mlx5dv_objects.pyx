@@ -167,7 +167,7 @@ cdef class Mlx5DvObj(PyverbsObject):
 
         if cq:
             dv_cq = Mlx5DvCQ()
-            self.obj.cq.in_ = <v.ibv_cq*>cq.cq
+            self.obj.cq.in_ = <v.ibv_cq*><uintptr_t>cq.cq
             self.obj.cq.out = &(dv_cq.dv_cq)
             self.dv_cq = dv_cq
         if qp:
@@ -177,19 +177,19 @@ cdef class Mlx5DvObj(PyverbsObject):
                 dv.MLX5DV_QP_MASK_UAR_MMAP_OFFSET | \
                 dv.MLX5DV_QP_MASK_RAW_QP_HANDLES | \
                 dv.MLX5DV_QP_MASK_RAW_QP_TIR_ADDR
-            self.obj.qp.in_ = <v.ibv_qp*>qp.qp
+            self.obj.qp.in_ = <v.ibv_qp*><uintptr_t>qp.qp
             self.obj.qp.out = &(dv_qp.dv_qp)
             self.dv_qp = dv_qp
         if pd:
             dv_pd = Mlx5DvPD()
-            self.obj.pd.in_ = <v.ibv_pd*>pd.pd
+            self.obj.pd.in_ = <v.ibv_pd*><uintptr_t>pd.pd
             self.obj.pd.out = &(dv_pd.dv_pd)
             self.dv_pd = dv_pd
         if srq:
             dv_srq = Mlx5DvSRQ()
             comp_mask = kwargs.get('srq_comp_mask')
             dv_srq.comp_mask = comp_mask if comp_mask else dv.MLX5DV_SRQ_MASK_SRQN
-            self.obj.srq.in_ = <v.ibv_srq*>srq.srq
+            self.obj.srq.in_ = <v.ibv_srq*><uintptr_t>srq.srq
             self.obj.srq.out = &(dv_srq.dv_srq)
             self.dv_srq = dv_srq
 

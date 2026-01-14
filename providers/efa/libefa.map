@@ -17,10 +17,15 @@ EFA_1.2 {
 	global:
 		efadv_cq_from_ibv_cq_ex;
 		efadv_create_cq;
-		efadv_wc_read_sgid;
 } EFA_1.1;
 
 EFA_1.3 {
 	global:
 		efadv_query_mr;
 } EFA_1.2;
+
+EFA_1.4 {
+	global:
+		efadv_query_qp_wqs;
+		efadv_query_cq;
+} EFA_1.3;

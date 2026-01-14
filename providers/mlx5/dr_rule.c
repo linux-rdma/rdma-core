@@ -1552,7 +1552,6 @@ dr_rule_create_rule_root(struct mlx5dv_dr_matcher *matcher,
 			 struct mlx5dv_dr_action *actions[])
 {
 	struct mlx5dv_flow_action_attr *attr;
-	struct mlx5_flow_action_attr_aux *attr_aux;
 	struct mlx5dv_dr_rule *rule;
 	int ret;
 
@@ -1570,37 +1569,27 @@ dr_rule_create_rule_root(struct mlx5dv_dr_matcher *matcher,
 		goto free_rule;
 	}
 
-	attr_aux = calloc(num_actions, sizeof(*attr_aux));
-	if (!attr_aux) {
-		errno = ENOMEM;
-		goto free_attr;
-	}
-
-	ret = dr_actions_build_attr(matcher, actions, num_actions, attr, attr_aux);
+	ret = dr_actions_build_attr(matcher, actions, num_actions, attr);
 	if (ret)
-		goto free_attr_aux;
+		goto free_attr;
 
 	ret = dr_rule_add_action_members(rule, num_actions, actions);
 	if (ret)
-		goto free_attr_aux;
+		goto free_attr;
 
-	rule->flow = _mlx5dv_create_flow(matcher->dv_matcher,
+	rule->flow = mlx5dv_create_flow(matcher->dv_matcher,
 					 value,
 					 num_actions,
-					 attr,
-					 attr_aux);
+					 attr);
 	if (!rule->flow)
 		goto remove_action_members;
 
 	free(attr);
-	free(attr_aux);
 
 	return rule;
 
 remove_action_members:
 	dr_rule_remove_action_members(rule);
-free_attr_aux:
-	free(attr_aux);
 free_attr:
 	free(attr);
 free_rule:

@@ -28,7 +28,7 @@
 
 %define         git_ver %{nil}
 Name:           rdma-core
-Version:        56.1
+Version:        61.0
 Release:        0
 Summary:        RDMA core userspace libraries and daemons
 License:        BSD-2-Clause OR GPL-2.0-only
@@ -36,6 +36,7 @@ Group:          Productivity/Networking/Other
 
 %define efa_so_major    1
 %define hns_so_major    1
+%define ionic_so_major  1
 %define verbs_so_major  1
 %define rdmacm_so_major 1
 %define umad_so_major   3
@@ -47,6 +48,7 @@ Group:          Productivity/Networking/Other
 
 %define  efa_lname    libefa%{efa_so_major}
 %define  hns_lname    libhns%{hns_so_major}
+%define  ionic_lname  libionic%{ionic_so_major}
 %define  verbs_lname  libibverbs%{verbs_so_major}
 %define  rdmacm_lname librdmacm%{rdmacm_so_major}
 %define  umad_lname   libibumad%{umad_so_major}
@@ -162,6 +164,7 @@ Requires:       %{verbs_lname} = %{version}-%{release}
 %if 0%{?dma_coherent}
 Requires:       %{efa_lname} = %{version}-%{release}
 Requires:       %{hns_lname} = %{version}-%{release}
+Requires:       %{ionic_lname} = %{version}-%{release}
 Requires:       %{mana_lname} = %{version}-%{release}
 Requires:       %{mlx4_lname} = %{version}-%{release}
 Requires:       %{mlx5_lname} = %{version}-%{release}
@@ -204,6 +207,7 @@ Obsoletes:      libcxgb4-rdmav2 < %{version}-%{release}
 Obsoletes:      libefa-rdmav2 < %{version}-%{release}
 Obsoletes:      libhfi1verbs-rdmav2 < %{version}-%{release}
 Obsoletes:      libhns-rdmav2 < %{version}-%{release}
+Obsoletes:      libionic-rdmav2 < %{version}-%{release}
 Obsoletes:      libipathverbs-rdmav2 < %{version}-%{release}
 Obsoletes:      libmana-rdmav2 < %{version}-%{release}
 Obsoletes:      libmlx4-rdmav2 < %{version}-%{release}
@@ -214,6 +218,7 @@ Obsoletes:      librxe-rdmav2 < %{version}-%{release}
 %if 0%{?dma_coherent}
 Requires:       %{efa_lname} = %{version}-%{release}
 Requires:       %{hns_lname} = %{version}-%{release}
+Requires:       %{ionic_lname} = %{version}-%{release}
 Requires:       %{mana_lname} = %{version}-%{release}
 Requires:       %{mlx4_lname} = %{version}-%{release}
 Requires:       %{mlx5_lname} = %{version}-%{release}
@@ -234,6 +239,7 @@ Device-specific plug-in ibverbs userspace drivers are included:
 - libefa: Amazon Elastic Fabric Adapter
 - libhfi1: Intel Omni-Path HFI
 - libhns: HiSilicon Hip08+ SoC
+- libionic: AMD Pensando Distributed Services Card (DSC) RDMA/RoCE Support
 - libipathverbs: QLogic InfiniPath HCA
 - libirdma: Intel Ethernet Connection RDMA
 - libmana: Microsoft Azure Network Adapter
@@ -267,6 +273,13 @@ Group:          System/Libraries
 
 %description -n %hns_lname
 This package contains the hns runtime library.
+
+%package -n %ionic_lname
+Summary:        IONIC runtime library
+Group:          System/Libraries
+
+%description -n %ionic_lname
+This package contains the ionic runtime library.
 
 %package -n %mana_lname
 Summary:        MANA runtime library
@@ -483,7 +496,7 @@ mkdir -p %{buildroot}/%{_sysconfdir}/rdma
 %global dracutlibdir %%{_prefix}/lib/dracut/
 
 mkdir -p %{buildroot}%{_udevrulesdir}
-mkdir -p %{buildroot}%{dracutlibdir}/modules.d/05rdma
+mkdir -p %{buildroot}%{dracutlibdir}/modules.d/50rdma
 mkdir -p %{buildroot}%{_modprobedir}
 mkdir -p %{buildroot}%{_unitdir}
 
@@ -496,11 +509,11 @@ chmod 0644 %{buildroot}%{_modprobedir}/mlx4.conf
 install -D -m0755 redhat/rdma.mlx4-setup.sh %{buildroot}%{_libexecdir}/mlx4-setup.sh
 
 # Dracut file for IB support during boot
-install -D -m0644 suse/module-setup.sh %{buildroot}%{dracutlibdir}/modules.d/05rdma/module-setup.sh
+install -D -m0644 kernel-boot/dracut/50rdma/module-setup.sh %{buildroot}%{dracutlibdir}/modules.d/50rdma/module-setup.sh
 
 %if "%{_libexecdir}" != "/usr/libexec"
 sed 's-/usr/libexec-%{_libexecdir}-g' -i %{buildroot}%{_modprobedir}/50-libmlx4.conf
-sed 's-/usr/libexec-%{_libexecdir}-g' -i %{buildroot}%{dracutlibdir}/modules.d/05rdma/module-setup.sh
+sed 's-/usr/libexec-%{_libexecdir}-g' -i %{buildroot}%{dracutlibdir}/modules.d/50rdma/module-setup.sh
 %endif
 
 # ibacm
@@ -524,6 +537,9 @@ rm -rf %{buildroot}/%{_sbindir}/srp_daemon.sh
 
 %post -n %hns_lname -p /sbin/ldconfig
 %postun -n %hns_lname -p /sbin/ldconfig
+
+%post -n %ionic_lname -p /sbin/ldconfig
+%postun -n %ionic_lname -p /sbin/ldconfig
 
 %post -n %mana_lname -p /sbin/ldconfig
 %postun -n %mana_lname -p /sbin/ldconfig
@@ -652,8 +668,8 @@ done
 %{_unitdir}/rdma-load-modules@.service
 %dir %{dracutlibdir}
 %dir %{dracutlibdir}/modules.d
-%dir %{dracutlibdir}/modules.d/05rdma
-%{dracutlibdir}/modules.d/05rdma/module-setup.sh
+%dir %{dracutlibdir}/modules.d/50rdma
+%{dracutlibdir}/modules.d/50rdma/module-setup.sh
 %{_udevrulesdir}/../rdma_rename
 %{_udevrulesdir}/60-rdma-persistent-naming.rules
 %{_udevrulesdir}/75-rdma-description.rules
@@ -663,6 +679,7 @@ done
 %{_modprobedir}/50-libmlx4.conf
 %{_libexecdir}/mlx4-setup.sh
 %{_libexecdir}/truescale-serdes.cmds
+%{_sbindir}/rdma_topo
 %license COPYING.*
 %if 0%{?suse_version} < 1600
 %{_sbindir}/rcrdma
@@ -724,6 +741,9 @@ done
 %files -n %hns_lname
 %defattr(-,root,root)
 %{_libdir}/libhns*.so.*
+
+%files -n %ionic_lname
+%{_libdir}/libionic*.so.*
 
 %files -n %mana_lname
 %{_libdir}/libmana*.so.*

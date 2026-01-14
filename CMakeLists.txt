@@ -79,11 +79,11 @@ endif()
 set(PACKAGE_NAME "RDMA")
 
 # See Documentation/versioning.md
-set(PACKAGE_VERSION "56.1")
+set(PACKAGE_VERSION "61.0")
 # When this is changed the values in these files need changing too:
 #   debian/control
 #   debian/libibverbs1.symbols
-set(IBVERBS_PABI_VERSION "34")
+set(IBVERBS_PABI_VERSION "59")
 set(IBVERBS_PROVIDER_SUFFIX "-rdmav${IBVERBS_PABI_VERSION}.so")
 
 #-------------------------
@@ -396,6 +396,16 @@ if (NOT HAVE_LONG_LONG_U64)
   # define will cause kernel headers to consistently use unsigned long long
   add_definitions("-D__SANE_USERSPACE_TYPES__")
 endif()
+
+# Check __SOCKADDR_ARG exist and is union
+set(SAFE_CMAKE_REQUIRED_INCLUDES "${CMAKE_REQUIRED_INCLUDES}")
+set(CMAKE_REQUIRED_INCLUDES "${BUILD_INCLUDE}")
+RDMA_Check_C_Compiles(HAVE_SOCKADDR_ARG_AS_UNION "
+#define _GNU_SOURCE
+#include <sys/socket.h>
+ int main(int argc,const char *argv[]) {struct sockaddr addr;__SOCKADDR_ARG sa; sa.__sockaddr__ = (struct sockaddr *)&addr; (void)addr; (void)sa; return 0;}"
+)
+set(CMAKE_REQUIRED_INCLUDES "${SAFE_CMAKE_REQUIRED_INCLUDES}")
 
 # glibc and kernel uapi headers can co-exist
 CHECK_C_SOURCE_COMPILES("
@@ -721,6 +731,7 @@ add_subdirectory(providers/efa/man)
 add_subdirectory(providers/erdma)
 add_subdirectory(providers/hns)
 add_subdirectory(providers/hns/man)
+add_subdirectory(providers/ionic)
 add_subdirectory(providers/irdma)
 add_subdirectory(providers/mana)
 add_subdirectory(providers/mana/man)

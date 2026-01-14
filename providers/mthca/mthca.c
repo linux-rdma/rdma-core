@@ -147,7 +147,7 @@ static struct verbs_context *mthca_alloc_context(struct ibv_device *ibdev,
 		return NULL;
 
 	if (ibv_cmd_get_context(&context->ibv_ctx, &cmd, sizeof cmd,
-				&resp.ibv_resp, sizeof resp))
+				NULL, &resp.ibv_resp, sizeof resp))
 		goto err_free;
 
 	context->num_qps        = resp.qp_tab_size;

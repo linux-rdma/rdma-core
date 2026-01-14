@@ -151,7 +151,7 @@ cdef class PD(PyverbsCM):
 
     @property
     def pd(self):
-        return <object>self.pd
+        return <uintptr_t>self.pd
 
 
 cdef void *pd_alloc(v.ibv_pd *pd, void *pd_context, size_t size,

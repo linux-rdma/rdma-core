@@ -31,8 +31,11 @@ cdef extern from 'infiniband/mlx5dv.h':
         MLX5_WQE_CTRL_FENCE
         MLX5_WQE_CTRL_INITIATOR_SMALL_FENCE
 
-    cpdef enum  mlx5dv_context_attr_flags:
+    cpdef enum mlx5dv_context_attr_flags:
         MLX5DV_CONTEXT_FLAGS_DEVX
+
+    cpdef enum mlx5dv_context_attr_comp_mask:
+        MLX5DV_CONTEXT_ATTR_MASK_FD_ARRAY
 
     cpdef enum mlx5dv_context_comp_mask:
         MLX5DV_CONTEXT_MASK_CQE_COMPRESION      = 1 << 0
@@ -59,6 +62,7 @@ cdef extern from 'infiniband/mlx5dv.h':
         MLX5DV_CONTEXT_FLAGS_CQE_128B_PAD               = 1 << 5
         MLX5DV_CONTEXT_FLAGS_PACKET_BASED_CREDIT_MODE   = 1 << 6
         MLX5DV_CONTEXT_FLAGS_REAL_TIME_TS               = 1 << 7
+        MLX5DV_CONTEXT_FLAGS_BLUEFLAME                  = 1 << 8
 
     cpdef enum mlx5dv_sw_parsing_offloads:
         MLX5DV_SW_PARSING       = 1 << 0
@@ -181,6 +185,7 @@ cdef extern from 'infiniband/mlx5dv.h':
         MLX5DV_FLOW_ACTION_DEST_DEVX
         MLX5DV_FLOW_ACTION_COUNTERS_DEVX
         MLX5DV_FLOW_ACTION_DEFAULT_MISS
+        MLX5DV_FLOW_ACTION_COUNTERS_DEVX_WITH_OFFSET
 
     cpdef enum mlx5dv_dr_domain_type:
         MLX5DV_DR_DOMAIN_TYPE_NIC_RX
@@ -292,6 +297,10 @@ cdef extern from 'infiniband/mlx5dv.h':
     cpdef enum:
         MLX5DV_UMEM_MASK_DMABUF
 
+    cpdef enum mlx5dv_flow_matcher_attr_mask:
+        MLX5DV_FLOW_MATCHER_MASK_FT_TYPE
+        MLX5DV_FLOW_MATCHER_MASK_IB_PORT
+
     cdef unsigned long long MLX5DV_RES_TYPE_QP
     cdef unsigned long long MLX5DV_RES_TYPE_RWQ
     cdef unsigned long long MLX5DV_RES_TYPE_DBR
@@ -317,6 +326,8 @@ cdef extern from 'infiniband/mlx5_api.h':
     cdef int MLX5DV_FLOW_TABLE_TYPE_NIC_RX
     cdef int MLX5DV_FLOW_TABLE_TYPE_NIC_TX
     cdef int MLX5DV_FLOW_TABLE_TYPE_FDB
+    cdef int MLX5DV_FLOW_TABLE_TYPE_RDMA_TRANSPORT_RX
+    cdef int MLX5DV_FLOW_TABLE_TYPE_RDMA_TRANSPORT_TX
 
     cdef int MLX5DV_FLOW_ACTION_PACKET_REFORMAT_TYPE_L2_TUNNEL_TO_L2
     cdef int MLX5DV_FLOW_ACTION_PACKET_REFORMAT_TYPE_L2_TO_L2_TUNNEL
@@ -324,3 +335,6 @@ cdef extern from 'infiniband/mlx5_api.h':
     cdef int MLX5DV_FLOW_ACTION_PACKET_REFORMAT_TYPE_L2_TO_L3_TUNNEL
 
     cdef int MLX5DV_REG_DMABUF_ACCESS_DATA_DIRECT
+
+    cpdef enum mlx5dv_devx_create_event_channel_flags:
+        MLX5DV_DEVX_CREATE_EVENT_CHANNEL_FLAGS_OMIT_EV_DATA

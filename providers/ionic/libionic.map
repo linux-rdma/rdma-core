@@ -1,0 +1,12 @@
+/* Export symbols should be added below according to
+   Documentation/versioning.md document. */
+IONIC_1.0 {
+	global:
+		ionic_dv_ctx_get_udma_count;
+		ionic_dv_ctx_get_udma_mask;
+		ionic_dv_pd_get_udma_mask;
+		ionic_dv_pd_set_udma_mask;
+		ionic_dv_pd_set_sqcmb;
+		ionic_dv_pd_set_rqcmb;
+	local: *;
+};

@@ -1,0 +1,769 @@
+#!/usr/bin/env python3
+# SPDX-License-Identifier: Linux-OpenIB
+# Copyright (c) 2025, NVIDIA CORPORATION & AFFILIATES
+# PYTHON_ARGCOMPLETE_OK
+from __future__ import annotations
+import argparse
+import collections
+import importlib
+import inspect
+import itertools
+import os
+import re
+import subprocess
+import sys
+import tempfile
+
+from typing import *
+
+BDF_RE = re.compile(r"^([0-9a-f]+?):([0-9a-f]{2}?):([0-9a-f]{2}?)\.([0-9a-f])$")
+KERNEL_ACS_ISOLATED = "xx111x1"
+pci_vendors = {
+    "MELLANOX": 0x15B3,
+    "NVIDIA": 0x10DE,
+}
+
+
+class CommandError(Exception):
+    pass
+
+
+def sysfs_read_str(sysdir: str, fn: str) -> str:
+    """Read the entire content of a sysfs file to a string"""
+    with open(os.path.join(sysdir, fn)) as F:
+        return F.read().strip()
+
+
+def sysfs_read_link(sysdir: str, fn: str) -> str:
+    """Read a link in sysfs to an absolute path string"""
+    return os.readlink(os.path.join(sysdir, fn))
+
+
+def PCI_VDEVICE(vendor: str, device_id: int) -> re.Pattern:
+    """Match a Vendor and device ID"""
+    vendor_id = pci_vendors[vendor]
+    return re.compile(rf"^pci:v{vendor_id:08X}d{device_id:08X}.*$")
+
+
+def PCI_DEVICE_CLASS(cid: int) -> re.Pattern:
+    """Match by exact programming class using the int coding from the kernel"""
+    class_id = (cid >> 16) & 0xFF
+    subclass_id = (cid >> 8) & 0xFF
+    progif = cid & 0xFF
+    return re.compile(rf"^pci:.*bc{class_id:02X}sc{subclass_id:02X}i{progif:02X}.*$")
+
+
+def PCI_NVGPU() -> re.Pattern:
+    """Match all NVIDIA GPUs"""
+    vendor_id = pci_vendors["NVIDIA"]
+    class_id = 0x03
+    return re.compile(rf"^pci:v{vendor_id:08X}.*bc{class_id:02X}.*$")
+
+
+# Table of modalias matches to the device_type string
+pci_device_types = {
+    PCI_VDEVICE("NVIDIA", 0x22B1): "grace_rp",  # NVIDIA Grace PCI Root Port Bridge
+    PCI_VDEVICE("NVIDIA", 0x22B2): "grace_rp",  # NVIDIA Grace PCI Root Port Bridge
+    PCI_VDEVICE("NVIDIA", 0x22B8): "grace_rp",  # NVIDIA Grace PCI Root Port Bridge
+    PCI_VDEVICE("MELLANOX", 0x1021): "cx_nic",  # ConnectX-7
+    PCI_VDEVICE("MELLANOX", 0x1023): "cx_nic",  # ConnectX-8
+    PCI_VDEVICE("MELLANOX", 0xA2DC): "bf3_nic",  # BlueField-3
+    PCI_VDEVICE("MELLANOX", 0x2100): "cx_dma",  # ConnectX-8 DMA Controller
+    PCI_VDEVICE("MELLANOX", 0x197B): "bf3_switch",  # USP/DSP of a BF3 switch
+    PCI_VDEVICE("MELLANOX", 0x197C): "cx_switch",  # USP/DSP of a CX switch
+    PCI_DEVICE_CLASS(0x010802): "nvme",
+    PCI_NVGPU(): "nvgpu",
+}
+
+
+class PCIBDF(
+    collections.namedtuple("PCIBDF", ["segment", "bus", "device", "function"])
+):
+    """Bus Device Function for a PCI device"""
+
+    def as_pci(self):
+        return f"{self.segment}:{self.bus}:{self.device}.{self.function}"
+
+    def __str__(self):
+        return self.as_pci()
+
+    def __repr__(self):
+        return f"PCIBDF({self.segment}, {self.bus}, {self.device}, {self.function})"
+
+
+def to_pcibdf(s: str) -> Optional[PCIBDF]:
+    g = BDF_RE.match(s)
+    if not g:
+        return None
+    return PCIBDF(*g.groups())
+
+
+class PCIDevice(object):
+    device_type = ""
+    vpd_v3: str = None
+    parent: PCIDevice = None
+    lspci_data: str = None
+
+    def __init__(self, sysdir: str, bdf: PCIBDF):
+        self.sysdir = sysdir
+        self.bdf = bdf
+        try:
+            self.iommu_group = int(
+                os.path.split(sysfs_read_link(sysdir, "iommu_group"))[-1]
+            )
+        except FileNotFoundError:
+            self.iommu_group = None
+
+        try:
+            self.numa_node = int(sysfs_read_str(sysdir, "numa_node"))
+        except FileNotFoundError:
+            self.numa_node = None
+
+        self.modalias = sysfs_read_str(sysdir, "modalias")
+        for k, v in pci_device_types.items():
+            if k.match(self.modalias):
+                self.device_type = v
+                break
+
+        sysdir = os.path.realpath(sysdir)
+        parent = os.path.basename(os.path.dirname(sysdir))
+        self.parent_bdf = to_pcibdf(parent)
+        self.children: Set[PCIDevice] = set()
+
+    def finish_loading(self):
+        """Do more expensive parsing operations"""
+        if self.device_type == "cx_nic" or self.device_type == "cx_dma":
+            self.vpd_v3 = self.parse_vpd_v3()
+        if "switch" in self.device_type or self.device_type == "grace_rp":
+            self.has_acs = self.parse_has_acs()
+
+    def iterdownstream(self) -> Generator[PCIDevice, None, None]:
+        """Iterate over all downstream devices of this device recursively"""
+        for pdev in self.children:
+            yield pdev
+            yield from pdev.iterdownstream()
+
+    def iterfulltree(self):
+        for pdev in self.iterupstream_path():
+            if not pdev.parent:
+                yield from pdev.iterdownstream()
+
+    def iterupstream_path(self):
+        """Iterate over each step along the upstream path from the devices
+        parent to the root."""
+        pdev = self.parent
+        while pdev:
+            yield pdev
+            pdev = pdev.parent
+
+    def __repr__(self):
+        return f"PCIDevice({self.bdf})"
+
+    def lspci(self):
+        """Fetch the verbose output of lspci"""
+        vpdfn = os.path.join(self.sysdir, "vpd")
+        if os.path.exists(vpdfn) and not os.access(vpdfn, os.R_OK):
+            raise CommandError(
+                f"Need access to the PCI VPD information in {vpdfn}, are you root?"
+            )
+
+        if not self.lspci_data:
+            self.lspci_data = subprocess.check_output(
+                ["lspci", "-s", f"{self.bdf.as_pci()}", "-vv"]
+            ).decode()
+        return self.lspci_data
+
+    def parse_vpd_v3(self):
+        """Use lspci to parse the VPD and get the V3 UUID, this only works as
+        root on non-secure boot systems."""
+        g = re.search(
+            r"Capabilities: \[.+?\] Vital Product Data$.*Read-only fields:$.*\[V3\] Vendor specific: (.*?)$.*End$",
+            self.lspci(),
+            re.DOTALL | re.MULTILINE,
+        )
+        if not g:
+            return None
+        return g.group(1)
+
+    def parse_has_acs(self):
+        """True if the device has an ACS capability"""
+        return bool(
+            re.search(
+                r"Capabilities: \[.+?\] Access Control Services$",
+                self.lspci(),
+                re.DOTALL | re.MULTILINE,
+            )
+        )
+
+    def parse_vpd_name(self):
+        g = re.search(
+            r"Capabilities: \[.+?\] Vital Product Data$.*Product Name: (.*?)$.*End$",
+            self.lspci(),
+            re.DOTALL | re.MULTILINE,
+        )
+        if not g:
+            return None
+        return g.group(1).strip()
+
+    def read_config(self, regname: str):
+        """Use setpci to read a register"""
+        return int(
+            subprocess.check_output(
+                ["setpci", "-r", "-s", str(self.bdf), "ECAP_ACS+0x6.w"]
+            )
+            .decode()
+            .strip(),
+            16,
+        )
+
+    def get_subsystems(self):
+        """Return a list of subsystem the PCI device is connected to"""
+        res: Dict[str, Set[str]] = collections.defaultdict(set)
+        for fn in os.listdir(self.sysdir):
+            if fn in {"drm", "infiniband", "net", "nvme"}:
+                res[fn].update(os.listdir(os.path.join(self.sysdir, fn)))
+        return res
+
+
+class NVCX_Complex(object):
+    """Hold the related PCI functions together. A complex includes a CX PF, a CX
+    DMA function, an GPU and related PCI switches in the DMA function
+    segment."""
+
+    def __init__(self, cx_pfs: Set[PCIDevice], cx_dma: PCIDevice, nvgpu: PCIDevice):
+        self.cx_pfs = cx_pfs - {cx_dma}
+        self.cx_pf = sorted(self.cx_pfs, key=lambda x: x.bdf)[0]
+        self.cx_dma = cx_dma
+        self.nvgpu = nvgpu
+
+        # Identify the switch ports that are part of the shared path that
+        # handles the P2P traffic
+        self.shared_usp = self.__find_shared_usp()
+        for pdev in self.cx_dma.iterupstream_path():
+            if pdev in self.shared_usp.children:
+                self.cx_dma_dsp = pdev
+        for pdev in self.nvgpu.iterupstream_path():
+            if pdev in self.shared_usp.children:
+                self.nvgpu_dsp = pdev
+
+        # There can be a NVMe device connected to the CX NIC as well. For NVMe
+        # it is best to match with GPUs on the same socket, so a NUMA aware
+        # approach would be fine, but also the GPU/NIC/NVMe could be
+        # consistently paired based on the physical layout.
+        self.nvmes: Set[PCIDevice] = set()
+        for pdev in self.cx_pf.iterfulltree():
+            if pdev.device_type == "nvme":
+                self.nvmes.add(pdev)
+
+    def __find_shared_usp(self) -> PCIDevice:
+        """Find the USP that is shared by both devices, the immediate downstream
+        bus is the point in the topology where P2P traffic will switch from an
+        upstream to downstream direction."""
+        common_path = set(self.cx_dma.iterupstream_path()).intersection(
+            set(self.nvgpu.iterupstream_path())
+        )
+        assert common_path
+
+        for pdev in self.cx_dma.iterupstream_path():
+            if pdev in common_path:
+                assert pdev.device_type == "cx_switch"
+                for i in pdev.children:
+                    assert i.device_type == "cx_switch"
+                return pdev
+
+    def get_subsystems(self):
+        subsystems: Dict[str, Set[str]] = collections.defaultdict(set)
+        for pdev in itertools.chain(self.cx_pfs, [self.nvgpu, self.cx_dma], self.nvmes):
+            for k, v in pdev.get_subsystems().items():
+                subsystems[k].update(v)
+        return subsystems
+
+
+def check_parent(pdev: PCIDevice, parent_type: str):
+    if not pdev or not pdev.parent:
+        return None
+    if pdev.parent.device_type != parent_type:
+        return None
+    return pdev.parent
+
+
+class PCITopo(object):
+    """Load the PCI topology from sysfs and organize it"""
+
+    def __init__(self):
+        self.devices = self.__load_devices("/sys/bus/pci/devices/")
+        self.has_cx_dma = any(
+            pdev.device_type == "cx_dma" for pdev in self.devices.values()
+        )
+        if self.has_cx_dma:
+            for pdev in self.devices.values():
+                pdev.finish_loading()
+            self.__build_topo()
+
+    def __load_devices(self, sysdir: str):
+        res: Dict[PCIBDF, PCIDevice] = {}
+        for fn in os.listdir(sysdir):
+            bdf = to_pcibdf(fn)
+            if not bdf:
+                continue
+            assert bdf not in res
+            res[bdf] = PCIDevice(os.path.join(sysdir, fn), bdf)
+        return res
+
+    def __get_nvcx_complex(self, cx_dma: PCIDevice):
+        """Match the topology for the switch complex using a CX DMA function and a
+        single GPU. It has two nested switches:
+
+        RP --> SW -> CX_DMA
+                  -> SW -> GPU
+        """
+        assert cx_dma.device_type == "cx_dma"
+        if not cx_dma.vpd_v3:
+            raise ValueError(f"CX DMA function {cx_dma} does not have a VPD V3 UUID")
+
+        # The DMA and PF are matched using the UUID from the VPD
+        cx_pfs = self.vpd_v3s.get(cx_dma.vpd_v3)
+        if cx_pfs is None:
+            raise ValueError(
+                f"CX DMA function {cx_dma} does not have a matching PF, V3 UUID matching failed"
+            )
+            return None
+
+        # Path from the DMA to the root port
+        cx_dma_dsp = check_parent(cx_dma, "cx_switch")
+        cx_usp = check_parent(cx_dma_dsp, "cx_switch")
+        grace_rp = check_parent(cx_usp, "grace_rp")
+        if not grace_rp:
+            raise ValueError(
+                f"CX DMA function {cx_dma} has an unrecognized upstream path"
+            )
+
+        # Path from the GPU to the root port
+        nvgpus = [
+            pdev for pdev in grace_rp.iterdownstream() if pdev.device_type == "nvgpu"
+        ]
+        if len(nvgpus) != 1:
+            raise ValueError(f"CX DMA function {cx_dma} does not have a nearby GPU")
+        nvgpu = nvgpus[0]
+        nvgpu_dsp2 = check_parent(nvgpu, "cx_switch")
+        nvgpu_usp2 = check_parent(nvgpu_dsp2, "cx_switch")
+        nvgpu_dsp1 = check_parent(nvgpu_usp2, "cx_switch")
+        if cx_usp != check_parent(nvgpu_dsp1, "cx_switch"):
+            raise ValueError(
+                f"CX DMA function {cx_dma} has an unrecognized upstream path from the GPU"
+            )
+
+        # Sanity check there is nothing unexpected in the topology
+        alldevs = {
+            cx_dma,
+            cx_dma_dsp,
+            cx_usp,
+            nvgpu,
+            nvgpu_dsp2,
+            nvgpu_usp2,
+            nvgpu_dsp1,
+        }
+        topodevs = set(grace_rp.iterdownstream())
+        if alldevs != topodevs:
+            raise ValueError(
+                f"CX DMA function {cx_dma} has unexpected PCI devices in the topology"
+            )
+        return NVCX_Complex(cx_pfs, cx_dma, nvgpu)
+
+    def __build_topo(self):
+        """Collect cross-device information together and build the NVCX_Complex
+        objects for the cx_dma functions"""
+        self.vpd_v3s: Dict[str, Set[PCIDevice]] = collections.defaultdict(set)
+        for pdev in self.devices.values():
+            if pdev.parent_bdf:
+                pdev.parent = self.devices[pdev.parent_bdf]
+                pdev.parent.children.add(pdev)
+
+            # Many PCI functions may share the same V3
+            if pdev.vpd_v3:
+                self.vpd_v3s[pdev.vpd_v3].add(pdev)
+
+        self.nvcxs: List[NVCX_Complex] = []
+        for pdev in self.devices.values():
+            if pdev.device_type == "cx_dma":
+                nvcx = self.__get_nvcx_complex(pdev)
+                self.nvcxs.append(nvcx)
+        self.nvcxs.sort(key=lambda x: x.cx_pf.bdf)
+
+    def compute_acs(self):
+        """Return a dictionary of PCI devices and the ACS mask the device should
+        have"""
+        acs: Dict[PCIDevice, str] = {}
+        for nvcx in self.nvcxs:
+            # For the DSP in the shared switch toward the CX8 DMA Direct interface:
+            # Enable these bits:
+            # bit-4 : ACS Upstream Forwarding
+            # bit-3 : ACS P2P Completion Redirect
+            # bit-0 : ACS Source Validation
+            # Disable these bits:
+            # bit-2 : ACS P2P Request Redirect
+            assert nvcx.cx_dma_dsp.has_acs
+            acs[nvcx.cx_dma_dsp] = "xx110x1"
+
+            # For the DSP in the shared switch toward the GPU:
+            # Enable the following bits:
+            # bit-4 : ACS Upstream Forwarding
+            # bit-2 : ACS P2P Request Redirect
+            # bit-0 : ACS Source Validation
+            # Disable the following bits:
+            # bit-3 : ACS P2P Completion Redirect
+            assert nvcx.nvgpu_dsp.has_acs
+            acs[nvcx.nvgpu_dsp] = "xx101x1"
+
+            # Disable ACS SV on the root port, this forces the entire segment
+            # into one iommu_group and avoids kernel bugs building groups for
+            # irregular ACS.
+            for pdev in nvcx.cx_dma_dsp.iterupstream_path():
+                if not pdev.parent:
+                    assert pdev.has_acs
+                    acs[pdev] = "xx111x0"
+
+        # For all other CX bridges set kernel's default ACS enable
+        # Enable these bits:
+        # bit-4 : ACS Upstream Forwarding
+        # bit-3 : ACS P2P Completion Redirect
+        # bit-2 : ACS P2P Request Redirect
+        # bit-0 : ACS Source Validation
+        # Which match the kernel default
+        for pdev in self.devices.values():
+            if (
+                pdev not in acs
+                and ("switch" in pdev.device_type or "grace_rp" in pdev.device_type)
+                and pdev.has_acs
+            ):
+                acs[pdev] = KERNEL_ACS_ISOLATED
+        return acs
+
+
+# -------------------------------------------------------------------
+def print_list(title: str, items: list[str]):
+    if not items:
+        return
+    if len(items) > 1:
+        title = title + "s"
+    list_str = ", ".join(sorted(items))
+    print(f"\t{title}: {list_str}")
+
+
+def args_topology(parser):
+    parser.add_argument(
+        "-j",
+        "--json",
+        action="store_true",
+        dest="json",
+        help="Output in machine readable JSON format",
+    )
+
+
+def topo_json(topo: PCITopo):
+    import json
+
+    jtop = []
+    for nvcx in topo.nvcxs:
+        jnvcx = {
+            "rdma_nic_pf_bdf": str(nvcx.cx_pf.bdf),
+            "rdma_dma_bdf": str(nvcx.cx_dma.bdf),
+            "gpu_bdf": str(nvcx.nvgpu.bdf),
+            "subsystems": {},
+        }
+        devname = nvcx.cx_pf.parse_vpd_name()
+        if devname:
+            jnvcx["rdma_nic_vpd_name"] = nvcx.cx_pf.parse_vpd_name()
+        if nvcx.cx_pf.numa_node is not None:
+            jnvcx["numa_node"] = nvcx.cx_pf.numa_node
+        if nvcx.nvmes:
+            jnvcx["nvme_bdf"] = str(next(iter(nvcx.nvmes)).bdf)
+
+        for pdev in sorted(
+            itertools.chain(nvcx.cx_pfs, [nvcx.nvgpu, nvcx.cx_dma], nvcx.nvmes),
+            key=lambda x: x.bdf,
+        ):
+            subsys = pdev.get_subsystems()
+            if subsys:
+                jnvcx["subsystems"][str(pdev.bdf)] = {
+                    subsys: list(devs) for subsys, devs in subsys.items()
+                }
+        jtop.append(jnvcx)
+    print(json.dumps(jtop, indent=4))
+
+
+def cmd_topology(args):
+    """List the ConnectX NICs in the system with the corresponding NIC
+    function, DMA Direct function and associated GPU."""
+    topo = PCITopo()
+    if not topo.has_cx_dma:
+        raise CommandError("No ConnectX DMA Direct functions detected")
+
+    if args.json:
+        return topo_json(topo)
+
+    for nvcx in topo.nvcxs:
+        print(
+            f"RDMA NIC={nvcx.cx_pf.bdf}, GPU={nvcx.nvgpu.bdf}, RDMA DMA Function={nvcx.cx_dma.bdf}"
+        )
+
+        devname = nvcx.cx_pf.parse_vpd_name()
+        if devname:
+            print(f"\t{devname}")
+
+        if nvcx.cx_pf.numa_node is not None:
+            print(f"\tNUMA Node: {nvcx.cx_pf.numa_node}")
+
+        if len(nvcx.cx_pfs):
+            print_list("NIC PCI device", [str(I.bdf) for I in nvcx.cx_pfs])
+
+        subsystems = nvcx.get_subsystems()
+        print_list("RDMA device", subsystems["infiniband"])
+        print_list("Net device", subsystems["net"])
+        print_list("DRM device", subsystems["drm"])
+        print_list("NVMe device", subsystems["nvme"])
+cmd_topology.__aliases__ = ("topo",)
+
+# -------------------------------------------------------------------
+def update_file(fn: str, new_content: str):
+    """Make fn have new_content. If fn already has new_content nothing is
+    done."""
+    try:
+        with open(fn, "rt") as F:
+            old = F.read()
+        if old == new_content:
+            return False
+    except FileNotFoundError:
+        pass
+    with tempfile.NamedTemporaryFile(dir=os.path.dirname(fn), mode="wt") as F:
+        F.write(new_content)
+        F.flush()
+        os.chmod(F.name, 0o644)
+        try:
+            os.link(F.name, fn)
+        except FileExistsError:
+            os.unlink(fn)
+            os.link(F.name, fn)
+    return True
+
+
+def args_write_grub_acs(parser):
+    parser.add_argument(
+        "-n",
+        "--dry-run",
+        action="store_true",
+        dest="dry_run",
+        help="Output the grub configuration to stdout and make no changes",
+    )
+    parser.add_argument(
+        "--output",
+        action="store",
+        default="/etc/default/grub.d/config-acs.cfg",
+        help="Grub dropin file to use for the kernel command line",
+    )
+
+
+def cmd_write_grub_acs(args):
+    """Generate a grub dropin file to have the kernel commandline set the
+    required ACS flags during system boot. This is the recommended way to
+    configure ACS on systems but requires a compatible kernel.
+
+    If the system does not have any need of ACS flags the dropin file will be
+    removed. This command is intended for Debian style systems with a
+    /etc/default/grub.d and update-grub command."""
+    topo = PCITopo()
+    if not topo.has_cx_dma:
+        if args.dry_run:
+            raise CommandError("No ConnectX DMA Direct functions detected")
+        if os.path.exists(args.output):
+            os.unlink(args.output)
+        return
+
+    acs = topo.compute_acs()
+    config_acs = [
+        f"{acs}@{pdev.bdf}"
+        for pdev, acs in sorted(acs.items(), key=lambda x: x[0].bdf)
+        if acs != KERNEL_ACS_ISOLATED
+    ]
+    acs_arg = ";".join(config_acs)
+    grub_conf = [
+        f"# Generated by {sys.argv[0]} do not change. ACS settings for RDMA GPU Direct",
+        f'GRUB_CMDLINE_LINUX="$GRUB_CMDLINE_LINUX pci=config_acs=\\"{acs_arg}\\""',
+    ]
+    grub_conf = "\n".join(grub_conf)
+
+    if args.dry_run:
+        print(grub_conf)
+        return
+
+    try:
+        os.makedirs(os.path.dirname(args.output))
+    except FileExistsError:
+        pass
+    if update_file(args.output, grub_conf + "\n"):
+        subprocess.check_call(["update-grub"])
+
+
+# -------------------------------------------------------------------
+def combine_acs(cur_acs, new_acs):
+    for idx, val in enumerate(new_acs[::-1]):
+        if val == "1":
+            cur_acs = cur_acs | (1 << idx)
+        elif val == "0":
+            cur_acs = cur_acs & (0xFFFF ^ (1 << idx))
+    return cur_acs
+
+
+def args_setpci_acs(parser):
+    parser.add_argument(
+        "-n",
+        "--dry-run",
+        action="store_true",
+        dest="dry_run",
+        help="Output the setpci commands to stdout and make no changes",
+    )
+
+
+def cmd_setpci_acs(args):
+    """Execute a series of set_pci commands that will immediately change the ACS
+    settings to the required values. This is compatible with older kernels, but
+    is not recommended. The kernel must boot with ACS enabled and the GPU driver
+    must have the NVreg_GrdmaPciTopoCheckOverride=1 reg key set to disable
+    safety checks that old kernels cannot support.
+
+    NOTE: In this configuration unprivileged userspace can trigger platform RAS
+    failures, use with caution!
+    """
+    topo = PCITopo()
+    acs = topo.compute_acs()
+    cmds: List[List[str]] = []
+    for pdev, acs in sorted(acs.items(), key=lambda x: x[0].bdf):
+        cur_acs = pdev.read_config("ECAP_ACS+0x6.w")
+        new_acs = combine_acs(cur_acs, acs)
+        if new_acs == cur_acs:
+            continue
+
+        cmd = ["setpci", "-r", "-s", str(pdev.bdf), f"ECAP_ACS+0x6.w={new_acs:04x}"]
+        cmds.append(cmd)
+    if args.dry_run:
+        for cmd in cmds:
+            print(" ".join(cmd))
+        return
+    for cmd in cmds:
+        subprocess.check_call(cmd)
+
+
+# -------------------------------------------------------------------
+def args_check(parser):
+    pass
+
+
+def check_ok(msg: str):
+    print(f"OK\t{msg}")
+
+
+def check_fail(msg: str):
+    print(f"FAIL\t{msg}")
+    sys.exit(100)
+
+
+def cmd_check(args):
+    """Check that the running kernel and PCI environment are setup correctly for
+    GPU Direct with ConnectX DMA Direct PCI functions."""
+    topo = PCITopo()
+    if not topo.has_cx_dma:
+        raise CommandError("No ConnectX DMA Direct functions detected")
+    check_ok("All ConnectX DMA functions have correct PCI topology")
+
+    acs = topo.compute_acs()
+    for pdev, acs in sorted(acs.items(), key=lambda x: x[0].bdf):
+        cur_acs = pdev.read_config("ECAP_ACS+0x6.w")
+        new_acs = combine_acs(cur_acs, acs)
+        if new_acs == cur_acs:
+            check_ok(
+                f"ACS for {pdev.device_type} {pdev.bdf} has correct values {cur_acs:07b} = {acs}"
+            )
+        else:
+            check_fail(
+                f"ACS for {pdev.device_type} {pdev.bdf} has incorrect values {cur_acs:07b} != {acs}, (0x{cur_acs:x} != 0x{new_acs:x})"
+            )
+
+    # Correct iommu_groups are required to avoid NVreg_GrdmaPciTopoCheckOverride
+    for nvcx in topo.nvcxs:
+        if (
+            nvcx.cx_dma.iommu_group == nvcx.nvgpu.iommu_group
+            and nvcx.cx_dma.iommu_group is not None
+        ):
+            check_ok(
+                f"Kernel iommu_group for DMA {nvcx.cx_dma.bdf} and GPU {nvcx.nvgpu.bdf} are both {nvcx.cx_dma.iommu_group}"
+            )
+        else:
+            check_fail(
+                f"Kernel iommu_group for DMA {nvcx.cx_dma.bdf} and GPU {nvcx.nvgpu.bdf} are not equal {nvcx.cx_dma.iommu_group} != {nvcx.nvgpu.iommu_group}"
+            )
+
+
+# -------------------------------------------------------------------
+def load_all_commands(name):
+    module = importlib.import_module(name)
+    for k in dir(module):
+        fn = getattr(module, k)
+        argsfn = getattr(module, "args_" + k[4:], None)
+        if argsfn is None or not k.startswith("cmd_") or not inspect.isfunction(fn):
+            continue
+        yield (k, fn, argsfn)
+
+
+def get_cmd_aliases(fn):
+    if hasattr(fn, "__aliases__"):
+        return fn.__aliases__
+    return ()
+
+def main():
+    parser = argparse.ArgumentParser(
+        formatter_class=argparse.RawDescriptionHelpFormatter,
+        description="""NVIDIA ConnectX GPU Direct ACS tool for Direct NIC platforms
+
+This tool is used to view and control the PCI Access Control Flags (ACS) related
+to the Direct NIC topology on supported NVIDIA platforms with ConnectX and
+Blackwell family GPUs.
+
+Direct NIC platforms have a unique multipath PCI topology where the ConnectX
+has a main PCI function and a related DMA Direct function linked to the GPU.
+
+This platform requires specific ACS flags in the PCI topology for reliable
+operation, this tool helps users generate ACS settings for the local system.
+""",
+    )
+    subparsers = parser.add_subparsers(title="Sub Commands", dest="command")
+    subparsers.required = True
+
+    commands = [I for I in load_all_commands(__name__)]
+    commands.sort()
+
+    # build sub parsers for all the loaded commands
+    for k, fn, argsfn in commands:
+        sparser = subparsers.add_parser(
+            k[4:].replace("_", "-"), aliases=get_cmd_aliases(fn), help=fn.__doc__
+        )
+        sparser.required = True
+        argsfn(sparser)
+        sparser.set_defaults(func=fn)
+
+    try:
+        import argcomplete
+
+        argcomplete.autocomplete(parser)
+    except ImportError:
+        pass
+
+    # argparse will set 'func' to the cmd_* that executes this command
+    args = parser.parse_args()
+    try:
+        args.func(args)
+    except CommandError as e:
+        print(f"E: {e}")
+        sys.exit(100)
+
+
+main()

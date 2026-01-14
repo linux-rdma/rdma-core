@@ -110,6 +110,7 @@ EXAMPLES
 ========
 
 ::
+
         smpquery portinfo 3 1                     # portinfo by lid, with port modifier
         smpquery -G switchinfo 0x2C9000100D051 1  # switchinfo by guid
         smpquery -D nodeinfo 0                    # nodeinfo by direct route

@@ -307,7 +307,7 @@ struct hns_roce_wq {
 	unsigned long			*wrid;
 	struct hns_roce_spinlock	hr_lock;
 	unsigned int			wqe_cnt;
-	int				max_post;
+	unsigned int			max_post;
 	unsigned int			head;
 	unsigned int			tail;
 	unsigned int			max_gs;
@@ -335,7 +335,7 @@ struct hns_roce_sge_ex {
 struct hns_roce_qp {
 	struct verbs_qp			verbs_qp;
 	struct hns_roce_buf		buf;
-	int				max_inline_data;
+	unsigned int			max_inline_data;
 	int				buf_size;
 	unsigned int			sq_signal_bits;
 	struct hns_roce_wq		sq;
@@ -507,11 +507,6 @@ struct ibv_mr *hns_roce_u_reg_mr(struct ibv_pd *pd, void *addr, size_t length,
 int hns_roce_u_rereg_mr(struct verbs_mr *vmr, int flags, struct ibv_pd *pd,
 			void *addr, size_t length, int access);
 int hns_roce_u_dereg_mr(struct verbs_mr *vmr);
-
-struct ibv_mw *hns_roce_u_alloc_mw(struct ibv_pd *pd, enum ibv_mw_type type);
-int hns_roce_u_dealloc_mw(struct ibv_mw *mw);
-int hns_roce_u_bind_mw(struct ibv_qp *qp, struct ibv_mw *mw,
-		       struct ibv_mw_bind *mw_bind);
 
 struct ibv_cq *hns_roce_u_create_cq(struct ibv_context *context, int cqe,
 				    struct ibv_comp_channel *channel,

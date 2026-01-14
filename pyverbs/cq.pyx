@@ -1,6 +1,7 @@
 # SPDX-License-Identifier: (GPL-2.0 OR Linux-OpenIB)
 # Copyright (c) 2019, Mellanox Technologies. All rights reserved.
 import weakref
+from libc.stdint cimport uintptr_t
 
 from pyverbs.pyverbs_error import PyverbsError, PyverbsRDMAError
 from pyverbs.base import PyverbsRDMAErrno
@@ -68,6 +69,10 @@ cdef class CompChannel(PyverbsCM):
     cdef add_ref(self, obj):
         if isinstance(obj, CQ) or isinstance(obj, CQEX):
             self.cqs.add(obj)
+
+    @property
+    def fd(self):
+        return self.cc.fd
 
 
 cdef class CQ(PyverbsCM):
@@ -210,7 +215,7 @@ cdef class CQ(PyverbsCM):
 
     @property
     def cq(self):
-       return <object>self.cq
+       return <uintptr_t>self.cq
 
 
 cdef class CqInitAttrEx(PyverbsObject):

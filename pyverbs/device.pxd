@@ -27,6 +27,8 @@ cdef class Context(PyverbsCM):
     cdef object wqs
     cdef object rwq_ind_tbls
     cdef object crypto_logins
+    cdef object event_channels
+    cdef object dmahs
 
 cdef class DeviceAttr(PyverbsObject):
     cdef v.ibv_device_attr dev_attr
@@ -77,3 +79,7 @@ cdef class GIDEntry(PyverbsObject):
 
 cdef class AsyncEvent(PyverbsObject):
     cdef v.ibv_async_event event
+
+cdef class FdArr(PyverbsObject):
+    cdef v.ibv_fd_arr attr
+    cpdef close(self)

@@ -51,6 +51,24 @@ struct efa_context {
 struct efa_pd {
 	struct ibv_pd ibvpd;
 	uint16_t pdn;
+	/* Pointer to original PD used to create parent domain */
+	struct efa_pd *orig_pd;
+	/* Number of parent domains referencing this PD */
+	atomic_int refcount;
+};
+
+struct efa_td {
+	struct ibv_td ibvtd;
+	/* Number of parent domains referencing this TD */
+	atomic_int refcount;
+};
+
+struct efa_parent_domain {
+	struct efa_pd pd;
+	struct efa_td *td;
+	/* Number of objects referencing this parent domain */
+	atomic_int refcount;
+	void *pd_context;
 };
 
 struct efa_sub_cq {
@@ -69,6 +87,7 @@ struct efa_cq {
 	size_t cqe_size;
 	uint8_t *buf;
 	size_t buf_size;
+	bool buf_mmaped;
 	uint32_t *db;
 	uint8_t *db_mmap_addr;
 	uint16_t cc; /* Consumer Counter */
@@ -80,6 +99,7 @@ struct efa_cq {
 	struct efa_wq *cur_wq;
 	struct efa_io_cdesc_common *cur_cqe;
 	struct ibv_device *dev;
+	struct efa_parent_domain *parent_domain;
 	struct efa_sub_cq sub_cq_arr[];
 };
 
@@ -101,6 +121,7 @@ struct efa_wq {
 	int max_sge;
 	int phase;
 	pthread_spinlock_t wqlock;
+	bool need_lock;
 
 	uint32_t *db;
 	uint16_t sub_cq_idx;
@@ -139,6 +160,7 @@ struct efa_qp {
 	int sq_sig_all;
 	int wr_session_err;
 	struct ibv_device *dev;
+	struct efa_parent_domain *parent_domain;
 };
 
 struct efa_mr {
@@ -198,6 +220,16 @@ static inline struct efa_qp *to_efa_qp_ex(struct ibv_qp_ex *ibvqpx)
 static inline struct efa_ah *to_efa_ah(struct ibv_ah *ibvah)
 {
 	return container_of(ibvah, struct efa_ah, ibvah);
+}
+
+static inline struct efa_td *to_efa_td(struct ibv_td *ibvtd)
+{
+	return container_of(ibvtd, struct efa_td, ibvtd);
+}
+
+static inline struct efa_parent_domain *to_efa_parent_domain(struct ibv_pd *ibvpd)
+{
+	return container_of(ibvpd, struct efa_parent_domain, pd.ibvpd);
 }
 
 bool is_efa_dev(struct ibv_device *device);

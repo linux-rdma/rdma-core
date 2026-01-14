@@ -395,6 +395,23 @@ void ibv_unimport_dm(struct ibv_dm *dm)
 	get_ops(dm->context)->unimport_dm(dm);
 }
 
+/**
+ * ibv_alloc_dmah - Allocate a dma handle
+ */
+struct ibv_dmah *ibv_alloc_dmah(struct ibv_context *context,
+				struct ibv_dmah_init_attr *attr)
+{
+	return get_ops(context)->alloc_dmah(context, attr);
+}
+
+/**
+ * ibv_dealloc_dmah - Free a dma handle
+ */
+int ibv_dealloc_dmah(struct ibv_dmah *dmah)
+{
+	return get_ops(dmah->context)->dealloc_dmah(dmah);
+}
+
 struct ibv_mr *ibv_reg_dmabuf_mr(struct ibv_pd *pd, uint64_t offset,
 				 size_t length, uint64_t iova, int fd,
 				 int access)
@@ -410,6 +427,41 @@ struct ibv_mr *ibv_reg_dmabuf_mr(struct ibv_pd *pd, uint64_t offset,
 	mr->pd = pd;
 	mr->addr = (void *)(uintptr_t)offset;
 	mr->length = length;
+	return mr;
+}
+
+/* Note: mr_init_attr may be modified during this call */
+struct ibv_mr *ibv_reg_mr_ex(struct ibv_pd *pd, struct ibv_mr_init_attr *mr_init_attr)
+{
+	struct verbs_device *device = verbs_get_device(pd->context->device);
+	struct ibv_mr *mr;
+	int in_access = mr_init_attr->access;
+	bool need_fork = !((mr_init_attr->access & IBV_ACCESS_ON_DEMAND) ||
+			   (mr_init_attr->comp_mask & IBV_REG_MR_MASK_FD));
+
+	if (need_fork && ibv_dontfork_range(mr_init_attr->addr, mr_init_attr->length))
+		return NULL;
+
+	if (!(device->core_support & IB_UVERBS_CORE_SUPPORT_OPTIONAL_MR_ACCESS))
+		mr_init_attr->access &= ~IBV_ACCESS_OPTIONAL_RANGE;
+
+	mr = get_ops(pd->context)->reg_mr_ex(pd, mr_init_attr);
+	if (mr) {
+		mr->context = pd->context;
+		mr->length = mr_init_attr->length;
+		mr->pd = pd;
+		if (mr_init_attr->comp_mask & IBV_REG_MR_MASK_ADDR)
+			mr->addr = mr_init_attr->addr;
+		else
+			/* Follows ibv_reg_dmabuf_mr logic */
+			mr->addr = (void *)(uintptr_t) mr_init_attr->fd_offset;
+	} else {
+		if (need_fork)
+			ibv_dofork_range(mr_init_attr->addr, mr_init_attr->length);
+	}
+
+	/* restore the input access flags */
+	mr_init_attr->access = in_access;
 	return mr;
 }
 
@@ -695,23 +747,31 @@ LATEST_SYMVER_FUNC(ibv_query_qp, 1_1, "IBVERBS_1.1",
 int ibv_query_qp_data_in_order(struct ibv_qp *qp, enum ibv_wr_opcode op,
 			       uint32_t flags)
 {
+	int result;
+
+	if (!check_comp_mask(flags,
+			     IBV_QUERY_QP_DATA_IN_ORDER_RETURN_CAPS |
+			     IBV_QUERY_QP_DATA_IN_ORDER_DEVICE_ONLY))
+		return 0;
+
 #if !defined(__i386__) && !defined(__x86_64__)
 	/* Currently this API is only supported for x86 architectures since most
 	 * non-x86 platforms are known to be OOO and need to do a per-platform study.
+	 * However, it is possible to override this restriction to allow querying
+	 * the device capability directly, regardless of the host CPU architecture.
 	 */
-	return 0;
-#else
-	int result;
-
-	if (!check_comp_mask(flags, IBV_QUERY_QP_DATA_IN_ORDER_RETURN_CAPS))
+	if (!(flags & IBV_QUERY_QP_DATA_IN_ORDER_DEVICE_ONLY))
 		return 0;
+#endif
 
 	result = get_ops(qp->context)->query_qp_data_in_order(qp, op, flags);
 	if (result & IBV_QUERY_QP_DATA_IN_ORDER_WHOLE_MSG)
 		result |= IBV_QUERY_QP_DATA_IN_ORDER_ALIGNED_128_BYTES;
 
-	return flags ? result : !!(result & IBV_QUERY_QP_DATA_IN_ORDER_WHOLE_MSG);
-#endif
+	if (flags & IBV_QUERY_QP_DATA_IN_ORDER_RETURN_CAPS)
+		return result;
+
+	return !!(result & IBV_QUERY_QP_DATA_IN_ORDER_WHOLE_MSG);
 }
 
 LATEST_SYMVER_FUNC(ibv_modify_qp, 1_1, "IBVERBS_1.1",

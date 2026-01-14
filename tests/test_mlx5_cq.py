@@ -4,12 +4,13 @@ import errno
 from pyverbs.providers.mlx5.mlx5dv import Mlx5Context, Mlx5DVContextAttr, \
     Mlx5DVCQInitAttr, Mlx5CQ, context_flags_to_str, cqe_comp_to_str
 from pyverbs.pyverbs_error import PyverbsRDMAError, PyverbsUserError
-import pyverbs.providers.mlx5.mlx5_enums as dve
+from pyverbs.providers.mlx5.mlx5_enums import mlx5dv_cq_init_attr_mask, mlx5dv_cqe_comp_res_format, \
+    mlx5dv_context_flags, mlx5dv_cq_init_attr_flags, mlx5dv_qp_create_flags
 from tests.mlx5_base import Mlx5RDMATestCase
 from tests.mlx5_base import Mlx5DcResources
 from pyverbs.cq import CqInitAttrEx
 from tests.base import RCResources
-import pyverbs.enums as e
+from pyverbs.libibverbs_enums import ibv_qp_create_send_ops_flags, ibv_wr_opcode
 import tests.utils as u
 
 
@@ -22,7 +23,7 @@ def create_dv_cq(res):
     dvcq_init_attr = Mlx5DVCQInitAttr()
     if res.cqe_comp_res_format:
         dvcq_init_attr.cqe_comp_res_format = res.cqe_comp_res_format
-        dvcq_init_attr.comp_mask |= dve.MLX5DV_CQ_INIT_ATTR_MASK_COMPRESSED_CQE
+        dvcq_init_attr.comp_mask |= mlx5dv_cq_init_attr_mask.MLX5DV_CQ_INIT_ATTR_MASK_COMPRESSED_CQE
         # Check CQE compression capability
         cqe_comp_caps = res.ctx.query_mlx5_device().cqe_comp_caps
         if not (cqe_comp_caps['supported_format'] & res.cqe_comp_res_format) or \
@@ -31,10 +32,10 @@ def create_dv_cq(res):
             raise unittest.SkipTest(f'CQE compression {cqe_comp_str} is not supported')
     if res.flags:
         dvcq_init_attr.flags = res.flags
-        dvcq_init_attr.comp_mask |= dve.MLX5DV_CQ_INIT_ATTR_MASK_FLAGS
+        dvcq_init_attr.comp_mask |= mlx5dv_cq_init_attr_mask.MLX5DV_CQ_INIT_ATTR_MASK_FLAGS
     if res.cqe_size:
         dvcq_init_attr.cqe_size = res.cqe_size
-        dvcq_init_attr.comp_mask |= dve.MLX5DV_CQ_INIT_ATTR_MASK_CQE_SIZE
+        dvcq_init_attr.comp_mask |= mlx5dv_cq_init_attr_mask.MLX5DV_CQ_INIT_ATTR_MASK_CQE_SIZE
     try:
         res.cq = Mlx5CQ(res.ctx, CqInitAttrEx(), dvcq_init_attr)
     except PyverbsRDMAError as ex:
@@ -100,7 +101,7 @@ class Mlx5DvCqDcRes(Mlx5DcResources):
         self.flags = flags
         self.cqe_size = cqe_size
         super().__init__(dev_name, ib_port, gid_index,
-                         send_ops_flags=e.IBV_QP_EX_WITH_SEND,
+                         send_ops_flags=ibv_qp_create_send_ops_flags.IBV_QP_EX_WITH_SEND,
                          create_flags=create_flags)
 
     def create_cq(self):
@@ -141,16 +142,16 @@ class DvCqTest(Mlx5RDMATestCase):
         also does bad flow and try to use more than one compression formats.
         """
         # Create DV CQ with all legal compression flags.
-        for comp_type in [dve.MLX5DV_CQE_RES_FORMAT_CSUM_STRIDX,
-                          dve.MLX5DV_CQE_RES_FORMAT_CSUM,
-                          dve.MLX5DV_CQE_RES_FORMAT_HASH]:
+        for comp_type in [mlx5dv_cqe_comp_res_format.MLX5DV_CQE_RES_FORMAT_CSUM_STRIDX,
+                          mlx5dv_cqe_comp_res_format.MLX5DV_CQE_RES_FORMAT_CSUM,
+                          mlx5dv_cqe_comp_res_format.MLX5DV_CQE_RES_FORMAT_HASH]:
             self.create_players(Mlx5CQRes, cqe_comp_res_format=comp_type,
-                                requested_dev_cap=dve.MLX5DV_CONTEXT_FLAGS_CQE_128B_COMP)
+                                requested_dev_cap=mlx5dv_context_flags.MLX5DV_CONTEXT_FLAGS_CQE_128B_COMP)
             u.traffic(**self.traffic_args, is_cq_ex=True)
 
         # Try to create DV CQ with more than one compression flags.
-        cqe_multi_format = dve.MLX5DV_CQE_RES_FORMAT_HASH | \
-            dve.MLX5DV_CQE_RES_FORMAT_CSUM
+        cqe_multi_format = mlx5dv_cqe_comp_res_format.MLX5DV_CQE_RES_FORMAT_HASH | \
+            mlx5dv_cqe_comp_res_format.MLX5DV_CQE_RES_FORMAT_CSUM
         with self.assertRaises(PyverbsRDMAError) as ex:
             self.create_players(Mlx5CQRes, cqe_comp_res_format=cqe_multi_format)
         self.assertEqual(ex.exception.error_code, errno.EINVAL)
@@ -160,8 +161,8 @@ class DvCqTest(Mlx5RDMATestCase):
         Create DV CQ with padding flag.
         """
         self.create_players(Mlx5CQRes, cqe_size=128,
-                            flags=dve.MLX5DV_CQ_INIT_ATTR_FLAGS_CQE_PAD,
-                            requested_dev_cap=dve.MLX5DV_CONTEXT_FLAGS_CQE_128B_PAD)
+                            flags=mlx5dv_cq_init_attr_flags.MLX5DV_CQ_INIT_ATTR_FLAGS_CQE_PAD,
+                            requested_dev_cap=mlx5dv_context_flags.MLX5DV_CONTEXT_FLAGS_CQE_128B_PAD)
         u.traffic(**self.traffic_args, is_cq_ex=True)
 
     def test_dv_cq_padding_not_aligned_cqe_size(self):
@@ -172,8 +173,8 @@ class DvCqTest(Mlx5RDMATestCase):
         # Padding flag works only when the cqe size is 128.
         with self.assertRaises(PyverbsRDMAError) as ex:
             self.create_players(Mlx5CQRes, cqe_size=64,
-                                flags=dve.MLX5DV_CQ_INIT_ATTR_FLAGS_CQE_PAD,
-                                requested_dev_cap=dve.MLX5DV_CONTEXT_FLAGS_CQE_128B_PAD)
+                                flags=mlx5dv_cq_init_attr_flags.MLX5DV_CQ_INIT_ATTR_FLAGS_CQE_PAD,
+                                requested_dev_cap=mlx5dv_context_flags.MLX5DV_CONTEXT_FLAGS_CQE_128B_PAD)
         self.assertEqual(ex.exception.error_code, errno.EINVAL)
 
     def test_dv_cq_cqe_size_128(self):
@@ -230,9 +231,9 @@ class DvCqTest(Mlx5RDMATestCase):
         value and behave according to the specific creation flag.
         """
         for s2c_env_val in ['0', '1']:
-            for qp_s2c_value in [dve.MLX5DV_QP_CREATE_DISABLE_SCATTER_TO_CQE,
-                                 dve.MLX5DV_QP_CREATE_ALLOW_SCATTER_TO_CQE]:
+            for qp_s2c_value in [mlx5dv_qp_create_flags.MLX5DV_QP_CREATE_DISABLE_SCATTER_TO_CQE,
+                                 mlx5dv_qp_create_flags.MLX5DV_QP_CREATE_ALLOW_SCATTER_TO_CQE]:
                 self.set_env_variable('MLX5_SCATTER_TO_CQE', s2c_env_val)
                 self.create_players(Mlx5DvCqDcRes, create_flags=qp_s2c_value)
                 u.traffic(**self.traffic_args, new_send=True,
-                          send_op=e.IBV_WR_SEND, is_cq_ex=True)
+                          send_op=ibv_wr_opcode.IBV_WR_SEND, is_cq_ex=True)

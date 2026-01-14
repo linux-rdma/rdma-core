@@ -70,7 +70,9 @@ enum {
 	UCMA_CMD_QUERY,
 	UCMA_CMD_BIND,
 	UCMA_CMD_RESOLVE_ADDR,
-	UCMA_CMD_JOIN_MCAST
+	UCMA_CMD_JOIN_MCAST,
+	UCMA_CMD_RESOLVE_IB_SERVICE,
+	UCMA_CMD_WRITE_CM_EVENT,
 };
 
 struct ucma_abi_cmd_hdr {
@@ -160,7 +162,8 @@ struct ucma_abi_resolve_route {
 enum {
 	UCMA_QUERY_ADDR,
 	UCMA_QUERY_PATH,
-	UCMA_QUERY_GID
+	UCMA_QUERY_GID,
+	UCMA_QUERY_IB_SERVICE,
 };
 
 struct ucma_abi_query {
@@ -333,6 +336,7 @@ struct ucma_abi_event_resp {
 	union {
 		struct ucma_abi_conn_param conn;
 		struct ucma_abi_ud_param   ud;
+		__u32 arg32[2];
 	} param;
 	struct ucma_abi_ece ece;
 };
@@ -359,6 +363,61 @@ struct ucma_abi_migrate_id {
 
 struct ucma_abi_migrate_resp {
 	__u32 events_reported;
+};
+
+enum {
+	UCMA_IB_SERVICE_FLAG_ID = 1 << 0,
+	UCMA_IB_SERVICE_FLAG_NAME = 1 << 1,
+};
+
+#define UCMA_IB_SERVICE_NAME_SIZE 64
+struct ucma_abi_ib_service {
+	__u64 service_id;
+	__u8  service_name[UCMA_IB_SERVICE_NAME_SIZE];
+	__u32 flags;
+	__u32 reserved;
+};
+
+struct ucma_abi_resolve_ib_service {
+	__u32 cmd;
+	__u16 in;
+	__u16 out;
+	__u32 id;
+	struct ucma_abi_ib_service ibs;
+};
+
+struct ucma_user_service_rec {
+	__be64	id;
+	__u8	gid[16];
+	__be16	pkey;
+	__u8	reserved[2];
+	__be32	lease;
+	__u8	key[16];
+	__u8	name[64];
+	__u8	data_8[16];
+	__be16	data_16[8];
+	__be32	data_32[4];
+	__be64	data_64[2];
+};
+
+struct ucma_abi_query_ib_service_resp {
+	__u32 num_service_recs;
+	struct ucma_user_service_rec recs[];
+};
+
+struct ucma_abi_write_cm_event {
+	__u32 cmd;
+	__u16 in;
+	__u16 out;
+	__u32 id;
+	__u32 reserved;
+	__u32 event;
+	__u32 status;
+	union {
+		struct ucma_abi_conn_param conn;
+		struct ucma_abi_ud_param   ud;
+		__u64 arg;
+	} param;
 };
 
 #endif /* RDMA_CMA_ABI_H */

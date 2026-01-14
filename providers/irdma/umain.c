@@ -157,11 +157,12 @@ static struct verbs_context *irdma_ualloc_context(struct ibv_device *ibdev,
 	cmd.userspace_ver = user_ver;
 	if (ibv_cmd_get_context(&iwvctx->ibv_ctx,
 				(struct ibv_get_context *)&cmd, sizeof(cmd),
-				&resp.ibv_resp, sizeof(resp))) {
+				NULL, &resp.ibv_resp, sizeof(resp))) {
 		cmd.userspace_ver = 4;
 		if (ibv_cmd_get_context(&iwvctx->ibv_ctx,
-					(struct ibv_get_context *)&cmd, sizeof(cmd),
-					&resp.ibv_resp, sizeof(resp)))
+					(struct ibv_get_context *)&cmd,
+					sizeof(cmd), NULL, &resp.ibv_resp,
+					sizeof(resp)))
 			goto err_free;
 		user_ver = cmd.userspace_ver;
 	}

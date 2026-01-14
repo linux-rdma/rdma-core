@@ -143,7 +143,7 @@ static struct verbs_context *qelr_alloc_context(struct ibv_device *ibdev,
 	cmd.context_flags = QEDR_ALLOC_UCTX_DB_REC | QEDR_SUPPORT_DPM_SIZES;
 	cmd.context_flags |= QEDR_ALLOC_UCTX_EDPM_MODE;
 	if (ibv_cmd_get_context(&ctx->ibv_ctx, &cmd.ibv_cmd, sizeof(cmd),
-				&resp.ibv_resp, sizeof(resp)))
+				NULL, &resp.ibv_resp, sizeof(resp)))
 		goto cmd_err;
 
 	verbs_set_ops(&ctx->ibv_ctx, &qelr_ctx_ops);

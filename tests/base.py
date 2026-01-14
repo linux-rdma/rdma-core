@@ -3,6 +3,7 @@
 
 import multiprocessing as mp
 import subprocess
+import functools
 import unittest
 import tempfile
 import random
@@ -19,15 +20,17 @@ from pyverbs.addr import AHAttr, GlobalRoute
 from pyverbs.xrcd import XRCD, XRCDInitAttr
 from pyverbs.device import Context
 from args_parser import parser
-import pyverbs.cm_enums as ce
+from pyverbs.librdmacm_enums import rdma_port_space
 import pyverbs.device as d
-import pyverbs.enums as e
+from pyverbs.libibverbs_enums import ibv_mtu, ibv_port_state, ibv_gid_type_sysfs, ibv_access_flags,\
+                                     ibv_qp_type, ibv_qp_init_attr_mask, ibv_xrcd_init_attr_mask,\
+                                     ibv_srq_type, ibv_srq_init_attr_mask, IBV_LINK_LAYER_ETHERNET
 from pyverbs.pd import PD
 from pyverbs.cq import CQ
 from pyverbs.mr import MR
 
 
-PATH_MTU = e.IBV_MTU_1024
+PATH_MTU = ibv_mtu.IBV_MTU_1024
 MAX_DEST_RD_ATOMIC = 1
 NUM_OF_PROCESSES = 2
 MC_IP_PREFIX = '230'
@@ -177,7 +180,7 @@ class RDMATestCase(unittest.TestCase):
         dev_attrs = ctx.query_device()
         vendor_id = dev_attrs.vendor_id
         vendor_pid = dev_attrs.vendor_part_id
-        return port_attrs.link_layer == e.IBV_LINK_LAYER_ETHERNET and \
+        return port_attrs.link_layer == IBV_LINK_LAYER_ETHERNET and \
             has_roce_hw_bug(vendor_id, vendor_pid)
 
     @staticmethod
@@ -249,7 +252,7 @@ class RDMATestCase(unittest.TestCase):
     def _add_gids_per_port(self, ctx, dev, port):
         # Don't add ports which are not active
         port_attrs = ctx.query_port(port)
-        if port_attrs.state != e.IBV_PORT_ACTIVE:
+        if port_attrs.state != ibv_port_state.IBV_PORT_ACTIVE:
             return
         if not port_attrs.gid_tbl_len:
             self._get_ip_mac(dev, port, None)
@@ -263,9 +266,9 @@ class RDMATestCase(unittest.TestCase):
             if gid.gid[-19:] == self.ZERO_GID:
                 continue
             # Avoid RoCEv2 GIDs on unsupported devices
-            if port_attrs.link_layer == e.IBV_LINK_LAYER_ETHERNET and \
+            if port_attrs.link_layer == IBV_LINK_LAYER_ETHERNET and \
                     ctx.query_gid_type(port, idx) == \
-                    e.IBV_GID_TYPE_SYSFS_ROCE_V2 and \
+                    ibv_gid_type_sysfs.IBV_GID_TYPE_SYSFS_ROCE_V2 and \
                     has_roce_hw_bug(vendor_id, vendor_pid):
                 continue
             if self.gid_type is not None and ctx.query_gid_type(port, idx) != \
@@ -400,7 +403,7 @@ class RDMACMBaseTest(RDMATestCase):
                                 attributes that are requested.
         :return: None
         """
-        if resource_kwargs.get('port_space', None) == ce.RDMA_PS_UDP and \
+        if resource_kwargs.get('port_space', None) == rdma_port_space.RDMA_PS_UDP and \
             self.is_eth_and_has_roce_hw_bug():
             raise unittest.SkipTest('Device {} doesn\'t support UDP with RoCEv2'
                                     .format(self.dev_name))
@@ -530,7 +533,35 @@ class RDMACMBaseTest(RDMATestCase):
         sys.exit(2)
 
 
-class BaseResources(object):
+def catch_skiptest(func):
+    """
+    Decorator to catch unittest.SkipTest in __init__ resource functions.
+    It gracefully closes the context and all of its underlying resources.
+    """
+    @functools.wraps(func)
+    def wrapper(self, *args, **kwargs):
+        try:
+            func(self, *args, **kwargs)
+        except unittest.SkipTest as e:
+            if hasattr(self, 'ctx') and self.ctx:
+               self.ctx.close()
+            raise e
+    return wrapper
+
+
+class SkipTestMeta(type):
+    """
+    Metaclass to automatically wrap __init__ in catch_skiptest.
+    It should only be used in resource classes, such as those inheriting from
+    BaseResources.
+    """
+    def __new__(cls, name, bases, dct):
+        if "__init__" in dct:
+            dct["__init__"] = catch_skiptest(dct["__init__"])
+        return super().__new__(cls, name, bases, dct)
+
+
+class BaseResources(object, metaclass=SkipTestMeta):
     """
     BaseResources class is a base aggregator object which contains basic
     resources like Context and PD. It opens a context over the given device
@@ -546,6 +577,7 @@ class BaseResources(object):
         self.dev_name = dev_name
         self.gid_index = gid_index
         self.ib_port = ib_port
+        self.ctx = None
         self.create_context()
         self.create_pd()
 
@@ -634,13 +666,13 @@ class TrafficResources(BaseResources):
         test.
         :return: None
         """
-        self.mr = MR(self.pd, self.msg_size, e.IBV_ACCESS_LOCAL_WRITE)
+        self.mr = MR(self.pd, self.msg_size, ibv_access_flags.IBV_ACCESS_LOCAL_WRITE)
 
     def create_qp_cap(self):
         return QPCap(max_recv_wr=self.num_msgs)
 
     def create_qp_init_attr(self):
-        return QPInitAttr(qp_type=e.IBV_QPT_RC, scq=self.cq, rcq=self.cq,
+        return QPInitAttr(qp_type=ibv_qp_type.IBV_QPT_RC, scq=self.cq, rcq=self.cq,
                           srq=self.srq, cap=self.create_qp_cap())
 
     def create_qp_attr(self):
@@ -705,6 +737,21 @@ class RoCETrafficResources(TrafficResources):
 
 
 class RCResources(RoCETrafficResources):
+    def __init__(self, dev_name, ib_port, gid_index,
+                 max_dest_rd_atomic=MAX_DEST_RD_ATOMIC, max_rd_atomic=MAX_RD_ATOMIC, **kwargs):
+        """
+        Initializes a TrafficResources object with the given values and creates
+        basic RDMA resources.
+        :param dev_name: Device name to be used
+        :param ib_port: IB port of the device to use
+        :param gid_index: Which GID index to use
+        :param max_dest_rd_atomic: Number of responder incoming rd_atomic operations that can
+                                   be handled
+        :param max_rd_atomic: Number of outstanding destination rd_atomic operations
+        """
+        self.max_dest_rd_atomic = max_dest_rd_atomic
+        self.max_rd_atomic = max_rd_atomic
+        super().__init__(dev_name, ib_port, gid_index, **kwargs)
 
     def to_rts(self):
         """
@@ -714,9 +761,9 @@ class RCResources(RoCETrafficResources):
         """
         attr = self.create_qp_attr()
         attr.path_mtu = PATH_MTU
-        attr.max_dest_rd_atomic = MAX_DEST_RD_ATOMIC
+        attr.max_dest_rd_atomic = self.max_dest_rd_atomic
         set_rnr_attributes(attr)
-        attr.max_rd_atomic = MAX_RD_ATOMIC
+        attr.max_rd_atomic = self.max_rd_atomic
         gr = GlobalRoute(dgid=self.ctx.query_gid(self.ib_port, self.gid_index),
                          sgid_index=self.gid_index)
         ah_attr = AHAttr(port_num=self.ib_port, is_global=1, gr=gr,
@@ -736,10 +783,10 @@ class UDResources(RoCETrafficResources):
 
     def create_mr(self):
         self.mr = MR(self.pd, self.msg_size + self.GRH_SIZE,
-                     e.IBV_ACCESS_LOCAL_WRITE)
+                     ibv_access_flags.IBV_ACCESS_LOCAL_WRITE)
 
     def create_qp_init_attr(self):
-        return QPInitAttr(qp_type=e.IBV_QPT_UD, scq=self.cq,
+        return QPInitAttr(qp_type=ibv_qp_type.IBV_QPT_UD, scq=self.cq,
                           rcq=self.cq, srq=self.srq, cap=self.create_qp_cap())
 
     def create_qps(self):
@@ -764,7 +811,7 @@ class UDResources(RoCETrafficResources):
 
 class RawResources(TrafficResources):
     def create_qp_init_attr(self):
-        return QPInitAttr(qp_type=e.IBV_QPT_RAW_PACKET, scq=self.cq,
+        return QPInitAttr(qp_type=ibv_qp_type.IBV_QPT_RAW_PACKET, scq=self.cq,
                           rcq=self.cq, srq=self.srq, cap=self.create_qp_cap())
 
     def pre_run(self, rpsns=None, rqps_num=None):
@@ -798,20 +845,20 @@ class XRCResources(RoCETrafficResources):
         qp_attr.pkey_index = 0
 
         for _ in range(self.qp_count):
-            attr_ex = QPInitAttrEx(qp_type=e.IBV_QPT_XRC_RECV,
-                                   comp_mask=e.IBV_QP_INIT_ATTR_XRCD,
+            attr_ex = QPInitAttrEx(qp_type=ibv_qp_type.IBV_QPT_XRC_RECV,
+                                   comp_mask=ibv_qp_init_attr_mask.IBV_QP_INIT_ATTR_XRCD,
                                    xrcd=self.xrcd)
-            qp_attr.qp_access_flags = e.IBV_ACCESS_LOCAL_WRITE | \
-                                      e.IBV_ACCESS_REMOTE_READ | \
-                                      e.IBV_ACCESS_REMOTE_WRITE | \
-                                      e.IBV_ACCESS_REMOTE_ATOMIC
+            qp_attr.qp_access_flags = ibv_access_flags.IBV_ACCESS_LOCAL_WRITE | \
+                                      ibv_access_flags.IBV_ACCESS_REMOTE_READ | \
+                                      ibv_access_flags.IBV_ACCESS_REMOTE_WRITE | \
+                                      ibv_access_flags.IBV_ACCESS_REMOTE_ATOMIC
             recv_qp = QP(self.ctx, attr_ex, qp_attr)
             self.rqp_lst.append(recv_qp)
 
             qp_caps = QPCap(max_send_wr=self.num_msgs, max_recv_sge=0,
                             max_recv_wr=0)
-            attr_ex = QPInitAttrEx(qp_type=e.IBV_QPT_XRC_SEND, sq_sig_all=1,
-                                   comp_mask=e.IBV_QP_INIT_ATTR_PD,
+            attr_ex = QPInitAttrEx(qp_type=ibv_qp_type.IBV_QPT_XRC_SEND, sq_sig_all=1,
+                                   comp_mask=ibv_qp_init_attr_mask.IBV_QP_INIT_ATTR_PD,
                                    pd=self.pd, scq=self.cq, cap=qp_caps)
             qp_attr.qp_access_flags = 0
             send_qp =QP(self.ctx, attr_ex, qp_attr)
@@ -828,7 +875,7 @@ class XRCResources(RoCETrafficResources):
         self.xrcd_fd = os.open(self.temp_file.name, os.O_RDONLY | os.O_CREAT,
                                stat.S_IRUSR | stat.S_IRGRP)
         init = XRCDInitAttr(
-            e.IBV_XRCD_INIT_ATTR_FD | e.IBV_XRCD_INIT_ATTR_OFLAGS,
+            ibv_xrcd_init_attr_mask.IBV_XRCD_INIT_ATTR_FD | ibv_xrcd_init_attr_mask.IBV_XRCD_INIT_ATTR_OFLAGS,
             os.O_CREAT, self.xrcd_fd)
         try:
             self.xrcd = XRCD(self.ctx, init)
@@ -843,12 +890,12 @@ class XRCResources(RoCETrafficResources):
         :return: None
         """
         srq_attr = SrqInitAttrEx(max_wr=self.qp_count*self.num_msgs)
-        srq_attr.srq_type = e.IBV_SRQT_XRC
+        srq_attr.srq_type = ibv_srq_type.IBV_SRQT_XRC
         srq_attr.pd = self.pd
         srq_attr.xrcd = self.xrcd
         srq_attr.cq = self.cq
-        srq_attr.comp_mask = e.IBV_SRQ_INIT_ATTR_TYPE | e.IBV_SRQ_INIT_ATTR_PD | \
-                             e.IBV_SRQ_INIT_ATTR_CQ | e.IBV_SRQ_INIT_ATTR_XRCD
+        srq_attr.comp_mask = ibv_srq_init_attr_mask.IBV_SRQ_INIT_ATTR_TYPE | ibv_srq_init_attr_mask.IBV_SRQ_INIT_ATTR_PD | \
+                             ibv_srq_init_attr_mask.IBV_SRQ_INIT_ATTR_CQ | ibv_srq_init_attr_mask.IBV_SRQ_INIT_ATTR_XRCD
         self.srq = SRQ(self.ctx, srq_attr)
 
     def to_rts(self):

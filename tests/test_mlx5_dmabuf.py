@@ -8,12 +8,12 @@ import errno
 from pyverbs.providers.mlx5.mlx5dv import Mlx5Context, Mlx5DVContextAttr
 from pyverbs.providers.mlx5.mlx5dv_dmabuf import Mlx5DmaBufMR
 from pyverbs.pyverbs_error import PyverbsRDMAError
-import pyverbs.providers.mlx5.mlx5_enums as dve
+from pyverbs.providers.mlx5.mlx5_enums import MLX5DV_REG_DMABUF_ACCESS_DATA_DIRECT_
 from tests.mlx5_base import Mlx5RDMATestCase
 from tests.base import RCResources
 from pyverbs.qp import QPAttr
 import tests.cuda_utils as cu
-import pyverbs.enums as e
+from pyverbs.libibverbs_enums import ibv_access_flags, ibv_wr_opcode
 import tests.utils as u
 
 try:
@@ -47,7 +47,7 @@ def requires_data_direct_support():
 @cu.set_mem_io_cuda_methods
 class Mlx5DmabufCudaRes(RCResources):
     def __init__(self, dev_name, ib_port, gid_index,
-                 mr_access=e.IBV_ACCESS_LOCAL_WRITE, mlx5_access=0):
+                 mr_access=ibv_access_flags.IBV_ACCESS_LOCAL_WRITE, mlx5_access=0):
         """
         Initializes data-direct MR and DMA BUF resources on top of a CUDA memory.
         Uses RC QPs for traffic.
@@ -72,11 +72,13 @@ class Mlx5DmabufCudaRes(RCResources):
             int(self.cuda_addr)))
 
         cuda_flag = cuda.CUmemRangeHandleType.CU_MEM_RANGE_HANDLE_TYPE_DMA_BUF_FD
+        cuda_dma_mapping_type = cuda.CUmemRangeFlags.CU_MEM_RANGE_FLAG_DMA_BUF_MAPPING_TYPE_PCIE \
+                if self.mlx5_access else 0
         dmabuf_fd = cu.check_cuda_errors(
             cuda.cuMemGetHandleForAddressRange(self.cuda_addr,
                                                GPU_PAGE_SIZE,
                                                cuda_flag,
-                                               0))
+                                               cuda_dma_mapping_type))
         try:
             self.mr = Mlx5DmaBufMR(self.pd, offset=0, length=self.msg_size, access=self.mr_access,
                                    fd=dmabuf_fd, mlx5_access=self.mlx5_access)
@@ -87,8 +89,8 @@ class Mlx5DmabufCudaRes(RCResources):
 
     def create_qp_attr(self):
         qp_attr = QPAttr(port_num=self.ib_port)
-        qp_access = e.IBV_ACCESS_LOCAL_WRITE | e.IBV_ACCESS_REMOTE_WRITE | \
-                    e.IBV_ACCESS_REMOTE_READ
+        qp_access = ibv_access_flags.IBV_ACCESS_LOCAL_WRITE | ibv_access_flags.IBV_ACCESS_REMOTE_WRITE | \
+                    ibv_access_flags.IBV_ACCESS_REMOTE_READ
         qp_attr.qp_access_flags = qp_access
         return qp_attr
 
@@ -119,9 +121,9 @@ class Mlx5DmabufCudaTest(Mlx5RDMATestCase):
         Creates dmabuf MR with DV API. mlx5_access is 0, so the MR is regular dmabuf MR.
         Run RDMA write traffic.
         """
-        access = e.IBV_ACCESS_LOCAL_WRITE | e.IBV_ACCESS_REMOTE_WRITE
+        access = ibv_access_flags.IBV_ACCESS_LOCAL_WRITE | ibv_access_flags.IBV_ACCESS_REMOTE_WRITE
         self.create_players(Mlx5DmabufCudaRes, mr_access=access)
-        u.rdma_traffic(**self.traffic_args, send_op=e.IBV_WR_RDMA_WRITE)
+        u.rdma_traffic(**self.traffic_args, send_op=ibv_wr_opcode.IBV_WR_RDMA_WRITE)
 
     @requires_data_direct_support()
     def test_dv_dmabuf_mr_data_direct(self):
@@ -129,7 +131,7 @@ class Mlx5DmabufCudaTest(Mlx5RDMATestCase):
         Runs RDMA Write traffic over CUDA allocated memory using Data Direct DMA BUF and
         RC QPs.
         """
-        mr_access = e.IBV_ACCESS_LOCAL_WRITE | e.IBV_ACCESS_REMOTE_WRITE
+        mr_access = ibv_access_flags.IBV_ACCESS_LOCAL_WRITE | ibv_access_flags.IBV_ACCESS_REMOTE_WRITE
         self.create_players(Mlx5DmabufCudaRes, mr_access=mr_access,
-                            mlx5_access=dve.MLX5DV_REG_DMABUF_ACCESS_DATA_DIRECT_)
-        u.rdma_traffic(**self.traffic_args, send_op=e.IBV_WR_RDMA_WRITE)
+                            mlx5_access=MLX5DV_REG_DMABUF_ACCESS_DATA_DIRECT_)
+        u.rdma_traffic(**self.traffic_args, send_op=ibv_wr_opcode.IBV_WR_RDMA_WRITE)

@@ -21,14 +21,12 @@ endif()
 rdma_cython_module(pyverbs ""
   addr.pyx
   base.pyx
-  cm_enums.pyx
   cmid.pyx
   cq.pyx
   device.pyx
   ${DMA_UTIL}
   dmabuf.pyx
   ${DMABUF_ALLOC}
-  enums.pyx
   flow.pyx
   fork.pyx
   libibverbs.pyx

@@ -164,12 +164,12 @@ device must be opened prior to creation and a PD has to be allocated.
 import pyverbs.device as d
 from pyverbs.pd import PD
 from pyverbs.mr import MR
-import pyverbs.enums as e
+from pyverbs.libibverbs_enums import ibv_access_flags
 
 with d.Context(name='mlx5_0') as ctx:
     with PD(ctx) as pd:
         mr_len = 1000
-        flags = e.IBV_ACCESS_LOCAL_WRITE
+        flags = ibv_access_flags.IBV_ACCESS_LOCAL_WRITE
         mr = MR(pd, mr_len, flags)
 ```
 ##### Memory window
@@ -181,11 +181,11 @@ deregister an MR that the MW is bound to.
 import pyverbs.device as d
 from pyverbs.pd import PD
 from pyverbs.mr import MW
-import pyverbs.enums as e
+from pyverbs.libibverbs_enums import ibv_mw_type
 
 with d.Context(name='mlx5_0') as ctx:
     with PD(ctx) as pd:
-        mw = MW(pd, e.IBV_MW_TYPE_1)
+        mw = MW(pd, ibv_mw_type.IBV_MW_TYPE_1)
 ```
 ##### Device memory
 The following snippet shows how to allocate a DM - a direct memory object,
@@ -214,7 +214,7 @@ from pyverbs.device import DM, AllocDmAttr
 from pyverbs.mr import DMMR
 import pyverbs.device as d
 from pyverbs.pd import PD
-import pyverbs.enums as e
+from pyverbs.libibverbs_enums import ibv_access_flags
 
 with d.Context(name='mlx5_0') as ctx:
     attr = ctx.query_device_ex()
@@ -224,7 +224,7 @@ with d.Context(name='mlx5_0') as ctx:
         dm_mr_len = random.randint(4, dm_len)
         with DM(ctx, dm_attrs) as dm:
             with PD(ctx) as pd:
-                dm_mr = DMMR(pd, dm_mr_len, e.IBV_ACCESS_ZERO_BASED, dm=dm,
+                dm_mr = DMMR(pd, dm_mr_len, ibv_access_flags.IBV_ACCESS_ZERO_BASED, dm=dm,
                              offset=0)
 ```
 
@@ -262,11 +262,11 @@ import random
 
 from pyverbs.cq import CqInitAttrEx, CQEX
 import pyverbs.device as d
-import pyverbs.enums as e
+from pyverbs.libibverbs_enums import ibv_create_cq_wc_flags
 
 with d.Context(name='mlx5_0') as ctx:
     num_cqe = random.randint(0, 200)
-    wc_flags = e.IBV_WC_EX_WITH_CVLAN
+    wc_flags = ibv_create_cq_wc_flags.IBV_WC_EX_WITH_CVLAN
     comp_mask = 0 # Not using flags in this example
     # completion channel is not used in this example
     attrs = CqInitAttrEx(cqe=num_cqe, wc_flags=wc_flags, comp_mask=comp_mask,
@@ -318,7 +318,7 @@ from pyverbs.qp import QPCap, QPInitAttr, QPAttr, QP
 from pyverbs.addr import GlobalRoute
 from pyverbs.addr import AH, AHAttr
 import pyverbs.device as d
-import pyverbs.enums as e
+from pyverbs.libibverbs_enums import ibv_qp_type
 from pyverbs.pd import PD
 from pyverbs.cq import CQ
 import pyverbs.wr as pwr
@@ -328,7 +328,7 @@ ctx = d.Context(name='mlx5_0')
 pd = PD(ctx)
 cq = CQ(ctx, 100, None, None, 0)
 cap = QPCap(100, 10, 1, 1, 0)
-qia = QPInitAttr(cap=cap, qp_type = e.IBV_QPT_UD, scq=cq, rcq=cq)
+qia = QPInitAttr(cap=cap, qp_type = ibv_qp_type.IBV_QPT_UD, scq=cq, rcq=cq)
 # A UD QP will be in RTS if a QPAttr object is provided
 udqp = QP(pd, qia, QPAttr())
 port_num = 1
@@ -351,7 +351,7 @@ when using the extended QP's new post send mechanism.
 ```python
 from pyverbs.qp import QPCap, QPInitAttrEx, QPAttr, QPEx
 import pyverbs.device as d
-import pyverbs.enums as e
+from pyverbs.libibverbs_enums import ibv_qp_type, ibv_qp_init_attr_mask
 from pyverbs.pd import PD
 from pyverbs.cq import CQ
 
@@ -360,9 +360,9 @@ ctx = d.Context(name='mlx5_0')
 pd = PD(ctx)
 cq = CQ(ctx, 100)
 cap = QPCap(100, 10, 1, 1, 0)
-qia = QPInitAttrEx(qp_type=e.IBV_QPT_UD, scq=cq, rcq=cq, cap=cap, pd=pd,
-                   comp_mask=e.IBV_QP_INIT_ATTR_SEND_OPS_FLAGS| \
-                   e.IBV_QP_INIT_ATTR_PD)
+qia = QPInitAttrEx(qp_type=ibv_qp_type.IBV_QPT_UD, scq=cq, rcq=cq, cap=cap, pd=pd,
+                   comp_mask=ibv_qp_init_attr_mask.IBV_QP_INIT_ATTR_SEND_OPS_FLAGS| \
+                   ibv_qp_init_attr_mask.IBV_QP_INIT_ATTR_PD)
 qp = QPEx(ctx, qia)
 ```
 
@@ -371,7 +371,7 @@ The following code demonstrates creation of an XRCD object.
 ```python
 from pyverbs.xrcd import XRCD, XRCDInitAttr
 import pyverbs.device as d
-import pyverbs.enums as e
+from pyverbs.libibverbs_enums import ibv_xrcd_init_attr_mask
 import stat
 import os
 
@@ -379,7 +379,7 @@ import os
 ctx = d.Context(name='ibp0s8f0')
 xrcd_fd = os.open('/tmp/xrcd', os.O_RDONLY | os.O_CREAT,
                   stat.S_IRUSR | stat.S_IRGRP)
-init = XRCDInitAttr(e.IBV_XRCD_INIT_ATTR_FD | e.IBV_XRCD_INIT_ATTR_OFLAGS,
+init = XRCDInitAttr(ibv_xrcd_init_attr_mask.IBV_XRCD_INIT_ATTR_FD | ibv_xrcd_init_attr_mask.IBV_XRCD_INIT_ATTR_OFLAGS,
                     os.O_CREAT, xrcd_fd)
 xrcd = XRCD(ctx, init)
 ```
@@ -391,7 +391,7 @@ For more complex examples, please see pyverbs/tests/test_odp.
 from pyverbs.xrcd import XRCD, XRCDInitAttr
 from pyverbs.srq import SRQ, SrqInitAttrEx
 import pyverbs.device as d
-import pyverbs.enums as e
+from pyverbs.libibverbs_enums import ibv_xrcd_init_attr_mask, ibv_srq_type, ibv_srq_init_attr_mask
 from pyverbs.cq import CQ
 from pyverbs.pd import PD
 import stat
@@ -403,23 +403,23 @@ pd = PD(ctx)
 cq = CQ(ctx, 100, None, None, 0)
 xrcd_fd = os.open('/tmp/xrcd', os.O_RDONLY | os.O_CREAT,
                   stat.S_IRUSR | stat.S_IRGRP)
-init = XRCDInitAttr(e.IBV_XRCD_INIT_ATTR_FD | e.IBV_XRCD_INIT_ATTR_OFLAGS,
+init = XRCDInitAttr(ibv_xrcd_init_attr_mask.IBV_XRCD_INIT_ATTR_FD | ibv_xrcd_init_attr_mask.IBV_XRCD_INIT_ATTR_OFLAGS,
                     os.O_CREAT, xrcd_fd)
 xrcd = XRCD(ctx, init)
 
 srq_attr = SrqInitAttrEx(max_wr=10)
-srq_attr.srq_type = e.IBV_SRQT_XRC
+srq_attr.srq_type = ibv_srq_type.IBV_SRQT_XRC
 srq_attr.pd = pd
 srq_attr.xrcd = xrcd
 srq_attr.cq = cq
-srq_attr.comp_mask = e.IBV_SRQ_INIT_ATTR_TYPE | e.IBV_SRQ_INIT_ATTR_PD | \
-                     e.IBV_SRQ_INIT_ATTR_CQ | e.IBV_SRQ_INIT_ATTR_XRCD
+srq_attr.comp_mask = ibv_srq_init_attr_mask.IBV_SRQ_INIT_ATTR_TYPE | ibv_srq_init_attr_mask.IBV_SRQ_INIT_ATTR_PD | \
+                     ibv_srq_init_attr_mask.IBV_SRQ_INIT_ATTR_CQ | ibv_srq_init_attr_mask.IBV_SRQ_INIT_ATTR_XRCD
 srq = SRQ(ctx, srq_attr)
-
+```
 
 ##### Open an mlx5 provider
 A provider is essentially a Context with driver-specific extra features. As
-such, it inherits from Context. In legcay flow Context iterates over the IB
+such, it inherits from Context. In legacy flow Context iterates over the IB
 devices and opens the one matches the name given by the user (name= argument).
 When provider attributes are also given (attr=), the Context will assign the
 relevant ib_device to its device member, so that the provider will be able to
@@ -476,9 +476,9 @@ following PRs.
 ```python
 from pyverbs.providers.mlx5.mlx5dv import Mlx5Context, Mlx5DVContextAttr
 from pyverbs.providers.mlx5.mlx5dv import Mlx5DVQPInitAttr, Mlx5QP
-import pyverbs.providers.mlx5.mlx5_enums as me
+from pyverbs.providers.mlx5.mlx5_enums import mlx5dv_qp_init_attr_mask, mlx5dv_dc_type, mlx5dv_qp_create_flags
 from pyverbs.qp import QPInitAttrEx, QPCap
-import pyverbs.enums as e
+from pyverbs.libibverbs_enums import ibv_qp_type, ibv_qp_init_attr_mask, ibv_qp_type
 from pyverbs.cq import CQ
 from pyverbs.pd import PD
 
@@ -487,19 +487,19 @@ with Mlx5Context(name='rocep0s8f0', attr=Mlx5DVContextAttr()) as ctx:
         with CQ(ctx, 100) as cq:
             cap = QPCap(100, 0, 1, 0)
             # Create a DC QP of type DCI
-            qia = QPInitAttrEx(cap=cap, pd=pd, scq=cq, qp_type=e.IBV_QPT_DRIVER,
-                               comp_mask=e.IBV_QP_INIT_ATTR_PD, rcq=cq)
-            attr = Mlx5DVQPInitAttr(comp_mask=me.MLX5DV_QP_INIT_ATTR_MASK_DC)
-            attr.dc_type = me.MLX5DV_DCTYPE_DCI
+            qia = QPInitAttrEx(cap=cap, pd=pd, scq=cq, qp_type=ibv_qp_type.IBV_QPT_DRIVER,
+                               comp_mask=ibv_qp_init_attr_mask.IBV_QP_INIT_ATTR_PD, rcq=cq)
+            attr = Mlx5DVQPInitAttr(comp_mask=mlx5dv_qp_init_attr_mask.MLX5DV_QP_INIT_ATTR_MASK_DC)
+            attr.dc_type = mlx5dv_dc_type.MLX5DV_DCTYPE_DCI
 
             dci = Mlx5QP(ctx, qia, dv_init_attr=attr)
 
             # Create a Raw Packet QP using mlx5-specific capabilities
-            qia.qp_type = e.IBV_QPT_RAW_PACKET
-            attr.comp_mask = me.MLX5DV_QP_INIT_ATTR_MASK_QP_CREATE_FLAGS
-            attr.create_flags = me.MLX5DV_QP_CREATE_ALLOW_SCATTER_TO_CQE |\
-                                me.MLX5DV_QP_CREATE_TIR_ALLOW_SELF_LOOPBACK_UC |\
-                                me.MLX5DV_QP_CREATE_TUNNEL_OFFLOADS
+            qia.qp_type = ibv_qp_type.IBV_QPT_RAW_PACKET
+            attr.comp_mask = mlx5dv_qp_init_attr_mask.MLX5DV_QP_INIT_ATTR_MASK_QP_CREATE_FLAGS
+            attr.create_flags = mlx5dv_qp_create_flags.MLX5DV_QP_CREATE_ALLOW_SCATTER_TO_CQE | \
+                                mlx5dv_qp_create_flags.MLX5DV_QP_CREATE_TIR_ALLOW_SELF_LOOPBACK_UC | \
+                                mlx5dv_qp_create_flags.MLX5DV_QP_CREATE_TUNNEL_OFFLOADS
             qp = Mlx5QP(ctx, qia, dv_init_attr=attr)
 ```
 
@@ -512,13 +512,13 @@ The following snippet shows this simple creation process.
 ```python
 from pyverbs.providers.mlx5.mlx5dv import Mlx5Context, Mlx5DVContextAttr
 from pyverbs.providers.mlx5.mlx5dv import Mlx5DVCQInitAttr, Mlx5CQ
-import pyverbs.providers.mlx5.mlx5_enums as me
+from pyverbs.providers.mlx5.mlx5_enums import mlx5dv_cq_init_attr_mask, mlx5dv_cqe_comp_res_format
 from pyverbs.cq import CqInitAttrEx
 
 with Mlx5Context(name='rocep0s8f0', attr=Mlx5DVContextAttr()) as ctx:
     cqia = CqInitAttrEx()
-    mlx5_cqia = Mlx5DVCQInitAttr(comp_mask=me.MLX5DV_CQ_INIT_ATTR_MASK_COMPRESSED_CQE,
-                                 cqe_comp_res_format=me.MLX5DV_CQE_RES_FORMAT_CSUM)
+    mlx5_cqia = Mlx5DVCQInitAttr(comp_mask=mlx5dv_cq_init_attr_mask.MLX5DV_CQ_INIT_ATTR_MASK_COMPRESSED_CQE,
+                                 cqe_comp_res_format=mlx5dv_cqe_comp_res_format.MLX5DV_CQE_RES_FORMAT_CSUM)
     cq = Mlx5CQ(ctx, cqia, dv_init_attr=mlx5_cqia)
 ```
 
@@ -530,8 +530,7 @@ For more complex examples, please see tests/test_rdmacm.
 ```python
 from pyverbs.qp import QPInitAttr, QPCap
 from pyverbs.cmid import CMID, AddrInfo
-import pyverbs.cm_enums as ce
-
+from pyverbs.librdmacm_enums import rdma_port_space, RAI_PASSIVE
 
 cap = QPCap(max_recv_wr=1)
 qp_init_attr = QPInitAttr(cap=cap)
@@ -540,7 +539,7 @@ port = '7471'
 
 # Passive side
 
-sai = AddrInfo(src=addr, src_service=port, port_space=ce.RDMA_PS_TCP, flags=ce.RAI_PASSIVE)
+sai = AddrInfo(src=addr, src_service=port, port_space=rdma_port_space.RDMA_PS_TCP, flags=RAI_PASSIVE)
 sid = CMID(creator=sai, qp_init_attr=qp_init_attr)
 sid.listen()  # listen for incoming connection requests
 new_id = sid.get_request()  # check if there are any connection requests
@@ -548,7 +547,7 @@ new_id.accept()  # new_id is connected to remote peer and ready to communicate
 
 # Active side
 
-cai = AddrInfo(src=addr, dst=addr, dst_service=port, port_space=ce.RDMA_PS_TCP)
+cai = AddrInfo(src=addr, dst=addr, dst_service=port, port_space=rdma_port_space.RDMA_PS_TCP)
 cid = CMID(creator=cai, qp_init_attr=qp_init_attr)
 cid.connect()  # send connection request to passive addr
 ```
@@ -604,10 +603,10 @@ The following code snippet demonstrates how to allocate an mlx5dv_pp with rate
 limit value of 5, then frees the entry.
 ```python
 from pyverbs.providers.mlx5.mlx5dv import Mlx5Context, Mlx5DVContextAttr, Mlx5PP
-import pyverbs.providers.mlx5.mlx5_enums as e
+from pyverbs.providers.mlx5.mlx5_enums import mlx5dv_context_attr_flags
 
 # The device must be opened as DEVX context
-mlx5dv_attr = Mlx5DVContextAttr(e.MLX5DV_CONTEXT_FLAGS_DEVX)
+mlx5dv_attr = Mlx5DVContextAttr(mlx5dv_context_attr_flags.MLX5DV_CONTEXT_FLAGS_DEVX)
 ctx = Mlx5Context(attr=mlx5dv_attr, name='rocep0s8f0')
 rate_limit_inbox = (5).to_bytes(length=4, byteorder='big', signed=True)
 pp = Mlx5PP(ctx, rate_limit_inbox)
@@ -650,18 +649,18 @@ Here is a demonstration of importing a device, PD and MR in one process.
 from pyverbs.device import Context
 from pyverbs.pd import PD
 from pyverbs.mr import MR
-import pyverbs.enums as e
+from pyverbs.libibverbs_enums import ibv_access_flags
 import os
 
 ctx = Context(name='ibp0s8f0')
 pd = PD(ctx)
-mr = MR(pd, 100, e.IBV_ACCESS_LOCAL_WRITE)
+mr = MR(pd, 100, ibv_access_flags.IBV_ACCESS_LOCAL_WRITE)
 cmd_fd_dup = os.dup(ctx.cmd_fd)
 imported_ctx = Context(cmd_fd=cmd_fd_dup)
 imported_pd = PD(imported_ctx, handle=pd.handle)
 imported_mr = MR(imported_pd, handle=mr.handle)
 # MRs can be created as usual on the imported PD
-secondary_mr = MR(imported_pd, 100, e.IBV_ACCESS_REMOTE_READ)
+secondary_mr = MR(imported_pd, 100, ibv_access_flags.IBV_ACCESS_REMOTE_READ)
 # Must manually unimport the imported objects (which close the object and frees
 # other resources that use them) before closing the "original" objects.
 # This prevents unexpected behaviours caused by the GC.
@@ -683,7 +682,7 @@ from pyverbs.qp import QPCap, QPInitAttr, QPAttr, QP
 from pyverbs.flow import FlowAttr, Flow
 from pyverbs.spec import EthSpec
 import pyverbs.device as d
-import pyverbs.enums as e
+from pyverbs.libibverbs_enums import ibv_qp_type
 from pyverbs.pd import PD
 from pyverbs.cq import CQ
 
@@ -692,7 +691,7 @@ ctx = d.Context(name='rocep0s8f0')
 pd = PD(ctx)
 cq = CQ(ctx, 100, None, None, 0)
 cap = QPCap(100, 10, 1, 1, 0)
-qia = QPInitAttr(cap=cap, qp_type = e.IBV_QPT_UD, scq=cq, rcq=cq)
+qia = QPInitAttr(cap=cap, qp_type = ibv_qp_type.IBV_QPT_UD, scq=cq, rcq=cq)
 qp = QP(pd, qia, QPAttr())
 
 # Create Eth spec

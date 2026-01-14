@@ -37,6 +37,7 @@ EXAMPLES
 ========
 
 ::
+
         ibstatus                    # display status of all IB ports
         ibstatus mthca1             # status of mthca1 ports
         ibstatus mthca1:1 mthca0:2  # show status of specified ports

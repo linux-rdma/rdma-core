@@ -86,6 +86,7 @@ Description: User space provider drivers for libibverbs
   - erdma: Alibaba Elastic RDMA (iWarp) Adapter
   - hfi1verbs: Intel Omni-Path HFI
   - hns: HiSilicon Hip06 SoC
+  - ionic: AMD Pensando Distributed Services Card (DSC) RDMA/RoCE Support
   - ipathverbs: QLogic InfiniPath HCAs
   - irdma: Intel Ethernet Connection RDMA
   - mana: Microsoft Azure Network Adapter
@@ -144,7 +145,7 @@ Section: libs
 Pre-Depends: ${misc:Pre-Depends}
 Depends: adduser, ${misc:Depends}, ${shlibs:Depends}
 Recommends: ibverbs-providers
-Breaks: ibverbs-providers (<< 34~)
+Breaks: ibverbs-providers (<< 59~)
 Description: Library for direct userspace use of RDMA (InfiniBand/iWARP)
  libibverbs is a library that allows userspace processes to use RDMA
  "verbs" as described in the InfiniBand Architecture Specification and

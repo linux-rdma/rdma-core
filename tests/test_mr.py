@@ -10,14 +10,15 @@ import errno
 
 from tests.base import PyverbsAPITestCase, RCResources, RDMATestCase
 from pyverbs.pyverbs_error import PyverbsRDMAError, PyverbsError
-from pyverbs.mr import MR, MW, DMMR, DmaBufMR, MWBindInfo, MWBind
+from pyverbs.mr import MR, MW, DMMR, DmaBufMR, MWBindInfo, MWBind, MREx
 from pyverbs.mem_alloc import posix_memalign, free
 from pyverbs.dmabuf import DmaBuf
 from pyverbs.qp import QPAttr
 from pyverbs.wr import SendWR
 import pyverbs.device as d
 from pyverbs.pd import PD
-import pyverbs.enums as e
+from pyverbs.libibverbs_enums import ibv_access_flags, ibv_qp_state, ibv_qp_attr_mask, ibv_rereg_mr_flags, \
+    ibv_wr_opcode, ibv_send_flags, ibv_mw_type
 import tests.utils as u
 
 MAX_IO_LEN = 1048576
@@ -26,7 +27,7 @@ DM_INVALID_ALIGNMENT = 3
 
 class MRRes(RCResources):
     def __init__(self, dev_name, ib_port, gid_index,
-                 mr_access=e.IBV_ACCESS_LOCAL_WRITE):
+                 mr_access=ibv_access_flags.IBV_ACCESS_LOCAL_WRITE):
         """
         Initialize MR resources based on RC resources that include RC QP.
         :param dev_name: Device name to be used
@@ -47,8 +48,8 @@ class MRRes(RCResources):
 
     def create_qp_attr(self):
         qp_attr = QPAttr(port_num=self.ib_port)
-        qp_access = e.IBV_ACCESS_LOCAL_WRITE | e.IBV_ACCESS_REMOTE_WRITE | \
-                    e.IBV_ACCESS_REMOTE_ATOMIC
+        qp_access = ibv_access_flags.IBV_ACCESS_LOCAL_WRITE | ibv_access_flags.IBV_ACCESS_REMOTE_WRITE | \
+                    ibv_access_flags.IBV_ACCESS_REMOTE_ATOMIC
         qp_attr.qp_access_flags = qp_access
         return qp_attr
 
@@ -59,6 +60,12 @@ class MRRes(RCResources):
             if ex.error_code == errno.EOPNOTSUPP:
                 raise unittest.SkipTest(f'Rereg MR is not supported ({str(ex)})')
             raise ex
+
+
+class MRExRes(MRRes):
+    @u.skip_unsupported
+    def create_mr(self):
+        self.mr = MREx(self.pd, self.msg_size, self.mr_access)
 
 
 class MRTest(RDMATestCase):
@@ -74,14 +81,52 @@ class MRTest(RDMATestCase):
         self.client_qp_attr = None
         self.traffic_args = None
 
+    def query_qp_attrs(self):
+        """Query and store QP attributes for both server and client."""
+        self.server_qp_attr, _ = self.server.qp.query(0x1ffffff)
+        self.client_qp_attr, _ = self.client.qp.query(0x1ffffff)
+
+    def create_players_and_query_qp(self, res_cls, **kwargs):
+        """Create players of a given resource class and query their QPs."""
+        self.create_players(res_cls, **kwargs)
+        self.query_qp_attrs()
+
     def restate_qps(self):
         """
         Restate the resources QPs from ERR back to RTS state.
         """
-        self.server.qp.modify(QPAttr(qp_state=e.IBV_QPS_RESET), e.IBV_QP_STATE)
+        self.server.qp.modify(QPAttr(qp_state=ibv_qp_state.IBV_QPS_RESET), ibv_qp_attr_mask.IBV_QP_STATE)
         self.server.qp.to_rts(self.server_qp_attr)
-        self.client.qp.modify(QPAttr(qp_state=e.IBV_QPS_RESET), e.IBV_QP_STATE)
+        self.client.qp.modify(QPAttr(qp_state=ibv_qp_state.IBV_QPS_RESET), ibv_qp_attr_mask.IBV_QP_STATE)
         self.client.qp.to_rts(self.client_qp_attr)
+
+    def validate_rereg_addr(self, res_cls):
+        """Common logic for address translation re-registration tests."""
+        self.create_players_and_query_qp(res_cls)
+        # Post a receive WR to ensure old address is in use and will break.
+        s_recv_wr = u.get_recv_wr(self.server)
+        self.server.qp.post_recv(s_recv_wr)
+        server_addr = posix_memalign(self.server.msg_size)
+        try:
+            self.server.rereg_mr(flags=ibv_rereg_mr_flags.IBV_REREG_MR_CHANGE_TRANSLATION,
+                                 addr=server_addr,
+                                 length=self.server.msg_size)
+            with self.assertRaisesRegex(PyverbsRDMAError, 'Remote operation error'):
+                # The server QP receive queue has WR with the old MR address,
+                # therefore traffic should fail.
+                u.traffic(**self.traffic_args)
+            self.restate_qps()
+            u.traffic(**self.traffic_args)
+        finally:
+            free(server_addr)
+
+    def test_mr_rereg_addr(self):
+        """Test MR reregistration with different address"""
+        self.validate_rereg_addr(MRRes)
+
+    def test_mrex_rereg_addr(self):
+        """Test MREx reregistration with different address"""
+        self.validate_rereg_addr(MRExRes)
 
     def test_mr_rereg_atomic(self):
         """
@@ -90,26 +135,31 @@ class MRTest(RDMATestCase):
         access and verify that traffic fails with the relevant error.
         Rereg the MRs back to atomic access and verify that traffic now succeeds.
         """
-        atomic_mr_access = e.IBV_ACCESS_LOCAL_WRITE | e.IBV_ACCESS_REMOTE_ATOMIC
-        self.create_players(MRRes, mr_access=atomic_mr_access)
-        self.server_qp_attr, _ = self.server.qp.query(0x1ffffff)
-        self.client_qp_attr, _ = self.client.qp.query(0x1ffffff)
-        access = e.IBV_ACCESS_LOCAL_WRITE
-        self.server.rereg_mr(flags=e.IBV_REREG_MR_CHANGE_ACCESS, access=access)
-        self.client.rereg_mr(flags=e.IBV_REREG_MR_CHANGE_ACCESS, access=access)
+        atomic_mr_access = ibv_access_flags.IBV_ACCESS_LOCAL_WRITE | ibv_access_flags.IBV_ACCESS_REMOTE_ATOMIC
+        self.create_players_and_query_qp(MRRes, mr_access=atomic_mr_access)
+        access = ibv_access_flags.IBV_ACCESS_LOCAL_WRITE
+        self.server.rereg_mr(flags=ibv_rereg_mr_flags.IBV_REREG_MR_CHANGE_ACCESS, access=access)
+        self.client.rereg_mr(flags=ibv_rereg_mr_flags.IBV_REREG_MR_CHANGE_ACCESS, access=access)
         with self.assertRaisesRegex(PyverbsRDMAError, 'Completion status is Remote access error'):
-            u.atomic_traffic(**self.traffic_args, send_op=e.IBV_WR_ATOMIC_FETCH_AND_ADD)
+            u.atomic_traffic(**self.traffic_args, send_op=ibv_wr_opcode.IBV_WR_ATOMIC_FETCH_AND_ADD)
         self.restate_qps()
-        self.server.rereg_mr(flags=e.IBV_REREG_MR_CHANGE_ACCESS, access=atomic_mr_access)
-        self.client.rereg_mr(flags=e.IBV_REREG_MR_CHANGE_ACCESS, access=atomic_mr_access)
-        u.atomic_traffic(**self.traffic_args, send_op=e.IBV_WR_ATOMIC_FETCH_AND_ADD)
+        self.server.rereg_mr(flags=ibv_rereg_mr_flags.IBV_REREG_MR_CHANGE_ACCESS, access=atomic_mr_access)
+        self.client.rereg_mr(flags=ibv_rereg_mr_flags.IBV_REREG_MR_CHANGE_ACCESS, access=atomic_mr_access)
+        u.atomic_traffic(**self.traffic_args, send_op=ibv_wr_opcode.IBV_WR_ATOMIC_FETCH_AND_ADD)
+
+    def validate_rereg_access(self, res_cls):
+        """Common logic for reregistration of access flags and RDMA traffic."""
+        self.create_players(res_cls)
+        access = ibv_access_flags.IBV_ACCESS_LOCAL_WRITE | ibv_access_flags.IBV_ACCESS_REMOTE_WRITE
+        self.server.rereg_mr(flags=ibv_rereg_mr_flags.IBV_REREG_MR_CHANGE_ACCESS, access=access)
+        self.client.rereg_mr(flags=ibv_rereg_mr_flags.IBV_REREG_MR_CHANGE_ACCESS, access=access)
+        u.rdma_traffic(**self.traffic_args, send_op=ibv_wr_opcode.IBV_WR_RDMA_WRITE)
 
     def test_mr_rereg_access(self):
-        self.create_players(MRRes)
-        access = e.IBV_ACCESS_LOCAL_WRITE | e.IBV_ACCESS_REMOTE_WRITE
-        self.server.rereg_mr(flags=e.IBV_REREG_MR_CHANGE_ACCESS, access=access)
-        self.client.rereg_mr(flags=e.IBV_REREG_MR_CHANGE_ACCESS, access=access)
-        u.rdma_traffic(**self.traffic_args, send_op=e.IBV_WR_RDMA_WRITE)
+        self.validate_rereg_access(MRRes)
+
+    def test_mrex_rereg_access(self):
+        self.validate_rereg_access(MRExRes)
 
     def test_mr_rereg_access_bad_flow(self):
         """
@@ -118,13 +168,13 @@ class MRTest(RDMATestCase):
         without remote access and verify that traffic fails with the relevant
         error.
         """
-        remote_access = e.IBV_ACCESS_LOCAL_WRITE |e.IBV_ACCESS_REMOTE_WRITE
+        remote_access = ibv_access_flags.IBV_ACCESS_LOCAL_WRITE | ibv_access_flags.IBV_ACCESS_REMOTE_WRITE
         self.create_players(MRRes, mr_access=remote_access)
-        u.rdma_traffic(**self.traffic_args, send_op=e.IBV_WR_RDMA_WRITE)
-        access = e.IBV_ACCESS_LOCAL_WRITE
-        self.server.rereg_mr(flags=e.IBV_REREG_MR_CHANGE_ACCESS, access=access)
+        u.rdma_traffic(**self.traffic_args, send_op=ibv_wr_opcode.IBV_WR_RDMA_WRITE)
+        access = ibv_access_flags.IBV_ACCESS_LOCAL_WRITE
+        self.server.rereg_mr(flags=ibv_rereg_mr_flags.IBV_REREG_MR_CHANGE_ACCESS, access=access)
         with self.assertRaisesRegex(PyverbsRDMAError, 'Remote access error'):
-            u.rdma_traffic(**self.traffic_args, send_op=e.IBV_WR_RDMA_WRITE)
+            u.rdma_traffic(**self.traffic_args, send_op=ibv_wr_opcode.IBV_WR_RDMA_WRITE)
 
     def test_mr_rereg_pd(self):
         """
@@ -140,46 +190,43 @@ class MRTest(RDMATestCase):
         self.client_qp_attr, _ = self.client.qp.query(0x1ffffff)
         u.traffic(**self.traffic_args)
         server_new_pd = PD(self.server.ctx)
-        self.server.rereg_mr(flags=e.IBV_REREG_MR_CHANGE_PD, pd=server_new_pd)
+        self.server.rereg_mr(flags=ibv_rereg_mr_flags.IBV_REREG_MR_CHANGE_PD, pd=server_new_pd)
         with self.assertRaisesRegex(PyverbsRDMAError, 'Remote operation error'):
             u.traffic(**self.traffic_args)
         self.restate_qps()
-        self.server.rereg_mr(flags=e.IBV_REREG_MR_CHANGE_PD, pd=self.server.pd)
+        self.server.rereg_mr(flags=ibv_rereg_mr_flags.IBV_REREG_MR_CHANGE_PD, pd=self.server.pd)
         u.traffic(**self.traffic_args)
-        # Rereg the MR again with the new PD to cover
-        # destroying a PD with a re-registered MR.
-        self.server.rereg_mr(flags=e.IBV_REREG_MR_CHANGE_PD, pd=server_new_pd)
+        self.server.rereg_mr(flags=ibv_rereg_mr_flags.IBV_REREG_MR_CHANGE_PD, pd=server_new_pd)
 
-    def test_mr_rereg_addr(self):
-        self.create_players(MRRes)
-        self.server_qp_attr, _ = self.server.qp.query(0x1ffffff)
-        self.client_qp_attr, _ = self.client.qp.query(0x1ffffff)
-        s_recv_wr = u.get_recv_wr(self.server)
-        self.server.qp.post_recv(s_recv_wr)
-        server_addr = posix_memalign(self.server.msg_size)
-        self.server.rereg_mr(flags=e.IBV_REREG_MR_CHANGE_TRANSLATION,
-                             addr=server_addr,
-                             length=self.server.msg_size)
-        with self.assertRaisesRegex(PyverbsRDMAError, 'Remote operation error'):
-            # The server QP receive queue has WR with the old MR address,
-            # therefore traffic should fail.
-            u.traffic(**self.traffic_args)
-        self.restate_qps()
-        u.traffic(**self.traffic_args)
-        free(server_addr)
+    def validate_bad_flags_registration(self, mr_cls, expected_regex):
+        """Validate that registering a given MR class with illegal flags fails."""
+        bad_flags = [ibv_access_flags.IBV_ACCESS_REMOTE_WRITE,
+                     ibv_access_flags.IBV_ACCESS_REMOTE_ATOMIC]
+        with d.Context(name=self.dev_name) as ctx:
+            with PD(ctx) as pd:
+                for flag in bad_flags:
+                    with self.assertRaisesRegex(PyverbsRDMAError, expected_regex):
+                        mr_cls(pd, u.get_mr_length(), flag)
 
     def test_reg_mr_bad_flags(self):
         """
-        Verify that illegal flags combination fails as expected
+        Verify that illegal flags combination fails as expected for classic MR
         """
+        self.validate_bad_flags_registration(MR, 'Failed to register a MR')
+
+    def test_reg_mrex_bad_flags(self):
+        """
+        Verify that illegal flags combination fails as expected for MREx
+        """
+        self.validate_bad_flags_registration(MREx, 'Failed to register MR using extended API')
+
+    def test_reg_mrex_inval_params(self):
+        """Verify MREx registration fails when ADDR & FD flags set."""
         with d.Context(name=self.dev_name) as ctx:
             with PD(ctx) as pd:
-                with self.assertRaisesRegex(PyverbsRDMAError,
-                                            'Failed to register a MR'):
-                    MR(pd, u.get_mr_length(), e.IBV_ACCESS_REMOTE_WRITE)
-                with self.assertRaisesRegex(PyverbsRDMAError,
-                                            'Failed to register a MR'):
-                    MR(pd, u.get_mr_length(), e.IBV_ACCESS_REMOTE_ATOMIC)
+                with self.assertRaises(PyverbsRDMAError):
+                    MREx(pd, u.get_mr_length(), ibv_access_flags.IBV_ACCESS_LOCAL_WRITE,
+                         implicit=True, fd=0)
 
 
 class MWRC(RCResources):
@@ -195,10 +242,10 @@ class MWRC(RCResources):
         super().__init__(dev_name=dev_name, ib_port=ib_port,
                                    gid_index=gid_index)
         self.mw_type = mw_type
-        access = e.IBV_ACCESS_REMOTE_WRITE | e.IBV_ACCESS_LOCAL_WRITE
+        access = ibv_access_flags.IBV_ACCESS_REMOTE_WRITE | ibv_access_flags.IBV_ACCESS_LOCAL_WRITE
         self.mw_bind_info = MWBindInfo(self.mr, self.mr.buf, self.msg_size,
                                        access)
-        self.mw_bind = MWBind(self.mw_bind_info, e.IBV_SEND_SIGNALED)
+        self.mw_bind = MWBind(self.mw_bind_info, ibv_send_flags.IBV_SEND_SIGNALED)
         try:
             self.mw = MW(self.pd, self.mw_type)
         except PyverbsRDMAError as ex:
@@ -207,7 +254,7 @@ class MWRC(RCResources):
             raise ex
 
     def create_mr(self):
-        access = e.IBV_ACCESS_LOCAL_WRITE | e.IBV_ACCESS_MW_BIND
+        access = ibv_access_flags.IBV_ACCESS_LOCAL_WRITE | ibv_access_flags.IBV_ACCESS_MW_BIND
         try:
             self.mr = MR(self.pd, self.msg_size, access)
         except PyverbsRDMAError as ex:
@@ -217,9 +264,19 @@ class MWRC(RCResources):
 
     def create_qp_attr(self):
         qp_attr = QPAttr(port_num=self.ib_port)
-        qp_access = e.IBV_ACCESS_LOCAL_WRITE | e.IBV_ACCESS_REMOTE_WRITE
+        qp_access = ibv_access_flags.IBV_ACCESS_LOCAL_WRITE | ibv_access_flags.IBV_ACCESS_REMOTE_WRITE
         qp_attr.qp_access_flags = qp_access
         return qp_attr
+
+
+class MWExRC(MWRC):
+    """Resource class that uses MREx instead of MR for MW tests."""
+
+    @u.skip_unsupported
+    def create_mr(self):
+        # Register an MREx that can be bound to a memory window
+        access = ibv_access_flags.IBV_ACCESS_LOCAL_WRITE | ibv_access_flags.IBV_ACCESS_MW_BIND
+        self.mr = MREx(self.pd, self.msg_size, access)
 
 
 class MWTest(RDMATestCase):
@@ -251,9 +308,9 @@ class MWTest(RDMATestCase):
         self.client.raddr = self.server.mr.buf
 
     def bind_mw_type_2(self):
-        client_send_wr = SendWR(opcode=e.IBV_WR_BIND_MW)
+        client_send_wr = SendWR(opcode=ibv_wr_opcode.IBV_WR_BIND_MW)
         client_send_wr.set_bind_wr(self.client.mw, self.client.mw_bind_info)
-        server_send_wr = SendWR(opcode=e.IBV_WR_BIND_MW)
+        server_send_wr = SendWR(opcode=ibv_wr_opcode.IBV_WR_BIND_MW)
         server_send_wr.set_bind_wr(self.server.mw, self.server.mw_bind_info)
         self.server.qp.post_send(server_send_wr)
         self.client.qp.post_send(client_send_wr)
@@ -272,7 +329,7 @@ class MWTest(RDMATestCase):
         """
         for player in [self.server, self.client]:
             mw_bind_info = MWBindInfo(player.mr, player.mr.buf, 0, 0)
-            mw_bind = MWBind(mw_bind_info, e.IBV_SEND_SIGNALED)
+            mw_bind = MWBind(mw_bind_info, ibv_send_flags.IBV_SEND_SIGNALED)
             player.qp.bind_mw(player.mw, mw_bind)
             # Poll the bound MW action request completion.
             u.poll_cq(player.cq)
@@ -282,10 +339,10 @@ class MWTest(RDMATestCase):
         Invalidate the MWs by post invalidation send WR from the local QP.
         :return: None
         """
-        inv_send_wr = SendWR(opcode=e.IBV_WR_LOCAL_INV)
+        inv_send_wr = SendWR(opcode=ibv_wr_opcode.IBV_WR_LOCAL_INV)
         inv_send_wr.imm_data = self.server.rkey
         self.client.qp.post_send(inv_send_wr)
-        inv_send_wr = SendWR(opcode=e.IBV_WR_LOCAL_INV)
+        inv_send_wr = SendWR(opcode=ibv_wr_opcode.IBV_WR_LOCAL_INV)
         inv_send_wr.imm_data = self.client.rkey
         self.server.qp.post_send(inv_send_wr)
         # Poll the invalidate MW WR.
@@ -301,10 +358,10 @@ class MWTest(RDMATestCase):
         client_recv_wr = u.get_recv_wr(self.client)
         self.server.qp.post_recv(server_recv_wr)
         self.client.qp.post_recv(client_recv_wr)
-        inv_send_wr = SendWR(opcode=e.IBV_WR_SEND_WITH_INV)
+        inv_send_wr = SendWR(opcode=ibv_wr_opcode.IBV_WR_SEND_WITH_INV)
         inv_send_wr.imm_data = self.client.rkey
         self.client.qp.post_send(inv_send_wr)
-        inv_send_wr = SendWR(opcode=e.IBV_WR_SEND_WITH_INV)
+        inv_send_wr = SendWR(opcode=ibv_wr_opcode.IBV_WR_SEND_WITH_INV)
         inv_send_wr.imm_data = self.server.rkey
         self.server.qp.post_send(inv_send_wr)
         # Poll the invalidate MW send WR.
@@ -315,32 +372,40 @@ class MWTest(RDMATestCase):
         u.poll_cq(self.client.cq)
 
     def test_mw_type1(self):
-        self.create_players(MWRC, mw_type=e.IBV_MW_TYPE_1)
+        self.create_players(MWRC, mw_type=ibv_mw_type.IBV_MW_TYPE_1)
         self.bind_mw_type_1()
-        u.rdma_traffic(**self.traffic_args, send_op=e.IBV_WR_RDMA_WRITE)
+        u.rdma_traffic(**self.traffic_args, send_op=ibv_wr_opcode.IBV_WR_RDMA_WRITE)
+
+    def test_mw_ex_type1(self):
+        """
+        Test Memory Window type 1 with MREx
+        """
+        self.create_players(MWExRC, mw_type=ibv_mw_type.IBV_MW_TYPE_1)
+        self.bind_mw_type_1()
+        u.rdma_traffic(**self.traffic_args, send_op=ibv_wr_opcode.IBV_WR_RDMA_WRITE)
 
     def test_invalidate_mw_type1(self):
         self.test_mw_type1()
         self.invalidate_mw_type1()
         with self.assertRaisesRegex(PyverbsRDMAError, 'Remote access error'):
-            u.rdma_traffic(**self.traffic_args, send_op=e.IBV_WR_RDMA_WRITE)
+            u.rdma_traffic(**self.traffic_args, send_op=ibv_wr_opcode.IBV_WR_RDMA_WRITE)
 
     def test_mw_type2(self):
-        self.create_players(MWRC, mw_type=e.IBV_MW_TYPE_2)
+        self.create_players(MWRC, mw_type=ibv_mw_type.IBV_MW_TYPE_2)
         self.bind_mw_type_2()
-        u.rdma_traffic(**self.traffic_args, send_op=e.IBV_WR_RDMA_WRITE)
+        u.rdma_traffic(**self.traffic_args, send_op=ibv_wr_opcode.IBV_WR_RDMA_WRITE)
 
     def test_mw_type2_invalidate_local(self):
         self.test_mw_type2()
         self.invalidate_mw_type2_local()
         with self.assertRaisesRegex(PyverbsRDMAError, 'Remote access error'):
-            u.rdma_traffic(**self.traffic_args, send_op=e.IBV_WR_RDMA_WRITE)
+            u.rdma_traffic(**self.traffic_args, send_op=ibv_wr_opcode.IBV_WR_RDMA_WRITE)
 
     def test_mw_type2_invalidate_remote(self):
         self.test_mw_type2()
         self.invalidate_mw_type2_remote()
         with self.assertRaisesRegex(PyverbsRDMAError, 'Remote access error'):
-            u.rdma_traffic(**self.traffic_args, send_op=e.IBV_WR_RDMA_WRITE)
+            u.rdma_traffic(**self.traffic_args, send_op=ibv_wr_opcode.IBV_WR_RDMA_WRITE)
 
     def test_mw_type2_invalidate_dealloc(self):
         self.test_mw_type2()
@@ -348,7 +413,7 @@ class MWTest(RDMATestCase):
         self.server.mw.close()
         self.client.mw.close()
         with self.assertRaisesRegex(PyverbsRDMAError, 'Remote access error'):
-            u.rdma_traffic(**self.traffic_args, send_op=e.IBV_WR_RDMA_WRITE)
+            u.rdma_traffic(**self.traffic_args, send_op=ibv_wr_opcode.IBV_WR_RDMA_WRITE)
 
     def test_reg_mw_wrong_type(self):
         """
@@ -378,7 +443,7 @@ class DeviceMemoryAPITest(PyverbsAPITestCase):
 
     def test_create_dm_mr(self):
         max_dm_size = self.attr_ex.max_dm_size
-        dm_access = e.IBV_ACCESS_ZERO_BASED | e.IBV_ACCESS_LOCAL_WRITE
+        dm_access = ibv_access_flags.IBV_ACCESS_ZERO_BASED | ibv_access_flags.IBV_ACCESS_LOCAL_WRITE
         for dm_size in [4, max_dm_size/4, max_dm_size/2]:
             dm_size = dm_size - (dm_size % u.DM_ALIGNMENT)
             for dmmr_factor_size in [0.1, 0.5, 1]:
@@ -395,7 +460,7 @@ class DeviceMemoryAPITest(PyverbsAPITestCase):
         """
         dm_size = 100
         with d.DM(self.ctx, d.AllocDmAttr(length=dm_size)) as dm:
-            dm_access = e.IBV_ACCESS_ZERO_BASED | e.IBV_ACCESS_LOCAL_WRITE
+            dm_access = ibv_access_flags.IBV_ACCESS_ZERO_BASED | ibv_access_flags.IBV_ACCESS_LOCAL_WRITE
             dmmr = DMMR(PD(self.ctx), dm_size, dm_access, dm, 0)
             access_cases = [(DM_INVALID_ALIGNMENT, 4), # Valid length with unaligned offset
                             (4, DM_INVALID_ALIGNMENT), # Valid offset with unaligned length
@@ -415,7 +480,7 @@ class DeviceMemoryAPITest(PyverbsAPITestCase):
         """
         dm_size = 100
         with d.DM(self.ctx, d.AllocDmAttr(length=dm_size)) as dm:
-            dm_access = e.IBV_ACCESS_ZERO_BASED | e.IBV_ACCESS_LOCAL_WRITE
+            dm_access = ibv_access_flags.IBV_ACCESS_ZERO_BASED | ibv_access_flags.IBV_ACCESS_LOCAL_WRITE
             with self.assertRaisesRegex(PyverbsRDMAError, 'Failed to register a device MR'):
                 DMMR(PD(self.ctx), dm_size + 4, dm_access, dm, 0)
 
@@ -514,8 +579,8 @@ class DmaBufMRTest(PyverbsAPITestCase):
         with PD(self.ctx) as pd:
             check_dmabuf_mr_support(pd, self.gpu)
             for i in range(5):
-                flags = random.sample([e.IBV_ACCESS_REMOTE_WRITE,
-                                       e.IBV_ACCESS_REMOTE_ATOMIC],
+                flags = random.sample([ibv_access_flags.IBV_ACCESS_REMOTE_WRITE,
+                                       ibv_access_flags.IBV_ACCESS_REMOTE_ATOMIC],
                                       random.randint(1, 2))
                 mr_flags = 0
                 for i in flags:
@@ -616,14 +681,14 @@ class DmaBufRC(RCResources):
     def create_mr(self):
         check_dmabuf_support(self.gpu)
         check_dmabuf_mr_support(self.pd, self.gpu)
-        access = e.IBV_ACCESS_LOCAL_WRITE | e.IBV_ACCESS_REMOTE_WRITE
+        access = ibv_access_flags.IBV_ACCESS_LOCAL_WRITE | ibv_access_flags.IBV_ACCESS_REMOTE_WRITE
         mr = DmaBufMR(self.pd, self.msg_size, access, gpu=self.gpu,
                       gtt=self.gtt)
         self.mr = mr
 
     def create_qp_attr(self):
         qp_attr = QPAttr(port_num=self.ib_port)
-        qp_access = e.IBV_ACCESS_LOCAL_WRITE | e.IBV_ACCESS_REMOTE_WRITE
+        qp_access = ibv_access_flags.IBV_ACCESS_LOCAL_WRITE | ibv_access_flags.IBV_ACCESS_REMOTE_WRITE
         qp_attr.qp_access_flags = qp_access
         return qp_attr
 
@@ -647,7 +712,7 @@ class DmaBufTestCase(RDMATestCase):
         Test rdma write using dma-buf MR
         """
         self.create_players(DmaBufRC, gpu=self.gpu, gtt=self.gtt)
-        u.rdma_traffic(**self.traffic_args, send_op=e.IBV_WR_RDMA_WRITE)
+        u.rdma_traffic(**self.traffic_args, send_op=ibv_wr_opcode.IBV_WR_RDMA_WRITE)
 
 
 class DeviceMemoryRes(RCResources):
@@ -668,10 +733,10 @@ class DeviceMemoryRes(RCResources):
     def create_mr(self):
         try:
             self.dm = d.DM(self.ctx, d.AllocDmAttr(length=self.msg_size))
-            access = e.IBV_ACCESS_ZERO_BASED | e.IBV_ACCESS_LOCAL_WRITE
+            access = ibv_access_flags.IBV_ACCESS_ZERO_BASED | ibv_access_flags.IBV_ACCESS_LOCAL_WRITE
             if self.remote_access:
-                access |= e.IBV_ACCESS_REMOTE_WRITE | e.IBV_ACCESS_REMOTE_READ | \
-                          e.IBV_ACCESS_REMOTE_ATOMIC
+                access |= ibv_access_flags.IBV_ACCESS_REMOTE_WRITE | ibv_access_flags.IBV_ACCESS_REMOTE_READ | \
+                          ibv_access_flags.IBV_ACCESS_REMOTE_ATOMIC
             self.mr = DMMR(self.pd, self.msg_size, access, self.dm, 0)
         except PyverbsRDMAError as ex:
             if ex.error_code == errno.EOPNOTSUPP:
@@ -680,10 +745,10 @@ class DeviceMemoryRes(RCResources):
 
     def create_qp_attr(self):
         qp_attr = QPAttr(port_num=self.ib_port)
-        qp_attr.qp_access_flags = e.IBV_ACCESS_LOCAL_WRITE
+        qp_attr.qp_access_flags = ibv_access_flags.IBV_ACCESS_LOCAL_WRITE
         if self.remote_access:
-            qp_attr.qp_access_flags |= e.IBV_ACCESS_REMOTE_WRITE | e.IBV_ACCESS_REMOTE_READ | \
-                                       e.IBV_ACCESS_REMOTE_ATOMIC
+            qp_attr.qp_access_flags |= ibv_access_flags.IBV_ACCESS_REMOTE_WRITE | ibv_access_flags.IBV_ACCESS_REMOTE_READ | \
+                                       ibv_access_flags.IBV_ACCESS_REMOTE_ATOMIC
         return qp_attr
 
 
@@ -711,20 +776,20 @@ class DeviceMemoryTest(RDMATestCase):
 
     def test_dm_remote_traffic(self):
         self.create_players(DeviceMemoryRes, remote_access=True)
-        u.rdma_traffic(**self.traffic_args, send_op=e.IBV_WR_RDMA_WRITE)
+        u.rdma_traffic(**self.traffic_args, send_op=ibv_wr_opcode.IBV_WR_RDMA_WRITE)
 
     def test_dm_remote_write_traffic_imm(self):
         self.create_players(DeviceMemoryRes, remote_access=True)
-        u.traffic(**self.traffic_args, send_op=e.IBV_WR_RDMA_WRITE_WITH_IMM)
+        u.traffic(**self.traffic_args, send_op=ibv_wr_opcode.IBV_WR_RDMA_WRITE_WITH_IMM)
 
     def test_dm_remote_read_traffic(self):
         self.create_players(DeviceMemoryRes, remote_access=True)
-        u.rdma_traffic(**self.traffic_args, send_op=e.IBV_WR_RDMA_READ)
+        u.rdma_traffic(**self.traffic_args, send_op=ibv_wr_opcode.IBV_WR_RDMA_READ)
 
     def test_dm_atomic_fetch_add(self):
         self.create_players(DeviceMemoryRes, remote_access=True, msg_size=8)
-        u.atomic_traffic(**self.traffic_args, send_op=e.IBV_WR_ATOMIC_FETCH_AND_ADD)
+        u.atomic_traffic(**self.traffic_args, send_op=ibv_wr_opcode.IBV_WR_ATOMIC_FETCH_AND_ADD)
 
     def test_dm_atomic_cmp_swp(self):
         self.create_players(DeviceMemoryRes, remote_access=True, msg_size=8)
-        u.atomic_traffic(**self.traffic_args, send_op=e.IBV_WR_ATOMIC_CMP_AND_SWP)
+        u.atomic_traffic(**self.traffic_args, send_op=ibv_wr_opcode.IBV_WR_ATOMIC_CMP_AND_SWP)

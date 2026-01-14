@@ -85,6 +85,7 @@ EXAMPLES
 ========
 
 ::
+
         sminfo                  # local port\'s sminfo
         sminfo 32               # show sminfo of lid 32
         sminfo  -G 0x8f1040023  # same but using guid address

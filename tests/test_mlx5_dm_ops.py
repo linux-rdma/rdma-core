@@ -11,7 +11,7 @@ from pyverbs.providers.mlx5.mlx5dv import Mlx5Context, Mlx5DVContextAttr, \
     Mlx5DmOpAddr
 from pyverbs.pyverbs_error import PyverbsRDMAError, PyverbsUserError
 from tests.mlx5_base import Mlx5PyverbsAPITestCase
-import pyverbs.providers.mlx5.mlx5_enums as dve
+from pyverbs.providers.mlx5.mlx5_enums import mlx5dv_context_attr_flags
 import pyverbs.device as d
 
 
@@ -57,7 +57,7 @@ class Mlx5DmOpAddresses(Mlx5PyverbsAPITestCase):
 
     def create_context(self):
         try:
-            attr = Mlx5DVContextAttr(dve.MLX5DV_CONTEXT_FLAGS_DEVX)
+            attr = Mlx5DVContextAttr(mlx5dv_context_attr_flags.MLX5DV_CONTEXT_FLAGS_DEVX)
             self.ctx = Mlx5Context(attr, self.dev_name)
         except PyverbsUserError as ex:
             raise unittest.SkipTest(f'Could not open mlx5 context ({ex})')

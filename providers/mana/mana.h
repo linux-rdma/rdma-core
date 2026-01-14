@@ -71,12 +71,15 @@ static inline uint32_t get_large_wqe_size(uint32_t sge)
 	return align(wqe_size, GDMA_WQE_ALIGNMENT_UNIT_SIZE);
 }
 
+struct mana_table {
+	struct mana_qp **table;
+	int refcnt;
+};
+
 struct mana_context {
 	struct verbs_context ibv_ctx;
-	struct {
-		struct mana_qp **table;
-		int refcnt;
-	} qp_table[MANA_QP_TABLE_SIZE];
+	struct mana_table qp_rtable[MANA_QP_TABLE_SIZE];
+	struct mana_table qp_stable[MANA_QP_TABLE_SIZE];
 	pthread_mutex_t qp_table_mutex;
 
 	struct manadv_ctx_allocators extern_alloc;
@@ -110,10 +113,8 @@ struct mana_ib_raw_qp {
 
 struct mana_ib_rc_qp {
 	struct mana_gdma_queue queues[USER_RC_QUEUE_TYPE_MAX];
-
 	uint32_t sq_ssn;
 	uint32_t sq_psn;
-	uint32_t sq_highest_completed_psn;
 };
 
 struct mana_qp {
@@ -127,6 +128,7 @@ struct mana_qp {
 	};
 
 	enum ibv_mtu mtu;
+	int sq_sig_all;
 
 	struct shadow_queue shadow_rq;
 	struct shadow_queue shadow_sq;
@@ -155,8 +157,7 @@ struct mana_cq {
 
 	pthread_spinlock_t lock;
 	uint32_t head;
-	uint32_t last_armed_head;
-	uint32_t ready_wcs;
+	uint32_t poll_credit;
 	void *db_page;
 	/* list of qp's that use this cq for send completions */
 	struct list_head send_qp_list;
@@ -181,7 +182,8 @@ struct mana_parent_domain {
 
 struct mana_context *to_mctx(struct ibv_context *ibctx);
 
-void *mana_alloc_mem(uint32_t size);
+void *mana_alloc_mem(size_t size);
+void mana_dealloc_mem(void *buf, size_t size);
 
 int mana_query_device_ex(struct ibv_context *context,
 			 const struct ibv_query_device_ex_input *input,
@@ -196,6 +198,10 @@ mana_alloc_parent_domain(struct ibv_context *context,
 			 struct ibv_parent_domain_init_attr *attr);
 
 int mana_dealloc_pd(struct ibv_pd *pd);
+
+struct ibv_mr *mana_reg_dmabuf_mr(struct ibv_pd *pd, uint64_t offset,
+				  size_t length, uint64_t iova, int fd,
+				  int access);
 
 struct ibv_mr *mana_reg_mr(struct ibv_pd *pd, void *addr, size_t length,
 			   uint64_t hca_va, int access);
@@ -239,5 +245,7 @@ int mana_post_send(struct ibv_qp *ibqp, struct ibv_send_wr *wr,
 
 int mana_arm_cq(struct ibv_cq *ibcq, int solicited);
 
-struct mana_qp *mana_get_qp_from_rq(struct mana_context *ctx, uint32_t qpn);
+struct mana_qp *mana_get_qp(struct mana_context *ctx, uint32_t qpn, bool is_sq);
+
+void mana_qp_move_flush_err(struct ibv_qp *ibqp);
 #endif

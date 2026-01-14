@@ -8,7 +8,7 @@ from pyverbs.pyverbs_error import PyverbsError, PyverbsRDMAError
 from tests.base import PyverbsAPITestCase
 from pyverbs.addr import AHAttr, AH
 import pyverbs.device as d
-import pyverbs.enums as e
+from pyverbs.libibverbs_enums import ibv_port_state, IBV_LINK_LAYER_ETHERNET, IBV_LINK_LAYER_INFINIBAND
 from pyverbs.pd import PD
 import tests.utils as u
 
@@ -22,7 +22,7 @@ class AHTest(PyverbsAPITestCase):
         Aux function to verify link layer
         """
         link_layer = ctx.query_port(self.ib_port).link_layer
-        if link_layer != e.IBV_LINK_LAYER_ETHERNET:
+        if link_layer != IBV_LINK_LAYER_ETHERNET:
             raise unittest.SkipTest(f'Link layer of port={self.ib_port} is {d.translate_link_layer(link_layer)} , skip RoCE test')
 
     def verify_state(self, ctx):
@@ -30,7 +30,7 @@ class AHTest(PyverbsAPITestCase):
         Aux function to verify port state
         """
         state = ctx.query_port(self.ib_port).state
-        if state != e.IBV_PORT_ACTIVE and state != e.IBV_PORT_INIT:
+        if state != ibv_port_state.IBV_PORT_ACTIVE and state != ibv_port_state.IBV_PORT_INIT:
             raise unittest.SkipTest(f'Port {self.ib_port} is not up, can not create AH')
 
     def test_create_ah(self):
@@ -40,7 +40,7 @@ class AHTest(PyverbsAPITestCase):
         self.verify_state(self.ctx)
         gr = u.get_global_route(self.ctx, gid_index=self.gid_index, port_num=self.ib_port)
         port_attrs = self.ctx.query_port(self.ib_port)
-        dlid = port_attrs.lid if port_attrs.link_layer == e.IBV_LINK_LAYER_INFINIBAND else 0
+        dlid = port_attrs.lid if port_attrs.link_layer == IBV_LINK_LAYER_INFINIBAND else 0
         ah_attr = AHAttr(dlid=dlid, gr=gr, is_global=1, port_num=self.ib_port)
         pd = PD(self.ctx)
         try:
@@ -74,7 +74,7 @@ class AHTest(PyverbsAPITestCase):
         self.verify_state(self.ctx)
         gr = u.get_global_route(self.ctx, gid_index=self.gid_index, port_num=self.ib_port)
         port_attrs = self.ctx.query_port(self.ib_port)
-        dlid = port_attrs.lid if port_attrs.link_layer == e.IBV_LINK_LAYER_INFINIBAND else 0
+        dlid = port_attrs.lid if port_attrs.link_layer == IBV_LINK_LAYER_INFINIBAND else 0
         ah_attr = AHAttr(dlid=dlid, gr=gr, is_global=1, port_num=self.ib_port)
         pd = PD(self.ctx)
         try:

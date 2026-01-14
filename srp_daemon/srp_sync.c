@@ -267,6 +267,9 @@ void push_to_retry_list(struct sync_resources *res,
 		return;
 
 	target = malloc(sizeof(struct target_details));
+	if (!target)
+		return;
+
 	memcpy(target, orig_target, sizeof(struct target_details));
 
 	pthread_mutex_lock(&res->retry_mutex);

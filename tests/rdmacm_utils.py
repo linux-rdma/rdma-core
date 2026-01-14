@@ -8,9 +8,10 @@ from tests.utils import validate, poll_cq, get_send_elements, get_recv_wr
 from tests.base_rdmacm import AsyncCMResources, SyncCMResources
 from pyverbs.cmid import CMEvent, AddrInfo, JoinMCAttrEx
 from pyverbs.pyverbs_error import PyverbsError, PyverbsRDMAError
-import pyverbs.cm_enums as ce
+from pyverbs.librdmacm_enums import rdma_port_space, rdma_cm_event_type, rdma_cm_mc_join_flags, \
+    rdma_cm_join_mc_attr_mask, RDMA_OPTION_ID, RDMA_OPTION_ID_ACK_TIMEOUT
 from pyverbs.addr import AH
-import pyverbs.enums as e
+from pyverbs.libibverbs_enums import ibv_send_flags, ibv_qp_type, ibv_qp_attr_mask
 import abc
 import errno
 
@@ -89,7 +90,7 @@ class CMConnection(abc.ABC):
                 cmid.post_read
             for _ in range(self.cm_res.num_msgs):
                 post_func(self.cm_res.mr, msg_size, remote_addr, rkey,
-                          flags=e.IBV_SEND_SIGNALED)
+                          flags=ibv_send_flags.IBV_SEND_SIGNALED)
                 cmid.get_send_comp()
             self.syncer.wait()
             if remote_op == 'read':
@@ -140,7 +141,7 @@ class CMConnection(abc.ABC):
         RDMACM API for send, recv and get_completion.
         :return: None
         """
-        grh_offset = GRH_SIZE if self.cm_res.qp_type == e.IBV_QPT_UD else 0
+        grh_offset = GRH_SIZE if self.cm_res.qp_type == ibv_qp_type.IBV_QPT_UD else 0
         send_msg = (self.cm_res.msg_size + grh_offset) * 's'
         cmid = self.cm_res.child_id
         for _ in range(self.cm_res.num_msgs):
@@ -150,7 +151,7 @@ class CMConnection(abc.ABC):
             wc = cmid.get_recv_comp()
             msg_received = self.cm_res.mr.read(self.cm_res.msg_size, grh_offset)
             validate(msg_received, True, self.cm_res.msg_size)
-            if self.cm_res.port_space == ce.RDMA_PS_TCP:
+            if self.cm_res.port_space == rdma_port_space.RDMA_PS_TCP:
                 self.cm_res.mr.write(send_msg, self.cm_res.msg_size)
                 cmid.post_send(self.cm_res.mr)
             else:
@@ -169,13 +170,13 @@ class CMConnection(abc.ABC):
         RDMACM API for send, recv and get_completion.
         :return: None
         """
-        grh_offset = GRH_SIZE if self.cm_res.qp_type == e.IBV_QPT_UD else 0
+        grh_offset = GRH_SIZE if self.cm_res.qp_type == ibv_qp_type.IBV_QPT_UD else 0
         send_msg = (self.cm_res.msg_size + grh_offset) * 'c'
         cmid = self.cm_res.cmid
         for _ in range(self.cm_res.num_msgs):
             self.cm_res.mr.write(send_msg, self.cm_res.msg_size + grh_offset)
             self.syncer.wait()
-            if self.cm_res.port_space == ce.RDMA_PS_TCP:
+            if self.cm_res.port_space == rdma_port_space.RDMA_PS_TCP:
                 cmid.post_send(self.cm_res.mr)
             else:
                 ah = AH(cmid.pd, attr=self.cm_res.ud_params.ah_attr)
@@ -225,15 +226,15 @@ class CMConnection(abc.ABC):
         :return: None
         """
         cm_event = CMEvent(self.cm_res.cmid.event_channel)
-        if cm_event.event_type == ce.RDMA_CM_EVENT_CONNECT_REQUEST:
+        if cm_event.event_type == rdma_cm_event_type.RDMA_CM_EVENT_CONNECT_REQUEST:
             self.cm_res.create_child_id(cm_event)
-        elif cm_event.event_type in [ce.RDMA_CM_EVENT_ESTABLISHED,
-                                     ce.RDMA_CM_EVENT_MULTICAST_JOIN]:
+        elif cm_event.event_type in [rdma_cm_event_type.RDMA_CM_EVENT_ESTABLISHED,
+                                     rdma_cm_event_type.RDMA_CM_EVENT_MULTICAST_JOIN]:
             self.cm_res.set_ud_params(cm_event)
         if expected_event and expected_event != cm_event.event_type:
             raise PyverbsError('Expected this event: {}, got this event: {}'.
                                 format(expected_event, cm_event.event_str()))
-        if expected_event == ce.RDMA_CM_EVENT_REJECTED:
+        if expected_event == rdma_cm_event_type.RDMA_CM_EVENT_REJECTED:
             assert cm_event.private_data[:len(REJECT_MSG)].decode() == REJECT_MSG, \
                 f'CM event data ({cm_event.private_data}) is different than the expected ({REJECT_MSG})'
         cm_event.ack_cm_event()
@@ -291,19 +292,19 @@ class CMAsyncConnection(CMConnection):
         self.cm_res.cmid.bind_addr(self.cm_res.ai)
         resolve_addr_info = AddrInfo(src=src_addr, dst=mc_addr)
         self.cm_res.cmid.resolve_addr(resolve_addr_info)
-        self.event_handler(expected_event=ce.RDMA_CM_EVENT_ADDR_RESOLVED)
+        self.event_handler(expected_event=rdma_cm_event_type.RDMA_CM_EVENT_ADDR_RESOLVED)
         self.cm_res.create_qp()
         mc_addr_info = AddrInfo(src=mc_addr)
         if not extended:
             self.cm_res.cmid.join_multicast(addr=mc_addr_info)
         else:
-            flags = ce.RDMA_MC_JOIN_FLAG_FULLMEMBER
-            comp_mask = ce.RDMA_CM_JOIN_MC_ATTR_ADDRESS | \
-                        ce.RDMA_CM_JOIN_MC_ATTR_JOIN_FLAGS
+            flags = rdma_cm_mc_join_flags.RDMA_MC_JOIN_FLAG_FULLMEMBER
+            comp_mask = rdma_cm_join_mc_attr_mask.RDMA_CM_JOIN_MC_ATTR_ADDRESS | \
+                        rdma_cm_join_mc_attr_mask.RDMA_CM_JOIN_MC_ATTR_JOIN_FLAGS
             mcattr = JoinMCAttrEx(addr=mc_addr_info, comp_mask=comp_mask,
                                   join_flags=flags)
             self.cm_res.cmid.join_multicast(mc_attr=mcattr)
-        self.event_handler(expected_event=ce.RDMA_CM_EVENT_MULTICAST_JOIN)
+        self.event_handler(expected_event=rdma_cm_event_type.RDMA_CM_EVENT_MULTICAST_JOIN)
         self.cm_res.create_mr()
 
     def leave_multicast(self, mc_addr=None):
@@ -324,7 +325,7 @@ class CMAsyncConnection(CMConnection):
         for conn_idx in range(self.num_conns):
             if self.cm_res.passive:
                 self.syncer.wait()
-                self.event_handler(expected_event=ce.RDMA_CM_EVENT_CONNECT_REQUEST)
+                self.event_handler(expected_event=rdma_cm_event_type.RDMA_CM_EVENT_CONNECT_REQUEST)
                 self.cm_res.create_qp(conn_idx=conn_idx)
                 if self.qp_timeout >= 0:
                     self.set_qp_timeout(self.cm_res.child_ids[conn_idx], self.qp_timeout)
@@ -338,17 +339,17 @@ class CMAsyncConnection(CMConnection):
                     return
                 child_id.accept(self.cm_res.create_conn_param(conn_idx=conn_idx))
                 if self.qp_timeout >= 0:
-                    attr, _ = child_id.query_qp(e.IBV_QP_TIMEOUT)
+                    attr, _ = child_id.query_qp(ibv_qp_attr_mask.IBV_QP_TIMEOUT)
                     assert self.qp_timeout == attr.timeout
-                if self.cm_res.port_space == ce.RDMA_PS_TCP:
-                    self.event_handler(expected_event=ce.RDMA_CM_EVENT_ESTABLISHED)
+                if self.cm_res.port_space == rdma_port_space.RDMA_PS_TCP:
+                    self.event_handler(expected_event=rdma_cm_event_type.RDMA_CM_EVENT_ESTABLISHED)
             else:
                 cmid = self.cm_res.cmids[conn_idx]
                 cmid.resolve_addr(self.cm_res.ai)
-                self.event_handler(expected_event=ce.RDMA_CM_EVENT_ADDR_RESOLVED)
+                self.event_handler(expected_event=rdma_cm_event_type.RDMA_CM_EVENT_ADDR_RESOLVED)
                 self.syncer.wait()
                 cmid.resolve_route()
-                self.event_handler(expected_event=ce.RDMA_CM_EVENT_ROUTE_RESOLVED)
+                self.event_handler(expected_event=rdma_cm_event_type.RDMA_CM_EVENT_ROUTE_RESOLVED)
                 self.cm_res.create_qp(conn_idx=conn_idx)
                 if self.qp_timeout >= 0:
                     self.set_qp_timeout(self.cm_res.cmid, self.qp_timeout)
@@ -357,23 +358,23 @@ class CMAsyncConnection(CMConnection):
                 cmid.connect(self.cm_res.create_conn_param(conn_idx=conn_idx))
                 if self.cm_res.with_ext_qp:
                     self.event_handler(expected_event=\
-                        ce.RDMA_CM_EVENT_CONNECT_RESPONSE)
+                        rdma_cm_event_type.RDMA_CM_EVENT_CONNECT_RESPONSE)
                     self.set_cmids_qp_ece(self.cm_res.passive)
                     self.cm_res.modify_ext_qp_to_rts(conn_idx=conn_idx)
                     cmid.establish()
                 else:
                     if self.reject_conn:
-                        self.event_handler(expected_event=ce.RDMA_CM_EVENT_REJECTED)
+                        self.event_handler(expected_event=rdma_cm_event_type.RDMA_CM_EVENT_REJECTED)
                         return
-                    self.event_handler(expected_event=ce.RDMA_CM_EVENT_ESTABLISHED)
+                    self.event_handler(expected_event=rdma_cm_event_type.RDMA_CM_EVENT_ESTABLISHED)
                 if self.qp_timeout >= 0:
-                    attr, _ = self.cm_res.cmid.query_qp(e.IBV_QP_TIMEOUT)
+                    attr, _ = self.cm_res.cmid.query_qp(ibv_qp_attr_mask.IBV_QP_TIMEOUT)
                     assert self.qp_timeout == attr.timeout
         self.cm_res.create_mr()
         self.sync_qp_numbers()
 
     def set_qp_timeout(self, cm_id, ack_timeout):
-        cm_id.set_option(ce.RDMA_OPTION_ID, ce.RDMA_OPTION_ID_ACK_TIMEOUT, ack_timeout, 1)
+        cm_id.set_option(RDMA_OPTION_ID, RDMA_OPTION_ID_ACK_TIMEOUT, ack_timeout, 1)
 
     def sync_qp_numbers(self):
         """
@@ -394,12 +395,12 @@ class CMAsyncConnection(CMConnection):
         """
         Disconnect the connection.
         """
-        if self.cm_res.port_space == ce.RDMA_PS_TCP:
+        if self.cm_res.port_space == rdma_port_space.RDMA_PS_TCP:
             if self.cm_res.passive:
                 for child_id in self.cm_res.child_ids.values():
                     child_id.disconnect()
             else:
-                self.event_handler(expected_event=ce.RDMA_CM_EVENT_DISCONNECTED)
+                self.event_handler(expected_event=rdma_cm_event_type.RDMA_CM_EVENT_DISCONNECTED)
                 for cmid in self.cm_res.cmids.values():
                     cmid.disconnect()
 
@@ -473,7 +474,7 @@ class CMSyncConnection(CMConnection):
         """
         Disconnect the connection.
         """
-        if self.cm_res.port_space == ce.RDMA_PS_TCP:
+        if self.cm_res.port_space == rdma_port_space.RDMA_PS_TCP:
             if self.cm_res.passive:
                 self.cm_res.child_id.disconnect()
             else:

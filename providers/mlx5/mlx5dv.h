@@ -261,6 +261,7 @@ enum mlx5dv_context_flags {
 	MLX5DV_CONTEXT_FLAGS_CQE_128B_PAD = (1 << 5), /* Support CQE 128B padding */
 	MLX5DV_CONTEXT_FLAGS_PACKET_BASED_CREDIT_MODE = (1 << 6),
 	MLX5DV_CONTEXT_FLAGS_REAL_TIME_TS = (1 << 7),
+	MLX5DV_CONTEXT_FLAGS_BLUEFLAME = (1 << 8), /* Support BlueFlame */
 };
 
 enum mlx5dv_cq_init_attr_mask {
@@ -736,6 +737,7 @@ struct mlx5dv_flow_match_parameters {
 
 enum mlx5dv_flow_matcher_attr_mask {
 	MLX5DV_FLOW_MATCHER_MASK_FT_TYPE = 1 << 0,
+	MLX5DV_FLOW_MATCHER_MASK_IB_PORT = 1 << 1,
 };
 
 struct mlx5dv_flow_matcher_attr {
@@ -746,6 +748,7 @@ struct mlx5dv_flow_matcher_attr {
 	struct mlx5dv_flow_match_parameters *match_mask;
 	uint64_t comp_mask; /* use mlx5dv_flow_matcher_attr_mask */
 	enum mlx5dv_flow_table_type ft_type;
+	uint32_t ib_port;
 };
 
 struct mlx5dv_flow_matcher;
@@ -780,6 +783,7 @@ enum mlx5dv_flow_action_type {
 	MLX5DV_FLOW_ACTION_DEST_DEVX,
 	MLX5DV_FLOW_ACTION_COUNTERS_DEVX,
 	MLX5DV_FLOW_ACTION_DEFAULT_MISS,
+	MLX5DV_FLOW_ACTION_COUNTERS_DEVX_WITH_OFFSET,
 };
 
 struct mlx5dv_flow_action_attr {
@@ -790,6 +794,10 @@ struct mlx5dv_flow_action_attr {
 		struct ibv_flow_action *action;
 		uint32_t tag_value;
 		struct mlx5dv_devx_obj *obj;
+		struct {
+			struct mlx5dv_devx_obj *obj;
+			uint32_t offset;
+		} bulk_obj;
 	};
 };
 
@@ -1713,9 +1721,14 @@ enum mlx5dv_context_attr_flags {
 	MLX5DV_CONTEXT_FLAGS_DEVX = 1 << 0,
 };
 
+enum mlx5dv_context_attr_comp_mask {
+	MLX5DV_CONTEXT_ATTR_MASK_FD_ARRAY = 1 << 0,
+};
+
 struct mlx5dv_context_attr {
 	uint32_t flags; /* Use enum mlx5dv_context_attr_flags */
-	uint64_t comp_mask;
+	uint64_t comp_mask; /* Use enum mlx5dv_context_attr_comp_mask */
+	struct ibv_fd_arr *fds;
 };
 
 bool mlx5dv_is_supported(struct ibv_device *device);

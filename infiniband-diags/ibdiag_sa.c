@@ -48,6 +48,8 @@
  * the saquery tool and provides it to other utilities.
  */
 
+static struct ibmad_ports_pair *srcports;
+
 struct sa_handle *sa_get_handle(char *ca_name)
 {
 	struct sa_handle *handle;
@@ -57,7 +59,13 @@ struct sa_handle *sa_get_handle(char *ca_name)
 
 	char *name = ca_name ? ca_name : ibd_ca;
 
-	resolve_sm_portid(name, ibd_ca_port, &handle->dport);
+	int mgmt_classes[1] = { IB_SA_CLASS };
+
+	srcports =  mad_rpc_open_port2(name, ibd_ca_port, mgmt_classes, 1, 0);
+	if (!srcports)
+		IBEXIT("Failed to open '%s' port '%d'", name, ibd_ca_port);
+
+	resolve_sm_portid(srcports->gsi.ca_name, ibd_ca_port, &handle->dport);
 	if (!handle->dport.lid) {
 		IBWARN("No SM/SA found on port %s:%d",
 			name ? "" : name,
@@ -69,20 +77,8 @@ struct sa_handle *sa_get_handle(char *ca_name)
 	if (!handle->dport.qkey)
 		handle->dport.qkey = IB_DEFAULT_QP1_QKEY;
 
-	handle->fd = umad_open_port(name, ibd_ca_port);
-	if (handle->fd < 0) {
-		IBWARN("umad_open_port on port %s:%d failed",
-			name ? "" : name,
-			ibd_ca_port);
-		goto err;
-	}
-	if ((handle->agent = umad_register(handle->fd, IB_SA_CLASS, 2, 1, NULL)) < 0) {
-		umad_close_port(handle->fd);
-		IBWARN("umad_register for SA class failed on port %s:%d",
-		       name ? "" : name,
-		       ibd_ca_port);
-		goto err;
-	}
+	handle->fd = mad_rpc_portid(srcports->gsi.port);
+	handle->agent = mad_rpc_class_agent(srcports->gsi.port, IB_SA_CLASS);
 
 	return handle;
 
@@ -94,7 +90,7 @@ err:
 void sa_free_handle(struct sa_handle * h)
 {
 	umad_unregister(h->fd, h->agent);
-	umad_close_port(h->fd);
+	mad_rpc_close_port2(srcports);
 	free(h);
 }
 
@@ -104,7 +100,7 @@ int sa_query(struct sa_handle * h, uint8_t method,
 		    struct sa_query_result *result)
 {
 	ib_rpc_t rpc;
-	void *umad, *mad;
+	void *umad, *mad, *new_umad;
 	int ret, offset, len = 256;
 
 	memset(&rpc, 0, sizeof(rpc));
@@ -139,7 +135,13 @@ recv_mad:
 	ret = umad_recv(h->fd, umad, &len, ibd_timeout);
 	if (ret < 0) {
 		if (errno == ENOSPC) {
-			umad = realloc(umad, umad_size() + len);
+			new_umad = realloc(umad, umad_size() + len);
+			if (!new_umad) {
+				IBWARN("Failed to reallocate memory for umad: %s\n", strerror(errno));
+				free(umad);
+				return (-ret);
+			}
+			umad = new_umad;
 			goto recv_mad;
 		}
 		IBWARN("umad_recv failed: attr 0x%x: %s\n", attr,

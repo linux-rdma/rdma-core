@@ -185,7 +185,33 @@ struct rdma_event_channel *create_event_channel(void)
 	return channel;
 }
 
-int oob_server_setup(const char *src_addr, const char *port, int *sock)
+static int oob_init_root(struct oob_root *root, int cnt)
+{
+	int i;
+
+	root->sock = malloc(sizeof(*root->sock) * cnt);
+	if (!root->sock)
+		return -1;
+
+	root->cnt = cnt;
+	for (i = 0; i < cnt; i++)
+		root->sock[i] = -1;
+
+	return 0;
+}
+
+void oob_close_root(struct oob_root *root)
+{
+	int i;
+
+	for (i = 0; i < root->cnt; i++) {
+		if (root->sock[i] != -1)
+			close(root->sock[i]);
+	}
+	free(root->sock);
+}
+
+int oob_try_bind(const char *src_addr, const char *port)
 {
 	struct addrinfo hint = {}, *ai;
 	int listen_sock;
@@ -193,11 +219,10 @@ int oob_server_setup(const char *src_addr, const char *port, int *sock)
 	int ret;
 
 	hint.ai_flags = AI_PASSIVE;
-	hint.ai_family = AF_INET;
 	hint.ai_socktype = SOCK_STREAM;
 	ret = getaddrinfo(src_addr, port, &hint, &ai);
 	if (ret) {
-		printf("getaddrinfo error: %s\n", gai_strerror(ret));
+		fprintf(stderr, "getaddrinfo error: %s\n", gai_strerror(ret));
 		return ret;
 	}
 
@@ -210,9 +235,28 @@ int oob_server_setup(const char *src_addr, const char *port, int *sock)
 	setsockopt(listen_sock, SOL_SOCKET, SO_REUSEADDR, &optval, sizeof(optval));
 	ret = bind(listen_sock, ai->ai_addr, ai->ai_addrlen);
 	if (ret) {
-		ret = -errno;
-		goto close;
+		ret = errno == EADDRNOTAVAIL || errno == EADDRINUSE ? 0 : -errno;
+		if (ret)
+			fprintf(stderr, "unexpected bind error: %s (%d)\n",
+				strerror(errno), errno);
+		close(listen_sock);
+		goto free;
 	}
+
+	ret = listen_sock;
+free:
+	freeaddrinfo(ai);
+	return ret;
+}
+
+int oob_root_setup(int listen_sock, struct oob_root *root, int cnt)
+{
+	int optval = 1;
+	int i, ret;
+
+	ret = oob_init_root(root, cnt);
+	if (ret)
+		goto close;
 
 	ret = listen(listen_sock, 1);
 	if (ret) {
@@ -220,19 +264,24 @@ int oob_server_setup(const char *src_addr, const char *port, int *sock)
 		goto close;
 	}
 
-	*sock = accept(listen_sock, NULL, NULL);
-	if (*sock == -1)
-		ret = -errno;
-	setsockopt(*sock, IPPROTO_TCP, TCP_NODELAY, &optval, sizeof(optval));
+	for (i = 0; i < cnt; i++) {
+		root->sock[i] = accept(listen_sock, NULL, NULL);
+		if (root->sock[i] == -1) {
+			ret = -errno;
+			break;
+		}
+		setsockopt(root->sock[i], IPPROTO_TCP, TCP_NODELAY,
+			   &optval, sizeof(optval));
+	}
 
 close:
 	close(listen_sock);
-free:
-	freeaddrinfo(ai);
+	if (ret)
+		oob_close_root(root);
 	return ret;
 }
 
-int oob_client_setup(const char *dst_addr, const char *port, int *sock)
+int oob_leaf_setup(const char *dst_addr, const char *port, int *sock)
 {
 	struct addrinfo hint = {}, *ai;
 	int nodelay = 1;
@@ -259,7 +308,7 @@ out:
 	return ret;
 }
 
-int oob_sendrecv(int sock, char val)
+int oob_syncup(int sock, char val)
 {
 	char c = val;
 	ssize_t ret;
@@ -277,23 +326,82 @@ int oob_sendrecv(int sock, char val)
 	return 0;
 }
 
-int oob_recvsend(int sock, char val)
+int sock_recvdata(int sock, void *data, size_t size)
 {
-	char c = 0;
-	ssize_t ret;
+	ssize_t ret, bytes;
 
-	ret = recv(sock, (void *) &c, sizeof(c), 0);
-	if (ret != sizeof(c))
-		return -errno;
-
-	if (c != val)
-		return -EINVAL;
-
-	ret = send(sock, (void *) &c, sizeof(c), 0);
-	if (ret != sizeof(c))
-		return -errno;
+	bytes = 0;
+	do {
+		ret = recv(sock, (char *) data + bytes, size - bytes, 0);
+		if (ret <= 0)
+			return -errno;
+		bytes += ret;
+	} while (bytes < size);
 
 	return 0;
+}
+
+int sock_senddata(int sock, void *data, size_t size)
+{
+	ssize_t ret, bytes;
+
+	bytes = 0;
+	do {
+		ret = send(sock, (char *) data + bytes, size - bytes, 0);
+		if (ret < 0)
+			return -errno;
+		bytes += ret;
+	} while (bytes < size);
+
+	return 0;
+}
+
+int oob_gather(struct oob_root *root, void *data, size_t size_per_leaf)
+{
+	int ret, i;
+
+	for (i = 0; i < root->cnt; i++) {
+		ret = sock_recvdata(root->sock[i],
+				    (char *) data + i * size_per_leaf,
+				    size_per_leaf);
+		if (ret)
+			return ret;
+	}
+
+	return 0;
+}
+
+int oob_senddown(struct oob_root *root, void *data, size_t size)
+{
+	int ret, i;
+
+	for (i = 0; i < root->cnt; i++) {
+		ret = sock_senddata(root->sock[i], data, size);
+		if (ret)
+			return ret;
+	}
+
+	return 0;
+}
+
+int oob_syncdown(struct oob_root *root, char val)
+{
+	ssize_t ret;
+	char c;
+	int i;
+
+	for (i = 0; i < root->cnt; i++) {
+		c = 0;
+		ret = recv(root->sock[i], (void *) &c, sizeof(c), 0);
+		if (ret != sizeof(c))
+			return -errno;
+
+		if (c != val)
+			return -EINVAL;
+	}
+
+	ret = oob_senddown(root, &val, sizeof(val));
+	return ret;
 }
 
 static void *wq_handler(void *arg);

@@ -228,6 +228,11 @@ struct ibv_query_device_ex_input {
 	uint32_t		comp_mask;
 };
 
+enum ibv_odp_general_caps {
+	IBV_ODP_SUPPORT = 1 << 0,
+	IBV_ODP_SUPPORT_IMPLICIT = 1 << 1,
+};
+
 enum ibv_odp_transport_cap_bits {
 	IBV_ODP_SUPPORT_SEND     = 1 << 0,
 	IBV_ODP_SUPPORT_RECV     = 1 << 1,
@@ -235,6 +240,8 @@ enum ibv_odp_transport_cap_bits {
 	IBV_ODP_SUPPORT_READ     = 1 << 3,
 	IBV_ODP_SUPPORT_ATOMIC   = 1 << 4,
 	IBV_ODP_SUPPORT_SRQ_RECV = 1 << 5,
+	IBV_ODP_SUPPORT_FLUSH    = 1 << 6,
+	IBV_ODP_SUPPORT_ATOMIC_WRITE = 1 << 7,
 };
 
 struct ibv_odp_caps {
@@ -244,11 +251,6 @@ struct ibv_odp_caps {
 		uint32_t uc_odp_caps;
 		uint32_t ud_odp_caps;
 	} per_transport_caps;
-};
-
-enum ibv_odp_general_caps {
-	IBV_ODP_SUPPORT = 1 << 0,
-	IBV_ODP_SUPPORT_IMPLICIT = 1 << 1,
 };
 
 struct ibv_tso_caps {
@@ -629,6 +631,10 @@ struct ibv_mw_bind_info {
 	unsigned int	 mw_access_flags; /* use ibv_access_flags */
 };
 
+struct ibv_dmah {
+	struct ibv_context *context;
+};
+
 struct ibv_pd {
 	struct ibv_context     *context;
 	uint32_t		handle;
@@ -673,6 +679,25 @@ struct ibv_mr {
 	uint32_t		handle;
 	uint32_t		lkey;
 	uint32_t		rkey;
+};
+
+enum ibv_mr_init_attr_mask {
+	IBV_REG_MR_MASK_IOVA = 1 << 0,
+	IBV_REG_MR_MASK_ADDR = 1 << 1,
+	IBV_REG_MR_MASK_FD = 1 << 2,
+	IBV_REG_MR_MASK_FD_OFFSET = 1 << 3,
+	IBV_REG_MR_MASK_DMAH = 1 << 4,
+};
+
+struct ibv_mr_init_attr {
+	size_t length;
+	int access;
+	uint64_t comp_mask; /* Use enum ibv_mr_init_attr_mask */
+	uint64_t iova;
+	void *addr;
+	int fd;
+	uint64_t fd_offset;
+	struct ibv_dmah *dmah;
 };
 
 enum ibv_mw_type {
@@ -1040,6 +1065,7 @@ enum ibv_qp_attr_mask {
 
 enum ibv_query_qp_data_in_order_flags {
 	IBV_QUERY_QP_DATA_IN_ORDER_RETURN_CAPS = 1 << 0,
+	IBV_QUERY_QP_DATA_IN_ORDER_DEVICE_ONLY = 1 << 1,
 };
 
 enum ibv_query_qp_data_in_order_caps {
@@ -1146,6 +1172,11 @@ struct ibv_sge {
 	uint64_t		addr;
 	uint32_t		length;
 	uint32_t		lkey;
+};
+
+struct ibv_fd_arr {
+	int *arr;
+	uint32_t count;
 };
 
 struct ibv_send_wr {
@@ -2098,6 +2129,24 @@ struct ibv_parent_domain_init_attr {
 	void *pd_context;
 };
 
+enum ibv_tph_mem_type {
+	IBV_TPH_MEM_TYPE_VM, /* volatile memory */
+	IBV_TPH_MEM_TYPE_PM, /* persistent memory */
+};
+
+enum  ibv_dmah_init_attr_mask {
+	IBV_DMAH_INIT_ATTR_MASK_CPU_ID = 1 << 0,
+	IBV_DMAH_INIT_ATTR_MASK_PH = 1 << 1,
+	IBV_DMAH_INIT_ATTR_MASK_TPH_MEM_TYPE = 1 << 2,
+};
+
+struct ibv_dmah_init_attr {
+	uint32_t comp_mask;
+	uint32_t cpu_id;
+	uint8_t ph;
+	uint8_t tph_mem_type; /* From enum ibv_tph_mem_type */
+};
+
 struct ibv_counters_init_attr {
 	uint32_t	comp_mask;
 };
@@ -2133,6 +2182,11 @@ struct ibv_values_ex {
 
 struct verbs_context {
 	/*  "grows up" - new fields go here */
+	struct ibv_mr *(*reg_mr_ex)(struct ibv_pd *pd,
+				    struct ibv_mr_init_attr *mr_init_attr);
+	int (*dealloc_dmah)(struct ibv_dmah *dmah);
+	struct ibv_dmah *(*alloc_dmah)(struct ibv_context *context,
+				       struct ibv_dmah_init_attr *attr);
 	int (*query_port)(struct ibv_context *context, uint8_t port_num,
 			  struct ibv_port_attr *port_attr,
 			  size_t port_attr_len);
@@ -2244,7 +2298,7 @@ struct ibv_device **ibv_get_device_list(int *num_devices);
  */
 #ifdef RDMA_STATIC_PROVIDERS
 #define _RDMA_STATIC_PREFIX_(_1, _2, _3, _4, _5, _6, _7, _8, _9, _10, _11,     \
-			     _12, _13, _14, _15, _16, _17, _18, _19, ...)      \
+			     _12, _13, _14, _15, _16, _17, _18, _19, _20, ...) \
 	&verbs_provider_##_1, &verbs_provider_##_2, &verbs_provider_##_3,      \
 		&verbs_provider_##_4, &verbs_provider_##_5,                    \
 		&verbs_provider_##_6, &verbs_provider_##_7,                    \
@@ -2253,11 +2307,12 @@ struct ibv_device **ibv_get_device_list(int *num_devices);
 		&verbs_provider_##_12, &verbs_provider_##_13,                  \
 		&verbs_provider_##_14, &verbs_provider_##_15,                  \
 		&verbs_provider_##_16, &verbs_provider_##_17,                  \
-		&verbs_provider_##_18, &verbs_provider_##_19
+		&verbs_provider_##_18, &verbs_provider_##_19,                  \
+		&verbs_provider_##_20
 #define _RDMA_STATIC_PREFIX(arg)                                               \
 	_RDMA_STATIC_PREFIX_(arg, none, none, none, none, none, none, none,    \
 			     none, none, none, none, none, none, none, none,   \
-			     none, none, none)
+			     none, none, none, none)
 
 struct verbs_devices_ops;
 extern const struct verbs_device_ops verbs_provider_bnxt_re;
@@ -2277,6 +2332,7 @@ extern const struct verbs_device_ops verbs_provider_qedr;
 extern const struct verbs_device_ops verbs_provider_rxe;
 extern const struct verbs_device_ops verbs_provider_siw;
 extern const struct verbs_device_ops verbs_provider_vmw_pvrdma;
+extern const struct verbs_device_ops verbs_provider_ionic;
 extern const struct verbs_device_ops verbs_provider_all;
 extern const struct verbs_device_ops verbs_provider_none;
 void ibv_static_providers(void *unused, ...);
@@ -2335,13 +2391,13 @@ int ibv_close_device(struct ibv_context *context);
 struct ibv_context *ibv_import_device(int cmd_fd);
 
 /**
- * ibv_import_pd - Import a protetion domain
+ * ibv_import_pd - Import a protection domain
  */
 struct ibv_pd *ibv_import_pd(struct ibv_context *context,
 			     uint32_t pd_handle);
 
 /**
- * ibv_unimport_pd - Unimport a protetion domain
+ * ibv_unimport_pd - Unimport a protection domain
  */
 void ibv_unimport_pd(struct ibv_pd *pd);
 
@@ -2624,6 +2680,8 @@ __ibv_reg_mr_iova(struct ibv_pd *pd, void *addr, size_t length, uint64_t iova,
  */
 struct ibv_mr *ibv_reg_dmabuf_mr(struct ibv_pd *pd, uint64_t offset, size_t length,
 				 uint64_t iova, int fd, int access);
+
+struct ibv_mr *ibv_reg_mr_ex(struct ibv_pd *pd, struct ibv_mr_init_attr *mr_init_attr);
 
 enum ibv_rereg_mr_err_code {
 	/* Old MR is valid, invalid input */
@@ -3126,6 +3184,17 @@ ibv_alloc_parent_domain(struct ibv_context *context,
 
 	return vctx->alloc_parent_domain(context, attr);
 }
+
+/**
+ * ibv_alloc_dmah - Allocate a dma handle
+ */
+struct ibv_dmah *ibv_alloc_dmah(struct ibv_context *context,
+				struct ibv_dmah_init_attr *attr);
+
+/**
+ * ibv_dealloc_dmah - Free a dma handle
+ */
+int ibv_dealloc_dmah(struct ibv_dmah *dmah);
 
 /**
  * ibv_query_rt_values_ex - Get current real time @values of a device.

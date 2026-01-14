@@ -1,5 +1,5 @@
 Name: rdma-core
-Version: 56.1
+Version: 61.0
 Release: 1%{?dist}
 Summary: RDMA core userspace libraries and daemons
 
@@ -160,6 +160,8 @@ Provides: libhfi1 = %{version}-%{release}
 Obsoletes: libhfi1 < %{version}-%{release}
 Provides: libhns = %{version}-%{release}
 Obsoletes: libhns < %{version}-%{release}
+Provides: libionic = %{version}-%{release}
+Obsoletes: libionic < %{version}-%{release}
 Provides: libipathverbs = %{version}-%{release}
 Obsoletes: libipathverbs < %{version}-%{release}
 Provides: libirdma = %{version}-%{release}
@@ -191,6 +193,7 @@ Device-specific plug-in ibverbs userspace drivers are included:
 - liberdma: Alibaba Elastic RDMA (iWarp) Adapter
 - libhfi1: Intel Omni-Path HFI
 - libhns: HiSilicon Hip08+ SoC
+- libionic: AMD Pensando Distributed Services Card (DSC) RDMA/RoCE Support
 - libipathverbs: QLogic InfiniPath HCA
 - libirdma: Intel Ethernet Connection RDMA
 - libmana: Microsoft Azure Network Adapter
@@ -339,10 +342,10 @@ mkdir -p %{buildroot}/%{_sysconfdir}/rdma
 %global sysmodprobedir %{_prefix}/lib/modprobe.d
 mkdir -p %{buildroot}%{_libexecdir}
 mkdir -p %{buildroot}%{_udevrulesdir}
-mkdir -p %{buildroot}%{dracutlibdir}/modules.d/05rdma
+mkdir -p %{buildroot}%{dracutlibdir}/modules.d/50rdma
 mkdir -p %{buildroot}%{sysmodprobedir}
 install -D -m0644 redhat/rdma.mlx4.conf %{buildroot}/%{_sysconfdir}/rdma/mlx4.conf
-install -D -m0755 redhat/rdma.modules-setup.sh %{buildroot}%{dracutlibdir}/modules.d/05rdma/module-setup.sh
+install -D -m0755 kernel-boot/dracut/50rdma/module-setup.sh %{buildroot}%{dracutlibdir}/modules.d/50rdma/module-setup.sh
 install -D -m0644 redhat/rdma.mlx4.sys.modprobe %{buildroot}%{sysmodprobedir}/libmlx4.conf
 install -D -m0755 redhat/rdma.mlx4-setup.sh %{buildroot}%{_libexecdir}/mlx4-setup.sh
 rm -f %{buildroot}%{_sysconfdir}/rdma/modules/rdma.conf
@@ -363,6 +366,18 @@ if [ -x /sbin/udevadm ]; then
 /sbin/udevadm trigger --subsystem-match=net --action=change || true
 /sbin/udevadm trigger --subsystem-match=infiniband_mad --action=change || true
 fi
+%systemd_post rdma-load-modules@rdma.service
+%systemd_post rdma-load-modules@infiniband.service
+%systemd_post rdma-load-modules@roce.service
+
+%preun -n rdma-core
+%systemd_preun rdma-load-modules@rdma.service
+%systemd_preun rdma-load-modules@infiniband.service
+%systemd_preun rdma-load-modules@roce.service
+%postun -n rdma-core
+%systemd_postun_with_restart rdma-load-modules@rdma.service
+%systemd_postun_with_restart rdma-load-modules@infiniband.service
+%systemd_postun_with_restart rdma-load-modules@roce.service
 
 %post -n infiniband-diags -p /sbin/ldconfig
 %postun -n infiniband-diags -p /sbin/ldconfig
@@ -418,8 +433,8 @@ fi
 %{_unitdir}/rdma-load-modules@.service
 %dir %{dracutlibdir}
 %dir %{dracutlibdir}/modules.d
-%dir %{dracutlibdir}/modules.d/05rdma
-%{dracutlibdir}/modules.d/05rdma/module-setup.sh
+%dir %{dracutlibdir}/modules.d/50rdma
+%{dracutlibdir}/modules.d/50rdma/module-setup.sh
 %dir %{_udevrulesdir}
 %{_udevrulesdir}/../rdma_rename
 %{_udevrulesdir}/60-rdma-ndd.rules
@@ -434,6 +449,7 @@ fi
 %{_libexecdir}/truescale-serdes.cmds
 %{_sbindir}/rdma-ndd
 %{_unitdir}/rdma-ndd.service
+%{_sbindir}/rdma_topo
 %{_mandir}/man7/rxe*
 %{_mandir}/man8/rdma-ndd.*
 %license COPYING.*
@@ -582,6 +598,7 @@ fi
 %{_libdir}/libhns.so.*
 %{_libdir}/libibverbs*.so.*
 %{_libdir}/libibverbs/*.so
+%{_libdir}/libionic.so.*
 %{_libdir}/libmana.so.*
 %{_libdir}/libmlx5.so.*
 %{_libdir}/libmlx4.so.*

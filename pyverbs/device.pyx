@@ -20,7 +20,7 @@ cimport pyverbs.librdmacm as cm
 from pyverbs.cmid cimport CMID
 from pyverbs.xrcd cimport XRCD
 from pyverbs.addr cimport GID
-from pyverbs.mr import DMMR
+from pyverbs.mr import DMMR, DMAHandle
 from pyverbs.pd cimport PD
 from pyverbs.qp cimport QP
 from libc.stdlib cimport free, malloc
@@ -28,6 +28,7 @@ from libc.string cimport memset
 from libc.stdint cimport uint64_t
 from libc.stdint cimport uint16_t
 from libc.stdint cimport uint32_t
+from libc.stdint cimport uintptr_t
 from pyverbs.utils import gid_str
 
 cdef extern from 'endian.h':
@@ -122,6 +123,8 @@ cdef class Context(PyverbsCM):
         self.wqs = weakref.WeakSet()
         self.rwq_ind_tbls = weakref.WeakSet()
         self.crypto_logins = weakref.WeakSet()
+        self.event_channels = weakref.WeakSet()
+        self.dmahs = weakref.WeakSet()
 
         self.name = kwargs.get('name')
         provider_attr = kwargs.get('attr')
@@ -178,7 +181,7 @@ cdef class Context(PyverbsCM):
                 self.logger.debug('Closing Context')
             close_weakrefs([self.qps, self.crypto_logins, self.rwq_ind_tbls, self.wqs, self.ccs, self.cqs,
                             self.dms, self.pds, self.xrcds, self.vars, self.sched_leafs,
-                            self.sched_nodes, self.dr_domains])
+                            self.sched_nodes, self.dr_domains, self.event_channels, self.dmahs])
             rc = v.ibv_close_device(self.context)
             if rc != 0:
                 raise PyverbsRDMAErrno(f'Failed to close device {self.name}')
@@ -186,7 +189,7 @@ cdef class Context(PyverbsCM):
 
     @property
     def context(self):
-        return <object>self.context
+        return <uintptr_t>self.context
 
     @property
     def num_comp_vectors(self):
@@ -345,6 +348,8 @@ cdef class Context(PyverbsCM):
             self.wqs.add(obj)
         elif isinstance(obj, RwqIndTable):
             self.rwq_ind_tbls.add(obj)
+        elif isinstance(obj, DMAHandle):
+            self.dmahs.add(obj)
         else:
             raise PyverbsError('Unrecognized object type')
 
@@ -567,7 +572,9 @@ cdef class ODPCaps(PyverbsObject):
              e.IBV_ODP_SUPPORT_WRITE: 'IBV_ODP_SUPPORT_WRITE',
              e.IBV_ODP_SUPPORT_READ: 'IBV_ODP_SUPPORT_READ',
              e.IBV_ODP_SUPPORT_ATOMIC: 'IBV_ODP_SUPPORT_ATOMIC',
-             e.IBV_ODP_SUPPORT_SRQ_RECV: 'IBV_ODP_SUPPORT_SRQ_RECV'}
+             e.IBV_ODP_SUPPORT_SRQ_RECV: 'IBV_ODP_SUPPORT_SRQ_RECV',
+             e.IBV_ODP_SUPPORT_FLUSH: 'IBV_ODP_SUPPORT_FLUSH',
+             e.IBV_ODP_SUPPORT_ATOMIC_WRITE: 'IBV_ODP_SUPPORT_ATOMIC_WRITE'}
 
         print_format = '{}: {}\n'
         return print_format.format('ODP General caps', str_from_flags(self.general_caps, general_caps)) +\
@@ -1265,3 +1272,38 @@ def translate_event_type(event_type):
         return types[event_type]
     except KeyError:
         return f'Unknown event_type ({event_type})'
+
+
+cdef class FdArr(PyverbsObject):
+    """
+    Represent ibv_fd_arr struct. This class is used a pointer to the file descriptor array
+    """
+    def __init__(self, arr=[], count=0):
+        super().__init__()
+        cdef int *dst
+        self.attr.arr = <int*>malloc(count * sizeof(int))
+        if self.attr.arr == NULL:
+            raise PyverbsRDMAErrno('Failed to malloc FD list')
+        dst = self.attr.arr
+        for i in range(count):
+            dst[i]= arr[i]
+        self.attr.count = count
+
+    def __dealloc__(self):
+        self.close()
+
+    cpdef close(self):
+        free(self.attr.arr)
+
+    def __str__(self):
+        print_format = '{:20}: {:<20}\n'
+        return print_format.format('Number of fd in arr', self.attr.count) +\
+               print_format.format('FDs in arr', [self.attr.arr[i] for i in range(self.attr.count)])
+
+    @property
+    def arr(self):
+        return [self.attr.arr[i] for i in range(self.attr.count)]
+
+    @property
+    def count(self):
+        return self.attr.count

@@ -1,19 +1,32 @@
 .\" Licensed under the OpenIB.org BSD license (FreeBSD Variant) - See COPYING.md
-.TH "CMTIME" 1 "2017-04-28" "librdmacm" "librdmacm" librdmacm
+.TH "CMTIME" 1 "2025-09-03" "librdmacm" "librdmacm" librdmacm
 .SH NAME
 cmtime \- RDMA CM connection steps timing test.
 .SH SYNOPSIS
 .sp
 .nf
-\fIcmtime\fR [-s server_address] [-b bind_address]
-			[-c connections] [-p port_number]
-			[-q base_qpn]
-			[-r retries] [-t timeout_ms]
+\fIcmtime\fR -C controller_address
+		(-B bind_interface | -b bind_address)
+		[-L]
+		[-c connections_per_pair] [-P num_peers]
+		[-p controller_port]
+		[-q base_qpn] [-n num_threads]
+		[-m mimic_qp_delay_us] [-r retries]
+		[-t timeout_ms]
+		[-S]
 .fi
 .SH "DESCRIPTION"
 Determines min, max, and average times for various "steps" in RDMA CM
-connection setup and teardown between a client and server
-application.
+connection setup and teardown between clients and servers.
+
+To use, start one or more servers (-L), plus one or more clients.  Each
+client will establish -c number of connections to each server.  By default,
+the test runs with 1 client and 1 server.
+
+One process will act as a controller process.  The controller coordinates
+the clients and servers -- uses out-of-band sockets to collect and
+distribute addresses and keeps clients and servers in sync as they advance
+through each "step".
 
 "Steps" that are timed are: create ID, bind address, resolve address,
 resolve route, create QP, modify QP to INIT, modify QP to RTR,
@@ -34,24 +47,40 @@ roughly the same.  For asynchronous steps, the total may be significantly
 lower than the sum, as multiple connections will be in progress simultanesously.
 The avg/iter is the total time divided by the number of connections.
 
-In many cases, times may not be available or only available on the client.
-Is such situations, the output will show 0.
+In many cases, times may not be available or only available on the clients.
+Is such situations, the output will show 0.  Stats printed by each instance
+pertain to connections handled by it -- on runs with multiple clients and/or
+servers (-P > 2) further external aggregation might be required.
 .SH "OPTIONS"
 .TP
-\-s server_address
-The network name or IP address of the server system listening for
-connections.  The used name or address must route over an RDMA device.
-This option must be specified by the client.
+\-C controller_address
+The network name or IP address of the instance which will provide step
+synchronization.  This option must be specified by all instances.  The
+first instance to start which discovers this address as local will act as
+controller and will synchronize all other instances via an out-of-band
+channel as benchmark steps progress.  Any type of instance (client or
+server) can act as controller.
+.TP
+\-B bind_interface
+The local RDMA interface to bind to.  Only one of -B or -b is accepted.
 .TP
 \-b bind_address
-The local network address to bind to.
+The local network address to bind to.  Only one of -B or -b is accepted.
 .TP
-\-c connections
-The number of connections to establish between the client and
-server.  (default 100)
 .TP
-\-p port_number
-The server's port number.
+\-L
+Whether this instance is an RDMA CM server (set) or client (unset).
+(default client/unset)
+\-c connections_per_pair
+The number of connections to establish between each client-server
+pair.  (default 100)
+.TP
+\-P num_peers
+Total number of peers (clients, servers) which are going to be
+started.  (default 2)
+.TP
+\-p controller_port
+The controller's port number.
 .TP
 \-q base_qpn
 The first QP number to use when creating connections without allocating
@@ -74,15 +103,25 @@ Number of retries when resolving address or route.  (default 2)
 \-S
 Run connection rate test using sockets.  This provides a baseline
 comparison of RDMA connections versus TCP connections.  Sockets are
-set to blocking mode.
+set to blocking mode.  Only supported in 1 client 1 server mode (-P 2).
 .TP
 \-t timeout_ms
 Timeout in millseconds (ms) when resolving address or
 route.  (default 2000 - 2 seconds)
+.SH "EXAMPLES"
+One client connecting to one server:
+
+  server$ cmtime -B enp1s0f0np0 -C 192.0.2.1 -L
+  client$ cmtime -B enp1s0f0np0 -C 192.0.2.1
+
+Two clients connecting to three servers, 6k connections in total:
+
+  client1$ cmtime -B enp1s0f0np0 -P 5 -C 192.0.2.1 -c 1000
+  client2$ cmtime -B enp1s0f0np0 -P 5 -C 192.0.2.1 -c 1000
+  server1$ cmtime -B enp1s0f0np0 -P 5 -C 192.0.2.1 -c 1000 -L
+  server2$ cmtime -B enp1s0f0np0 -P 5 -C 192.0.2.1 -c 1000 -L
+  server3$ cmtime -B enp1s0f0np0 -P 5 -C 192.0.2.1 -c 1000 -L
 .SH "NOTES"
-Basic usage is to start cmtime on a server system, then run
-cmtime -s server_name on a client system.
-.P
 Because this test maps RDMA resources to userspace, users must ensure
 that they have available system resources and permissions.  See the
 libibverbs README file for additional details.

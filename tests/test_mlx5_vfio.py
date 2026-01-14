@@ -19,10 +19,13 @@ from tests.mlx5_base import Mlx5DevxRcResources, Mlx5DevxTrafficBase, PortState,
 from pyverbs.providers.mlx5.mlx5dv import Mlx5DevxMsiVector, Mlx5DevxEq, Mlx5UAR
 from pyverbs.providers.mlx5.mlx5_vfio import Mlx5VfioAttr, Mlx5VfioContext
 from pyverbs.pyverbs_error import PyverbsRDMAError
-import pyverbs.providers.mlx5.mlx5_enums as dve
+from pyverbs.providers.mlx5.mlx5_enums import _MLX5DV_UAR_ALLOC_TYPE_NC
 from pyverbs.base import PyverbsRDMAErrno
 import pyverbs.mem_alloc as mem
 import pyverbs.dma_util as dma
+
+EVENT_TIMEOUT = 2  # In seconds
+EVENT_REGISTRATION_TIMEOUT = 3  # In seconds
 
 
 class Mlx5VfioResources(Mlx5DevxRcResources):
@@ -66,7 +69,7 @@ class Mlx5VfioEqResources(Mlx5VfioResources):
 
     def create_uar(self):
         super().create_uar()
-        self.uar['eq'] = Mlx5UAR(self.ctx, dve._MLX5DV_UAR_ALLOC_TYPE_NC)
+        self.uar['eq'] = Mlx5UAR(self.ctx, _MLX5DV_UAR_ALLOC_TYPE_NC)
         if not self.uar['eq'].page_id:
             raise PyverbsRDMAError('Failed to allocate UAR')
 
@@ -204,6 +207,7 @@ class Mlx5VfioTrafficTest(Mlx5DevxTrafficBase):
         events_fd = self.server.msi_vector.fd
         with select.epoll() as epoll_events:
             epoll_events.register(events_fd, select.EPOLLIN)
+            self.reg_async_events = True
             while self.proc_events:
                 for fd, event in epoll_events.poll(timeout=0.1):
                     if fd == events_fd:
@@ -248,6 +252,7 @@ class Mlx5VfioTrafficTest(Mlx5DevxTrafficBase):
         self.event_ex = []
         self.proc_events = True
         self.caught_event = False
+        self.reg_async_events = False
         proc_events = Thread(target=self.vfio_process_events)
         proc_async_events = Thread(target=self.vfio_process_async_events)
         proc_events.start()
@@ -255,6 +260,10 @@ class Mlx5VfioTrafficTest(Mlx5DevxTrafficBase):
         # Move the DevX QPs to RTS state
         self.pre_run()
         try:
+            start_reg_t = time.perf_counter()
+            while not self.reg_async_events:
+                if time.perf_counter() - start_reg_t >= EVENT_REGISTRATION_TIMEOUT:
+                    raise PyverbsRDMAError('Could not register async events')
             # Change port state
             self.server.change_port_state_with_registers(PortStatus.MLX5_PORT_UP)
             admin_status, oper_status = self.server.query_port_state_with_registers()
@@ -270,10 +279,12 @@ class Mlx5VfioTrafficTest(Mlx5DevxTrafficBase):
                 time.sleep(1)
         finally:
             # Stop listening to events
+            start_event_t = time.perf_counter()
+            while not self.caught_event:
+                if time.perf_counter() - start_event_t >= EVENT_TIMEOUT:
+                    raise PyverbsRDMAError('Failed to catch an async event')
             self.proc_events = False
             proc_events.join()
             proc_async_events.join()
             if self.event_ex:
                 raise PyverbsRDMAError(f'Received unexpected vfio events: {self.event_ex}')
-            if not self.caught_event:
-                raise PyverbsRDMAError('Failed to catch an async event')

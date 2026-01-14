@@ -417,6 +417,8 @@ cdef extern from '<infiniband/verbs.h>':
         IBV_ODP_SUPPORT_READ
         IBV_ODP_SUPPORT_ATOMIC
         IBV_ODP_SUPPORT_SRQ_RECV
+        IBV_ODP_SUPPORT_FLUSH
+        IBV_ODP_SUPPORT_ATOMIC_WRITE
 
     cpdef enum ibv_device_cap_flags:
         IBV_DEVICE_RESIZE_MAX_WR
@@ -502,21 +504,28 @@ cdef extern from '<infiniband/verbs.h>':
         IBV_FLUSH_MR
         IBV_FLUSH_RANGE
 
+    cpdef enum ibv_tph_mem_type:
+        IBV_TPH_MEM_TYPE_VM
+        IBV_TPH_MEM_TYPE_PM
+
+    cpdef enum ibv_dmah_init_attr_mask:
+        IBV_DMAH_INIT_ATTR_MASK_CPU_ID
+        IBV_DMAH_INIT_ATTR_MASK_PH
+        IBV_DMAH_INIT_ATTR_MASK_TPH_MEM_TYPE
+
+    cpdef enum ibv_mr_init_attr_mask:
+        IBV_REG_MR_MASK_IOVA
+        IBV_REG_MR_MASK_ADDR
+        IBV_REG_MR_MASK_FD
+        IBV_REG_MR_MASK_FD_OFFSET
+        IBV_REG_MR_MASK_DMAH
+
+
 cdef extern from "<infiniband/verbs_api.h>":
     cdef unsigned long long IBV_ADVISE_MR_ADVICE_PREFETCH
     cdef unsigned long long IBV_ADVISE_MR_ADVICE_PREFETCH_WRITE
     cdef unsigned long long IBV_ADVISE_MR_FLAG_FLUSH
     cdef unsigned long long IBV_ADVISE_MR_ADVICE_PREFETCH_NO_FAULT
-
-
-_IBV_DEVICE_RAW_SCATTER_FCS = IBV_DEVICE_RAW_SCATTER_FCS
-_IBV_DEVICE_PCI_WRITE_END_PADDING = IBV_DEVICE_PCI_WRITE_END_PADDING
-_IBV_ALLOCATOR_USE_DEFAULT = <size_t>IBV_ALLOCATOR_USE_DEFAULT
-_IBV_ADVISE_MR_ADVICE_PREFETCH = IBV_ADVISE_MR_ADVICE_PREFETCH
-_IBV_ADVISE_MR_ADVICE_PREFETCH_WRITE = IBV_ADVISE_MR_ADVICE_PREFETCH_WRITE
-_IBV_ADVISE_MR_FLAG_FLUSH = IBV_ADVISE_MR_FLAG_FLUSH
-_IBV_ADVISE_MR_ADVICE_PREFETCH_NO_FAULT = IBV_ADVISE_MR_ADVICE_PREFETCH_NO_FAULT
-
 
 cdef extern from '<infiniband/driver.h>':
     cpdef enum ibv_gid_type_sysfs:

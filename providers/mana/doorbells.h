@@ -18,6 +18,9 @@
 #define DOORBELL_OFFSET_RQ_CLIENT	0x408
 #define DOORBELL_OFFSET_CQ		0x800
 
+#define CQ_ARM_BIT 1
+#define CQ_UNARM_BIT 0
+
 union gdma_doorbell_entry {
 	uint64_t     as_uint64;
 	struct {
@@ -84,20 +87,26 @@ static inline void gdma_arm_normal_cqe(struct mana_gdma_queue *wq, uint32_t psn)
 	mmio_flush_writes();
 }
 
-static inline void gdma_ring_cq_doorbell(struct mana_cq *cq)
+static inline void gdma_ring_cq_doorbell(struct mana_cq *cq, uint8_t arm)
 {
 	union gdma_doorbell_entry e;
+	uint32_t prod_idx = cq->head;
+	uint32_t max_credit = cq->cqe << (GDMA_CQE_OWNER_BITS - 1);
 
-	// To address the use-case of ibv that re-arms the CQ without polling
-	if (cq->last_armed_head == cq->head)
-		cq->last_armed_head = cq->head + 1;
-	else
-		cq->last_armed_head = cq->head;
+	if (cq->poll_credit >= max_credit) {
+		// To address the use-case of ibv that re-arms the CQ without polling
+		cq->poll_credit++;
+	} else {
+		// Set index of already polled CQE for unarm
+		cq->poll_credit = max_credit - (arm ? 0 : 1);
+	}
+	// negative values are handled via mod 2^n
+	prod_idx += (cq->poll_credit - max_credit);
 
 	e.as_uint64 = 0;
 	e.cq.id = cq->cqid;
-	e.cq.prod_idx = cq->last_armed_head % (cq->cqe << GDMA_CQE_OWNER_BITS);
-	e.cq.arm = 1;
+	e.cq.prod_idx = prod_idx % (cq->cqe << GDMA_CQE_OWNER_BITS);
+	e.cq.arm = arm;
 
 	udma_to_device_barrier();
 	mmio_write64(cq->db_page + DOORBELL_OFFSET_CQ, e.as_uint64);

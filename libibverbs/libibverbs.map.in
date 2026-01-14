@@ -164,6 +164,13 @@ IBVERBS_1.14 {
 		ibv_query_qp_data_in_order;
 } IBVERBS_1.13;
 
+IBVERBS_1.15 {
+	global:
+		ibv_alloc_dmah;
+		ibv_dealloc_dmah;
+		ibv_reg_mr_ex;
+} IBVERBS_1.14;
+
 /* If any symbols in this stanza change ABI then the entire staza gets a new symbol
    version. See the top level CMakeLists.txt for this setting. */
 
@@ -176,6 +183,7 @@ IBVERBS_PRIVATE_@IBVERBS_PABI_VERSION@ {
 		execute_ioctl;
 		ibv_cmd_advise_mr;
 		ibv_cmd_alloc_dm;
+		ibv_cmd_alloc_dmah;
 		ibv_cmd_alloc_mw;
 		ibv_cmd_alloc_pd;
 		ibv_cmd_attach_mcast;
@@ -208,6 +216,7 @@ IBVERBS_PRIVATE_@IBVERBS_PABI_VERSION@ {
 		ibv_cmd_destroy_wq;
 		ibv_cmd_detach_mcast;
 		ibv_cmd_free_dm;
+		ibv_cmd_free_dmah;
 		ibv_cmd_get_context;
 		ibv_cmd_modify_cq;
 		ibv_cmd_modify_flow_action_esp;
@@ -222,7 +231,6 @@ IBVERBS_PRIVATE_@IBVERBS_PABI_VERSION@ {
 		ibv_cmd_post_send;
 		ibv_cmd_post_srq_recv;
 		ibv_cmd_query_context;
-		ibv_cmd_query_device;
 		ibv_cmd_query_device_any;
 		ibv_cmd_query_mr;
 		ibv_cmd_query_port;
@@ -232,6 +240,7 @@ IBVERBS_PRIVATE_@IBVERBS_PABI_VERSION@ {
 		ibv_cmd_reg_dm_mr;
 		ibv_cmd_reg_dmabuf_mr;
 		ibv_cmd_reg_mr;
+		ibv_cmd_reg_mr_ex;
 		ibv_cmd_req_notify_cq;
 		ibv_cmd_rereg_mr;
 		ibv_cmd_resize_cq;

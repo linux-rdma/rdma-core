@@ -88,6 +88,7 @@ EXAMPLES
 Unicast examples
 
 ::
+
         ibtracert 4 16                                  # show path between lids 4 and 16
         ibtracert -n 4 16                               # same, but using simple output format
         ibtracert -G 0x8f1040396522d 0x002c9000100d051  # use guid addresses
@@ -95,6 +96,7 @@ Unicast examples
 Multicast example
 
 ::
+
         ibtracert -m 0xc000 4 16    # show multicast path of mlid 0xc000 between lids 4 and 16
 
 SEE ALSO
