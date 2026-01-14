@@ -1,3 +1,9 @@
+rdma-core (61.0-2) unstable; urgency=medium
+
+  * Exclude ionic on architectures without coherent DMA
+
+ -- Benjamin Drung <bdrung@ubuntu.com>  Wed, 14 Jan 2026 15:47:03 +0100
+
 rdma-core (61.0-1) unstable; urgency=medium
 
   * New upstream release.
