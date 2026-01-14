@@ -25,7 +25,11 @@ Homepage: https://github.com/linux-rdma/rdma-core
 
 Package: rdma-core
 Architecture: linux-any
-Depends: udev, ${misc:Depends}, ${perl:Depends}, ${shlibs:Depends}
+Depends: udev,
+         ${misc:Depends},
+         ${perl:Depends},
+         ${python3:Depends},
+         ${shlibs:Depends}
 Pre-Depends: ${misc:Pre-Depends}
 Recommends: dmidecode, ethtool, iproute2
 Breaks: infiniband-diags (<< 2.0.0)
