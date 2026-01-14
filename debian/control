@@ -1,11 +1,11 @@
 Source: rdma-core
 Maintainer: Benjamin Drung <bdrung@ubuntu.com>
 Section: net
-Build-Depends: cmake (>= 2.8.11),
-               cython3:native,
-               debhelper-compat (= 13),
+Build-Depends: debhelper-compat (= 13),
                dh-python,
                dpkg-dev (>= 1.22.5),
+               cmake (>= 2.8.11),
+               cython3:native,
                libnl-3-dev,
                libnl-route-3-dev,
                libpython3-dev,

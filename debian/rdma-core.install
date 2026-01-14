@@ -22,8 +22,8 @@ usr/lib/udev/rules.d/90-rdma-hw-modules.rules
 usr/lib/udev/rules.d/90-rdma-ulp-modules.rules
 usr/lib/udev/rules.d/90-rdma-umad.rules
 usr/sbin/iwpmd
-usr/sbin/rdma_topo
 usr/sbin/rdma-ndd
+usr/sbin/rdma_topo
 usr/share/doc/rdma-core/70-persistent-ipoib.rules
 usr/share/doc/rdma-core/MAINTAINERS
 usr/share/doc/rdma-core/README.md
