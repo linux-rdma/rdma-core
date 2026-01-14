@@ -1,3 +1,21 @@
+rdma-core (61.0-1) unstable; urgency=medium
+
+  * New upstream release.
+  * drop patches applied upstream
+  * Add libionic1 to ibverbs-providers lintian-overrides
+  * Add ${python3:Depends} to rdma-core for rdma_topo
+  * Replace old FSF postal address by URL
+  * Drop Rules-Requires-Root
+  * Drop explicit priority optional
+  * Bump Standards-Version to 4.7.3
+  * Use dh_auto_build and dh_auto_install to set correct umask
+  * Fix FTCBFS: (Closes: #1123693)
+    + Multiarchify Python Build-Depends.
+    + Request a native cython3.
+    + Use the host's sysconfigdata.
+
+ -- Benjamin Drung <bdrung@ubuntu.com>  Wed, 14 Jan 2026 13:17:21 +0100
+
 rdma-core (56.1-1) unstable; urgency=medium
 
   * New upstream bug-fix release
