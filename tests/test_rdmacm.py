@@ -71,3 +71,8 @@ class CMTestCase(RDMACMBaseTest):
         self.two_nodes_rdmacm_traffic(CMAsyncConnection,
                                       self.rdmacm_remote_traffic,
                                       remote_op='write')
+
+    def test_rdmacm_async_resolve_addrinfo(self):
+        self.two_nodes_rdmacm_traffic(CMAsyncConnection, self.rdmacm_traffic,
+                                      port_space=self.get_port_space(),
+                                      use_resolve_addrinfo=True, ib_port=self.ib_port)

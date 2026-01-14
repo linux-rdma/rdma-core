@@ -34,6 +34,7 @@ class DcCMConnection(CMAsyncConnection):
         else:
             for conn_idx in range(self.num_conns):
                 self.cm_res.create_cmid(conn_idx)
+        self.get_and_update_addrinfo(passive, ip_addr)
 
     def _ext_qp_server_traffic(self):
         recv_wr = u.get_recv_wr(self.cm_res)
@@ -70,10 +71,9 @@ class DcCMResources(AsyncCMResources):
     def __init__(self, addr=None, passive=None, **kwargs):
         """
         Init DcCMResources instance.
-        :param addr: Local address to bind to.
         :param passive: Indicate if this CM is the passive CM.
         """
-        super().__init__(addr=addr, passive=passive, **kwargs)
+        super().__init__(passive=passive, **kwargs)
         self.srq = None
         self.remote_dct_num = None
         self.reserved_qp_num = 0
