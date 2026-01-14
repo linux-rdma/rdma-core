@@ -1026,7 +1026,7 @@ struct vfio_iommu_type1_info {
 };
 
 /*
- * The IOVA capability allows to report the valid IOVA range(s)
+ * The IOVA capability allows reporting the valid IOVA range(s)
  * excluding any non-relaxable reserved regions exposed by
  * devices attached to the container. Any DMA map attempt
  * outside the valid iova range will return error.
@@ -1048,7 +1048,7 @@ struct vfio_iommu_type1_info_cap_iova_range {
 };
 
 /*
- * The migration capability allows to report supported features for migration.
+ * The migration capability allows reporting supported features for migration.
  *
  * The structures below define version 1 of this capability.
  *
@@ -1071,7 +1071,7 @@ struct vfio_iommu_type1_info_cap_migration {
 };
 
 /*
- * The DMA available capability allows to report the current number of
+ * The DMA available capability allows reporting the current number of
  * simultaneously outstanding DMA mappings that are allowed.
  *
  * The structure below defines version 1 of this capability.
