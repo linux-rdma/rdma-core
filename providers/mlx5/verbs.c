@@ -5066,8 +5066,10 @@ static void *dm_mmap(struct ibv_context *context, struct mlx5_dm *mdm,
 
 	set_command(MLX5_IB_MMAP_DEVICE_MEM, &offset);
 	set_extended_index(page_idx, &offset);
+	mdm->pg_off = page_size * offset;
+
 	return mmap(NULL, act_size, PROT_READ | PROT_WRITE, MAP_SHARED,
-		    context->cmd_fd, page_size * offset);
+		    context->cmd_fd, mdm->pg_off);
 }
 
 static void *_mlx5dv_dm_map_op_addr(struct ibv_dm *dm, uint8_t op)
@@ -5388,6 +5390,11 @@ struct ibv_dm *mlx5_alloc_dm(struct ibv_context *context,
 	struct mlx5dv_alloc_dm_attr mlx5_attr = { .type = MLX5DV_DM_TYPE_MEMIC };
 
 	return mlx5dv_alloc_dm(context, dm_attr, &mlx5_attr);
+}
+
+int mlx5_dm_export_dmabuf_fd(struct ibv_dm *ibdm)
+{
+	return ibv_cmd_export_dmabuf_fd(ibdm->context, to_mdm(ibdm)->pg_off);
 }
 
 struct ibv_counters *mlx5_create_counters(struct ibv_context *context,
@@ -6387,6 +6394,29 @@ void mlx5dv_devx_free_uar(struct mlx5dv_devx_uar *dv_devx_uar)
 		return;
 
 	dvops->devx_free_uar(dv_devx_uar);
+}
+
+static int
+_mlx5dv_devx_uar_export_dmabuf_fd(struct mlx5dv_devx_uar *dv_devx_uar)
+{
+	struct mlx5_devx_uar *uar = container_of(dv_devx_uar, struct mlx5_devx_uar,
+						 dv_devx_uar);
+
+	return ibv_cmd_export_dmabuf_fd(uar->context, dv_devx_uar->mmap_off);
+}
+
+int mlx5dv_devx_uar_export_dmabuf_fd(struct mlx5dv_devx_uar *dv_devx_uar)
+{
+	struct mlx5_devx_uar *uar = container_of(dv_devx_uar, struct mlx5_devx_uar,
+						 dv_devx_uar);
+	struct mlx5_dv_context_ops *dvops = mlx5_get_dv_ops(uar->context);
+
+	if (!dvops || !dvops->devx_uar_export_dmabuf_fd) {
+		errno = EOPNOTSUPP;
+		return -1;
+	}
+
+	return dvops->devx_uar_export_dmabuf_fd(dv_devx_uar);
 }
 
 static int _mlx5dv_devx_query_eqn(struct ibv_context *context,
@@ -8154,6 +8184,7 @@ void mlx5_set_dv_ctx_ops(struct mlx5_dv_context_ops *ops)
 
 	ops->devx_alloc_uar = _mlx5dv_devx_alloc_uar;
 	ops->devx_free_uar = _mlx5dv_devx_free_uar;
+	ops->devx_uar_export_dmabuf_fd = _mlx5dv_devx_uar_export_dmabuf_fd;
 
 	ops->devx_umem_reg = _mlx5dv_devx_umem_reg;
 	ops->devx_umem_reg_ex = _mlx5dv_devx_umem_reg_ex;

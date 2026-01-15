@@ -23,6 +23,7 @@ rdma_man_pages(
   mlx5dv_devx_qp_modify.3.md
   mlx5dv_devx_query_eqn.3.md
   mlx5dv_devx_subscribe_devx_event.3.md
+  mlx5dv_devx_uar_export_dmabuf_fd.3.md
   mlx5dv_devx_umem_reg.3.md
   mlx5dv_dm_map_op_addr.3.md
   mlx5dv_dr_flow.3.md

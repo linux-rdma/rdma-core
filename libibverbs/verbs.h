@@ -2183,6 +2183,7 @@ struct ibv_values_ex {
 
 struct verbs_context {
 	/*  "grows up" - new fields go here */
+	int (*dm_export_dmabuf_fd)(struct ibv_dm *dm);
 	struct ibv_mr *(*reg_mr_ex)(struct ibv_pd *pd,
 				    struct ibv_mr_init_attr *mr_init_attr);
 	int (*dealloc_dmah)(struct ibv_dmah *dmah);
@@ -2836,6 +2837,8 @@ int ibv_free_dm(struct ibv_dm *dm)
 
 	return vctx->free_dm(dm);
 }
+
+int ibv_dm_export_dmabuf_fd(struct ibv_dm *dm);
 
 /**
  * ibv_memcpy_to/from_dm - copy to/from device allocated memory
