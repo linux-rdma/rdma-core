@@ -74,6 +74,8 @@ enum ibv_gid_type {
 	IBV_GID_TYPE_IB,
 	IBV_GID_TYPE_ROCE_V1,
 	IBV_GID_TYPE_ROCE_V2,
+	IBV_GID_TYPE_UET_UDP,
+	IBV_GID_TYPE_UET_IP,
 };
 
 struct ibv_gid_entry {
@@ -110,6 +112,46 @@ enum ibv_transport_type {
 	IBV_TRANSPORT_USNIC,
 	IBV_TRANSPORT_USNIC_UDP,
 	IBV_TRANSPORT_UNSPECIFIED,
+};
+
+enum ibv_qp_msg_order {
+	/* Atomic-Atomic Rd/Wr ordering */
+	IBV_ORDER_ATOMIC_RAR = (1 << 0),
+	IBV_ORDER_ATOMIC_RAW = (1 << 1),
+	IBV_ORDER_ATOMIC_WAR = (1 << 2),
+	IBV_ORDER_ATOMIC_WAW = (1 << 3),
+	/* RDMA-RDMA Rd/Wr ordering */
+	IBV_ORDER_RDMA_RAR = (1 << 4),
+	IBV_ORDER_RDMA_RAW = (1 << 5),
+	IBV_ORDER_RDMA_WAR = (1 << 6),
+	IBV_ORDER_RDMA_WAW = (1 << 7),
+	/* Send ordering wrt Atomic and RDMA Rd/Wr */
+	IBV_ORDER_RAS = (1 << 8),
+	IBV_ORDER_SAR = (1 << 9),
+	IBV_ORDER_SAS = (1 << 10),
+	IBV_ORDER_SAW = (1 << 11),
+	IBV_ORDER_WAS = (1 << 12),
+	/* Atomic and RDMA Rd/Wr ordering */
+	IBV_ORDER_RAR = (1 << 13),
+	IBV_ORDER_RAW = (1 << 14),
+	IBV_ORDER_WAR = (1 << 15),
+	IBV_ORDER_WAW = (1 << 16),
+};
+
+enum ibv_qp_use_flags {
+	IBV_QP_USAGE_IMM_DATA_RQ = (1 << 0),
+	IBV_QP_USAGE_ATTACH_MR = (1 << 1),
+};
+
+struct ibv_qp_semantics {
+	uint32_t comp_mask;
+	uint32_t msg_order;
+	uint32_t max_rdma_raw_size;
+	uint32_t max_rdma_war_size;
+	uint32_t max_rdma_waw_size;
+	uint32_t max_pdu;
+	uint8_t imm_data_size;
+	unsigned int usage_flags;
 };
 
 enum ibv_device_cap_flags {
@@ -151,6 +193,7 @@ enum ibv_fork_status {
  */
 #define IBV_DEVICE_RAW_SCATTER_FCS (1ULL << 34)
 #define IBV_DEVICE_PCI_WRITE_END_PADDING (1ULL << 36)
+#define IBV_DEVICE_USER_RKEY (1ULL << 37)
 
 enum ibv_atomic_cap {
 	IBV_ATOMIC_NONE,
@@ -361,6 +404,10 @@ struct ibv_device_attr_ex {
 	struct ibv_pci_atomic_caps pci_atomic_caps;
 	uint32_t xrc_odp_caps;
 	uint32_t phys_port_cnt_ex;
+	uint32_t max_job_ids;
+	uint32_t max_addr_entries;
+	uint32_t max_jkeys_per_pd;
+	uint16_t max_rwq_per_qp;
 };
 
 enum ibv_mtu {
@@ -558,6 +605,8 @@ enum ibv_create_cq_wc_flags {
 	IBV_WC_EX_WITH_FLOW_TAG		= 1 << 9,
 	IBV_WC_EX_WITH_TM_INFO		= 1 << 10,
 	IBV_WC_EX_WITH_COMPLETION_TIMESTAMP_WALLCLOCK	= 1 << 11,
+	IBV_WC_EX_WITH_IMM64		= 1 << 12,
+	IBV_WC_EX_WITH_SRC_ID		= 1 << 13, /* implies job id */
 };
 
 enum {
@@ -680,6 +729,7 @@ struct ibv_mr {
 	uint32_t		handle;
 	uint32_t		lkey;
 	uint32_t		rkey;
+	uint64_t		rkey64;
 };
 
 enum ibv_mr_init_attr_mask {
@@ -688,6 +738,10 @@ enum ibv_mr_init_attr_mask {
 	IBV_REG_MR_MASK_FD = 1 << 2,
 	IBV_REG_MR_MASK_FD_OFFSET = 1 << 3,
 	IBV_REG_MR_MASK_DMAH = 1 << 4,
+	IBV_REG_MR_MASK_JKEY = 1 << 5,
+	IBV_REG_MR_MASK_RKEY = 1 << 6,
+	IBV_REG_MR_MASK_CUR_MR = 1 << 7,
+	IBV_REG_MR_MASK_DERIVE_CNT = 1 << 8,
 };
 
 struct ibv_mr_init_attr {
@@ -699,6 +753,10 @@ struct ibv_mr_init_attr {
 	int fd;
 	uint64_t fd_offset;
 	struct ibv_dmah *dmah;
+	struct ibv_job_key *jkey;
+	uint64_t rkey;
+	struct ibv_mr *cur_mr;
+	uint32_t derive_cnt;
 };
 
 enum ibv_mw_type {
@@ -850,6 +908,7 @@ enum ibv_wq_type {
 enum ibv_wq_init_attr_mask {
 	IBV_WQ_INIT_ATTR_FLAGS		= 1 << 0,
 	IBV_WQ_INIT_ATTR_RESERVED	= 1 << 1,
+	IBV_WQ_INIT_ATTR_WQ_NUM		= 1 << 2,
 };
 
 enum ibv_wq_flags {
@@ -869,6 +928,7 @@ struct ibv_wq_init_attr {
 	struct	ibv_cq	       *cq;
 	uint32_t		comp_mask; /* Use ibv_wq_init_attr_mask */
 	uint32_t		create_flags; /* use ibv_wq_flags */
+	uint32_t		wq_num;
 };
 
 enum ibv_wq_state {
@@ -931,6 +991,7 @@ enum ibv_qp_type {
 	IBV_QPT_RAW_PACKET = 8,
 	IBV_QPT_XRC_SEND = 9,
 	IBV_QPT_XRC_RECV,
+	IBV_QPT_RU,
 	IBV_QPT_DRIVER = 0xff,
 };
 
@@ -960,6 +1021,9 @@ enum ibv_qp_init_attr_mask {
 	IBV_QP_INIT_ATTR_IND_TABLE	= 1 << 4,
 	IBV_QP_INIT_ATTR_RX_HASH	= 1 << 5,
 	IBV_QP_INIT_ATTR_SEND_OPS_FLAGS = 1 << 6,
+	IBV_QP_INIT_ATTR_QP_ATTR	= 1 << 7,
+	IBV_QP_INIT_ATTR_QP_SEMANTICS	= 1 << 8,
+	IBV_QP_INIT_ATTR_SRC_ID		= 1 << 9,
 };
 
 enum ibv_qp_create_flags {
@@ -1014,6 +1078,11 @@ struct ibv_qp_init_attr_ex {
 	uint32_t		source_qpn;
 	/* See enum ibv_qp_create_send_ops_flags */
 	uint64_t send_ops_flags;
+
+	struct ibv_qp_attr	*qp_attr;
+	int			qp_attr_mask;
+	struct ibv_qp_semantics	*qp_semantics;
+	uint32_t		src_id;
 };
 
 enum ibv_qp_open_attr_mask {
@@ -1151,7 +1220,8 @@ enum ibv_send_flags {
 	IBV_SEND_SIGNALED	= 1 << 1,
 	IBV_SEND_SOLICITED	= 1 << 2,
 	IBV_SEND_INLINE		= 1 << 3,
-	IBV_SEND_IP_CSUM	= 1 << 4
+	IBV_SEND_IP_CSUM	= 1 << 4,
+	IBV_SEND_DELIVERY_COMPLETE = 1 << 5,
 };
 
 enum ibv_placement_type {
@@ -1381,6 +1451,19 @@ struct ibv_qp_ex {
 	void (*wr_flush)(struct ibv_qp_ex *qp, uint32_t rkey,
 			 uint64_t remote_addr, size_t len, uint8_t type,
 			 uint8_t level);
+
+	void (*wr_send_imm64)(struct ibv_qp_ex *qp, __be64 imm_data);
+	void (*wr_rdma_read64)(struct ibv_qp_ex *qp, uint64_t rkey,
+			       uint64_t remote_addr);
+	void (*wr_rdma_write64)(struct ibv_qp_ex *qp, uint64_t rkey,
+				uint64_t remote_addr);
+	void (*wr_rdma_write64_imm)(struct ibv_qp_ex *qp, uint64_t rkey,
+				    uint64_t remote_addr, __be64 imm_data);
+	void (*wr_set_ru_addr)(struct ibv_qp_ex *qp, struct ibv_ah *ah,
+			       uint32_t remote_qpn, uint32_t jkey);
+	void (*wr_set_job_addr)(struct ibv_qp_ex *qp, unsigned int addr_idx,
+				uint32_t jkey);
+	void (*wr_set_wq_num)(struct ibv_qp_ex *qp, uint32_t wq_num);
 };
 
 struct ibv_qp_ex *ibv_qp_to_qp_ex(struct ibv_qp *qp);
@@ -1417,10 +1500,22 @@ static inline void ibv_wr_rdma_read(struct ibv_qp_ex *qp, uint32_t rkey,
 	qp->wr_rdma_read(qp, rkey, remote_addr);
 }
 
+static inline void ibv_wr_rdma_read64(struct ibv_qp_ex *qp, uint64_t rkey,
+				      uint64_t remote_addr)
+{
+	qp->wr_rdma_read64(qp, rkey, remote_addr);
+}
+
 static inline void ibv_wr_rdma_write(struct ibv_qp_ex *qp, uint32_t rkey,
 				     uint64_t remote_addr)
 {
 	qp->wr_rdma_write(qp, rkey, remote_addr);
+}
+
+static inline void ibv_wr_rdma_write64(struct ibv_qp_ex *qp, uint64_t rkey,
+				       uint64_t remote_addr)
+{
+	qp->wr_rdma_write64(qp, rkey, remote_addr);
 }
 
 static inline void ibv_wr_flush(struct ibv_qp_ex *qp, uint32_t rkey,
@@ -1436,6 +1531,12 @@ static inline void ibv_wr_rdma_write_imm(struct ibv_qp_ex *qp, uint32_t rkey,
 	qp->wr_rdma_write_imm(qp, rkey, remote_addr, imm_data);
 }
 
+static inline void ibv_wr_rdma_write64_imm(struct ibv_qp_ex *qp, uint64_t rkey,
+					   uint64_t remote_addr, __be64 imm_data)
+{
+	qp->wr_rdma_write64_imm(qp, rkey, remote_addr, imm_data);
+}
+
 static inline void ibv_wr_send(struct ibv_qp_ex *qp)
 {
 	qp->wr_send(qp);
@@ -1444,6 +1545,11 @@ static inline void ibv_wr_send(struct ibv_qp_ex *qp)
 static inline void ibv_wr_send_imm(struct ibv_qp_ex *qp, __be32 imm_data)
 {
 	qp->wr_send_imm(qp, imm_data);
+}
+
+static inline void ibv_wr_send_imm64(struct ibv_qp_ex *qp, __be64 imm_data)
+{
+	qp->wr_send_imm64(qp, imm_data);
 }
 
 static inline void ibv_wr_send_inv(struct ibv_qp_ex *qp,
@@ -1462,6 +1568,25 @@ static inline void ibv_wr_set_ud_addr(struct ibv_qp_ex *qp, struct ibv_ah *ah,
 				      uint32_t remote_qpn, uint32_t remote_qkey)
 {
 	qp->wr_set_ud_addr(qp, ah, remote_qpn, remote_qkey);
+}
+
+static inline void ibv_wr_set_ru_addr(struct ibv_qp_ex *qp, struct ibv_ah *ah,
+				      uint32_t remote_qpn, uint32_t jkey)
+{
+	qp->wr_set_ru_addr(qp, ah, remote_qpn, jkey);
+}
+
+static inline void ibv_wr_set_job_addr(struct ibv_qp_ex *qp,
+				       unsigned int addr_idx,
+				       uint32_t jkey)
+{
+	qp->wr_set_job_addr(qp, addr_idx, jkey);
+}
+
+static inline void ibv_wr_set_wq_num(struct ibv_qp_ex *qp,
+				     uint32_t wq_num)
+{
+	qp->wr_set_wq_num(qp, wq_num);
 }
 
 static inline void ibv_wr_set_xrc_srqn(struct ibv_qp_ex *qp,
@@ -1594,6 +1719,9 @@ struct ibv_cq_ex {
 	void (*read_tm_info)(struct ibv_cq_ex *current,
 			     struct ibv_wc_tm_info *tm_info);
 	uint64_t (*read_completion_wallclock_ns)(struct ibv_cq_ex *current);
+	__be64 (*read_imm64_data)(struct ibv_cq_ex *current);
+	uint64_t (*read_job_id)(struct ibv_cq_ex *current);
+	uint32_t (*read_src_id)(struct ibv_cq_ex *current);
 };
 
 static inline struct ibv_cq *ibv_cq_ex_to_cq(struct ibv_cq_ex *cq)
@@ -1652,6 +1780,11 @@ static inline __be32 ibv_wc_read_imm_data(struct ibv_cq_ex *cq)
 	return cq->read_imm_data(cq);
 }
 
+static inline __be64 ibv_wc_read_imm64_data(struct ibv_cq_ex *cq)
+{
+	return cq->read_imm64_data(cq);
+}
+
 static inline uint32_t ibv_wc_read_invalidated_rkey(struct ibv_cq_ex *cq)
 {
 #ifdef __CHECKER__
@@ -1669,6 +1802,16 @@ static inline uint32_t ibv_wc_read_qp_num(struct ibv_cq_ex *cq)
 static inline uint32_t ibv_wc_read_src_qp(struct ibv_cq_ex *cq)
 {
 	return cq->read_src_qp(cq);
+}
+
+static inline uint64_t ibv_wc_read_job_id(struct ibv_cq_ex *cq)
+{
+	return cq->read_job_id(cq);
+}
+
+static inline uint32_t ibv_wc_read_src_id(struct ibv_cq_ex *cq)
+{
+	return cq->read_src_id(cq);
 }
 
 static inline unsigned int ibv_wc_read_wc_flags(struct ibv_cq_ex *cq)
@@ -1994,6 +2137,51 @@ struct ibv_flow_action_esp_attr {
 	uint32_t		esn;
 };
 
+struct ibv_job {
+	struct ibv_context *context;
+	void *user_context;
+	uint32_t handle;
+};
+
+struct ibv_job_attr {
+	uint32_t comp_mask;
+	unsigned int flags;
+	uint64_t id;
+	uint32_t max_addr_entries;
+	enum ibv_qp_type qp_type;
+	struct ibv_ah_attr ah_attr;
+};
+
+struct ibv_job *
+ibv_alloc_job(struct ibv_context *context, struct ibv_job_attr *attr,
+	      void *user_context);
+int ibv_close_job(struct ibv_job *job);
+
+int ibv_insert_addr(struct ibv_job *job, uint32_t qpn,
+		    struct ibv_ah_attr ah_attr,
+		    unsigned int addr_idx, unsigned int flags);
+int ibv_remove_addr(struct ibv_job *job, unsigned int addr_idx,
+		    unsigned int flags);
+int ibv_query_addr(struct ibv_job *job, unsigned int addr_idx,
+		   uint32_t *qpn, struct ibv_ah_attr *ah_attr,
+		   unsigned int flags);
+
+int ibv_export_job(struct ibv_job *job, int *fd);
+int ibv_import_job(struct ibv_context *context, int fd, struct ibv_job **job);
+
+int ibv_query_job(struct ibv_job *job, struct ibv_job_attr *attr);
+
+struct ibv_job_key {
+	struct ibv_pd *pd;
+	uint32_t handle;
+	uint32_t jkey;
+};
+
+struct ibv_job_key *
+ibv_create_jkey(struct ibv_pd *pd, struct ibv_job *job, unsigned int flags);
+int ibv_destroy_jkey(struct ibv_job_key *job_key);
+
+
 struct ibv_device;
 struct ibv_context;
 
@@ -2183,6 +2371,13 @@ struct ibv_values_ex {
 
 struct verbs_context {
 	/*  "grows up" - new fields go here */
+	int (*attach_mr)(struct ibv_qp *qp, struct ibv_mr *mr);
+	int (*detach_mr)(struct ibv_qp *qp, struct ibv_mr *mr);
+	int (*query_qp_semantics)(struct ibv_context *context,
+				 enum ibv_qp_type qp_type,
+				 struct ibv_ah_attr *ah_attr,
+				 struct ibv_qp_semantics *qp_semantics,
+				size_t qp_semantic_len);
 	struct ibv_mr *(*reg_mr_ex)(struct ibv_pd *pd,
 				    struct ibv_mr_init_attr *mr_init_attr);
 	int (*dealloc_dmah)(struct ibv_dmah *dmah);
@@ -2533,6 +2728,21 @@ int ibv_query_pkey(struct ibv_context *context, uint8_t port_num,
 int ibv_get_pkey_index(struct ibv_context *context, uint8_t port_num,
 		       __be16 pkey);
 
+static inline int ibv_query_qp_semantics(struct ibv_context *context,
+					 enum ibv_qp_type qp_type,
+					 struct ibv_ah_attr *ah_attr,
+					 struct ibv_qp_semantics *qp_semantics,
+					 size_t qp_semantic_len)
+{
+	struct verbs_context *vctx = verbs_get_ctx_op(context, query_qp_semantics);
+
+	if (!vctx)
+		return EOPNOTSUPP;
+
+	return vctx->query_qp_semantics(context, qp_type, ah_attr,
+					qp_semantics, qp_semantic_len);
+}
+
 /**
  * ibv_alloc_pd - Allocate a protection domain
  */
@@ -2737,6 +2947,22 @@ static inline struct ibv_mw *ibv_alloc_mw(struct ibv_pd *pd,
 static inline int ibv_dealloc_mw(struct ibv_mw *mw)
 {
 	return mw->context->ops.dealloc_mw(mw);
+}
+
+static inline int ibv_attach_mr(struct ibv_qp *qp, struct ibv_mr *mr)
+{
+	struct verbs_context *vctx = verbs_get_ctx_op(qp->context, attach_mr);
+
+	if (!vctx)
+		return EOPNOTSUPP;
+
+	return vctx->attach_mr(qp, mr);
+}
+
+static inline int ibv_detach_mr(struct ibv_qp *qp, struct ibv_mr *mr)
+{
+	struct verbs_context *vctx = verbs_get_ctx_op(qp->context, attach_mr);
+	return vctx->detach_mr(qp, mr);
 }
 
 /**
