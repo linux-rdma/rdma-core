@@ -4,11 +4,11 @@ Uploaders: Benjamin Drung <bdrung@ubuntu.com>,
            Talat Batheesh <talatb@mellanox.com>
 Section: net
 Priority: optional
-Build-Depends: cmake (>= 2.8.11),
-               cython3:native,
-               debhelper (>= 10),
+Build-Depends: debhelper (>= 10),
                dh-python,
                dpkg-dev (>= 1.17),
+               cmake (>= 2.8.11),
+               cython3:native,
                libnl-3-dev,
                libnl-route-3-dev,
                libpython3-dev,
