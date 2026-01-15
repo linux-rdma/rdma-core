@@ -5,18 +5,19 @@ Uploaders: Benjamin Drung <bdrung@ubuntu.com>,
 Section: net
 Priority: optional
 Build-Depends: cmake (>= 2.8.11),
-               cython3,
+               cython3:native,
                debhelper (>= 10),
                dh-python,
                dpkg-dev (>= 1.17),
                libnl-3-dev,
                libnl-route-3-dev,
+               libpython3-dev,
                libsystemd-dev,
                libudev-dev,
                ninja-build,
                pandoc,
                pkg-config,
-               python3-dev,
+               python3-dev:native,
                python3-docutils,
                valgrind [amd64 arm64 armhf i386 mips mips64el mipsel powerpc ppc64 ppc64el s390x]
 Standards-Version: 4.7.0

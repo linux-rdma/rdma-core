@@ -4,6 +4,10 @@ include /usr/share/dpkg/architecture.mk
 
 export DEB_BUILD_MAINT_OPTIONS=hardening=+all
 
+ifneq ($(DEB_BUILD_ARCH),$(DEB_HOST_ARCH))
+export _PYTHON_SYSCONFIGDATA_NAME=_sysconfigdata__${DEB_HOST_ARCH_OS}_${DEB_HOST_MULTIARCH}
+endif
+
 NON_COHERENT_DMA_ARCHS = alpha arc armel armhf hppa m68k sh4
 
 dh_params = --with python3 --builddirectory=build-deb
