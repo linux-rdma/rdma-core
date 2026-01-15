@@ -143,7 +143,7 @@ enum mlx4_ib_rx_hash_function_flags {
 };
 
 /*
- * RX Hash flags, these flags allows to set which incoming packet's field should
+ * RX Hash flags, these flags allow setting which incoming packet's field should
  * participates in RX Hash. Each flag represent certain packet's field,
  * when the flag is set the field that is represented by the flag will
  * participate in RX Hash calculation.
