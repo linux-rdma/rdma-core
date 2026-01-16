@@ -7,6 +7,7 @@ Test module for pyverbs' cq module.
 """
 import unittest
 import errno
+import time
 
 from tests.base import PyverbsAPITestCase, RDMATestCase, UDResources
 from pyverbs.pyverbs_error import PyverbsRDMAError
@@ -124,6 +125,8 @@ class CQTest(RDMATestCase):
         for i in range(post_send_num):
             u.send(self.client, send_wr, ah=ah_client)
 
+        # Give a chance for some sends to be processed completely.
+        time.sleep(1)
         # Decrease the CQ size to less than the CQ unpolled entries.
         new_cq_size = 1
         try:
