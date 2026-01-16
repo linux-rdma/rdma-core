@@ -683,7 +683,7 @@ static int parse_cqe_for_cq(struct hns_roce_context *ctx, struct hns_roce_cq *cq
 	return 0;
 }
 
-#ifdef LTTNG_ENABLED
+#if defined(LTTNG_ENABLED) || defined(USDT_ENABLED)
 static uint8_t read_wc_sl(struct hns_roce_qp *hr_qp,
 				   struct hns_roce_v2_cqe *cqe,
 				   struct ibv_wc *wc)
@@ -692,6 +692,7 @@ static uint8_t read_wc_sl(struct hns_roce_qp *hr_qp,
 		hr_reg_read(cqe, CQE_S_R) == CQE_FOR_RQ ?
 		wc->sl : UINT8_MAX;
 }
+#endif
 
 static uint32_t read_wc_rqpn(struct hns_roce_qp *hr_qp,
 				      struct hns_roce_v2_cqe *cqe,
@@ -755,7 +756,6 @@ static uint8_t get_send_wr_tclass(struct ibv_send_wr *wr,
 	return qp_type == IBV_QPT_UD ?
 		to_hr_ah(wr->wr.ud.ah)->av.tclass : UINT8_MAX;
 }
-#endif
 
 static int hns_roce_poll_one(struct hns_roce_context *ctx,
 			     struct hns_roce_qp **cur_qp, struct hns_roce_cq *cq,
