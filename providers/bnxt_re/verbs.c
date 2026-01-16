@@ -1831,6 +1831,7 @@ static void bnxt_re_send_wr_set_inline_data(struct ibv_qp_ex *ibvqp,
 	struct bnxt_re_queue *sq = qp->jsqq->hwque;
 	struct bnxt_re_push_buffer *pushb = NULL;
 	struct ibv_data_buf ibv_buf;
+	uint32_t wrd_slot_cnt;
 	uint32_t len = 0;
 
 	if (unlikely(qp->wr_sq.error))
@@ -1843,7 +1844,8 @@ static void bnxt_re_send_wr_set_inline_data(struct ibv_qp_ex *ibvqp,
 	}
 	ibv_buf.addr = addr;
 	ibv_buf.length = length;
-	len = bnxt_re_put_wr_inline(sq, &qp->wr_sq.used_slot_cnt, pushb, 1, &ibv_buf, &length);
+	wrd_slot_cnt = (length + MSG_LEN_ADJ_TO_BYTES) >> SLOTS_RSH_TO_NUM_WQE;
+	len = bnxt_re_put_wr_inline(sq, &qp->wr_sq.cur_slot_cnt, pushb, 1, &ibv_buf, &length);
 	if (qp->qptyp == IBV_QPT_UD) {
 		qp->wr_sq.cur_hdr->lhdr.qkey_len |= htole64(len);
 	} else {
@@ -1855,8 +1857,7 @@ static void bnxt_re_send_wr_set_inline_data(struct ibv_qp_ex *ibvqp,
 		bnxt_re_fill_psns_for_msntbl(qp, len, *sq->dbtail, qp->wr_sq.cur_wqe_cnt);
 	else
 		bnxt_re_fill_psns(qp, len, *sq->dbtail, qp->wr_sq.cur_opcode);
-	qp->wr_sq.cur_slot_cnt += qp->wr_sq.used_slot_cnt;
-	qp->wr_sq.used_slot_cnt += 2;
+	qp->wr_sq.used_slot_cnt = wrd_slot_cnt + 2;
 	bnxt_re_update_swqe(ibvqp, qp, len);
 	qp->wr_sq.cur_wqe_cnt++;
 	qp->wr_sq.cur_push_size += length;
