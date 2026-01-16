@@ -73,11 +73,16 @@ static int ibv_icmd_create_qp(struct ibv_context *context,
 			      struct verbs_qp *vqp,
 			      struct ibv_qp *qp_in,
 			      struct ibv_qp_init_attr_ex *attr_ex,
+			      struct verbs_create_qp_prov_attr *prov_attr,
+			      uint32_t cmd_flags,
 			      struct ibv_command_buffer *link)
 {
-	DECLARE_FBCMD_BUFFER(cmdb, UVERBS_OBJECT_QP, UVERBS_METHOD_QP_CREATE, 15, link);
+	DECLARE_FBCMD_BUFFER(cmdb, UVERBS_OBJECT_QP, UVERBS_METHOD_QP_CREATE, 17, link);
 	struct verbs_ex_private *priv = get_priv(context);
+	struct ib_uverbs_buffer_desc sq_buf_desc = {};
+	struct ib_uverbs_buffer_desc rq_buf_desc = {};
 	struct ib_uverbs_attr *handle;
+	uint32_t sq_rq_flags;
 	uint32_t qp_num;
 	uint32_t pd_handle;
 	uint32_t send_cq_handle = 0;
@@ -86,6 +91,26 @@ static int ibv_icmd_create_qp(struct ibv_context *context,
 	struct ibv_qp *qp = vqp ? &vqp->qp : qp_in;
 	struct verbs_xrcd *vxrcd = NULL;
 	uint32_t create_flags = 0;
+
+	sq_rq_flags = cmd_flags & (CREATE_QP_CMD_FLAGS_WITH_SQ_BUF_UMEM_VA |
+				   CREATE_QP_CMD_FLAGS_WITH_SQ_BUF_UMEM_DMABUF |
+				   CREATE_QP_CMD_FLAGS_WITH_RQ_BUF_UMEM_VA |
+				   CREATE_QP_CMD_FLAGS_WITH_RQ_BUF_UMEM_DMABUF);
+
+	/* SQ flags are mutually exclusive with each other, as are RQ flags */
+	if ((cmd_flags & (CREATE_QP_CMD_FLAGS_WITH_SQ_BUF_UMEM_VA |
+			  CREATE_QP_CMD_FLAGS_WITH_SQ_BUF_UMEM_DMABUF)) ==
+	    (CREATE_QP_CMD_FLAGS_WITH_SQ_BUF_UMEM_VA |
+	     CREATE_QP_CMD_FLAGS_WITH_SQ_BUF_UMEM_DMABUF))
+		return EINVAL;
+	if ((cmd_flags & (CREATE_QP_CMD_FLAGS_WITH_RQ_BUF_UMEM_VA |
+			  CREATE_QP_CMD_FLAGS_WITH_RQ_BUF_UMEM_DMABUF)) ==
+	    (CREATE_QP_CMD_FLAGS_WITH_RQ_BUF_UMEM_VA |
+	     CREATE_QP_CMD_FLAGS_WITH_RQ_BUF_UMEM_DMABUF))
+		return EINVAL;
+
+	if (sq_rq_flags && !prov_attr)
+		return EINVAL;
 
 	qp->context = context;
 
@@ -207,6 +232,42 @@ static int ibv_icmd_create_qp(struct ibv_context *context,
 
 	fill_attr_out_ptr(cmdb, UVERBS_ATTR_CREATE_QP_RESP_CAP, &attr_ex->cap);
 	fill_attr_out_ptr(cmdb, UVERBS_ATTR_CREATE_QP_RESP_QP_NUM, &qp_num);
+
+	if (cmd_flags & CREATE_QP_CMD_FLAGS_WITH_SQ_BUF_UMEM_VA) {
+		sq_buf_desc.type   = IB_UVERBS_BUFFER_TYPE_VA,
+		sq_buf_desc.fd     = -1,
+		sq_buf_desc.addr   = (uintptr_t)prov_attr->sq.ptr,
+		sq_buf_desc.length = prov_attr->sq.length,
+
+		fill_attr_in_ptr(cmdb, UVERBS_ATTR_CREATE_QP_SQ_BUF_UMEM, &sq_buf_desc);
+		fallback_require_ioctl(cmdb);
+	} else if (cmd_flags & CREATE_QP_CMD_FLAGS_WITH_SQ_BUF_UMEM_DMABUF) {
+		sq_buf_desc.type   = IB_UVERBS_BUFFER_TYPE_DMABUF,
+		sq_buf_desc.fd     = prov_attr->sq.dmabuf.fd,
+		sq_buf_desc.addr   = prov_attr->sq.dmabuf.offset,
+		sq_buf_desc.length = prov_attr->sq.length,
+
+		fill_attr_in_ptr(cmdb, UVERBS_ATTR_CREATE_QP_SQ_BUF_UMEM, &sq_buf_desc);
+		fallback_require_ioctl(cmdb);
+	}
+
+	if (cmd_flags & CREATE_QP_CMD_FLAGS_WITH_RQ_BUF_UMEM_VA) {
+		rq_buf_desc.type   = IB_UVERBS_BUFFER_TYPE_VA,
+		rq_buf_desc.fd     = -1,
+		rq_buf_desc.addr   = (uintptr_t)prov_attr->rq.ptr,
+		rq_buf_desc.length = prov_attr->rq.length,
+
+		fill_attr_in_ptr(cmdb, UVERBS_ATTR_CREATE_QP_RQ_BUF_UMEM, &rq_buf_desc);
+		fallback_require_ioctl(cmdb);
+	} else if (cmd_flags & CREATE_QP_CMD_FLAGS_WITH_RQ_BUF_UMEM_DMABUF) {
+		rq_buf_desc.type   = IB_UVERBS_BUFFER_TYPE_DMABUF,
+		rq_buf_desc.fd     = prov_attr->rq.dmabuf.fd,
+		rq_buf_desc.addr   = prov_attr->rq.dmabuf.offset,
+		rq_buf_desc.length = prov_attr->rq.length,
+
+		fill_attr_in_ptr(cmdb, UVERBS_ATTR_CREATE_QP_RQ_BUF_UMEM, &rq_buf_desc);
+		fallback_require_ioctl(cmdb);
+	}
 
 	switch (execute_ioctl_fallback(context, create_qp, cmdb, &ret)) {
 	case TRY_WRITE: {
@@ -391,7 +452,7 @@ int ibv_cmd_create_qp(struct ibv_pd *pd,
 	attr_ex.sq_sig_all = attr->sq_sig_all;
 	attr_ex.comp_mask = IBV_QP_INIT_ATTR_PD;
 	attr_ex.pd = pd;
-	ret = ibv_icmd_create_qp(pd->context, NULL, qp, &attr_ex, cmdb);
+	ret = ibv_icmd_create_qp(pd->context, NULL, qp, &attr_ex, NULL, 0, cmdb);
 	if (!ret)
 		memcpy(&attr->cap, &attr_ex.cap, sizeof(attr_ex.cap));
 
@@ -416,7 +477,7 @@ int ibv_cmd_create_qp_ex(struct ibv_context *context,
 		return errno;
 	}
 
-	return ibv_icmd_create_qp(context, qp, NULL, attr_ex, cmdb);
+	return ibv_icmd_create_qp(context, qp, NULL, attr_ex, NULL, 0, cmdb);
 }
 
 int ibv_cmd_create_qp_ex2(struct ibv_context *context,
@@ -443,7 +504,32 @@ int ibv_cmd_create_qp_ex2(struct ibv_context *context,
 		return errno;
 	}
 
-	return ibv_icmd_create_qp(context, qp, NULL, attr_ex, cmdb);
+	return ibv_icmd_create_qp(context, qp, NULL, attr_ex, NULL, 0, cmdb);
+}
+
+int ibv_cmd_create_qp_ex3(struct ibv_context *context,
+			  struct verbs_qp *qp,
+			  struct ibv_qp_init_attr_ex *attr_ex,
+			  struct ibv_create_qp_ex *cmd, size_t cmd_size,
+			  struct ib_uverbs_ex_create_qp_resp *resp, size_t resp_size,
+			  struct verbs_create_qp_prov_attr *prov_attr,
+			  uint32_t cmd_flags,
+			  struct ibv_command_buffer *driver)
+{
+	DECLARE_CMD_BUFFER_LINK_COMPAT(cmdb, UVERBS_OBJECT_QP,
+				       UVERBS_METHOD_QP_CREATE,
+				       driver, cmd, cmd_size, resp, resp_size);
+
+	if (!check_comp_mask(attr_ex->comp_mask,
+			     IBV_QP_INIT_ATTR_PD |
+			     IBV_QP_INIT_ATTR_XRCD |
+			     IBV_QP_INIT_ATTR_SEND_OPS_FLAGS)) {
+		errno = EINVAL;
+		return errno;
+	}
+
+	return ibv_icmd_create_qp(context, qp, NULL, attr_ex, prov_attr,
+				  cmd_flags, cmdb);
 }
 
 int ibv_cmd_destroy_qp(struct ibv_qp *qp)
