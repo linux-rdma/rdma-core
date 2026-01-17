@@ -446,6 +446,28 @@ int ibv_cmd_create_qp_ex2(struct ibv_context *context,
 	return ibv_icmd_create_qp(context, qp, NULL, attr_ex, cmdb);
 }
 
+int ibv_cmd_create_qp_ex3(struct ibv_context *context,
+			  struct verbs_qp *qp,
+			  struct ibv_qp_init_attr_ex *attr_ex,
+			  struct ibv_create_qp *cmd, size_t cmd_size,
+			  struct ib_uverbs_create_qp_resp *resp, size_t resp_size,
+			  struct ibv_command_buffer *driver)
+{
+	DECLARE_CMD_BUFFER_LINK_COMPAT(cmdb, UVERBS_OBJECT_QP,
+				       UVERBS_METHOD_QP_CREATE,
+				       driver, cmd, cmd_size, resp, resp_size);
+
+	if (!check_comp_mask(attr_ex->comp_mask,
+			     IBV_QP_INIT_ATTR_PD |
+			     IBV_QP_INIT_ATTR_XRCD |
+			     IBV_QP_INIT_ATTR_SEND_OPS_FLAGS)) {
+		errno = EINVAL;
+		return errno;
+	}
+
+	return ibv_icmd_create_qp(context, qp, NULL, attr_ex, cmdb);
+}
+
 int ibv_cmd_destroy_qp(struct ibv_qp *qp)
 {
 	DECLARE_FBCMD_BUFFER(cmdb, UVERBS_OBJECT_QP, UVERBS_METHOD_QP_DESTROY, 2,
