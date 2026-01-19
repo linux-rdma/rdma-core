@@ -24,6 +24,10 @@ if (CMAKE_SYSTEM_NAME STREQUAL "Linux")
    set(SYSDEP_SOURCES init-sysfs.c sysfs-sysfs.c)
 endif()
 
+if (CMAKE_SYSTEM_NAME STREQUAL "FreeBSD")
+   set(SYSDEP_SOURCES init-sysctl.c sysfs-sysctl.c)
+endif()
+
 rdma_library(ibverbs "${CMAKE_CURRENT_BINARY_DIR}/libibverbs.map"
   # See Documentation/versioning.md
   1 1.18.${PACKAGE_VERSION}
