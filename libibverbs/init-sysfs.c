@@ -35,19 +35,13 @@
 
 #include <stdlib.h>
 #include <string.h>
-#include <glob.h>
-#include <stdarg.h>
 #include <stdio.h>
 #include <unistd.h>
 #include <sys/stat.h>
-#include <sys/types.h>
 #include <sys/time.h>
-#include <sys/resource.h>
 #include <fcntl.h>
 #include <dirent.h>
 #include <errno.h>
-#include <assert.h>
-#include <fnmatch.h>
 #include <sys/sysmacros.h>
 
 #include <rdma/rdma_netlink.h>
