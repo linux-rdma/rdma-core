@@ -5,16 +5,20 @@
 from __future__ import annotations
 import argparse
 import collections
+import copy
 import importlib
 import inspect
 import itertools
+import json
 import os
 import re
 import subprocess
 import sys
 import tempfile
 
+from base64 import b64encode, b64decode
 from typing import *
+from zlib import compress, decompress
 
 DEVDIR = os.environ.get("RDMA_TOPO_DEVDIR", "/sys/bus/pci/devices/")
 
@@ -43,6 +47,7 @@ TOPO_NOT_SUPPORTED = CommandError("No supported topology detected")
 
 class SysfsDevice(object):
     REQUIRED_KEYS = ["realpath", "config", "modalias"]
+    ENCODED_KEYS = ["config", "vpd"]
 
     @property
     def realpath(self) -> str:
@@ -120,6 +125,35 @@ class SysfsDevice(object):
                 raise CommandError(
                     f"Cannot read sysfs path: {e.filename}. Are you root?"
                 )
+
+    @classmethod
+    def from_dict(cls, data: Dict[str, Any]) -> SysfsDevice:
+        obj = object.__new__(cls)
+
+        obj.data = copy.deepcopy(data)
+        for k in SysfsDevice.REQUIRED_KEYS:
+            if k not in obj.data or obj.data[k] is None:
+                raise ValueError(f"Missing required key '{k}'")
+
+        for k in SysfsDevice.ENCODED_KEYS:
+            if k in obj.data and obj.data[k] is not None:
+                try:
+                    obj.data[k] = decompress(b64decode(obj.data[k]))
+                except Exception as e:
+                    raise ValueError(f"Invalid encoded value for key '{k}': {e}")
+
+        return obj
+
+    def to_dict(self) -> Dict[str, Any]:
+        res = copy.deepcopy(self.data)
+        for k in SysfsDevice.ENCODED_KEYS:
+            if k not in res:
+                continue
+            if res[k] is not None:
+                res[k] = b64encode(compress(res[k])).decode("ascii")
+            else:
+                del res[k]
+        return res
 
 
 def parse_vpd(vpd: Optional[bytes]) -> Tuple[Optional[str], Optional[str]]:
@@ -238,6 +272,16 @@ pci_device_types = {
     PCI_DEVICE_CLASS(0x010802): "nvme",
     PCI_NVGPU(): "nvgpu",
 }
+
+
+dump_ignored = [
+    PCI_DEVICE_CLASS(0x060000),  # Generic system peripheral
+    PCI_DEVICE_CLASS(0x060100),  # ISA bridge
+    PCI_DEVICE_CLASS(0x080700),  # Non-Essential Instrumentation
+    PCI_DEVICE_CLASS(0x088000),  # System peripheral
+    PCI_DEVICE_CLASS(0x110100),  # Performance counters
+    PCI_DEVICE_CLASS(0x130000),  # Non-Essential Instrumentation
+]
 
 
 class PCIBDF(
@@ -388,8 +432,11 @@ def check_parent(pdev: PCIDevice, parent_type: str):
 class PCITopo(object):
     """Load the PCI topology from sysfs and organize it"""
 
-    def __init__(self):
-        sysfs_devices = [SysfsDevice(fn) for fn in os.listdir(DEVDIR)]
+    def __init__(self, sysfs_dump: Optional[str] = None):
+        if sysfs_dump:
+            sysfs_devices = self.__parse_dump(sysfs_dump)
+        else:
+            sysfs_devices = [SysfsDevice(fn) for fn in os.listdir(DEVDIR)]
         self.devices = self.__load_devices(sysfs_devices)
         self.nvcxs: List[NVCX_Complex] = []
         self.has_cx_dma = any(
@@ -399,6 +446,31 @@ class PCITopo(object):
             for pdev in self.devices.values():
                 pdev.finish_loading()
             self.__build_topo()
+
+    def __parse_dump(self, filename: str) -> List[SysfsDevice]:
+        res: List[SysfsDevice] = []
+        try:
+            with open(filename, "rt") as F:
+                data = json.load(F)
+
+            if not isinstance(data, list):
+                raise ValueError(f"Expected list, got '{type(data).__name__}'")
+
+            num_items = len(data)
+            for i, item in enumerate(data):
+                if not isinstance(item, dict):
+                    raise ValueError(
+                        f"Item {i}/{num_items}: Expected dictionary, got '{type(item).__name__}'"
+                    )
+                try:
+                    res.append(SysfsDevice.from_dict(item))
+                except Exception as e:
+                    raise ValueError(f"Item {i}/{num_items}: {e}") from e
+            return res
+        except (json.JSONDecodeError, ValueError) as e:
+            raise CommandError(f"Invalid sysfs dump file: {e}")
+        except (FileNotFoundError, PermissionError) as e:
+            raise CommandError(f"Failed to read sysfs dump file: {e}")
 
     def __load_devices(self, sysfs_devices: List[SysfsDevice]):
         res: Dict[PCIBDF, PCIDevice] = {}
@@ -475,7 +547,7 @@ class PCITopo(object):
         objects for the cx_dma functions"""
         self.vpd_v3s: Dict[str, Set[PCIDevice]] = collections.defaultdict(set)
         for pdev in self.devices.values():
-            if pdev.parent_bdf:
+            if pdev.parent_bdf and pdev.parent_bdf in self.devices:
                 pdev.parent = self.devices[pdev.parent_bdf]
                 pdev.parent.children.add(pdev)
 
@@ -544,6 +616,17 @@ class PCITopo(object):
         return acs
 
 
+def add_sysfs_dump_argument(parser):
+    parser.add_argument(
+        "-F",
+        "--sysfs-dump-file",
+        action="store",
+        default=None,
+        dest="sysfs_dump",
+        help="Use a file produced by the rdma_topo dump command as input",
+    )
+
+
 # -------------------------------------------------------------------
 def print_list(title: str, items: list[str]):
     if not items:
@@ -562,6 +645,7 @@ def args_topology(parser):
         dest="json",
         help="Output in machine readable JSON format",
     )
+    add_sysfs_dump_argument(parser)
 
 
 def topo_json(topo: PCITopo):
@@ -599,7 +683,7 @@ def topo_json(topo: PCITopo):
 def cmd_topology(args):
     """List the ConnectX NICs in the system with the corresponding NIC
     function, DMA Direct function and associated GPU."""
-    topo = PCITopo()
+    topo = PCITopo(args.sysfs_dump)
     if not topo.supported:
         raise TOPO_NOT_SUPPORTED
 
@@ -768,7 +852,7 @@ def cmd_setpci_acs(args):
 
 # -------------------------------------------------------------------
 def args_check(parser):
-    pass
+    add_sysfs_dump_argument(parser)
 
 
 def check_ok(msg: str):
@@ -783,7 +867,7 @@ def check_fail(msg: str):
 def cmd_check(args):
     """Check that the running kernel and PCI environment are setup correctly for
     GPU Direct with ConnectX DMA Direct PCI functions."""
-    topo = PCITopo()
+    topo = PCITopo(args.sysfs_dump)
     if not topo.supported:
         raise TOPO_NOT_SUPPORTED
     check_ok("All ConnectX DMA functions have correct PCI topology")
@@ -818,6 +902,22 @@ def cmd_check(args):
             check_fail(
                 f"Kernel iommu_group for DMA {nvcx.cx_dma.bdf} and GPU {nvcx.nvgpu.bdf} are not equal {nvcx.cx_dma.iommu_group} != {nvcx.nvgpu.iommu_group}"
             )
+
+
+# -------------------------------------------------------------------
+def args_dump(parser):
+    pass
+
+
+def cmd_dump(args) -> None:
+    """Dump the PCI topology to a file that can be used as input"""
+    sd_json: List[Dict[str, Any]] = []
+    for fn in sorted(os.listdir(DEVDIR)):
+        sd = SysfsDevice(fn)
+        if any(d.match(sd.modalias) for d in dump_ignored):
+            continue
+        sd_json.append(sd.to_dict())
+    json.dump(sd_json, sys.stdout, indent=4)
 
 
 # -------------------------------------------------------------------
