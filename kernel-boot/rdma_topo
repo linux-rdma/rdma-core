@@ -16,12 +16,22 @@ import tempfile
 
 from typing import *
 
+DEVDIR = os.environ.get("RDMA_TOPO_DEVDIR", "/sys/bus/pci/devices/")
+
 BDF_RE = re.compile(r"^([0-9a-f]+?):([0-9a-f]{2}?):([0-9a-f]{2}?)\.([0-9a-f])$")
 KERNEL_ACS_ISOLATED = "xx111x1"
 pci_vendors = {
     "MELLANOX": 0x15B3,
     "NVIDIA": 0x10DE,
 }
+
+PCI_EXT_CAP_ID_ACS = 0x000D
+
+PCI_VPD_LRDT      = 0x80  # Large Resource Data Type flag
+PCI_VPD_END_SMALL = 0x78  # Small Resource End Tag
+PCI_VPD_END_LARGE = 0x79  # Large Resource End Tag
+PCI_VPD_LRDT_ID   = 0x82  # Identifier String
+PCI_VPD_LRDT_RO   = 0x90  # VPD-R (Read-Only)
 
 
 class CommandError(Exception):
@@ -31,15 +41,166 @@ class CommandError(Exception):
 TOPO_NOT_SUPPORTED = CommandError("No supported topology detected")
 
 
-def sysfs_read_str(sysdir: str, fn: str) -> str:
-    """Read the entire content of a sysfs file to a string"""
-    with open(os.path.join(sysdir, fn)) as F:
-        return F.read().strip()
+class SysfsDevice(object):
+    REQUIRED_KEYS = ["realpath", "config", "modalias"]
+
+    @property
+    def realpath(self) -> str:
+        return self.data["realpath"]
+
+    @property
+    def config(self) -> bytes:
+        return self.data["config"]
+
+    @property
+    def iommu_group(self) -> Optional[int]:
+        return self.data.get("iommu_group", None)
+
+    @property
+    def modalias(self) -> str:
+        return self.data["modalias"]
+
+    @property
+    def numa_node(self) -> Optional[int]:
+        return self.data.get("numa_node", None)
+
+    @property
+    def vpd(self) -> Optional[bytes]:
+        return self.data.get("vpd", None)
+
+    @property
+    def subsystems(self) -> Optional[Dict[str, List[str]]]:
+        return self.data.get("subsystems", None)
+
+    @property
+    def id(self) -> str:
+        return os.path.basename(self.data["realpath"])
+
+    def __init__(self, id: str):
+        def read(*parts: str) -> bytes:
+            with open(os.path.join(devdir, *parts), "rb") as F:
+                return F.read()
+
+        def string(b: bytes) -> str:
+            return b.decode("ascii").strip()
+
+        def subsystems() -> Dict[str, List[str]]:
+            res: Dict[str, List[str]] = collections.defaultdict(list)
+            for fn in os.listdir(devdir):
+                if fn in {"drm", "infiniband", "net", "nvme"}:
+                    res[fn].extend(os.listdir(os.path.join(devdir, fn)))
+            return dict(res)
+
+        def iommu_group() -> int:
+            return int(
+                os.path.basename(os.readlink(os.path.join(devdir, "iommu_group")))
+            )
+
+        devdir = os.path.join(DEVDIR, id)
+
+        readers = {
+            "realpath": lambda: os.path.realpath(devdir),
+            "config": lambda: read("config"),
+            "iommu_group": iommu_group,
+            "modalias": lambda: string(read("modalias")),
+            "numa_node": lambda: int(string(read("numa_node"))),
+            "vpd": lambda: read("vpd"),
+            "subsystems": subsystems,
+        }
+
+        self.data: Dict[str, Any] = {}
+        for k, reader in readers.items():
+            try:
+                self.data[k] = reader()
+            except FileNotFoundError as e:
+                if k in SysfsDevice.REQUIRED_KEYS:
+                    raise CommandError(f"Missing required sysfs path: {e.filename}")
+                self.data[k] = None
+            except PermissionError as e:
+                raise CommandError(
+                    f"Cannot read sysfs path: {e.filename}. Are you root?"
+                )
 
 
-def sysfs_read_link(sysdir: str, fn: str) -> str:
-    """Read a link in sysfs to an absolute path string"""
-    return os.readlink(os.path.join(sysdir, fn))
+def parse_vpd(vpd: Optional[bytes]) -> Tuple[Optional[str], Optional[str]]:
+    """Parse VPD name and V3 UUID"""
+    if vpd is None:
+        return None, None
+
+    name = None
+    v3 = None
+
+    def items(data: bytes) -> Generator[Tuple[int, bytes]]:
+        while len(data) > 0:
+            tag = data[0]
+            if tag in [PCI_VPD_END_SMALL, PCI_VPD_END_LARGE]:
+                break
+
+            if tag & PCI_VPD_LRDT:
+                offset = 3
+                if len(data) < 3:
+                    break
+                length = int.from_bytes(data[1:3], "little")
+            else:
+                offset = 1
+                length = tag & 0x07
+
+            if length > len(data) - offset:
+                break
+
+            yield (tag, data[offset : offset + length])
+            data = data[offset + length :]
+
+    def keywords(data: bytes) -> Generator[Tuple[str, bytes]]:
+        while len(data) >= 4:
+            length = int(data[2])
+            if length > len(data) - 3:
+                break
+            yield (data[:2].decode("ascii"), data[3 : 3 + length])
+            data = data[3 + length :]
+
+    try:
+        for tag, item in items(vpd):
+            if tag == PCI_VPD_LRDT_ID:
+                name = item.decode("ascii").strip()
+            if tag ==  PCI_VPD_LRDT_RO:
+                for keyword, value in keywords(item):
+                    if keyword == "V3":
+                        v3 = value.decode("ascii")
+    except UnicodeDecodeError:
+        pass
+
+    return (v3, name)
+
+
+def parse_ext_cap(config: bytes, cap_id: int) -> Optional[bytes]:
+    """Parse an extended capability from the PCI configuration space"""
+    if len(config) < 0x104:
+        return None
+
+    offset = 0x100
+    while offset and offset < len(config) - 4:
+        header = int.from_bytes(config[offset : offset + 4], "little")
+        next_offset = (header >> 20) & 0xFFC
+        if next_offset == 0 or next_offset <= offset + 4 or next_offset > len(config):
+            next_offset = len(config)
+        if (header & 0xFFFF) == cap_id:
+            return config[offset + 4 : next_offset]
+        if next_offset == len(config):
+            break
+        offset = next_offset
+
+    return None
+
+
+def parse_acs_ctrl(config: bytes) -> Optional[int]:
+    """Parse the ACS control register from the PCI configuration space"""
+    raw = parse_ext_cap(config, PCI_EXT_CAP_ID_ACS)
+
+    if raw is None or len(raw) < 4:
+        return None
+
+    return int.from_bytes(raw[2:4], "little")
 
 
 def PCI_VDEVICE(vendor: str, device_id: int) -> re.Pattern:
@@ -103,42 +264,33 @@ def to_pcibdf(s: str) -> Optional[PCIBDF]:
 
 class PCIDevice(object):
     device_type = ""
-    vpd_v3: str = None
+    vpd_v3: Optional[str] = None
+    vpd_name: Optional[str] = None
     parent: PCIDevice = None
-    lspci_data: str = None
 
-    def __init__(self, sysdir: str, bdf: PCIBDF):
-        self.sysdir = sysdir
+    def __init__(self, bdf: PCIBDF, sysfs_device: SysfsDevice):
         self.bdf = bdf
-        try:
-            self.iommu_group = int(
-                os.path.split(sysfs_read_link(sysdir, "iommu_group"))[-1]
-            )
-        except FileNotFoundError:
-            self.iommu_group = None
+        self.sysfs_device = sysfs_device
 
-        try:
-            self.numa_node = int(sysfs_read_str(sysdir, "numa_node"))
-        except FileNotFoundError:
-            self.numa_node = None
+        self.iommu_group = self.sysfs_device.iommu_group
+        self.numa_node = self.sysfs_device.numa_node
+        self.modalias = self.sysfs_device.modalias
 
-        self.modalias = sysfs_read_str(sysdir, "modalias")
         for k, v in pci_device_types.items():
             if k.match(self.modalias):
                 self.device_type = v
                 break
 
-        sysdir = os.path.realpath(sysdir)
-        parent = os.path.basename(os.path.dirname(sysdir))
+        parent = os.path.basename(os.path.dirname(self.sysfs_device.realpath))
         self.parent_bdf = to_pcibdf(parent)
         self.children: Set[PCIDevice] = set()
 
     def finish_loading(self):
         """Do more expensive parsing operations"""
         if self.device_type == "cx_nic" or self.device_type == "cx_dma":
-            self.vpd_v3 = self.parse_vpd_v3()
+            self.vpd_v3, self.vpd_name = parse_vpd(self.sysfs_device.vpd)
         if "switch" in self.device_type or self.device_type == "grace_rp":
-            self.has_acs = self.parse_has_acs()
+            self.has_acs = self.get_acs_ctrl() is not None
 
     def iterdownstream(self) -> Generator[PCIDevice, None, None]:
         """Iterate over all downstream devices of this device recursively"""
@@ -162,70 +314,13 @@ class PCIDevice(object):
     def __repr__(self):
         return f"PCIDevice({self.bdf})"
 
-    def lspci(self):
-        """Fetch the verbose output of lspci"""
-        vpdfn = os.path.join(self.sysdir, "vpd")
-        if os.path.exists(vpdfn) and not os.access(vpdfn, os.R_OK):
-            raise CommandError(
-                f"Need access to the PCI VPD information in {vpdfn}, are you root?"
-            )
-
-        if not self.lspci_data:
-            self.lspci_data = subprocess.check_output(
-                ["lspci", "-s", f"{self.bdf.as_pci()}", "-vv"]
-            ).decode()
-        return self.lspci_data
-
-    def parse_vpd_v3(self):
-        """Use lspci to parse the VPD and get the V3 UUID, this only works as
-        root on non-secure boot systems."""
-        g = re.search(
-            r"Capabilities: \[.+?\] Vital Product Data$.*Read-only fields:$.*\[V3\] Vendor specific: (.*?)$.*End$",
-            self.lspci(),
-            re.DOTALL | re.MULTILINE,
-        )
-        if not g:
-            return None
-        return g.group(1)
-
-    def parse_has_acs(self):
-        """True if the device has an ACS capability"""
-        return bool(
-            re.search(
-                r"Capabilities: \[.+?\] Access Control Services$",
-                self.lspci(),
-                re.DOTALL | re.MULTILINE,
-            )
-        )
-
-    def parse_vpd_name(self):
-        g = re.search(
-            r"Capabilities: \[.+?\] Vital Product Data$.*Product Name: (.*?)$.*End$",
-            self.lspci(),
-            re.DOTALL | re.MULTILINE,
-        )
-        if not g:
-            return None
-        return g.group(1).strip()
-
-    def read_config(self, regname: str):
-        """Use setpci to read a register"""
-        return int(
-            subprocess.check_output(
-                ["setpci", "-r", "-s", str(self.bdf), "ECAP_ACS+0x6.w"]
-            )
-            .decode()
-            .strip(),
-            16,
-        )
+    def get_acs_ctrl(self):
+        """Read the ACS control register from the PCI configuration space"""
+        return parse_acs_ctrl(self.sysfs_device.config)
 
     def get_subsystems(self):
         """Return a list of subsystem the PCI device is connected to"""
-        res: Dict[str, Set[str]] = collections.defaultdict(set)
-        for fn in os.listdir(self.sysdir):
-            if fn in {"drm", "infiniband", "net", "nvme"}:
-                res[fn].update(os.listdir(os.path.join(self.sysdir, fn)))
-        return res
+        return self.sysfs_device.subsystems or {}
 
 
 class NVCX_Complex(object):
@@ -294,7 +389,8 @@ class PCITopo(object):
     """Load the PCI topology from sysfs and organize it"""
 
     def __init__(self):
-        self.devices = self.__load_devices("/sys/bus/pci/devices/")
+        sysfs_devices = [SysfsDevice(fn) for fn in os.listdir(DEVDIR)]
+        self.devices = self.__load_devices(sysfs_devices)
         self.nvcxs: List[NVCX_Complex] = []
         self.has_cx_dma = any(
             pdev.device_type == "cx_dma" for pdev in self.devices.values()
@@ -304,14 +400,14 @@ class PCITopo(object):
                 pdev.finish_loading()
             self.__build_topo()
 
-    def __load_devices(self, sysdir: str):
+    def __load_devices(self, sysfs_devices: List[SysfsDevice]):
         res: Dict[PCIBDF, PCIDevice] = {}
-        for fn in os.listdir(sysdir):
-            bdf = to_pcibdf(fn)
+        for sdev in sysfs_devices:
+            bdf = to_pcibdf(sdev.id)
             if not bdf:
                 continue
             assert bdf not in res
-            res[bdf] = PCIDevice(os.path.join(sysdir, fn), bdf)
+            res[bdf] = PCIDevice(bdf, sdev)
         return res
 
     def __get_nvcx_complex(self, cx_dma: PCIDevice):
@@ -479,9 +575,9 @@ def topo_json(topo: PCITopo):
             "gpu_bdf": str(nvcx.nvgpu.bdf),
             "subsystems": {},
         }
-        devname = nvcx.cx_pf.parse_vpd_name()
+        devname = nvcx.cx_pf.vpd_name
         if devname:
-            jnvcx["rdma_nic_vpd_name"] = nvcx.cx_pf.parse_vpd_name()
+            jnvcx["rdma_nic_vpd_name"] = nvcx.cx_pf.vpd_name
         if nvcx.cx_pf.numa_node is not None:
             jnvcx["numa_node"] = nvcx.cx_pf.numa_node
         if nvcx.nvmes:
@@ -515,7 +611,7 @@ def cmd_topology(args):
             f"RDMA NIC={nvcx.cx_pf.bdf}, GPU={nvcx.nvgpu.bdf}, RDMA DMA Function={nvcx.cx_dma.bdf}"
         )
 
-        devname = nvcx.cx_pf.parse_vpd_name()
+        devname = nvcx.cx_pf.vpd_name
         if devname:
             print(f"\t{devname}")
 
@@ -651,7 +747,11 @@ def cmd_setpci_acs(args):
     acs = topo.compute_acs()
     cmds: List[List[str]] = []
     for pdev, acs in sorted(acs.items(), key=lambda x: x[0].bdf):
-        cur_acs = pdev.read_config("ECAP_ACS+0x6.w")
+        cur_acs = pdev.get_acs_ctrl()
+        if cur_acs is None:
+            raise CommandError(
+                f"Could not read ACS control register for {pdev.device_type} {pdev.bdf}"
+            )
         new_acs = combine_acs(cur_acs, acs)
         if new_acs == cur_acs:
             continue
@@ -690,7 +790,11 @@ def cmd_check(args):
 
     acs = topo.compute_acs()
     for pdev, acs in sorted(acs.items(), key=lambda x: x[0].bdf):
-        cur_acs = pdev.read_config("ECAP_ACS+0x6.w")
+        cur_acs = pdev.get_acs_ctrl()
+        if cur_acs is None:
+            check_fail(
+                f"Could not read ACS control register for {pdev.device_type} {pdev.bdf}"
+            )
         new_acs = combine_acs(cur_acs, acs)
         if new_acs == cur_acs:
             check_ok(
