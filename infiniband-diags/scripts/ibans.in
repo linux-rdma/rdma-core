@@ -1,0 +1,38 @@
+!/bin/sh
+# list Aggregation Nodes by devid=0xcf09
+# Author: Ofir Michael <ofirmi@nvidia.com>
+
+IBPATH=${IBPATH:-/usr/sbin}
+
+usage() {
+  echo "This tool displays Aggregation nodes, their GUIDs, Number of ports, and on which switch"
+  echo "Usage: $(basename "$0") [-h] [<topology-file> | -y mkey -C ca -P port -t timeout_ms]"
+  exit 255
+}
+
+topo= mkey=0 ca_args=
+while [ $# -gt 0 ]; do
+  case "$1" in
+    -h|--help) usage ;;
+    -y|--m_key) [ $# -ge 2 ] || usage; mkey=$2; shift 2; continue ;;
+    -C|--Ca|-P|--Port|-t|--timeout) [ $# -ge 2 ] || usage; ca_args="$ca_args $1 $2"; shift 2; continue ;;
+    -*) usage ;;
+    *) [ -z "$topo" ] || usage; topo=$1 ;;
+  esac; shift
+done
+
+awk_prog='
+BEGIN{t="0xcf09"}
+/^devid=/{ok=($0=="devid="t);next}
+ok&&/^Ca[ \t]/{g=substr($3,4,16);p=$2;pend=1;next}
+pend&&/^\[/{l="";if(match($0,/lid[ \t]+([0-9]+)/,m))l=m[1]
+  x=$0; sw=""; while(match(x,/"([^"]+)"/,a)){sw=a[1]; x=substr(x,RSTART+RLENGTH)}
+  sub(/^[^;]*;/,"",sw);
+  printf("An\t: 0x%s ports %s \"%s\" lid %s\n",g,p,sw,l); pend=0; next}
+'
+
+if [ -n "$topo" ]; then
+  awk "$awk_prog" "$topo"
+else
+  "$IBPATH/ibnetdiscover" -y "$mkey" $ca_args | awk "$awk_prog"
+fi
