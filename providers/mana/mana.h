@@ -89,6 +89,7 @@ struct mana_context {
 	struct mana_table qp_rtable[MANA_QP_TABLE_SIZE];
 	struct mana_table qp_stable[MANA_QP_TABLE_SIZE];
 	pthread_mutex_t qp_table_mutex;
+	uint64_t comp_mask;
 
 	struct manadv_ctx_allocators extern_alloc;
 	void *db_page;
@@ -196,6 +197,7 @@ struct mana_device {
 
 struct mana_pd {
 	struct ibv_pd ibv_pd;
+	uint32_t pdn;
 	struct mana_pd *mprotection_domain;
 };
 
@@ -216,7 +218,7 @@ int mana_query_device_ex(struct ibv_context *context,
 int mana_query_port(struct ibv_context *context, uint8_t port,
 		    struct ibv_port_attr *attr);
 
-struct ibv_pd *mana_alloc_pd(struct ibv_context *context);
+struct ibv_pd *mana_alloc_pd_ex(struct ibv_context *context, uint32_t flags);
 struct ibv_pd *
 mana_alloc_parent_domain(struct ibv_context *context,
 			 struct ibv_parent_domain_init_attr *attr);
