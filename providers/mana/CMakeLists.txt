@@ -1,5 +1,5 @@
 rdma_shared_provider(mana libmana.map
-  1 1.0.${PACKAGE_VERSION}
+  1 1.1.${PACKAGE_VERSION}
   mana.c
   manadv.c
   qp.c
