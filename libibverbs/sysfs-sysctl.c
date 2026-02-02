@@ -81,22 +81,40 @@ const char *ibv_get_sysfs_path(void)
 	return sysfs_path;
 }
 
+static int sysctl_verbose = -1;
+
 int ibv_read_sysfs_file(const char *dir, const char *file,
 			char *buf, size_t size)
 {
-	char *path, *s;
+	char *path, *s, *r;
 	int ret;
 	size_t len;
+
+	if (sysctl_verbose == -1)
+		sysctl_verbose = getenv("IBVERBS_SYSCTL_VERBOSE") != NULL;
 
 	if (asprintf(&path, "%s/%s", dir, file) < 0)
 		return -1;
 
+	if (sysctl_verbose)
+		fprintf(stderr, "sysctl \"%s\": ", path);
 	for (s = &path[0]; *s != '\0'; s++)
 		if (*s == '/')
 			*s = '.';
 
 	len = size;
 	ret = sysctlbyname(&path[1], buf, &len, NULL, 0);
+	if (sysctl_verbose) {
+		if (ret == -1) {
+			fprintf(stderr, "error %d (%s)\n", errno,
+			    strerror(errno));
+		} else {
+			r = alloca(len + 1);
+			memcpy(r, buf, len);
+			r[len] = '\0';
+			fprintf(stderr, "%s\n", r);
+		}
+	}
 	free(path);
 
 	if (ret == -1)
