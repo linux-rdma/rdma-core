@@ -206,6 +206,13 @@ struct ibv_mr *mana_reg_dmabuf_mr(struct ibv_pd *pd, uint64_t offset,
 struct ibv_mr *mana_reg_mr(struct ibv_pd *pd, void *addr, size_t length,
 			   uint64_t hca_va, int access);
 
+struct ibv_dm *mana_alloc_dm(struct ibv_context *context,
+			     struct ibv_alloc_dm_attr *dm_attr);
+int mana_free_dm(struct ibv_dm *ibdm);
+struct ibv_mr *mana_reg_dm_mr(struct ibv_pd *pd, struct ibv_dm *ibdm,
+			      uint64_t dm_offset, size_t length,
+			      unsigned int acc);
+
 int mana_dereg_mr(struct verbs_mr *vmr);
 
 struct ibv_cq *mana_create_cq(struct ibv_context *context, int cqe,
