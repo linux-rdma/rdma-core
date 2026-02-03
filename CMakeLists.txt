@@ -24,7 +24,7 @@
 #      Use the historical search path for providers, in the standard system library.
 #  -DNO_COMPAT_SYMS=1 (default disabled)
 #      Do not generate backwards compatibility symbols in the shared
-#      libraries. This may is necessary if using a dynmic linker that does
+#      libraries. This may be necessary if using a dynamic linker that does
 #      not support symbol versions, such as uclibc.
 #  -DIOCTL_MODE=write (default both)
 #      Disable new kABI ioctl() support and support only the legacy write
@@ -52,8 +52,9 @@
 #      Disable man pages. Allows rdma-core to be built and installed
 #      (without man pages) when neither pandoc/rst2man nor the pandoc-prebuilt
 #      directory are available.
-#   -DENABLE_LTTNG (default, no tracing support)
-#      Enable LTTng tracing.
+#   -DTRACING=LTTNG/USDT/None (default None)
+#      Enable LTTng (Linux Trace Toolkit) or USDT (Userspace Statically Defined)
+#      trace points for dynamic tracing.
 
 if (${CMAKE_VERSION} VERSION_LESS "3.18.1")
 	# Centos 7 support
@@ -170,6 +171,9 @@ endif()
 
 set(DISTRO_FLAVOUR "None" CACHE
   STRING "Flavour of distribution to install for. This primarily impacts the init.d scripts installed.")
+
+set(TRACING "None" CACHE
+  STRING "Enable LTTNG (Linux Trace Toolkit) or USDT (Userspace Statically Defined Tracing).")
 
 #-------------------------
 # Load CMake components
@@ -567,10 +571,14 @@ if (DRM_INCLUDE_DIRS)
   endif()
 endif()
 
-# LTTng Tracer support
-if (DEFINED ENABLE_LTTNG)
+# Dynamic Tracing support
+if (TRACING STREQUAL "LTTNG")
   include(FindLTTngUST REQUIRED)
   add_definitions(-DLTTNG_ENABLED)
+elseif (TRACING STREQUAL "USDT")
+  add_definitions(-DUSDT_ENABLED)
+elseif (NOT TRACING STREQUAL "None")
+  message(FATAL_ERROR "-DTRACING=${TRACING} is not a valid choice")
 endif()
 
 #-------------------------

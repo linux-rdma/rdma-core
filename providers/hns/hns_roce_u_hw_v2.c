@@ -683,7 +683,7 @@ static int parse_cqe_for_cq(struct hns_roce_context *ctx, struct hns_roce_cq *cq
 	return 0;
 }
 
-#ifdef LTTNG_ENABLED
+#if defined(LTTNG_ENABLED) || defined(USDT_ENABLED)
 static uint8_t read_wc_sl(struct hns_roce_qp *hr_qp,
 				   struct hns_roce_v2_cqe *cqe,
 				   struct ibv_wc *wc)
