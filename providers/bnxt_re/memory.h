@@ -97,6 +97,10 @@ struct bnxt_re_queue {
 	uint32_t old_head;
 };
 
+static inline unsigned long get_aligned(uint32_t size, uint32_t al_size)
+{
+	return (unsigned long)(size + al_size - 1) & ~(al_size - 1);
+}
 
 /* Basic queue operation */
 static inline void *bnxt_re_get_hwqe(struct bnxt_re_queue *que, uint32_t idx)
