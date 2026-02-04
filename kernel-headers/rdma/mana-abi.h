@@ -17,6 +17,9 @@
 #define MANA_IB_UVERBS_ABI_VERSION 1
 
 enum mana_ib_create_cq_flags {
+	/* Reserved for backward compatibility. Legacy
+	 * kernel versions use it to create CQs in RNIC
+	 */
 	MANA_IB_CREATE_RNIC_CQ	= 1 << 0,
 };
 
@@ -82,6 +85,20 @@ struct rss_resp_entry {
 struct mana_ib_create_qp_rss_resp {
 	__aligned_u64 num_entries;
 	struct rss_resp_entry entries[64];
+};
+
+enum mana_ib_create_pd_flags {
+	MANA_IB_PD_SHORT_PDN = 1 << 0,
+};
+
+struct mana_ib_alloc_pd {
+	__u32 flags;
+	__u32 reserved;
+};
+
+struct mana_ib_alloc_pd_resp {
+	__u32 pdn;
+	__u32 reserved;
 };
 
 #endif
