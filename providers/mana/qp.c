@@ -160,35 +160,25 @@ static void mana_remove_qid(struct mana_table *qp_table, uint32_t qid)
 
 static int mana_store_qp(struct mana_context *ctx, struct mana_qp *qp)
 {
-	uint32_t sreq = qp->rc_qp.queues[USER_RC_SEND_QUEUE_REQUESTER].id;
-	uint32_t srep = qp->rc_qp.queues[USER_RC_SEND_QUEUE_RESPONDER].id;
-	uint32_t rreq = qp->rc_qp.queues[USER_RC_RECV_QUEUE_REQUESTER].id;
-	uint32_t rrep = qp->rc_qp.queues[USER_RC_RECV_QUEUE_RESPONDER].id;
+	struct mana_gdma_queue *sq = mana_ib_get_sreq(qp);
+	struct mana_gdma_queue *rq = mana_ib_get_rresp(qp);
+	uint32_t sqid = sq->id & (~QUEUE_TYPE_MASK);
+	uint32_t rqid = rq->id & (~QUEUE_TYPE_MASK);
 	int ret;
 
 	pthread_mutex_lock(&ctx->qp_table_mutex);
-	ret = mana_store_qid(ctx->qp_stable, qp, sreq);
+	ret = mana_store_qid(ctx->qp_stable, qp, sqid);
 	if (ret)
 		goto error;
-	ret = mana_store_qid(ctx->qp_stable, qp, srep);
+	ret = mana_store_qid(ctx->qp_rtable, qp, rqid);
 	if (ret)
 		goto remove_sreq;
-	ret = mana_store_qid(ctx->qp_rtable, qp, rreq);
-	if (ret)
-		goto remove_srep;
-	ret = mana_store_qid(ctx->qp_rtable, qp, rrep);
-	if (ret)
-		goto remove_rreq;
 
 	pthread_mutex_unlock(&ctx->qp_table_mutex);
 	return 0;
 
-remove_rreq:
-	mana_remove_qid(ctx->qp_rtable, rreq);
-remove_srep:
-	mana_remove_qid(ctx->qp_stable, srep);
 remove_sreq:
-	mana_remove_qid(ctx->qp_stable, sreq);
+	mana_remove_qid(ctx->qp_stable, sqid);
 error:
 	pthread_mutex_unlock(&ctx->qp_table_mutex);
 	return ret;
@@ -196,16 +186,14 @@ error:
 
 static void mana_remove_qp(struct mana_context *ctx, struct mana_qp *qp)
 {
-	uint32_t sreq = qp->rc_qp.queues[USER_RC_SEND_QUEUE_REQUESTER].id;
-	uint32_t srep = qp->rc_qp.queues[USER_RC_SEND_QUEUE_RESPONDER].id;
-	uint32_t rreq = qp->rc_qp.queues[USER_RC_RECV_QUEUE_REQUESTER].id;
-	uint32_t rrep = qp->rc_qp.queues[USER_RC_RECV_QUEUE_RESPONDER].id;
+	struct mana_gdma_queue *sq = mana_ib_get_sreq(qp);
+	struct mana_gdma_queue *rq = mana_ib_get_rresp(qp);
+	uint32_t sqid = sq->id & (~QUEUE_TYPE_MASK);
+	uint32_t rqid = rq->id & (~QUEUE_TYPE_MASK);
 
 	pthread_mutex_lock(&ctx->qp_table_mutex);
-	mana_remove_qid(ctx->qp_stable, sreq);
-	mana_remove_qid(ctx->qp_stable, srep);
-	mana_remove_qid(ctx->qp_rtable, rreq);
-	mana_remove_qid(ctx->qp_rtable, rrep);
+	mana_remove_qid(ctx->qp_stable, sqid);
+	mana_remove_qid(ctx->qp_rtable, rqid);
 	pthread_mutex_unlock(&ctx->qp_table_mutex);
 }
 
@@ -230,19 +218,19 @@ static uint32_t get_queue_size(struct ibv_qp_init_attr *attr, enum user_queue_ty
 
 	if (attr->qp_type == IBV_QPT_RC) {
 		switch (type) {
-		case USER_RC_SEND_QUEUE_REQUESTER:
+		case USER_RNIC_SEND_QUEUE_REQUESTER:
 			/* WQE must have at least one SGE */
 			/* For write with imm we need one extra SGE */
 			sges = max(1U, attr->cap.max_send_sge) + 1;
 			size = attr->cap.max_send_wr * get_large_wqe_size(sges);
 			break;
-		case USER_RC_SEND_QUEUE_RESPONDER:
+		case USER_RNIC_SEND_QUEUE_RESPONDER:
 			size = MANA_PAGE_SIZE;
 			break;
-		case USER_RC_RECV_QUEUE_REQUESTER:
+		case USER_RNIC_RECV_QUEUE_REQUESTER:
 			size = MANA_PAGE_SIZE;
 			break;
-		case USER_RC_RECV_QUEUE_RESPONDER:
+		case USER_RNIC_RECV_QUEUE_RESPONDER:
 			/* WQE must have at least one SGE */
 			sges = max(1U, attr->cap.max_recv_sge);
 			size = attr->cap.max_recv_wr * get_wqe_size(sges);
@@ -254,17 +242,15 @@ static uint32_t get_queue_size(struct ibv_qp_init_attr *attr, enum user_queue_ty
 
 	size = align_hw_size(size);
 
-	if (attr->qp_type == IBV_QPT_RC && type == USER_RC_SEND_QUEUE_REQUESTER)
+	if (attr->qp_type == IBV_QPT_RC && type == USER_RNIC_SEND_QUEUE_REQUESTER)
 		size += sizeof(struct mana_ib_rollback_shared_mem);
 
 	return size;
 }
 
-static struct ibv_qp *mana_create_qp_rc(struct ibv_pd *ibpd,
-					struct ibv_qp_init_attr *attr)
+static struct ibv_qp *mana_create_qp_rnic(struct ibv_pd *ibpd,
+					  struct ibv_qp_init_attr *attr)
 {
-	struct mana_cq *send_cq = container_of(attr->send_cq, struct mana_cq, ibcq);
-	struct mana_cq *recv_cq = container_of(attr->recv_cq, struct mana_cq, ibcq);
 	struct mana_context *ctx = to_mctx(ibpd->context);
 	struct mana_ib_create_rc_qp_resp *qp_resp_drv;
 	struct mana_create_rc_qp_resp qp_resp = {};
@@ -285,33 +271,33 @@ static struct ibv_qp *mana_create_qp_rc(struct ibv_pd *ibpd,
 	qp->sq_sig_all = attr->sq_sig_all;
 
 	if (create_shadow_queue(&qp->shadow_sq, attr->cap.max_send_wr,
-				sizeof(struct rc_sq_shadow_wqe))) {
+				sizeof(struct rnic_sq_shadow_wqe))) {
 		verbs_err(verbs_get_ctx(ibpd->context), "Failed to alloc sq shadow queue\n");
 		errno = ENOMEM;
 		goto free_qp;
 	}
 
 	if (create_shadow_queue(&qp->shadow_rq, attr->cap.max_recv_wr,
-				sizeof(struct rc_rq_shadow_wqe))) {
-		verbs_err(verbs_get_ctx(ibpd->context), "Failed to alloc rc shadow queue\n");
+				sizeof(struct rnic_rq_shadow_wqe))) {
+		verbs_err(verbs_get_ctx(ibpd->context), "Failed to alloc rq shadow queue\n");
 		errno = ENOMEM;
 		goto destroy_shadow_sq;
 	}
 
-	for (i = 0; i < USER_RC_QUEUE_TYPE_MAX; ++i) {
-		qp->rc_qp.queues[i].db_page = ctx->db_page;
-		qp->rc_qp.queues[i].size = get_queue_size(attr, i);
-		qp->rc_qp.queues[i].buffer = mana_alloc_mem(qp->rc_qp.queues[i].size);
+	for (i = 0; i < USER_RNIC_QUEUE_TYPE_MAX; ++i) {
+		qp->rnic_qp.queues[i].db_page = ctx->db_page;
+		qp->rnic_qp.queues[i].size = get_queue_size(attr, i);
+		qp->rnic_qp.queues[i].buffer = mana_alloc_mem(qp->rnic_qp.queues[i].size);
 
-		if (!qp->rc_qp.queues[i].buffer) {
+		if (qp->rnic_qp.queues[i].size != 0 && !qp->rnic_qp.queues[i].buffer) {
 			verbs_err(verbs_get_ctx(ibpd->context),
 				  "Failed to allocate memory for RC queue %d\n", i);
 			errno = ENOMEM;
 			goto destroy_queues;
 		}
 
-		qp_cmd_drv->queue_buf[i] = (uintptr_t)qp->rc_qp.queues[i].buffer;
-		qp_cmd_drv->queue_size[i] = qp->rc_qp.queues[i].size;
+		qp_cmd_drv->queue_buf[i] = (uintptr_t)qp->rnic_qp.queues[i].buffer;
+		qp_cmd_drv->queue_size[i] = qp->rnic_qp.queues[i].size;
 	}
 
 	mana_ib_init_rb_shmem(qp);
@@ -325,24 +311,16 @@ static struct ibv_qp *mana_create_qp_rc(struct ibv_pd *ibpd,
 		goto free_rb;
 	}
 
-	for (i = 0; i < USER_RC_QUEUE_TYPE_MAX; ++i)
-		qp->rc_qp.queues[i].id = qp_resp_drv->queue_id[i];
+	for (i = 0; i < USER_RNIC_QUEUE_TYPE_MAX; ++i)
+		qp->rnic_qp.queues[i].id = qp_resp_drv->queue_id[i];
 
-	qp->ibqp.qp.qp_num = qp->rc_qp.queues[USER_RC_RECV_QUEUE_RESPONDER].id;
+	qp->ibqp.qp.qp_num = qp->rnic_qp.queues[USER_RNIC_RECV_QUEUE_RESPONDER].id;
 
 	ret = mana_store_qp(ctx, qp);
 	if (ret) {
 		errno = ret;
 		goto destroy_qp;
 	}
-
-	pthread_spin_lock(&send_cq->lock);
-	list_add(&send_cq->send_qp_list, &qp->send_cq_node);
-	pthread_spin_unlock(&send_cq->lock);
-
-	pthread_spin_lock(&recv_cq->lock);
-	list_add(&recv_cq->recv_qp_list, &qp->recv_cq_node);
-	pthread_spin_unlock(&recv_cq->lock);
 
 	return &qp->ibqp.qp;
 
@@ -352,7 +330,7 @@ free_rb:
 	mana_ib_deinit_rb_shmem(qp);
 destroy_queues:
 	while (i-- > 0)
-		mana_dealloc_mem(qp->rc_qp.queues[i].buffer, qp->rc_qp.queues[i].size);
+		mana_dealloc_mem(qp->rnic_qp.queues[i].buffer, qp->rnic_qp.queues[i].size);
 	destroy_shadow_queue(&qp->shadow_rq);
 destroy_shadow_sq:
 	destroy_shadow_queue(&qp->shadow_sq);
@@ -368,7 +346,7 @@ struct ibv_qp *mana_create_qp(struct ibv_pd *ibpd,
 	case IBV_QPT_RAW_PACKET:
 		return mana_create_qp_raw(ibpd, attr);
 	case IBV_QPT_RC:
-		return mana_create_qp_rc(ibpd, attr);
+		return mana_create_qp_rnic(ibpd, attr);
 	default:
 		verbs_err(verbs_get_ctx(ibpd->context),
 			  "QP type %u is not supported\n", attr->qp_type);
@@ -378,7 +356,7 @@ struct ibv_qp *mana_create_qp(struct ibv_pd *ibpd,
 	return NULL;
 }
 
-static void mana_ib_modify_rc_qp(struct mana_qp *qp, struct ibv_qp_attr *attr, int attr_mask)
+static void mana_ib_modify_rnic_qp(struct mana_qp *qp, struct ibv_qp_attr *attr, int attr_mask)
 {
 	int i;
 
@@ -389,9 +367,9 @@ static void mana_ib_modify_rc_qp(struct mana_qp *qp, struct ibv_qp_attr *attr, i
 		qp->ibqp.qp.state = attr->qp_state;
 		switch (attr->qp_state) {
 		case IBV_QPS_RESET:
-			for (i = 0; i < USER_RC_QUEUE_TYPE_MAX; ++i) {
-				qp->rc_qp.queues[i].prod_idx = 0;
-				qp->rc_qp.queues[i].cons_idx = 0;
+			for (i = 0; i < USER_RNIC_QUEUE_TYPE_MAX; ++i) {
+				qp->rnic_qp.queues[i].prod_idx = 0;
+				qp->rnic_qp.queues[i].cons_idx = 0;
 			}
 			mana_ib_reset_rb_shmem(qp);
 			reset_shadow_queue(&qp->shadow_rq);
@@ -402,10 +380,9 @@ static void mana_ib_modify_rc_qp(struct mana_qp *qp, struct ibv_qp_attr *attr, i
 			break;
 		case IBV_QPS_RTS:
 			if (attr_mask & IBV_QP_SQ_PSN) {
-				qp->rc_qp.sq_ssn = 1;
-				qp->rc_qp.sq_psn = attr->sq_psn;
-				gdma_arm_normal_cqe(&qp->rc_qp.queues[USER_RC_RECV_QUEUE_REQUESTER],
-						    attr->sq_psn);
+				qp->sq_ssn = 1;
+				qp->sq_psn = attr->sq_psn;
+				gdma_arm_normal_cqe(mana_ib_get_rreq(qp), attr->sq_psn);
 			}
 			break;
 		default:
@@ -432,7 +409,7 @@ int mana_modify_qp(struct ibv_qp *ibqp, struct ibv_qp_attr *attr, int attr_mask)
 		goto cleanup;
 	}
 
-	mana_ib_modify_rc_qp(qp, attr, attr_mask);
+	mana_ib_modify_rnic_qp(qp, attr, attr_mask);
 
 cleanup:
 	pthread_spin_unlock(&qp->rq_lock);
@@ -446,11 +423,17 @@ static void mana_drain_cqes(struct mana_qp *qp)
 	struct mana_cq *recv_cq = container_of(qp->ibqp.qp.recv_cq, struct mana_cq, ibcq);
 
 	pthread_spin_lock(&send_cq->lock);
-	list_del(&qp->send_cq_node);
+	if (qp->on_err_list_send) {
+		list_del(&qp->send_err_node);
+		qp->on_err_list_send = false;
+	}
 	pthread_spin_unlock(&send_cq->lock);
 
 	pthread_spin_lock(&recv_cq->lock);
-	list_del(&qp->recv_cq_node);
+	if (qp->on_err_list_recv) {
+		list_del(&qp->recv_err_node);
+		qp->on_err_list_recv = false;
+	}
 	pthread_spin_unlock(&recv_cq->lock);
 }
 
@@ -481,8 +464,8 @@ int mana_destroy_qp(struct ibv_qp *ibqp)
 		destroy_shadow_queue(&qp->shadow_sq);
 		destroy_shadow_queue(&qp->shadow_rq);
 		mana_ib_deinit_rb_shmem(qp);
-		for (i = 0; i < USER_RC_QUEUE_TYPE_MAX; ++i)
-			mana_dealloc_mem(qp->rc_qp.queues[i].buffer, qp->rc_qp.queues[i].size);
+		for (i = 0; i < USER_RNIC_QUEUE_TYPE_MAX; ++i)
+			mana_dealloc_mem(qp->rnic_qp.queues[i].buffer, qp->rnic_qp.queues[i].size);
 		break;
 	default:
 		verbs_err(verbs_get_ctx(ibqp->context),

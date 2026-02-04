@@ -133,13 +133,13 @@ gdma_post_rq_wqe(struct mana_gdma_queue *wq, struct ibv_sge *sgl,  struct rdma_r
 	return 0;
 }
 
-static int mana_ib_rc_post_recv(struct ibv_qp *ibqp, struct ibv_recv_wr *wr,
-				struct ibv_recv_wr **bad_wr)
+static int mana_ib_post_recv(struct ibv_qp *ibqp, struct ibv_recv_wr *wr,
+			     struct ibv_recv_wr **bad_wr)
 {
 	struct mana_context *mc = container_of(verbs_get_ctx(ibqp->context),
 					struct mana_context, ibv_ctx);
 	struct mana_qp *qp = container_of(ibqp, struct mana_qp, ibqp.qp);
-	struct mana_gdma_queue *wq = &qp->rc_qp.queues[USER_RC_RECV_QUEUE_RESPONDER];
+	struct mana_gdma_queue *wq = mana_ib_get_rresp(qp);
 	struct shadow_wqe_header *shadow_wqe;
 	struct gdma_wqe wqe_info;
 	uint8_t wqe_cnt = 0;
@@ -191,7 +191,7 @@ int mana_post_recv(struct ibv_qp *ibqp, struct ibv_recv_wr *wr,
 {
 	switch (ibqp->qp_type) {
 	case IBV_QPT_RC:
-		return mana_ib_rc_post_recv(ibqp, wr, bad);
+		return mana_ib_post_recv(ibqp, wr, bad);
 	default:
 		verbs_err(verbs_get_ctx(ibqp->context), "QPT not supported %d\n", ibqp->qp_type);
 		return EOPNOTSUPP;
@@ -277,11 +277,12 @@ gdma_post_sq_wqe(struct mana_gdma_queue *wq, struct ibv_sge *sgl, struct rdma_se
 }
 
 static inline int
-mana_ib_rc_post_send_request(struct mana_qp *qp, struct ibv_send_wr *wr,
-			     struct rc_sq_shadow_wqe *shadow_wqe)
+mana_ib_post_send_request(struct mana_qp *qp, struct ibv_send_wr *wr,
+			  struct rnic_sq_shadow_wqe *shadow_wqe)
 {
 	bool signaled = ((wr->send_flags & IBV_SEND_SIGNALED) != 0) || qp->sq_sig_all;
 	enum  gdma_work_req_flags flags = GDMA_WORK_REQ_NONE;
+	struct mana_gdma_queue *wq = mana_ib_get_sreq(qp);
 	struct extra_large_wqe extra_wqe = {0};
 	struct rdma_send_oob send_oob = {0};
 	struct gdma_wqe gdma_wqe = {0};
@@ -296,8 +297,8 @@ mana_ib_rc_post_send_request(struct mana_qp *qp, struct ibv_send_wr *wr,
 	if (wr->opcode == IBV_WR_RDMA_READ) {
 		struct rdma_recv_oob recv_oob = {0};
 
-		recv_oob.psn_start = qp->rc_qp.sq_psn;
-		ret = gdma_post_rq_wqe(&qp->rc_qp.queues[USER_RC_RECV_QUEUE_REQUESTER], wr->sg_list,
+		recv_oob.psn_start = qp->sq_psn;
+		ret = gdma_post_rq_wqe(mana_ib_get_rreq(qp), wr->sg_list,
 				       &recv_oob, num_sge, GDMA_WORK_REQ_CHECK_SN, &gdma_wqe);
 		if (ret) {
 			verbs_err(verbs_get_ctx(qp->ibqp.qp.context),
@@ -305,7 +306,7 @@ mana_ib_rc_post_send_request(struct mana_qp *qp, struct ibv_send_wr *wr,
 			goto cleanup;
 		}
 		shadow_wqe->read_posted_wqe_size_in_bu = gdma_wqe.size_in_bu;
-		gdma_ring_recv_doorbell(&qp->rc_qp.queues[USER_RC_RECV_QUEUE_REQUESTER], 1);
+		gdma_ring_recv_doorbell(mana_ib_get_rreq(qp), 1);
 		// for reads no sge to use dummy sgl
 		num_sge = 0;
 	}
@@ -314,8 +315,8 @@ mana_ib_rc_post_send_request(struct mana_qp *qp, struct ibv_send_wr *wr,
 	send_oob.fence = (wr->send_flags & IBV_SEND_FENCE) != 0;
 	send_oob.signaled = signaled;
 	send_oob.solicited = (wr->send_flags & IBV_SEND_SOLICITED) != 0;
-	send_oob.psn = qp->rc_qp.sq_psn;
-	send_oob.ssn = qp->rc_qp.sq_ssn;
+	send_oob.psn = qp->sq_psn;
+	send_oob.ssn = qp->sq_ssn;
 
 	switch (wr->opcode) {
 	case IBV_WR_SEND_WITH_INV:
@@ -345,7 +346,7 @@ mana_ib_rc_post_send_request(struct mana_qp *qp, struct ibv_send_wr *wr,
 		goto cleanup;
 	}
 
-	ret = gdma_post_sq_wqe(&qp->rc_qp.queues[USER_RC_SEND_QUEUE_REQUESTER], wr->sg_list,
+	ret = gdma_post_sq_wqe(wq, wr->sg_list,
 			       &send_oob, oob_sge, num_sge, MTU_SIZE(qp->mtu), flags, &gdma_wqe);
 	if (ret) {
 		verbs_err(verbs_get_ctx(qp->ibqp.qp.context),
@@ -353,15 +354,15 @@ mana_ib_rc_post_send_request(struct mana_qp *qp, struct ibv_send_wr *wr,
 		goto cleanup;
 	}
 
-	qp->rc_qp.sq_psn = PSN_ADD(qp->rc_qp.sq_psn, PSN_DELTA(msg_sz, qp->mtu));
-	qp->rc_qp.sq_ssn = PSN_INC(qp->rc_qp.sq_ssn);
+	qp->sq_psn = PSN_ADD(qp->sq_psn, PSN_DELTA(msg_sz, qp->mtu));
+	qp->sq_ssn = PSN_INC(qp->sq_ssn);
 
 	shadow_wqe->header.wr_id = wr->wr_id;
 	shadow_wqe->header.opcode = convert_wr_to_wc(wr->opcode);
 	shadow_wqe->header.flags = signaled ? 0 : MANA_NO_SIGNAL_WC;
 	shadow_wqe->header.posted_wqe_size_in_bu = gdma_wqe.size_in_bu;
 	shadow_wqe->header.unmasked_queue_offset = gdma_wqe.unmasked_wqe_index;
-	shadow_wqe->end_psn = PSN_DEC(qp->rc_qp.sq_psn);
+	shadow_wqe->end_psn = PSN_DEC(qp->sq_psn);
 
 	return 0;
 
@@ -369,8 +370,8 @@ cleanup:
 	return EINVAL;
 }
 
-static int mana_ib_rc_post_send(struct ibv_qp *ibqp, struct ibv_send_wr *wr,
-				struct ibv_send_wr **bad_wr)
+static int mana_ib_post_send(struct ibv_qp *ibqp, struct ibv_send_wr *wr,
+			     struct ibv_send_wr **bad_wr)
 {
 	struct mana_qp *qp = container_of(ibqp, struct mana_qp, ibqp.qp);
 	int ret = 0;
@@ -397,11 +398,11 @@ static int mana_ib_rc_post_send(struct ibv_qp *ibqp, struct ibv_send_wr *wr,
 		}
 
 		/* Fill shadow queue data */
-		struct rc_sq_shadow_wqe *shadow_wqe = (struct rc_sq_shadow_wqe *)
+		struct rnic_sq_shadow_wqe *shadow_wqe = (struct rnic_sq_shadow_wqe *)
 			shadow_queue_producer_entry(&qp->shadow_sq);
-		memset(shadow_wqe, 0, sizeof(struct rc_sq_shadow_wqe));
+		memset(shadow_wqe, 0, sizeof(struct rnic_sq_shadow_wqe));
 
-		ret = mana_ib_rc_post_send_request(qp, wr, shadow_wqe);
+		ret = mana_ib_post_send_request(qp, wr, shadow_wqe);
 		if (ret) {
 			verbs_err(verbs_get_ctx(qp->ibqp.qp.context),
 				  "Failed to post send request ret %d\n", ret);
@@ -416,7 +417,7 @@ static int mana_ib_rc_post_send(struct ibv_qp *ibqp, struct ibv_send_wr *wr,
 
 cleanup:
 	if (ring)
-		gdma_ring_send_doorbell(&qp->rc_qp.queues[USER_RC_SEND_QUEUE_REQUESTER]);
+		gdma_ring_send_doorbell(mana_ib_get_sreq(qp));
 	pthread_spin_unlock(&qp->sq_lock);
 	if (bad_wr && ret)
 		*bad_wr = wr;
@@ -429,7 +430,7 @@ int mana_post_send(struct ibv_qp *ibqp, struct ibv_send_wr *wr,
 {
 	switch (ibqp->qp_type) {
 	case IBV_QPT_RC:
-		return mana_ib_rc_post_send(ibqp, wr, bad);
+		return mana_ib_post_send(ibqp, wr, bad);
 	default:
 		verbs_err(verbs_get_ctx(ibqp->context), "QPT not supported %d\n", ibqp->qp_type);
 		return EOPNOTSUPP;

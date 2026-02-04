@@ -39,6 +39,9 @@ void *mana_alloc_mem(size_t size)
 {
 	void *buf;
 
+	if (size == 0)
+		return NULL;
+
 	buf = mmap(NULL, size, PROT_READ | PROT_WRITE,
 		   MAP_PRIVATE | MAP_ANONYMOUS, -1, 0);
 
@@ -57,8 +60,10 @@ unmap:
 
 void mana_dealloc_mem(void *buf, size_t size)
 {
-	ibv_dofork_range(buf, size);
-	munmap(buf, size);
+	if (buf) {
+		ibv_dofork_range(buf, size);
+		munmap(buf, size);
+	}
 }
 
 int create_shadow_queue(struct shadow_queue *queue, uint32_t length, uint32_t stride)
@@ -78,10 +83,8 @@ int create_shadow_queue(struct shadow_queue *queue, uint32_t length, uint32_t st
 
 void destroy_shadow_queue(struct shadow_queue *queue)
 {
-	if (queue->buffer) {
-		mana_dealloc_mem(queue->buffer, queue->stride * queue->length);
-		queue->buffer = NULL;
-	}
+	mana_dealloc_mem(queue->buffer, queue->stride * queue->length);
+	queue->buffer = NULL;
 }
 
 int mana_query_device_ex(struct ibv_context *context,
