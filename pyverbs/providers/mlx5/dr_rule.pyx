@@ -35,6 +35,7 @@ cdef class DrRule(PyverbsCM):
             raise PyverbsRDMAErrno('DrRule creation failed.')
         for i in range(0, len(actions)):
             (<DrAction>actions[i]).add_ref(self)
+        self.actions = actions
         matcher.add_ref(self)
         self.dr_matcher = matcher
 
@@ -50,3 +51,4 @@ cdef class DrRule(PyverbsCM):
                 raise PyverbsRDMAError('Failed to destroy DrRule.', rc)
             self.rule = NULL
             self.dr_matcher = None
+            self.actions = None
