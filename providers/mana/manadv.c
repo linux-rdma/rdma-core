@@ -42,7 +42,7 @@ int manadv_set_context_attr(struct ibv_context *ibv_ctx,
 
 int manadv_init_obj(struct manadv_obj *obj, uint64_t obj_type)
 {
-	if (obj_type & ~(MANADV_OBJ_QP | MANADV_OBJ_CQ | MANADV_OBJ_RWQ))
+	if (obj_type & ~(MANADV_OBJ_QP | MANADV_OBJ_CQ | MANADV_OBJ_RWQ | MANADV_OBJ_PD))
 		return EINVAL;
 
 	if (obj_type & MANADV_OBJ_QP) {
@@ -84,5 +84,17 @@ int manadv_init_obj(struct manadv_obj *obj, uint64_t obj_type)
 		obj->rwq.out->db_page = ctx->db_page;
 	}
 
+	if (obj_type & MANADV_OBJ_PD) {
+		struct ibv_pd *ibpd = obj->pd.in;
+		struct mana_pd *pd = container_of(ibpd, struct mana_pd, ibv_pd);
+
+		obj->pd.out->pdn = pd->pdn;
+	}
+
 	return 0;
+}
+
+struct ibv_pd *manadv_alloc_pd(struct ibv_context *context, uint32_t flags)
+{
+	return mana_alloc_pd_ex(context, flags);
 }
