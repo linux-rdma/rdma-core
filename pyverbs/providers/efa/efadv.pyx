@@ -375,3 +375,24 @@ cdef class EfaDVSQDepthAttr(PyverbsObject):
     @max_inline_data.setter
     def max_inline_data(self, val):
         self.sq_depth_attr.max_inline_data = val
+
+
+cdef class EfaDVRQDepthAttr(PyverbsObject):
+    """
+    Represents efadv_rq_depth_attr struct
+    """
+    @property
+    def comp_mask(self):
+        return self.sq_depth_attr.comp_mask
+
+    @comp_mask.setter
+    def comp_mask(self, val):
+        self.rq_depth_attr.comp_mask = val
+
+    @property
+    def max_recv_sge(self):
+        return self.sq_depth_attr.max_recv_sge
+
+    @max_recv_sge.setter
+    def max_recv_sge(self, val):
+        self.rq_depth_attr.max_recv_sge = val

@@ -54,3 +54,7 @@ cdef class EfaDVMRAttr(PyverbsObject):
 
 cdef class EfaDVSQDepthAttr(PyverbsObject):
     cdef dv.efadv_sq_depth_attr sq_depth_attr
+
+
+cdef class EfaDVRQDepthAttr(PyverbsObject):
+    cdef dv.efadv_rq_depth_attr rq_depth_attr
