@@ -47,6 +47,21 @@ struct efadv_ah_attr {
 	uint8_t reserved[6];
 };
 
+enum {
+	EFADV_SQ_DEPTH_ATTR_INLINE_WRITE = 1 << 0,
+};
+
+struct efadv_sq_depth_attr {
+	uint64_t comp_mask;
+	uint32_t flags;
+	uint32_t max_send_sge;
+	uint32_t max_rdma_sge;
+	uint32_t max_inline_data;
+};
+
+int efadv_get_max_sq_depth(struct ibv_context *ibvctx, struct efadv_sq_depth_attr *attr,
+			   uint32_t inlen);
+
 int efadv_query_ah(struct ibv_ah *ibvah, struct efadv_ah_attr *attr,
 		   uint32_t inlen);
 

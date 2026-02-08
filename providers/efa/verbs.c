@@ -1607,12 +1607,57 @@ static void efa_qp_init_indices(struct efa_qp *qp)
 	qp->rq.wq.wrid_idx_pool_next = 0;
 }
 
-static int efa_calc_sq_wqe_size(struct ibv_qp_cap *cap, bool inline_write_enabled)
+static int efa_calc_sq_wqe_size(uint32_t max_inline_data, bool inline_write_enabled)
 {
-	if (cap->max_inline_data > EFA_IO_TX_DESC_INLINE_MAX_SIZE || inline_write_enabled)
+	if (max_inline_data > EFA_IO_TX_DESC_INLINE_MAX_SIZE || inline_write_enabled)
 		return EFA_IO_TX_DESC_SIZE_128;
 
 	return EFA_IO_TX_DESC_SIZE_64;
+}
+
+static int efa_calc_sq_max_depth(struct efa_context *ctx, uint32_t max_inline_data,
+				 bool write_with_inline)
+{
+	int sq_wqe_size = efa_calc_sq_wqe_size(max_inline_data, write_with_inline);
+
+	return rounddown_pow_of_two(ctx->max_llq_size / sq_wqe_size);
+}
+
+int efadv_get_max_sq_depth(struct ibv_context *ibvctx, struct efadv_sq_depth_attr *attr,
+			   uint32_t inlen)
+{
+	bool write_with_inline = !!(attr->flags & EFADV_SQ_DEPTH_ATTR_INLINE_WRITE);
+	struct efa_context *ctx = to_efa_context(ibvctx);
+
+	if (!is_efa_dev(ibvctx->device)) {
+		verbs_err(verbs_get_ctx(ibvctx), "Not an EFA device\n");
+		return -EOPNOTSUPP;
+	}
+
+	if (!vext_field_avail(typeof(*attr), max_inline_data, inlen) || attr->comp_mask) {
+		verbs_err(verbs_get_ctx(ibvctx), "Compatibility issues\n");
+		return -EINVAL;
+	}
+
+	if (attr->max_send_sge > ctx->max_sq_sge) {
+		verbs_err(verbs_get_ctx(ibvctx), "Max send SGE %u > %u\n", attr->max_send_sge,
+			  ctx->max_sq_sge);
+		return -EINVAL;
+	}
+
+	if (attr->max_rdma_sge > ctx->max_wr_rdma_sge) {
+		verbs_err(verbs_get_ctx(ibvctx), "Max RDMA SGE %u > %u\n", attr->max_rdma_sge,
+			  ctx->max_wr_rdma_sge);
+		return -EINVAL;
+	}
+
+	if (attr->max_inline_data > ctx->inline_buf_size_ex) {
+		verbs_err(verbs_get_ctx(ibvctx), "Max inline data %u > %u\n", attr->max_inline_data,
+			  ctx->inline_buf_size_ex);
+		return -EINVAL;
+	}
+
+	return efa_calc_sq_max_depth(ctx, attr->max_inline_data, write_with_inline);
 }
 
 static void efa_setup_qp(struct efa_context *ctx,
@@ -1627,7 +1672,7 @@ static void efa_setup_qp(struct efa_context *ctx,
 
 	efa_qp_init_indices(qp);
 
-	qp->sq.wqe_size = efa_calc_sq_wqe_size(cap, inline_write_enabled);
+	qp->sq.wqe_size = efa_calc_sq_wqe_size(cap->max_inline_data, inline_write_enabled);
 	qp->sq.wq.wqe_cnt = roundup_pow_of_two(max_t(uint32_t, cap->max_send_wr,
 						     ctx->min_sq_wr));
 	qp->sq.wq.max_sge = cap->max_send_sge;
@@ -1762,7 +1807,7 @@ static int efa_check_qp_limits(struct efa_context *ctx,
 			       struct efadv_qp_init_attr *efa_attr)
 {
 	bool inline_write_enabled = !!(efa_attr->flags & EFADV_QP_FLAGS_INLINE_WRITE);
-	int sq_wqe_size;
+	int sq_max_depth;
 
 	if (attr->cap.max_send_sge > ctx->max_sq_sge) {
 		verbs_err(&ctx->ibvctx,
@@ -1778,11 +1823,10 @@ static int efa_check_qp_limits(struct efa_context *ctx,
 		return EINVAL;
 	}
 
-	sq_wqe_size = efa_calc_sq_wqe_size(&attr->cap, inline_write_enabled);
-	if (attr->cap.max_send_wr * sq_wqe_size > ctx->max_llq_size) {
+	sq_max_depth = efa_calc_sq_max_depth(ctx, attr->cap.max_inline_data, inline_write_enabled);
+	if (attr->cap.max_send_wr > sq_max_depth) {
 		verbs_err(&ctx->ibvctx,
-			  "Max Send WR %u > %u\n", attr->cap.max_send_wr,
-			  ctx->max_llq_size / sq_wqe_size);
+			  "Max Send WR %u > %u\n", attr->cap.max_send_wr, sq_max_depth);
 		return EINVAL;
 	}
 

@@ -27,3 +27,6 @@ cdef extern from 'infiniband/efadv.h':
         EFADV_MR_ATTR_VALIDITY_RECV_IC_ID
         EFADV_MR_ATTR_VALIDITY_RDMA_READ_IC_ID
         EFADV_MR_ATTR_VALIDITY_RDMA_RECV_IC_ID
+
+    cpdef enum:
+        EFADV_SQ_DEPTH_ATTR_INLINE_WRITE
