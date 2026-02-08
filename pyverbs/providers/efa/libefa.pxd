@@ -47,6 +47,13 @@ cdef extern from 'infiniband/efadv.h':
         uint16_t rdma_read_ic_id;
         uint16_t rdma_recv_ic_id;
 
+    cdef struct efadv_sq_depth_attr:
+        uint64_t comp_mask;
+        uint32_t flags;
+        uint32_t max_send_sge;
+        uint32_t max_rdma_sge;
+        uint32_t max_inline_data;
+
     int efadv_query_device(v.ibv_context *ibvctx, efadv_device_attr *attrs,
                            uint32_t inlen)
     int efadv_query_ah(v.ibv_ah *ibvah, efadv_ah_attr *attr,
@@ -65,3 +72,5 @@ cdef extern from 'infiniband/efadv.h':
     int efadv_wc_read_sgid(efadv_cq *efadv_cq, v.ibv_gid *sgid)
     bool efadv_wc_is_unsolicited(efadv_cq *efadv_cq)
     int efadv_query_mr(v.ibv_mr *ibvmr, efadv_mr_attr *attr, uint32_t inlen)
+    int efadv_get_max_sq_depth(v.ibv_context *ibvctx, efadv_sq_depth_attr *attr,
+                               uint32_t inlen)

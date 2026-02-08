@@ -330,3 +330,48 @@ cdef class EfaMR(MR):
             raise PyverbsRDMAError(f'Failed to query EFA MR', rc)
 
         return mr_attr
+
+
+cdef class EfaDVSQDepthAttr(PyverbsObject):
+    """
+    Represents efadv_sq_depth_attr struct
+    """
+    @property
+    def comp_mask(self):
+        return self.sq_depth_attr.comp_mask
+
+    @comp_mask.setter
+    def comp_mask(self, val):
+        self.sq_depth_attr.comp_mask = val
+
+    @property
+    def flags(self):
+        return self.sq_depth_attr.flags
+
+    @flags.setter
+    def flags(self, val):
+        self.sq_depth_attr.flags = val
+
+    @property
+    def max_send_sge(self):
+        return self.sq_depth_attr.max_send_sge
+
+    @max_send_sge.setter
+    def max_send_sge(self, val):
+        self.sq_depth_attr.max_send_sge = val
+
+    @property
+    def max_rdma_sge(self):
+        return self.sq_depth_attr.max_rdma_sge
+
+    @max_rdma_sge.setter
+    def max_rdma_sge(self, val):
+        self.sq_depth_attr.max_rdma_sge = val
+
+    @property
+    def max_inline_data(self):
+        return self.sq_depth_attr.max_inline_data
+
+    @max_inline_data.setter
+    def max_inline_data(self, val):
+        self.sq_depth_attr.max_inline_data = val
