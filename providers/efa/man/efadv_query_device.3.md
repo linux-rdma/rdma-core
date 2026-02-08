@@ -36,7 +36,7 @@ struct efadv_device_attr {
 	uint16_t max_sq_sge;
 	uint16_t max_rq_sge;
 	uint16_t inline_buf_size;
-	uint8_t reserved[2];
+	uint16_t inline_buf_size_ex;
 	uint32_t device_caps;
 	uint32_t max_rdma_size;
 };
@@ -61,6 +61,9 @@ struct efadv_device_attr {
 :	Maximum Receive Queue (RQ) Scatter Gather Elements (SGEs).
 
 *inline_buf_size*
+:	Maximum inline buffer size (deprecated by inline_buf_size_ex).
+
+*inline_buf_size_ex*
 :	Maximum inline buffer size.
 
 *device_caps*

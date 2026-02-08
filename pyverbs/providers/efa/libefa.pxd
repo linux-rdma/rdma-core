@@ -1,5 +1,5 @@
 # SPDX-License-Identifier: (GPL-2.0 OR Linux-OpenIB)
-# Copyright 2020-2024 Amazon.com, Inc. or its affiliates. All rights reserved.
+# Copyright 2020-2026 Amazon.com, Inc. or its affiliates. All rights reserved.
 
 #cython: language_level=3
 
@@ -17,7 +17,7 @@ cdef extern from 'infiniband/efadv.h':
         uint16_t max_sq_sge;
         uint16_t max_rq_sge;
         uint16_t inline_buf_size;
-        uint8_t reserved[2];
+        uint16_t inline_buf_size_ex;
         uint32_t device_caps;
         uint32_t max_rdma_size;
 

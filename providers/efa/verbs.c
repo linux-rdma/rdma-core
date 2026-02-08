@@ -158,7 +158,7 @@ int efadv_query_device(struct ibv_context *ibvctx,
 		return EOPNOTSUPP;
 	}
 
-	if (!vext_field_avail(typeof(*attr), inline_buf_size, inlen)) {
+	if (!vext_field_avail(typeof(*attr), inline_buf_size_ex, inlen)) {
 		verbs_err(verbs_get_ctx(ibvctx), "Compatibility issues\n");
 		return EINVAL;
 	}
@@ -169,6 +169,7 @@ int efadv_query_device(struct ibv_context *ibvctx,
 	attr->max_sq_sge = ctx->max_sq_sge;
 	attr->max_rq_sge = ctx->max_rq_sge;
 	attr->inline_buf_size = ctx->inline_buf_size;
+	attr->inline_buf_size_ex = ctx->inline_buf_size_ex;
 
 	if (vext_field_avail(typeof(*attr), device_caps, inlen)) {
 		if (EFA_DEV_CAP(ctx, RNR_RETRY))
