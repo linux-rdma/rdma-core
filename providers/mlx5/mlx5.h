@@ -645,6 +645,7 @@ struct mlx5_dm {
 	void			       *mmap_va;
 	void			       *start_va;
 	uint64_t			remote_va;
+	off_t pg_off;
 };
 
 struct mlx5_mr {
@@ -1268,6 +1269,7 @@ int mlx5_modify_flow_action_esp(struct ibv_flow_action *action,
 struct ibv_dm *mlx5_alloc_dm(struct ibv_context *context,
 			     struct ibv_alloc_dm_attr *dm_attr);
 int mlx5_free_dm(struct ibv_dm *ibdm);
+int mlx5_dm_export_dmabuf_fd(struct ibv_dm *dm);
 struct ibv_mr *mlx5_reg_dm_mr(struct ibv_pd *pd, struct ibv_dm *ibdm,
 			      uint64_t dm_offset, size_t length,
 			      unsigned int acc);
@@ -1635,6 +1637,7 @@ struct mlx5_dv_context_ops {
 					size_t length, uint64_t iova, int fd,
 					int access, int mlx5_access);
 	int (*get_data_direct_sysfs_path)(struct ibv_context *context, char *buf, size_t buf_len);
+	int (*devx_uar_export_dmabuf_fd)(struct mlx5dv_devx_uar *dv_devx_uar);
 };
 
 struct mlx5_dv_context_ops *mlx5_get_dv_ops(struct ibv_context *context);
