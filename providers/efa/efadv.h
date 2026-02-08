@@ -62,6 +62,14 @@ struct efadv_sq_depth_attr {
 int efadv_get_max_sq_depth(struct ibv_context *ibvctx, struct efadv_sq_depth_attr *attr,
 			   uint32_t inlen);
 
+struct efadv_rq_depth_attr {
+	uint64_t comp_mask;
+	uint32_t max_recv_sge;
+};
+
+int efadv_get_max_rq_depth(struct ibv_context *ibvctx, struct efadv_rq_depth_attr *attr,
+			   uint32_t inlen);
+
 int efadv_query_ah(struct ibv_ah *ibvah, struct efadv_ah_attr *attr,
 		   uint32_t inlen);
 
