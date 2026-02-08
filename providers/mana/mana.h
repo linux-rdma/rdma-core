@@ -9,6 +9,7 @@
 #include "manadv.h"
 #include <ccan/minmax.h>
 #include "shadow_queue.h"
+#include "gdma.h"
 
 #define COMP_ENTRY_SIZE 64
 #define MANA_IB_TOEPLITZ_HASH_KEY_SIZE_IN_BYTES 40
@@ -44,12 +45,19 @@
 #define PSN_ADD(PSN, DELTA) (((PSN) + (DELTA)) & PSN_MASK)
 
 enum user_queue_types {
-	USER_RC_SEND_QUEUE_REQUESTER = 0,
-	USER_RC_SEND_QUEUE_RESPONDER = 1,
-	USER_RC_RECV_QUEUE_REQUESTER = 2,
-	USER_RC_RECV_QUEUE_RESPONDER = 3,
-	USER_RC_QUEUE_TYPE_MAX = 4,
+	USER_RNIC_SEND_QUEUE_REQUESTER = 0,
+	USER_RNIC_SEND_QUEUE_RESPONDER = 1,
+	USER_RNIC_RECV_QUEUE_REQUESTER = 2,
+	USER_RNIC_RECV_QUEUE_RESPONDER = 3,
+	USER_RNIC_QUEUE_TYPE_MAX = 4,
 };
+
+#define QUEUE_TYPE_MASK 0x3
+#define QUEUE_TYPE_SREQ 0x0
+#define QUEUE_TYPE_SRESP 0x1
+#define QUEUE_TYPE_SMMQ 0x2
+#define QUEUE_TYPE_RRESP 0x0
+#define QUEUE_TYPE_RREQ 0x1
 
 static inline uint32_t align_hw_size(uint32_t size)
 {
@@ -111,20 +119,19 @@ struct mana_ib_raw_qp {
 	uint32_t tx_vp_offset;
 };
 
-struct mana_ib_rc_qp {
-	struct mana_gdma_queue queues[USER_RC_QUEUE_TYPE_MAX];
-	uint32_t sq_ssn;
-	uint32_t sq_psn;
+struct mana_ib_rnic_qp {
+	struct mana_gdma_queue queues[USER_RNIC_QUEUE_TYPE_MAX];
 };
 
 struct mana_qp {
 	struct verbs_qp ibqp;
 	pthread_spinlock_t sq_lock;
 	pthread_spinlock_t rq_lock;
-
+	uint32_t sq_ssn;
+	uint32_t sq_psn;
 	union {
 		struct mana_ib_raw_qp raw_qp;
-		struct mana_ib_rc_qp rc_qp;
+		struct mana_ib_rnic_qp rnic_qp;
 	};
 
 	enum ibv_mtu mtu;
@@ -133,9 +140,26 @@ struct mana_qp {
 	struct shadow_queue shadow_rq;
 	struct shadow_queue shadow_sq;
 
-	struct list_node send_cq_node;
-	struct list_node recv_cq_node;
+	struct list_node send_err_node;
+	struct list_node recv_err_node;
+	bool on_err_list_send;
+	bool on_err_list_recv;
 };
+
+static inline struct mana_gdma_queue *mana_ib_get_rresp(struct mana_qp *qp)
+{
+	return &qp->rnic_qp.queues[USER_RNIC_RECV_QUEUE_RESPONDER];
+}
+
+static inline struct mana_gdma_queue *mana_ib_get_rreq(struct mana_qp *qp)
+{
+	return &qp->rnic_qp.queues[USER_RNIC_RECV_QUEUE_REQUESTER];
+}
+
+static inline struct mana_gdma_queue *mana_ib_get_sreq(struct mana_qp *qp)
+{
+	return &qp->rnic_qp.queues[USER_RNIC_SEND_QUEUE_REQUESTER];
+}
 
 struct mana_wq {
 	struct ibv_wq ibwq;
@@ -159,10 +183,10 @@ struct mana_cq {
 	uint32_t head;
 	uint32_t poll_credit;
 	void *db_page;
-	/* list of qp's that use this cq for send completions */
-	struct list_head send_qp_list;
-	/* list of qp's that use this cq for recv completions */
-	struct list_head recv_qp_list;
+	struct list_head send_err_qp_list;
+	struct list_head recv_err_qp_list;
+	struct gdma_cqe pending_cqe;
+	bool has_pending_cqe;
 	bool buf_external;
 };
 

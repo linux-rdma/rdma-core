@@ -180,7 +180,7 @@ union mana_rdma_cqe {
 		uint32_t reserved2	: 8;
 		uint32_t imm_data;
 		uint32_t rx_wqe_offset;
-	} rc_recv;
+	} rnic_recv;
 	struct {
 		uint32_t cqe_type	: 8;
 		uint32_t vendor_error	: 9;
