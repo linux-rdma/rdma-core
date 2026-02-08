@@ -1,6 +1,6 @@
 /* SPDX-License-Identifier: GPL-2.0 OR BSD-2-Clause */
 /*
- * Copyright 2019-2025 Amazon.com, Inc. or its affiliates. All rights reserved.
+ * Copyright 2019-2026 Amazon.com, Inc. or its affiliates. All rights reserved.
  */
 
 #ifndef __EFA_H__
@@ -31,6 +31,7 @@ struct efa_context {
 	uint32_t cmds_supp_udata_mask;
 	uint16_t sub_cqs_per_cq;
 	uint16_t inline_buf_size;
+	uint16_t inline_buf_size_ex;
 	uint32_t max_llq_size;
 	uint32_t device_caps;
 	uint32_t max_sq_wr;
