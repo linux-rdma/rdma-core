@@ -1,5 +1,5 @@
 # SPDX-License-Identifier: (GPL-2.0 OR Linux-OpenIB)
-# Copyright 2020-2024 Amazon.com, Inc. or its affiliates. All rights reserved.
+# Copyright 2020-2026 Amazon.com, Inc. or its affiliates. All rights reserved.
 
 cimport pyverbs.providers.efa.efa_enums as dve
 cimport pyverbs.providers.efa.libefa as dv
@@ -93,6 +93,10 @@ cdef class EfaDVDeviceAttr(PyverbsObject):
         return self.device_attr.inline_buf_size
 
     @property
+    def inline_buf_size_ex(self):
+        return self.device_attr.inline_buf_size_ex
+
+    @property
     def device_caps(self):
         return self.device_attr.device_caps
 
@@ -108,6 +112,7 @@ cdef class EfaDVDeviceAttr(PyverbsObject):
             print_format.format('Max SQ SQE', self.device_attr.max_sq_sge) + \
             print_format.format('Max RQ SQE', self.device_attr.max_rq_sge) + \
             print_format.format('Inline buffer size', self.device_attr.inline_buf_size) + \
+            print_format.format('Inline buffer size ex', self.device_attr.inline_buf_size_ex) + \
             print_format.format('Device Capabilities', dev_cap_to_str(self.device_attr.device_caps)) + \
             print_format.format('Max RDMA Size', self.device_attr.max_rdma_size)
 
