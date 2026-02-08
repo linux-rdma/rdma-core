@@ -191,8 +191,10 @@ libhns.so.1 ibverbs-providers #MINVER#
 libmana.so.1 ibverbs-providers #MINVER#
 * Build-Depends-Package: libibverbs-dev
  MANA_1.0@MANA_1.0 41
+ MANA_1.1@MANA_1.1 62
  manadv_init_obj@MANA_1.0 41
  manadv_set_context_attr@MANA_1.0 41
+ manadv_alloc_pd@MANA_1.1 62
 libionic.so.1 ibverbs-providers #MINVER#
 * Build-Depends-Package: libibverbs-dev
  IONIC_1.0@IONIC_1.0 59
