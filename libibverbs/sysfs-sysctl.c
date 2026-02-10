@@ -32,6 +32,7 @@
 #define _GNU_SOURCE
 #include <config.h>
 
+#include <stdarg.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <unistd.h>
@@ -111,6 +112,33 @@ int ibv_read_ibdev_sysfs_file(char *buf, size_t size,
 			      struct verbs_sysfs_dev *sysfs_dev,
 			      const char *fnfmt, ...)
 {
-	/* XXXKIB */
+	char comp[IBV_SYSFS_PATH_MAX];
+	va_list ap;
+
+	va_start(ap, fnfmt);
+	vsnprintf(comp, sizeof(comp), fnfmt, ap);
+	va_end(ap);
+
+	if (strcmp(comp, "device/modalias") == 0) {
+		char path_device[IBV_SYSFS_PATH_MAX];
+		char value[64];
+		unsigned vendor;
+		unsigned devid;
+
+		snprintf(path_device, sizeof(path_device), "%s/%s/%s/device",
+		    ibv_get_sysfs_path(), "class/infiniband_verbs",
+		    sysfs_dev->sysfs_name);
+		if (ibv_read_sysfs_file(path_device, "vendor", value,
+		    sizeof(value)) < 0)
+			return -1;
+		vendor = strtoul(value, NULL, 0);
+		if (ibv_read_sysfs_file(path_device, "device", value,
+		    sizeof(value)) < 0)
+			return -1;
+		devid = strtoul(value, NULL, 0);
+		snprintf(buf, size, "pci:v%08Xd%08Xsv", vendor, devid);
+		return 1;
+	}
+
 	return -1;
 }
