@@ -12,7 +12,7 @@ import errno
 import os
 
 from pyverbs.pyverbs_error import PyverbsRDMAError
-from pyverbs.qp import QPAttr, QP
+from pyverbs.qp import QPAttr, QP, QPRateLimitAttr
 from tests.base import PyverbsAPITestCase, RDMATestCase, RCResources
 import pyverbs.utils as pu
 import pyverbs.device as d
@@ -404,6 +404,27 @@ class QPTest(PyverbsAPITestCase):
                 self.assertEqual(qp_attr.qkey, qa.qkey,
                                  f'Extended QP, Privileged QKey is not as '\
                                  f'expected. Got: 0x{qp_attr.qkey:08x}, Expected: 0x{qa.qkey:08x}')
+
+    @u.skip_unsupported
+    @u.requires_cap_net_raw()
+    @u.requires_eth()
+    def test_raw_qp_rate_limit_modify(self):
+        """
+        Test RAW QP rate limit modification using modify() and modify_qp_rate_limit().
+        """
+        with PD(self.ctx) as pd:
+            with CQ(self.ctx, 100, None, None, 0) as cq:
+                qia = u.get_qp_init_attr(cq, self.attr)
+                qia.qp_type = ibv_qp_type.IBV_QPT_RAW_PACKET
+                qp = self.create_qp(pd, qia, False, False, self.ib_port)
+                qa = QPAttr(port_num=self.ib_port)
+                qp.to_rtr(qa)
+                qa.qp_state = ibv_qp_state.IBV_QPS_RTS
+                qa.rate_limit = 5000
+                qp.modify(qa, ibv_qp_attr_mask.IBV_QP_STATE | ibv_qp_attr_mask.IBV_QP_RATE_LIMIT)
+                rate_attr_zero = QPRateLimitAttr(rate_limit=0)
+                qp.modify_rate_limit(rate_attr_zero)
+
 
 class RCQPTest(RDMATestCase):
     """
