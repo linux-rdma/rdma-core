@@ -479,6 +479,12 @@ cdef extern from 'infiniband/verbs.h':
         unsigned char   alt_timeout
         unsigned int    rate_limit
 
+    cdef struct ibv_qp_rate_limit_attr:
+        unsigned int    rate_limit
+        unsigned int    max_burst_sz
+        unsigned short  typical_pkt_sz
+        unsigned int    comp_mask
+
     cdef struct ibv_srq:
         ibv_context     *context
         void            *srq_context
@@ -751,6 +757,7 @@ cdef extern from 'infiniband/verbs.h':
     ibv_qp *ibv_create_qp_ex(ibv_context *context,
                              ibv_qp_init_attr_ex *qp_init_attr_ex)
     int ibv_modify_qp(ibv_qp *qp, ibv_qp_attr *qp_attr, int comp_mask)
+    int ibv_modify_qp_rate_limit(ibv_qp *qp, ibv_qp_rate_limit_attr *attr)
     int ibv_query_qp(ibv_qp *qp, ibv_qp_attr *attr, int attr_mask,
                      ibv_qp_init_attr *init_attr)
     int ibv_destroy_qp(ibv_qp *qp)

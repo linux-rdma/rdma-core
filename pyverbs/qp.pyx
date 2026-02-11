@@ -924,6 +924,60 @@ cdef class ECE(PyverbsCM):
             print_format.format('Comp Mask', self.ece.comp_mask)
 
 
+cdef class QPRateLimitAttr(PyverbsObject):
+    """
+    Represents ibv_qp_rate_limit_attr struct.
+    """
+    def __init__(self, rate_limit=0, max_burst_sz=0, typical_pkt_sz=0, comp_mask=0):
+        """
+        Initialize a QPRateLimitAttr object.
+        :param rate_limit: Rate limit in kbps (0 = unlimited)
+        :param max_burst_sz: Maximum burst size in bytes
+        :param typical_pkt_sz: Typical packet size in bytes
+        :param comp_mask: Compatibility mask
+        """
+        super().__init__()
+        self.attr.rate_limit = rate_limit
+        self.attr.max_burst_sz = max_burst_sz
+        self.attr.typical_pkt_sz = typical_pkt_sz
+        self.attr.comp_mask = comp_mask
+
+    @property
+    def rate_limit(self):
+        return self.attr.rate_limit
+    @rate_limit.setter
+    def rate_limit(self, val):
+        self.attr.rate_limit = val
+
+    @property
+    def max_burst_sz(self):
+        return self.attr.max_burst_sz
+    @max_burst_sz.setter
+    def max_burst_sz(self, val):
+        self.attr.max_burst_sz = val
+
+    @property
+    def typical_pkt_sz(self):
+        return self.attr.typical_pkt_sz
+    @typical_pkt_sz.setter
+    def typical_pkt_sz(self, val):
+        self.attr.typical_pkt_sz = val
+
+    @property
+    def comp_mask(self):
+        return self.attr.comp_mask
+    @comp_mask.setter
+    def comp_mask(self, val):
+        self.attr.comp_mask = val
+
+    def __str__(self):
+        print_format = '{:22}: {:<20}\n'
+        return print_format.format('Rate limit (kbps)', self.attr.rate_limit) +\
+               print_format.format('Max burst size', self.attr.max_burst_sz) +\
+               print_format.format('Typical packet size', self.attr.typical_pkt_sz) +\
+               print_format.format('Comp mask', self.attr.comp_mask)
+
+
 cdef class QP(PyverbsCM):
     def __init__(self, object creator not None, object init_attr not None,
                  QPAttr qp_attr=None):
@@ -1168,6 +1222,18 @@ cdef class QP(PyverbsCM):
         rc = v.ibv_modify_qp(self.qp, &qp_attr.attr, comp_mask)
         if rc != 0:
             raise PyverbsRDMAError('Failed to modify QP', rc)
+
+    def modify_rate_limit(self, QPRateLimitAttr attr not None):
+        """
+        Modify QP rate limit.
+        This is a lightweight API to modify only the rate limit without
+        affecting other QP attributes.
+        :param attr: QPRateLimitAttr object with rate limiting parameters
+        :return: None
+        """
+        rc = v.ibv_modify_qp_rate_limit(self.qp, &attr.attr)
+        if rc != 0:
+            raise PyverbsRDMAError('Failed to modify QP rate limit', rc)
 
     def post_recv(self, RecvWR wr not None, RecvWR bad_wr=None):
         """
