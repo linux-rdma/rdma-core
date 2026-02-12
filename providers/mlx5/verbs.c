@@ -6036,6 +6036,49 @@ int mlx5dv_devx_umem_dereg(struct mlx5dv_devx_umem *dv_devx_umem)
 
 }
 
+int mlx5dv_devx_umem_export(struct mlx5dv_devx_umem *dv_devx_umem,
+			    void *data)
+{
+	struct mlx5_devx_umem *umem = container_of(dv_devx_umem,
+						   struct mlx5_devx_umem,
+						   dv_devx_umem);
+	struct mlx5dv_devx_umem_attrs *attrs = data;
+
+	memset(data, 0, sizeof(*attrs));
+	attrs->handle = umem->handle;
+	attrs->umem_id = dv_devx_umem->umem_id;
+
+	return 0;
+}
+
+struct mlx5dv_devx_umem *
+mlx5dv_devx_umem_import(struct ibv_context *context, void *data)
+{
+	struct mlx5dv_devx_umem_attrs *attrs = data;
+	struct mlx5_devx_umem *umem;
+
+	umem = calloc(1, sizeof(*umem));
+	if (!umem) {
+		errno = ENOMEM;
+		return NULL;
+	}
+
+	umem->handle = attrs->handle;
+	umem->context = context;
+	umem->dv_devx_umem.umem_id = attrs->umem_id;
+
+	return &umem->dv_devx_umem;
+}
+
+void mlx5dv_devx_umem_unimport(struct mlx5dv_devx_umem *dv_devx_umem)
+{
+	struct mlx5_devx_umem *umem = container_of(dv_devx_umem,
+						   struct mlx5_devx_umem,
+						   dv_devx_umem);
+
+	free(umem);
+}
+
 static void set_devx_obj_info(const void *in, const void *out,
 			      struct mlx5dv_devx_obj *obj)
 {
