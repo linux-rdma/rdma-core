@@ -1767,6 +1767,12 @@ int mlx5dv_devx_obj_query(struct mlx5dv_devx_obj *obj, const void *in, size_t in
 int mlx5dv_devx_obj_modify(struct mlx5dv_devx_obj *obj, const void *in, size_t inlen,
 			   void *out, size_t outlen);
 int mlx5dv_devx_obj_destroy(struct mlx5dv_devx_obj *obj);
+
+int mlx5dv_devx_obj_export(struct mlx5dv_devx_obj *obj, void *data);
+struct mlx5dv_devx_obj *mlx5dv_devx_obj_import(struct ibv_context *context,
+					       void *data);
+void mlx5dv_devx_obj_unimport(struct mlx5dv_devx_obj *obj);
+
 int mlx5dv_devx_general_cmd(struct ibv_context *context, const void *in, size_t inlen,
 			    void *out, size_t outlen);
 

@@ -6228,6 +6228,47 @@ int mlx5dv_devx_obj_destroy(struct mlx5dv_devx_obj *obj)
 	return dvops->devx_obj_destroy(obj);
 }
 
+int mlx5dv_devx_obj_export(struct mlx5dv_devx_obj *obj, void *data)
+{
+	struct mlx5dv_devx_obj_attrs *attrs = data;
+
+	memset(data, 0, sizeof(*attrs));
+	attrs->handle = obj->handle;
+	attrs->type = obj->type;
+	attrs->object_id = obj->object_id;
+	attrs->rx_icm_addr = obj->rx_icm_addr;
+	attrs->log_obj_range = obj->log_obj_range;
+
+	return 0;
+}
+
+struct mlx5dv_devx_obj *mlx5dv_devx_obj_import(struct ibv_context *context,
+					       void *data)
+{
+	struct mlx5dv_devx_obj_attrs *attrs = data;
+	struct mlx5dv_devx_obj *obj;
+
+	obj = calloc(1, sizeof(*obj));
+	if (!obj) {
+		errno = ENOMEM;
+		return NULL;
+	}
+
+	obj->handle = attrs->handle;
+	obj->type = attrs->type;
+	obj->object_id = attrs->object_id;
+	obj->rx_icm_addr = attrs->rx_icm_addr;
+	obj->log_obj_range = attrs->log_obj_range;
+	obj->context = context;
+
+	return obj;
+}
+
+void mlx5dv_devx_obj_unimport(struct mlx5dv_devx_obj *obj)
+{
+	free(obj);
+}
+
 static int _mlx5dv_devx_general_cmd(struct ibv_context *context, const void *in,
 				    size_t inlen, void *out, size_t outlen)
 {
