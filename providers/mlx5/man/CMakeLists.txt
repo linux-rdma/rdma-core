@@ -25,6 +25,7 @@ rdma_man_pages(
   mlx5dv_devx_query_eqn.3.md
   mlx5dv_devx_subscribe_devx_event.3.md
   mlx5dv_devx_uar_export_dmabuf_fd.3.md
+  mlx5dv_devx_umem_export.3.md
   mlx5dv_devx_umem_reg.3.md
   mlx5dv_dm_map_op_addr.3.md
   mlx5dv_dr_flow.3.md
@@ -93,6 +94,8 @@ rdma_alias_man_pages(
  mlx5dv_devx_qp_modify.3 mlx5dv_devx_ind_tbl_modify.3
  mlx5dv_devx_qp_modify.3 mlx5dv_devx_ind_tbl_query.3
  mlx5dv_devx_subscribe_devx_event.3 mlx5dv_devx_subscribe_devx_event_fd.3
+ mlx5dv_devx_umem_export.3 mlx5dv_devx_umem_import.3
+ mlx5dv_devx_umem_export.3 mlx5dv_devx_umem_unimport.3
  mlx5dv_devx_umem_reg.3 mlx5dv_devx_umem_dereg.3
  mlx5dv_devx_umem_reg.3 mlx5dv_devx_umem_reg_ex.3
  mlx5dv_dr_flow.3 mlx5dv_dr_action_create_aso.3

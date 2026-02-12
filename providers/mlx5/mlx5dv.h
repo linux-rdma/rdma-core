@@ -1813,6 +1813,11 @@ mlx5dv_devx_umem_reg_ex(struct ibv_context *ctx, struct mlx5dv_devx_umem_in *ume
 
 int mlx5dv_devx_umem_dereg(struct mlx5dv_devx_umem *umem);
 
+int mlx5dv_devx_umem_export(struct mlx5dv_devx_umem *umem, void *data);
+struct mlx5dv_devx_umem *
+mlx5dv_devx_umem_import(struct ibv_context *context, void *data);
+void mlx5dv_devx_umem_unimport(struct mlx5dv_devx_umem *umem);
+
 struct mlx5dv_devx_uar {
 	void *reg_addr;
 	void *base_addr;
