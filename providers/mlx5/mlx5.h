@@ -809,6 +809,26 @@ struct mlx5_var_obj {
 	uint32_t handle;
 };
 
+struct mlx5dv_var_attrs {
+	uint32_t handle;
+	uint32_t page_id;
+	uint32_t length;
+	off_t mmap_off;
+};
+
+struct mlx5dv_devx_obj_attrs {
+	uint32_t handle;
+	uint32_t type;
+	uint32_t object_id;
+	uint64_t rx_icm_addr;
+	uint8_t log_obj_range;
+};
+
+struct mlx5dv_devx_umem_attrs {
+	uint32_t handle;
+	uint32_t umem_id;
+};
+
 struct mlx5_pp_obj {
 	struct mlx5dv_pp dv_pp;
 	struct ibv_context *context;

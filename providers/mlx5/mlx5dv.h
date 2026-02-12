@@ -1832,6 +1832,21 @@ struct mlx5dv_var *
 mlx5dv_alloc_var(struct ibv_context *context, uint32_t flags);
 void mlx5dv_free_var(struct mlx5dv_var *dv_var);
 
+struct mlx5dv_export_sizes {
+	uint32_t var_attrs_size;
+	uint32_t devx_umem_attrs_size;
+	uint32_t devx_obj_attrs_size;
+};
+
+void _mlx5dv_get_export_sizes(struct mlx5dv_export_sizes *sizes,
+			      size_t sizes_len);
+
+static inline void
+mlx5dv_get_export_sizes(struct mlx5dv_export_sizes *sizes)
+{
+	_mlx5dv_get_export_sizes(sizes, sizeof(*sizes));
+}
+
 int mlx5dv_devx_query_eqn(struct ibv_context *context, uint32_t vector,
 			  uint32_t *eqn);
 
