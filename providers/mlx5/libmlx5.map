@@ -240,3 +240,8 @@ MLX5_1.26 {
 	global:
 		mlx5dv_devx_uar_export_dmabuf_fd;
 } MLX5_1.25;
+
+MLX5_1.27 {
+	global:
+		_mlx5dv_get_export_sizes;
+} MLX5_1.26;

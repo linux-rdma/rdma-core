@@ -8002,6 +8002,16 @@ void mlx5dv_free_var(struct mlx5dv_var *dv_var)
 	return dvops->free_var(dv_var);
 }
 
+void _mlx5dv_get_export_sizes(struct mlx5dv_export_sizes *sizes,
+			      size_t sizes_len)
+{
+	memset(sizes, 0, sizes_len);
+
+	sizes->var_attrs_size = sizeof(struct mlx5dv_var_attrs);
+	sizes->devx_umem_attrs_size = sizeof(struct mlx5dv_devx_umem_attrs);
+	sizes->devx_obj_attrs_size = sizeof(struct mlx5dv_devx_obj_attrs);
+}
+
 static struct mlx5dv_pp *_mlx5dv_pp_alloc(struct ibv_context *context,
 					  size_t pp_context_sz,
 					  const void *pp_context,
