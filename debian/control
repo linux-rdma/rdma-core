@@ -3,6 +3,7 @@ Maintainer: Benjamin Drung <bdrung@ubuntu.com>
 Section: net
 Build-Depends: debhelper-compat (= 13),
                dh-python,
+               dh-sequence-installsysusers,
                dpkg-dev (>= 1.22.5),
                cmake (>= 2.8.11),
                cython3:native,
@@ -146,7 +147,7 @@ Architecture: linux-any
 Multi-Arch: same
 Section: libs
 Pre-Depends: ${misc:Pre-Depends}
-Depends: adduser, ${misc:Depends}, ${shlibs:Depends}
+Depends: ${misc:Depends}, ${shlibs:Depends}
 Recommends: ibverbs-providers
 Breaks: ibverbs-providers (<< 59~)
 Description: Library for direct userspace use of RDMA (InfiniBand/iWARP)
