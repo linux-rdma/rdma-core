@@ -14,7 +14,9 @@ rdma_man_pages(
   ibv_create_ah.3
   ibv_create_ah_from_wc.3
   ibv_create_comp_channel.3
+  ibv_create_comp_cntr.3.md
   ibv_create_counters.3.md
+  ibv_qp_attach_comp_cntr.3.md
   ibv_create_cq.3
   ibv_create_cq_ex.3
   ibv_modify_cq.3
@@ -98,6 +100,11 @@ rdma_alias_man_pages(
   ibv_create_ah.3 ibv_destroy_ah.3
   ibv_create_ah_from_wc.3 ibv_init_ah_from_wc.3
   ibv_create_comp_channel.3 ibv_destroy_comp_channel.3
+  ibv_create_comp_cntr.3 ibv_destroy_comp_cntr.3
+  ibv_create_comp_cntr.3 ibv_set_comp_cntr.3
+  ibv_create_comp_cntr.3 ibv_set_err_comp_cntr.3
+  ibv_create_comp_cntr.3 ibv_inc_comp_cntr.3
+  ibv_create_comp_cntr.3 ibv_inc_err_comp_cntr.3
   ibv_create_counters.3 ibv_destroy_counters.3
   ibv_create_cq.3 ibv_destroy_cq.3
   ibv_create_flow.3 ibv_destroy_flow.3
