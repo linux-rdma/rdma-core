@@ -344,20 +344,11 @@ static struct pingpong_context *pp_init_ctx(struct ibv_device *ib_dev, int size,
 	ctx->send_flags = IBV_SEND_SIGNALED;
 	ctx->rx_depth   = rx_depth;
 
-	ctx->buf = memalign(page_size, size);
-	if (!ctx->buf) {
-		fprintf(stderr, "Couldn't allocate work buf.\n");
-		goto clean_ctx;
-	}
-
-	/* FIXME memset(ctx->buf, 0, size); */
-	memset(ctx->buf, 0x7b, size);
-
 	ctx->context = ibv_open_device(ib_dev);
 	if (!ctx->context) {
 		fprintf(stderr, "Couldn't get context for %s\n",
 			ibv_get_device_name(ib_dev));
-		goto clean_buffer;
+		goto clean_ctx;
 	}
 
 	if (use_event) {
@@ -431,6 +422,15 @@ static struct pingpong_context *pp_init_ctx(struct ibv_device *ib_dev, int size,
 		}
 	}
 
+	ctx->buf = memalign(page_size, size);
+	if (!ctx->buf) {
+		fprintf(stderr, "Couldn't allocate work buf.\n");
+		goto clean_dm;
+	}
+
+	/* FIXME memset(ctx->buf, 0, size); */
+	memset(ctx->buf, 0x7b, size);
+
 	if (implicit_odp) {
 		ctx->mr = ibv_reg_mr(ctx->pd, NULL, SIZE_MAX, access_flags);
 	} else {
@@ -441,7 +441,7 @@ static struct pingpong_context *pp_init_ctx(struct ibv_device *ib_dev, int size,
 
 	if (!ctx->mr) {
 		fprintf(stderr, "Couldn't register MR\n");
-		goto clean_dm;
+		goto clean_buffer;
 	}
 
 	if (prefetch_mr) {
@@ -557,6 +557,9 @@ clean_cq:
 clean_mr:
 	ibv_dereg_mr(ctx->mr);
 
+clean_buffer:
+	free(ctx->buf);
+
 clean_dm:
 	if (ctx->dm)
 		ibv_free_dm(ctx->dm);
@@ -570,9 +573,6 @@ clean_comp_channel:
 
 clean_device:
 	ibv_close_device(ctx->context);
-
-clean_buffer:
-	free(ctx->buf);
 
 clean_ctx:
 	free(ctx);
@@ -596,6 +596,8 @@ static int pp_close_ctx(struct pingpong_context *ctx)
 		fprintf(stderr, "Couldn't deregister MR\n");
 		return 1;
 	}
+
+	free(ctx->buf);
 
 	if (ctx->dm) {
 		if (ibv_free_dm(ctx->dm)) {
@@ -621,7 +623,6 @@ static int pp_close_ctx(struct pingpong_context *ctx)
 		return 1;
 	}
 
-	free(ctx->buf);
 	free(ctx);
 
 	return 0;
