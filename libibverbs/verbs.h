@@ -361,6 +361,7 @@ struct ibv_device_attr_ex {
 	struct ibv_pci_atomic_caps pci_atomic_caps;
 	uint32_t xrc_odp_caps;
 	uint32_t phys_port_cnt_ex;
+	uint32_t max_comp_cntr;
 };
 
 enum ibv_mtu {
@@ -483,6 +484,22 @@ struct ibv_async_event {
 		int		port_num;
 	} element;
 	enum ibv_event_type	event_type;
+};
+
+enum ibv_memory_location_type {
+	IBV_MEMORY_LOCATION_VA,
+	IBV_MEMORY_LOCATION_DMABUF,
+};
+
+struct ibv_memory_location {
+	uint8_t *ptr;
+	struct {
+		uint64_t offset;
+		int32_t fd;
+		uint32_t reserved;
+	} dmabuf;
+	uint8_t type; /* Use ibv_memory_location_type */
+	uint8_t reserved[7];
 };
 
 enum ibv_wc_status {
@@ -3018,6 +3035,69 @@ static inline int ibv_modify_cq(struct ibv_cq *cq, struct ibv_modify_cq_attr *at
 
 	return vctx->modify_cq(cq, attr);
 }
+
+struct ibv_comp_cntr {
+	struct ibv_context *context;
+	uint32_t handle;
+	uint64_t *comp_count;
+	uint64_t *err_count;
+	uint64_t comp_count_max_value;
+	uint64_t err_count_max_value;
+};
+
+enum {
+	IBV_COMP_CNTR_INIT_WITH_EXTERNAL_MEM,
+};
+
+struct ibv_comp_cntr_init_attr {
+	uint32_t comp_mask; /* Compatibility mask */
+	uint32_t flags;
+	struct ibv_memory_location comp_cntr_ext_mem;
+	struct ibv_memory_location err_cntr_ext_mem;
+};
+
+/**
+ * ibv_create_comp_cntr - Create a completion counter
+ * @context: Device context to create the counter on.
+ * @cc_attr: Attributes for the completion counter.
+ */
+struct ibv_comp_cntr *ibv_create_comp_cntr(struct ibv_context *context,
+					   struct ibv_comp_cntr_init_attr *cc_attr);
+
+/**
+ * ibv_destroy_comp_cntr - Destroy a completion counter
+ * @comp_cntr: The completion counter to destroy.
+ */
+int ibv_destroy_comp_cntr(struct ibv_comp_cntr *comp_cntr);
+
+/**
+ * ibv_set_comp_cntr - Set the completion count value
+ * @comp_cntr: The completion counter to update.
+ * @value: The value to set.
+ */
+int ibv_set_comp_cntr(struct ibv_comp_cntr *comp_cntr, uint64_t value);
+
+/**
+ * ibv_set_err_comp_cntr - Set the error count value
+ * @comp_cntr: The completion counter to update.
+ * @value: The value to set.
+ */
+int ibv_set_err_comp_cntr(struct ibv_comp_cntr *comp_cntr, uint64_t value);
+
+/**
+ * ibv_inc_comp_cntr - Increment the completion count
+ * @comp_cntr: The completion counter to increment.
+ * @amount: The amount to increment by.
+ */
+int ibv_inc_comp_cntr(struct ibv_comp_cntr *comp_cntr, uint64_t amount);
+
+/**
+ * ibv_inc_err_comp_cntr - Increment the error count
+ * @comp_cntr: The completion counter to increment.
+ * @amount: The amount to increment by.
+ */
+int ibv_inc_err_comp_cntr(struct ibv_comp_cntr *comp_cntr, uint64_t amount);
+
 /**
  * ibv_create_srq - Creates a SRQ associated with the specified protection
  *   domain.
@@ -3292,6 +3372,29 @@ ibv_modify_qp_rate_limit(struct ibv_qp *qp,
 
 	return vctx->modify_qp_rate_limit(qp, attr);
 }
+
+enum ibv_comp_cntr_attach_op {
+	IBV_COMP_CNTR_ATTACH_OP_SEND			= 1 << 0,
+	IBV_COMP_CNTR_ATTACH_OP_RECV			= 1 << 1,
+	IBV_COMP_CNTR_ATTACH_OP_RDMA_READ		= 1 << 2,
+	IBV_COMP_CNTR_ATTACH_OP_REMOTE_RDMA_READ	= 1 << 3,
+	IBV_COMP_CNTR_ATTACH_OP_RDMA_WRITE		= 1 << 4,
+	IBV_COMP_CNTR_ATTACH_OP_REMOTE_RDMA_WRITE	= 1 << 5,
+};
+
+struct ibv_comp_cntr_attach_attr {
+	uint32_t comp_mask; /* Compatibility mask */
+	uint32_t op_mask; /* Use ibv_comp_cntr_attach_op */
+};
+
+/**
+ * ibv_qp_attach_comp_cntr - Attach a completion counter to a QP
+ * @qp: The queue pair to attach the counter to.
+ * @comp_cntr: The completion counter to attach.
+ * @attr: Attach attributes.
+ */
+int ibv_qp_attach_comp_cntr(struct ibv_qp *qp, struct ibv_comp_cntr *comp_cntr,
+			    struct ibv_comp_cntr_attach_attr *attr);
 
 /**
  * ibv_query_qp_data_in_order - Checks whether the data is guaranteed to be
