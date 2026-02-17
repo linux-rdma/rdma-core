@@ -1308,6 +1308,8 @@ int mlx5_dealloc_td(struct ibv_td *td);
 
 struct ibv_pd *mlx5_alloc_parent_domain(struct ibv_context *context,
 					struct ibv_parent_domain_init_attr *attr);
+void *mlx5_alloc_buf_op(struct ibv_pd *pd, size_t size, struct ibv_buf **buf);
+void mlx5_free_buf_op(struct ibv_buf *buf);
 
 struct ibv_dmah *mlx5_alloc_dmah(struct ibv_context *context,
 				 struct ibv_dmah_init_attr *attr);
