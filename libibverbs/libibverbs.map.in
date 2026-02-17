@@ -191,6 +191,11 @@ IBVERBS_PRIVATE_@IBVERBS_PABI_VERSION@ {
 	global:
 		/* These historical symbols are now private to libibverbs */
 		__ioctl_final_num_attrs;
+		ibv_dmabuf_heap_alloc;
+		ibv_dmabuf_heap_cc_shared_init;
+		ibv_dmabuf_heap_destroy;
+		ibv_dmabuf_heap_free;
+		ibv_dmabuf_heap_init;
 		__verbs_log;
 		_verbs_init_and_alloc_context;
 		execute_ioctl;
