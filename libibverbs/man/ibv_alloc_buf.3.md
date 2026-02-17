@@ -83,8 +83,17 @@ if the request fails.
 
 **ibv_free_buf()** does not return a value.
 
+# NOTES
+
+Applications running in a CoCo guest that need unprotected/shared memory should
+first create a parent domain with
+**IBV_PARENT_DOMAIN_INIT_ATTR_ALLOW_CC_UNPROTECTED_ALLOC**, then use that
+parent domain as the *pd* argument to **ibv_alloc_buf()** and
+**ibv_reg_buf_mr()** (or **ibv_reg_mr_ex()** with **IBV_REG_MR_MASK_BUF**).
+
 # SEE ALSO
 
+**ibv_alloc_parent_domain**(3),
 **ibv_reg_mr**(3),
 **ibv_reg_mr_ex**(3),
 **ibv_reg_dmabuf_mr**(3)
