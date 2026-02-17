@@ -42,6 +42,7 @@
 #include <limits.h>
 
 #include <infiniband/driver.h>
+#include <infiniband/dmabuf_heap.h>
 #include <util/udma_barrier.h>
 #include <util/cl_qmap.h>
 #include <util/util.h>
@@ -203,6 +204,7 @@ enum mlx5_alloc_type {
 	MLX5_ALLOC_TYPE_PREFER_CONTIG,
 	MLX5_ALLOC_TYPE_EXTERNAL,
 	MLX5_ALLOC_TYPE_CUSTOM,
+	MLX5_ALLOC_TYPE_DMABUF,
 	MLX5_ALLOC_TYPE_ALL
 };
 
@@ -266,6 +268,7 @@ enum mlx5_ctx_flags {
 	MLX5_CTX_FLAGS_SQD2RTS_SUPPORTED = 1 << 3,
 	MLX5_CTX_FLAGS_REAL_TIME_TS_SUPPORTED = 1 << 4,
 	MLX5_CTX_FLAGS_MKEY_UPDATE_TAG_SUPPORTED = 1 << 5,
+	MLX5_CTX_FLAGS_CC_DMA_BOUNCE = 1 << 6,
 };
 
 struct mlx5_entropy_caps {
@@ -471,6 +474,7 @@ struct mlx5_parent_domain {
 	void (*free)(struct ibv_pd *pd, void *pd_context, void *ptr,
 		     uint64_t resource_type);
 	void *pd_context;
+	struct ibv_dmabuf_heap *dmabuf_heap;
 };
 
 enum {
@@ -1131,10 +1135,14 @@ void mlx5_get_alloc_type(struct mlx5_context *context,
 			 enum mlx5_alloc_type default_alloc_type);
 int mlx5_use_huge(const char *key);
 bool mlx5_is_custom_alloc(struct ibv_pd *pd);
+bool mlx5_is_dmabuf_alloc(struct ibv_pd *pd);
 bool mlx5_is_extern_alloc(struct mlx5_context *context);
 int mlx5_alloc_buf_extern(struct mlx5_context *ctx, struct mlx5_buf *buf,
 			  size_t size, struct ibv_pd *pd);
 void mlx5_free_buf_extern(struct mlx5_context *ctx, struct mlx5_buf *buf);
+int mlx5_alloc_buf_dmabuf(struct mlx5_context *ctx, struct mlx5_buf *buf,
+			  size_t size, struct ibv_pd *pd);
+void mlx5_free_buf_dmabuf(struct mlx5_context *ctx, struct mlx5_buf *buf);
 
 __be32 *mlx5_alloc_dbrec(struct mlx5_context *context, struct ibv_pd *pd,
 			 bool *custom_alloc);

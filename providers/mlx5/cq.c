@@ -1946,7 +1946,8 @@ int mlx5_alloc_cq_buf(struct mlx5_context *mctx, struct mlx5_cq *cq,
 	mlx5_get_alloc_type(mctx, cq->parent_domain,
 			    MLX5_CQ_PREFIX, &type, default_type);
 
-	if (type == MLX5_ALLOC_TYPE_CUSTOM) {
+	if (type == MLX5_ALLOC_TYPE_CUSTOM ||
+	    type == MLX5_ALLOC_TYPE_DMABUF) {
 		buf->req_alignment = dev->page_size;
 		buf->resource_type = MLX5DV_RES_TYPE_CQ;
 	}
