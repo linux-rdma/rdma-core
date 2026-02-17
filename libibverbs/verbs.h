@@ -2185,6 +2185,9 @@ struct ibv_values_ex {
 
 struct verbs_context {
 	/*  "grows up" - new fields go here */
+	void (*free_buf)(struct ibv_buf *buf);
+	void *(*alloc_buf)(struct ibv_pd *pd, size_t size,
+			   struct ibv_buf **buf);
 	int (*dm_export_dmabuf_fd)(struct ibv_dm *dm);
 	struct ibv_mr *(*reg_mr_ex)(struct ibv_pd *pd,
 				    struct ibv_mr_init_attr *mr_init_attr);
@@ -3196,6 +3199,23 @@ ibv_alloc_parent_domain(struct ibv_context *context,
 
 	return vctx->alloc_parent_domain(context, attr);
 }
+
+/**
+ * ibv_alloc_buf - Allocate a buffer using provider-configured allocation method
+ * @pd: Protection domain or parent domain
+ * @size: Buffer size in bytes
+ * @buf: On success, set to a handle for ibv_free_buf()
+ *
+ * Returns the usable buffer address on success, or NULL on failure with
+ * errno set.
+ */
+void *ibv_alloc_buf(struct ibv_pd *pd, size_t size, struct ibv_buf **buf);
+
+/**
+ * ibv_free_buf - Free a buffer allocated with ibv_alloc_buf
+ * @buf: Handle from ibv_alloc_buf()
+ */
+void ibv_free_buf(struct ibv_buf *buf);
 
 /**
  * ibv_alloc_dmah - Allocate a dma handle

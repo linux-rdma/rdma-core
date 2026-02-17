@@ -435,6 +435,16 @@ struct ibv_mr *ibv_reg_dmabuf_mr(struct ibv_pd *pd, uint64_t offset,
 	return mr;
 }
 
+void *ibv_alloc_buf(struct ibv_pd *pd, size_t size, struct ibv_buf **buf)
+{
+	return get_ops(pd->context)->alloc_buf(pd, size, buf);
+}
+
+void ibv_free_buf(struct ibv_buf *buf)
+{
+	get_ops(buf->pd->context)->free_buf(buf);
+}
+
 /* Note: mr_init_attr may be modified during this call */
 struct ibv_mr *ibv_reg_mr_ex(struct ibv_pd *pd, struct ibv_mr_init_attr *mr_init_attr)
 {
