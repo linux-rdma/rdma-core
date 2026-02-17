@@ -557,7 +557,8 @@ mlx5_alloc_parent_domain(struct ibv_context *context,
 
 	if (!check_comp_mask(attr->comp_mask,
 			     IBV_PARENT_DOMAIN_INIT_ATTR_ALLOCATORS |
-			     IBV_PARENT_DOMAIN_INIT_ATTR_PD_CONTEXT)) {
+			     IBV_PARENT_DOMAIN_INIT_ATTR_PD_CONTEXT |
+			     IBV_PARENT_DOMAIN_INIT_ATTR_ALLOW_CC_UNPROTECTED_ALLOC)) {
 		errno = EINVAL;
 		return NULL;
 	}
@@ -566,6 +567,18 @@ mlx5_alloc_parent_domain(struct ibv_context *context,
 	if (!mparent_domain) {
 		errno = ENOMEM;
 		return NULL;
+	}
+
+	if (attr->comp_mask & IBV_PARENT_DOMAIN_INIT_ATTR_ALLOW_CC_UNPROTECTED_ALLOC) {
+		struct mlx5_context *mctx = to_mctx(context);
+
+		if (mctx->flags & MLX5_CTX_FLAGS_CC_DMA_BOUNCE) {
+			mparent_domain->dmabuf_heap = ibv_dmabuf_heap_cc_shared_init();
+			if (!mparent_domain->dmabuf_heap) {
+				free(mparent_domain);
+				return NULL;
+			}
+		}
 	}
 
 	if (attr->td) {
@@ -601,6 +614,9 @@ static int mlx5_dealloc_parent_domain(struct mlx5_parent_domain *mparent_domain)
 
 	if (mparent_domain->mtd)
 		atomic_fetch_sub(&mparent_domain->mtd->refcount, 1);
+
+	if (mparent_domain->dmabuf_heap)
+		ibv_dmabuf_heap_destroy(mparent_domain->dmabuf_heap);
 
 	free(mparent_domain);
 	return 0;
@@ -2020,7 +2036,8 @@ static int mlx5_alloc_qp_buf(struct ibv_context *context,
 	mlx5_get_alloc_type(to_mctx(context), attr->pd, MLX5_QP_PREFIX,
 			    &alloc_type, default_alloc_type);
 
-	if (alloc_type == MLX5_ALLOC_TYPE_CUSTOM) {
+	if (alloc_type == MLX5_ALLOC_TYPE_CUSTOM ||
+	    alloc_type == MLX5_ALLOC_TYPE_DMABUF) {
 		qp->buf.mparent_domain = to_mparent_domain(attr->pd);
 		if (attr->qp_type != IBV_QPT_RAW_PACKET &&
 		    !(qp->flags & MLX5_QP_FLAGS_USE_UNDERLAY))
@@ -2048,7 +2065,8 @@ static int mlx5_alloc_qp_buf(struct ibv_context *context,
 		size_t aligned_sq_buf_size = align(qp->sq_buf_size,
 						   to_mdev(context->device)->page_size);
 
-		if (alloc_type == MLX5_ALLOC_TYPE_CUSTOM) {
+		if (alloc_type == MLX5_ALLOC_TYPE_CUSTOM ||
+		    alloc_type == MLX5_ALLOC_TYPE_DMABUF) {
 			qp->sq_buf.mparent_domain = to_mparent_domain(attr->pd);
 			qp->sq_buf.req_alignment = to_mdev(context->device)->page_size;
 			qp->sq_buf.resource_type = MLX5DV_RES_TYPE_QP;
@@ -4295,6 +4313,8 @@ void mlx5_query_device_ctx(struct mlx5_context *mctx)
 	mctx->cached_device_cap_flags = device_attr.orig_attr.device_cap_flags;
 	mctx->atomic_cap = device_attr.orig_attr.atomic_cap;
 	mctx->max_dm_size = device_attr.max_dm_size;
+	if (device_attr.device_cap_flags_ex & IBV_DEVICE_CC_DMA_BOUNCE)
+		mctx->flags |= MLX5_CTX_FLAGS_CC_DMA_BOUNCE;
 	mctx->cached_tso_caps = resp.tso_caps;
 
 	if (resp.mlx5_ib_support_multi_pkt_send_wqes & MLX5_IB_ALLOW_MPW)
@@ -4381,7 +4401,8 @@ static int mlx5_alloc_rwq_buf(struct ibv_context *context,
 		return -1;
 	}
 
-	if (alloc_type == MLX5_ALLOC_TYPE_CUSTOM) {
+	if (alloc_type == MLX5_ALLOC_TYPE_CUSTOM ||
+	    alloc_type == MLX5_ALLOC_TYPE_DMABUF) {
 		rwq->buf.mparent_domain = to_mparent_domain(pd);
 		rwq->buf.req_alignment = to_mdev(context->device)->page_size;
 		rwq->buf.resource_type = MLX5DV_RES_TYPE_RWQ;

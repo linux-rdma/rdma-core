@@ -389,7 +389,8 @@ int mlx5_alloc_srq_buf(struct ibv_context *context, struct mlx5_srq *srq,
 	mlx5_get_alloc_type(ctx, pd, MLX5_SRQ_PREFIX, &alloc_type,
 			    MLX5_ALLOC_TYPE_ANON);
 
-	if (alloc_type == MLX5_ALLOC_TYPE_CUSTOM) {
+	if (alloc_type == MLX5_ALLOC_TYPE_CUSTOM ||
+	    alloc_type == MLX5_ALLOC_TYPE_DMABUF) {
 		srq->buf.mparent_domain = to_mparent_domain(pd);
 		srq->buf.req_alignment = to_mdev(context->device)->page_size;
 		srq->buf.resource_type = MLX5DV_RES_TYPE_SRQ;
