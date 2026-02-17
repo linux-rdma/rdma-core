@@ -50,6 +50,7 @@ rdma_man_pages(
   mlx5dv_reserved_qpn_alloc.3.md
   mlx5dv_sched_node_create.3.md
   mlx5dv_ts_to_ns.3
+  mlx5dv_var_export.3.md
   mlx5dv_wr_mkey_configure.3.md
   mlx5dv_vfio_get_events_fd.3.md
   mlx5dv_vfio_process_events.3.md
@@ -137,6 +138,8 @@ rdma_alias_man_pages(
  mlx5dv_sched_node_create.3 mlx5dv_sched_leaf_modify.3
  mlx5dv_sched_node_create.3 mlx5dv_sched_node_destroy.3
  mlx5dv_sched_node_create.3 mlx5dv_sched_node_modify.3
+ mlx5dv_var_export.3 mlx5dv_var_import.3
+ mlx5dv_var_export.3 mlx5dv_var_unimport.3
  mlx5dv_wr_mkey_configure.3 mlx5dv_wr_set_mkey_access_flags.3
  mlx5dv_wr_mkey_configure.3 mlx5dv_wr_set_mkey_layout_interleaved.3
  mlx5dv_wr_mkey_configure.3 mlx5dv_wr_set_mkey_layout_list.3

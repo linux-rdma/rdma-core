@@ -8002,6 +8002,51 @@ void mlx5dv_free_var(struct mlx5dv_var *dv_var)
 	return dvops->free_var(dv_var);
 }
 
+int mlx5dv_var_export(struct mlx5dv_var *dv_var, void *data)
+{
+	struct mlx5_var_obj *obj = container_of(dv_var, struct mlx5_var_obj,
+						dv_var);
+	struct mlx5dv_var_attrs *attrs = data;
+
+	memset(data, 0, sizeof(*attrs));
+
+	attrs->handle = obj->handle;
+	attrs->page_id = dv_var->page_id;
+	attrs->length = dv_var->length;
+	attrs->mmap_off = dv_var->mmap_off;
+
+	return 0;
+}
+
+struct mlx5dv_var *mlx5dv_var_import(struct ibv_context *context,
+				     void *data)
+{
+	struct mlx5dv_var_attrs *attrs = data;
+	struct mlx5_var_obj *obj;
+
+	obj = calloc(1, sizeof(*obj));
+	if (!obj) {
+		errno = ENOMEM;
+		return NULL;
+	}
+
+	obj->handle = attrs->handle;
+	obj->context = context;
+	obj->dv_var.page_id = attrs->page_id;
+	obj->dv_var.length = attrs->length;
+	obj->dv_var.mmap_off = attrs->mmap_off;
+
+	return &obj->dv_var;
+}
+
+void mlx5dv_var_unimport(struct mlx5dv_var *dv_var)
+{
+	struct mlx5_var_obj *obj = container_of(dv_var, struct mlx5_var_obj,
+						dv_var);
+
+	free(obj);
+}
+
 void _mlx5dv_get_export_sizes(struct mlx5dv_export_sizes *sizes,
 			      size_t sizes_len)
 {
