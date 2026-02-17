@@ -244,4 +244,7 @@ MLX5_1.26 {
 MLX5_1.27 {
 	global:
 		_mlx5dv_get_export_sizes;
+		mlx5dv_var_export;
+		mlx5dv_var_import;
+		mlx5dv_var_unimport;
 } MLX5_1.26;

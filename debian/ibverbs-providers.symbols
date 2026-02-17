@@ -168,6 +168,9 @@ libmlx5.so.1 ibverbs-providers #MINVER#
  mlx5dv_get_data_direct_sysfs_path@MLX5_1.25 54
  mlx5dv_reg_dmabuf_mr@MLX5_1.25 54
  _mlx5dv_get_export_sizes@MLX5_1.27 63
+ mlx5dv_var_export@MLX5_1.27 63
+ mlx5dv_var_import@MLX5_1.27 63
+ mlx5dv_var_unimport@MLX5_1.27 63
 libefa.so.1 ibverbs-providers #MINVER#
 * Build-Depends-Package: libibverbs-dev
  EFA_1.0@EFA_1.0 24
