@@ -2118,6 +2118,7 @@ struct ibv_cq_init_attr_ex {
 enum ibv_parent_domain_init_attr_mask {
 	IBV_PARENT_DOMAIN_INIT_ATTR_ALLOCATORS = 1 << 0,
 	IBV_PARENT_DOMAIN_INIT_ATTR_PD_CONTEXT = 1 << 1,
+	IBV_PARENT_DOMAIN_INIT_ATTR_ALLOW_CC_UNPROTECTED_ALLOC = 1 << 2,
 };
 
 #define IBV_ALLOCATOR_USE_DEFAULT ((void *)-1)
