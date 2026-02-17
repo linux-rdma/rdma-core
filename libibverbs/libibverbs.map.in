@@ -177,6 +177,12 @@ IBVERBS_1.16 {
 		ibv_query_port_speed;
 } IBVERBS_1.15;
 
+IBVERBS_1.17 {
+	global:
+		ibv_alloc_buf;
+		ibv_free_buf;
+} IBVERBS_1.16;
+
 /* If any symbols in this stanza change ABI then the entire staza gets a new symbol
    version. See the top level CMakeLists.txt for this setting. */
 

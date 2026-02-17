@@ -370,6 +370,8 @@ struct verbs_context_ops {
 			 uint32_t flags,
 			 struct ibv_sge *sg_list,
 			 uint32_t num_sges);
+	void *(*alloc_buf)(struct ibv_pd *pd, size_t size,
+			   struct ibv_buf **buf);
 	struct ibv_dm *(*alloc_dm)(struct ibv_context *context,
 				   struct ibv_alloc_dm_attr *attr);
 	struct ibv_dmah *(*alloc_dmah)(struct ibv_context *context,
@@ -438,6 +440,7 @@ struct verbs_context_ops {
 	int (*detach_mcast)(struct ibv_qp *qp, const union ibv_gid *gid,
 			    uint16_t lid);
 	int (*dm_export_dmabuf_fd)(struct ibv_dm *dm);
+	void (*free_buf)(struct ibv_buf *buf);
 	void (*free_context)(struct ibv_context *context);
 	int (*free_dm)(struct ibv_dm *dm);
 	int (*get_srq_num)(struct ibv_srq *srq, uint32_t *srq_num);
