@@ -64,6 +64,7 @@ struct socket_calls {
 	int (*bind)(int socket, const struct sockaddr *addr, socklen_t addrlen);
 	int (*listen)(int socket, int backlog);
 	int (*accept)(int socket, struct sockaddr *addr, socklen_t *addrlen);
+	int (*accept4)(int socket, struct sockaddr *addr, socklen_t *addrlen, int flags);
 	int (*connect)(int socket, const struct sockaddr *addr, socklen_t addrlen);
 	ssize_t (*recv)(int socket, void *buf, size_t len, int flags);
 	ssize_t (*recvfrom)(int socket, void *buf, size_t len, int flags,
@@ -87,16 +88,27 @@ struct socket_calls {
 	int (*getsockopt)(int socket, int level, int optname,
 			  void *optval, socklen_t *optlen);
 	int (*fcntl)(int socket, int cmd, ... /* arg */);
+	int (*fcntl64)(int socket, int cmd, ... /* arg */);
+	int (*dup)(int oldfd);
 	int (*dup2)(int oldfd, int newfd);
 	ssize_t (*sendfile)(int out_fd, int in_fd, off_t *offset, size_t count);
+	ssize_t (*sendfile64)(int out_fd, int in_fd, off64_t *offset64, size_t count);
 	int (*fxstat)(int ver, int fd, struct stat *buf);
+	int (*epoll_create)(int size);
+	int (*epoll_create1)(int flags);
+	int (*epoll_ctl)(int epfd, int op, int fd, struct epoll_event *event);
+	int (*epoll_wait)(int epfd, struct epoll_event *events, int maxevents, int timeout);
 };
 
 static struct socket_calls real;
 static struct socket_calls rs;
 
 static struct index_map idm;
+static struct index_map ridm;
+static struct index_map ep_idm;
 static pthread_mutex_t mut = PTHREAD_MUTEX_INITIALIZER;
+static pthread_mutex_t ep_mut = PTHREAD_MUTEX_INITIALIZER;
+static pthread_mutex_t rs_mut = PTHREAD_MUTEX_INITIALIZER;
 
 static int sq_size;
 static int rq_size;
@@ -389,6 +401,7 @@ static void init_preload(void)
 	real.bind = dlsym(RTLD_NEXT, "bind");
 	real.listen = dlsym(RTLD_NEXT, "listen");
 	real.accept = dlsym(RTLD_NEXT, "accept");
+	real.accept4 = dlsym(RTLD_NEXT, "accept4");
 	real.connect = dlsym(RTLD_NEXT, "connect");
 	real.recv = dlsym(RTLD_NEXT, "recv");
 	real.recvfrom = dlsym(RTLD_NEXT, "recvfrom");
@@ -408,9 +421,16 @@ static void init_preload(void)
 	real.setsockopt = dlsym(RTLD_NEXT, "setsockopt");
 	real.getsockopt = dlsym(RTLD_NEXT, "getsockopt");
 	real.fcntl = dlsym(RTLD_NEXT, "fcntl");
+	real.fcntl64 = dlsym(RTLD_NEXT, "fcntl64");
+	real.dup = dlsym(RTLD_NEXT, "dup");
 	real.dup2 = dlsym(RTLD_NEXT, "dup2");
 	real.sendfile = dlsym(RTLD_NEXT, "sendfile");
+	real.sendfile64 = dlsym(RTLD_NEXT, "sendfile64");
 	real.fxstat = dlsym(RTLD_NEXT, "__fxstat");
+	real.epoll_create = dlsym(RTLD_NEXT, "epoll_create");
+	real.epoll_create1 = dlsym(RTLD_NEXT, "epoll_create1");
+	real.epoll_ctl = dlsym(RTLD_NEXT, "epoll_ctl");
+	real.epoll_wait = dlsym(RTLD_NEXT, "epoll_wait");
 
 	rs.socket = dlsym(RTLD_DEFAULT, "rsocket");
 	rs.bind = dlsym(RTLD_DEFAULT, "rbind");
@@ -619,6 +639,37 @@ int accept(int socket, struct sockaddr *addr, socklen_t *addrlen)
 		return real.accept(fd, addr, addrlen);
 	}
 }
+
+int accept4(int socket, struct sockaddr *addr, socklen_t *addrlen, int flags)
+{
+	int cur_flags = 0;
+	int fd = accept(socket, addr, addrlen);
+
+	if (fd < 0)
+		return fd;
+	if (flags & SOCK_NONBLOCK) {
+		cur_flags = fcntl(fd, F_GETFL);
+
+		if (cur_flags != -1)
+			cur_flags = fcntl(fd, F_SETFL, flags | O_NONBLOCK);
+
+		if (cur_flags == -1)
+			goto close;
+	}
+
+	if (flags & SOCK_CLOEXEC) {
+		cur_flags = fcntl(fd, F_GETFD);
+		if (cur_flags != -1)
+			cur_flags = fcntl(fd, F_SETFD, flags | FD_CLOEXEC);
+		if (cur_flags == -1)
+			goto close;
+	}
+	return fd;
+close:
+	close(fd);
+	return -1;
+}
+
 
 /*
  * We can't fork RDMA connections and pass them from the parent to the child
@@ -889,6 +940,22 @@ static struct pollfd *fds_alloc(nfds_t nfds)
 	return rfds;
 }
 
+static int *fds_r_alloc(nfds_t nfds)
+{
+	static __thread int *rfds_r;
+	static __thread nfds_t rnfds;
+
+	if (nfds > rnfds) {
+		if (rfds_r)
+			free(rfds_r);
+
+		rfds_r = malloc(sizeof(*rfds_r) * nfds);
+		rnfds = rfds_r ? nfds : 0;
+	}
+
+	return rfds_r;
+}
+
 int poll(struct pollfd *fds, nfds_t nfds, int timeout)
 {
 	struct pollfd *rfds;
@@ -922,7 +989,7 @@ use_rpoll:
 }
 
 static void select_to_rpoll(struct pollfd *fds, int *nfds,
-			    fd_set *readfds, fd_set *writefds, fd_set *exceptfds)
+			    fd_set *readfds, fd_set *writefds, fd_set *exceptfds, int *fds_r)
 {
 	int fd, events, i = 0;
 
@@ -933,7 +1000,8 @@ static void select_to_rpoll(struct pollfd *fds, int *nfds,
 
 		if (events || (exceptfds && FD_ISSET(fd, exceptfds))) {
 			fds[i].fd = fd_getd(fd);
-			fds[i++].events = events;
+			fds[i].events = events;
+			fds_r[i++] = fd;
 		}
 	}
 
@@ -941,30 +1009,27 @@ static void select_to_rpoll(struct pollfd *fds, int *nfds,
 }
 
 static int rpoll_to_select(struct pollfd *fds, int nfds,
-			   fd_set *readfds, fd_set *writefds, fd_set *exceptfds)
+			   fd_set *readfds, fd_set *writefds, fd_set *exceptfds, int *fds_r)
 {
-	int fd, rfd, i, cnt = 0;
+	int i, cnt = 0;
 
-	for (i = 0, fd = 0; i < nfds; fd++) {
-		rfd = fd_getd(fd);
-		if (rfd != fds[i].fd)
-			continue;
+	for (i = 0; i < nfds; i++) {
+		assert(fds[i].fd == fd_getd(fds_r[i]));
 
 		if (readfds && (fds[i].revents & POLLIN)) {
-			FD_SET(fd, readfds);
+			FD_SET(fds_r[i], readfds);
 			cnt++;
 		}
 
 		if (writefds && (fds[i].revents & POLLOUT)) {
-			FD_SET(fd, writefds);
+			FD_SET(fds_r[i], writefds);
 			cnt++;
 		}
 
 		if (exceptfds && (fds[i].revents & ~(POLLIN | POLLOUT))) {
-			FD_SET(fd, exceptfds);
+			FD_SET(fds_r[i], exceptfds);
 			cnt++;
 		}
-		i++;
 	}
 
 	return cnt;
@@ -980,12 +1045,17 @@ int select(int nfds, fd_set *readfds, fd_set *writefds,
 {
 	struct pollfd *fds;
 	int ret;
+	int *fds_r;
 
 	fds = fds_alloc(nfds);
 	if (!fds)
 		return ERR(ENOMEM);
 
-	select_to_rpoll(fds, &nfds, readfds, writefds, exceptfds);
+	fds_r = fds_r_alloc(nfds);
+	if (!fds_r)
+		return ERR(ENOMEM);
+
+	select_to_rpoll(fds, &nfds, readfds, writefds, exceptfds, fds_r);
 	ret = rpoll(fds, nfds, rs_convert_timeout(timeout));
 
 	if (readfds)
@@ -996,7 +1066,7 @@ int select(int nfds, fd_set *readfds, fd_set *writefds,
 		FD_ZERO(exceptfds);
 
 	if (ret > 0)
-		ret = rpoll_to_select(fds, nfds, readfds, writefds, exceptfds);
+		ret = rpoll_to_select(fds, nfds, readfds, writefds, exceptfds, fds_r);
 
 	return ret;
 }
@@ -1109,6 +1179,52 @@ int fcntl(int socket, int cmd, ... /* arg */)
 	return ret;
 }
 
+int fcntl64(int socket, int cmd, ... /* arg */)
+{
+	va_list args;
+	long lparam;
+	void *pparam;
+	int fd, ret;
+
+	init_preload();
+	va_start(args, cmd);
+	switch (cmd) {
+	case F_GETFD:
+	case F_GETFL:
+	case F_GETOWN:
+	case F_GETSIG:
+	case F_GETLEASE:
+		ret = (fd_get(socket, &fd) == fd_rsocket) ?
+			rfcntl(fd, cmd) : real.fcntl64(fd, cmd);
+		break;
+	case F_DUPFD:
+	/*case F_DUPFD_CLOEXEC:*/
+	case F_SETFD:
+	case F_SETFL:
+	case F_SETOWN:
+	case F_SETSIG:
+	case F_SETLEASE:
+	case F_NOTIFY:
+		lparam = va_arg(args, long);
+		ret = (fd_get(socket, &fd) == fd_rsocket) ?
+			rfcntl(fd, cmd, lparam) : real.fcntl64(fd, cmd, lparam);
+		break;
+	default:
+		pparam = va_arg(args, void *);
+		ret = (fd_get(socket, &fd) == fd_rsocket) ?
+			rfcntl(fd, cmd, pparam) : real.fcntl64(fd, cmd, pparam);
+		break;
+	}
+	va_end(args);
+	return ret;
+}
+
+int dup(int oldfd)
+{
+	int new_fd = fcntl(oldfd, F_DUPFD, 0);
+	return dup2(oldfd, new_fd);
+}
+
 /*
  * dup2 is not thread safe
  */
@@ -1181,6 +1297,26 @@ ssize_t sendfile(int out_fd, int in_fd, off_t *offset, size_t count)
 	return ret;
 }
 
+ssize_t sendfile64(int out_fd, int in_fd, off64_t *offset64, size_t count)
+{
+	void *file_addr;
+	int fd;
+	size_t ret;
+
+	if (fd_get(out_fd, &fd) != fd_rsocket)
+		return real.sendfile64(fd, in_fd, offset64, count);
+
+	file_addr = mmap(NULL, count, PROT_READ, 0, in_fd, offset64 ? *offset64 : 0);
+	if (file_addr == (void *) -1)
+		return -1;
+
+	ret = rwrite(fd, file_addr, count);
+	if ((ret > 0) && offset64)
+		lseek(in_fd, ret, SEEK_CUR);
+	munmap(file_addr, count);
+	return ret;
+}
+
 int __fxstat(int ver, int socket, struct stat *buf)
 {
 	int fd, ret;
@@ -1194,4 +1330,129 @@ int __fxstat(int ver, int socket, struct stat *buf)
 		ret = real.fxstat(ver, fd, buf);
 	}
 	return ret;
+}
+
+int epoll_create(int size)
+{
+	if (size <= 0)
+		return ERR(EINVAL);
+
+	return epoll_create1(0);
+}
+
+int epoll_create1(int flags)
+{
+	init_preload();
+
+	int epfd = real.epoll_create1(flags);
+	int ep_reg = real.epoll_create1(flags);
+	struct epoll_event event;
+	int ret;
+
+	if (epfd < 0 || ep_reg < 0)
+		return -1;
+
+	event.events = EPOLLIN | EPOLLOUT;
+	event.data.fd = ep_reg;
+
+	ret = real.epoll_ctl(epfd, EPOLL_CTL_ADD, ep_reg, &event);
+	pthread_mutex_lock(&ep_mut);
+	if (idm_set(&ep_idm, epfd, (void *)(uintptr_t)ep_reg) < 0) {
+		pthread_mutex_unlock(&ep_mut);
+		close(epfd);
+		close(ep_reg);
+		return -1;
+	}
+
+	pthread_mutex_unlock(&ep_mut);
+	return repoll_create1(epfd);
+}
+
+int epoll_ctl(int epfd, int op, int fd, struct epoll_event *event)
+{
+	int ep_reg, rfd;
+
+	if (fd < 0)
+		return ERR(EBADF);
+	if (op  & EPOLL_FLAG)
+		return real.epoll_ctl(epfd, op & ~EPOLL_FLAG, fd, event);
+
+	if ((fd == epfd) || (event->events & EPOLLET))
+		return ERR(EINVAL);
+
+	if (!(fd_gett(fd) == fd_rsocket)) {
+		pthread_mutex_lock(&ep_mut);
+		ep_reg = (uintptr_t)idm_at(&ep_idm, epfd);
+		pthread_mutex_unlock(&ep_mut);
+
+		if (!ep_reg)
+			return ERR(ENOENT);
+		return real.epoll_ctl(ep_reg, op, fd, event);
+	}
+
+	rfd = fd_getd(fd);
+	if (op == EPOLL_CTL_ADD) {
+		pthread_mutex_lock(&rs_mut);
+		if (idm_set(&ridm, rfd, (void *)(uintptr_t)fd) < 0) {
+			pthread_mutex_unlock(&rs_mut);
+			return ERR(EFAULT);
+		}
+
+		pthread_mutex_unlock(&rs_mut);
+	}
+
+	return repoll_ctl(epfd, op, rfd, event);
+}
+
+int epoll_wait(int epfd, struct epoll_event *events, int maxevents, int timeout)
+{
+	struct epoll_event ev;
+	int ret, reg_count = 0, count = 0;
+	int ep_reg = (uintptr_t)idm_at(&ep_idm, epfd);
+	int fd;
+
+	//the memory area pointed to by events is not accessible
+	if (!events)
+		return ERR(EFAULT);
+
+	//no events requested
+	if (maxevents <= 0)
+		return ERR(EINVAL);
+
+	count = repoll_wait(epfd, events, maxevents, 0);
+	for (int i = 0; i < count; i++) {
+		fd = (uintptr_t)idm_lookup(&ridm, events[i].data.fd);
+		if (!fd)
+			return -1;
+		events[i].data.fd = fd;
+	}
+
+	if ((count < maxevents) && (ep_reg >= 0)) {
+		reg_count = real.epoll_wait(ep_reg, events + count, maxevents-count, 0);
+		if (reg_count < 0)
+			return reg_count;
+	}
+
+	if (count + reg_count)
+		return count + reg_count;
+
+	ret = real.epoll_wait(epfd, &ev, 1, timeout);
+	if (!ret)
+		return ret;
+
+	count = repoll_wait(epfd, events, maxevents, 0);
+	for (int j = 0; j < count; j++) {
+		fd = (uintptr_t)idm_lookup(&ridm, events[j].data.fd);
+		if (!fd)
+			return -1;
+		events[j].data.fd = fd;
+	}
+
+	if ((count < maxevents) && (ep_reg >= 0)) {
+		reg_count = real.epoll_wait(ep_reg, events + count, maxevents-count, 0);
+		if (reg_count < 0)
+			return reg_count;
+		}
+
+	return count + reg_count;
 }

@@ -4,11 +4,14 @@
 	   the signature this will go sideways.. */
 	global:
 		accept;
+		accept4;
 		bind;
 		close;
 		connect;
+		dup;
 		dup2;
 		fcntl;
+		fcntl64;
 		getpeername;
 		getsockname;
 		getsockopt;
@@ -22,6 +25,7 @@
 		select;
 		send;
 		sendfile;
+		sendfile64;
 		sendmsg;
 		sendto;
 		setsockopt;
@@ -29,5 +33,9 @@
 		socket;
 		write;
 		writev;
+		epoll_create;
+		epoll_create1;
+		epoll_ctl;
+		epoll_wait;
 	local: *;
 };
