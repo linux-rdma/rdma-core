@@ -259,6 +259,10 @@ IBVERBS_PRIVATE_@IBVERBS_PABI_VERSION@ {
 		ibv_cmd_req_notify_cq;
 		ibv_cmd_rereg_mr;
 		ibv_cmd_resize_cq;
+		ibv_dmabuf_heap_alloc;
+		ibv_dmabuf_heap_cc_shared_init;
+		ibv_dmabuf_heap_destroy;
+		ibv_dmabuf_heap_free;
 		ibv_query_gid_type;
 		ibv_read_ibdev_sysfs_file;
 		ibv_wr_opcode_str;

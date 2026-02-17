@@ -499,6 +499,8 @@ if (NOT HAVE_SPARSE)
   RDMA_DoFixup("${HAVE_STDATOMIC}" "stdatomic.h")
 endif()
 
+CHECK_INCLUDE_FILE("linux/dma-heap.h" HAVE_LINUX_DMA_HEAP_H)
+
 RDMA_Check_SSE(HAVE_TARGET_SSE)
 RDMA_Check_LS64(HAVE_LS64)
 
