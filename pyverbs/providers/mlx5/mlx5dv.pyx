@@ -194,6 +194,7 @@ cdef class Mlx5DevxObj(PyverbsCM):
         self.context.add_ref(self)
         self.flow_counter_actions = weakref.WeakSet()
         self.dest_tir_actions = weakref.WeakSet()
+        self.imported = False
 
     def query(self, in_, outlen):
         """
@@ -293,13 +294,67 @@ cdef class Mlx5DevxObj(PyverbsCM):
     cpdef close(self):
         if self.obj != NULL:
             if self.logger:
-                self.logger.debug('Closing Mlx5DvexObj')
+                self.logger.debug('Closing Mlx5DevxObj')
             close_weakrefs([self.flow_counter_actions, self.dest_tir_actions])
+            if self.imported:
+                self.unimport_obj()
+            else:
+                self.destroy()
+
+    def destroy(self):
+        """Destroy the DevX object."""
+        if self.obj != NULL:
             rc = dv.mlx5dv_devx_obj_destroy(self.obj)
             if rc:
                 raise PyverbsRDMAError('Failed to destroy a DevX object', rc)
             self.obj = NULL
             self.context = None
+
+    def unimport_obj(self):
+        """
+        Release an imported DevX object without destroying the kernel object.
+        """
+        if self.obj != NULL:
+            dv.mlx5dv_devx_obj_unimport(self.obj)
+            self.obj = NULL
+            self.context = None
+
+    def export(self):
+        """
+        Export DevX object into an opaque data buffer for cross-process sharing.
+        :return: Bytes object containing the exported DevX object data.
+        """
+        cdef uint32_t sz = Mlx5DevxObj.get_export_size()
+        cdef void *buf = malloc(sz)
+        if buf == NULL:
+            raise MemoryError('Failed to allocate export buffer')
+        rc = dv.mlx5dv_devx_obj_export(self.obj, buf)
+        if rc != 0:
+            free(buf)
+            raise PyverbsRDMAError('Failed to export DevX object', rc)
+        cdef bytes data = (<char *>buf)[:sz]
+        free(buf)
+        return data
+
+    @staticmethod
+    def import_obj(Context context not None, bytes data not None):
+        """
+        Import a DevX object from an opaque data buffer (e.g. from export()).
+        :param context: Device context to import the DevX object on
+        :param data: Opaque bytes buffer previously returned by Mlx5DevxObj.export()
+        :return: An Mlx5DevxObj object representing the imported DevX object
+        """
+        cdef Mlx5DevxObj obj = Mlx5DevxObj.__new__(Mlx5DevxObj)
+        cdef char *buf = data
+        obj.obj = dv.mlx5dv_devx_obj_import(context.context, <void *>buf)
+        if obj.obj == NULL:
+            raise PyverbsRDMAErrno('Failed to import DevX object')
+        obj.context = context
+        obj.imported = True
+        obj.flow_counter_actions = weakref.WeakSet()
+        obj.dest_tir_actions = weakref.WeakSet()
+        context.devx_objs.add(obj)
+        return obj
 
 
 cdef class Mlx5Context(Context):
@@ -320,8 +375,7 @@ cdef class Mlx5Context(Context):
         if self.context == NULL:
             raise PyverbsRDMAErrno('Failed to open mlx5 context on {dev}'
                                    .format(dev=self.name))
-        self.devx_umems = weakref.WeakSet()
-        self.devx_objs = weakref.WeakSet()
+
         self.devx_eqs = weakref.WeakSet()
         self.cmd_comps = weakref.WeakSet()
 
@@ -512,8 +566,8 @@ cdef class Mlx5Context(Context):
 
     cpdef close(self):
         if self.context != NULL:
-            close_weakrefs([self.pps, self.devx_objs, self.devx_umems, self.devx_eqs,
-                           self.cmd_comps])
+            close_weakrefs([self.pps, self.devx_objs, self.devx_umems,
+                            self.devx_eqs, self.cmd_comps])
             super(Mlx5Context, self).close()
 
 
@@ -1849,6 +1903,7 @@ cdef class Mlx5UMEM(PyverbsCM):
             raise PyverbsRDMAErrno("Failed to register a UMEM.")
         self.context = context
         self.context.add_ref(self)
+        self.imported = False
 
     def __dealloc__(self):
         self.close()
@@ -1857,6 +1912,14 @@ cdef class Mlx5UMEM(PyverbsCM):
         if self.umem != NULL:
             if self.logger:
                 self.logger.debug('Closing Mlx5UMEM')
+            if self.imported:
+                self.unimport_umem()
+            else:
+                self.dereg()
+
+    def dereg(self):
+        """Deregister the UMEM."""
+        if self.umem != NULL:
             rc = dv.mlx5dv_devx_umem_dereg(self.umem)
             try:
                 if rc:
@@ -1864,8 +1927,53 @@ cdef class Mlx5UMEM(PyverbsCM):
             finally:
                 if not self.is_user_addr:
                     free(self.addr)
+                    self.addr = NULL
             self.umem = NULL
             self.context = None
+
+    def unimport_umem(self):
+        """Release an imported UMEM without deregistering the kernel object."""
+        if self.umem != NULL:
+            dv.mlx5dv_devx_umem_unimport(self.umem)
+            self.umem = NULL
+            self.context = None
+
+    def export(self):
+        """
+        Export DEVX UMEM into an opaque data buffer for cross-process sharing.
+        :return: Bytes object containing the exported UMEM data.
+        """
+        cdef uint32_t sz = Mlx5UMEM.get_export_size()
+        cdef void *buf = malloc(sz)
+        if buf == NULL:
+            raise MemoryError('Failed to allocate export buffer')
+        rc = dv.mlx5dv_devx_umem_export(self.umem, buf)
+        if rc != 0:
+            free(buf)
+            raise PyverbsRDMAError('Failed to export UMEM', rc)
+        cdef bytes data = (<char *>buf)[:sz]
+        free(buf)
+        return data
+
+    @staticmethod
+    def import_umem(Context context not None, bytes data not None):
+        """
+        Import a DEVX UMEM from an opaque data buffer (e.g. from export()).
+        :param context: Device context to import the UMEM on
+        :param data: Opaque bytes buffer previously returned by Mlx5UMEM.export()
+        :return: An Mlx5UMEM object representing the imported UMEM
+        """
+        cdef Mlx5UMEM umem_obj = Mlx5UMEM.__new__(Mlx5UMEM)
+        cdef char *buf = data
+        umem_obj.umem = dv.mlx5dv_devx_umem_import(context.context, <void *>buf)
+        if umem_obj.umem == NULL:
+            raise PyverbsRDMAErrno('Failed to import UMEM')
+        umem_obj.context = context
+        umem_obj.imported = True
+        umem_obj.addr = NULL
+        umem_obj.is_user_addr = True
+        context.devx_umems.add(umem_obj)
+        return umem_obj
 
     def __str__(self):
         print_format = '{:20}: {:<20}\n'
