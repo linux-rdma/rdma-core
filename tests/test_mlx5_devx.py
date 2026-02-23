@@ -5,15 +5,19 @@
 Test module for mlx5 DevX.
 """
 
+import resource
+import unittest
+import errno
+
 from tests.mlx5_base import Mlx5DevxRcResources, Mlx5DevxTrafficBase
-from pyverbs.providers.mlx5.mlx5dv import Mlx5DevxCmdComp
-from pyverbs.pyverbs_error import PyverbsRDMAError
+from pyverbs.providers.mlx5.mlx5dv import Mlx5Context, Mlx5DVContextAttr, \
+    Mlx5DevxCmdComp, Mlx5DevxObj, Mlx5UMEM
+from pyverbs.providers.mlx5.mlx5_enums import mlx5dv_context_attr_flags
+from pyverbs.pyverbs_error import PyverbsRDMAError, PyverbsUserError
 import pyverbs.mem_alloc as mem
 from pyverbs.mr import MR
 from pyverbs.libibverbs_enums import ibv_access_flags, ibv_odp_transport_cap_bits
 import tests.utils as u
-import unittest
-import errno
 
 
 class Mlx5DevxRcOdpRes(Mlx5DevxRcResources):
@@ -73,6 +77,15 @@ class Mlx5DevxApiTest(Mlx5DevxTrafficBase):
         if self.devx_res:
             self.devx_res.close_resources()
 
+    def _create_devx_ctx(self):
+        try:
+            attr = Mlx5DVContextAttr(mlx5dv_context_attr_flags.MLX5DV_CONTEXT_FLAGS_DEVX)
+            return Mlx5Context(attr, self.dev_name)
+        except PyverbsUserError as ex:
+            raise unittest.SkipTest(f'Could not open mlx5 context ({ex})')
+        except PyverbsRDMAError:
+            raise unittest.SkipTest('Opening mlx5 DevX context is not supported')
+
     def test_devx_async_query(self):
         """
         Test DevX Async Query API.
@@ -102,3 +115,33 @@ class Mlx5DevxApiTest(Mlx5DevxTrafficBase):
                         f'Mismatched RQ size. Expected: {self.devx_res.log_rq_size}, '
                         f'Actual: {query_qp_out.sw_qpc.log_rq_size}')
 
+    @u.skip_unsupported
+    def test_umem_export_import(self):
+        """
+        Create UMEM, export, import, then close both.
+        """
+        with self._create_devx_ctx() as ctx:
+            with Mlx5UMEM(ctx, size=resource.getpagesize()) as umem:
+                original_id = umem.umem_id
+                data = umem.export()
+                with Mlx5UMEM.import_umem(ctx, data) as imported_umem:
+                    self.assertEqual(imported_umem.umem_id, original_id,
+                                     f'Imported UMEM ID {imported_umem.umem_id}'
+                                     f' does not match original {original_id}')
+
+    @u.skip_unsupported
+    def test_devx_obj_export_import(self):
+        """
+        Create a DevX flow counter object, export to opaque buffer,
+        import from buffer, then close both.
+        """
+        from tests.mlx5_prm_structs import AllocFlowCounterIn, AllocFlowCounterOut
+
+        with self._create_devx_ctx() as ctx:
+            with Mlx5DevxObj(ctx, AllocFlowCounterIn(),
+                             len(AllocFlowCounterOut())) as counter:
+                data = counter.export()
+                with Mlx5DevxObj.import_obj(ctx, data) as imported_counter:
+                    self.assertIsNotNone(imported_counter,
+                                         'Failed to import DevX object '
+                                         'from exported data')
