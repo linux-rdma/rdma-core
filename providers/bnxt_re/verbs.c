@@ -61,19 +61,30 @@ int bnxt_re_query_device(struct ibv_context *context,
 			 const struct ibv_query_device_ex_input *input,
 			 struct ibv_device_attr_ex *attr, size_t attr_size)
 {
-	struct ib_uverbs_ex_query_device_resp resp;
+	struct ubnxt_re_query_device_ex_resp resp = {};
 	size_t resp_size = sizeof(resp);
 	uint8_t fw_ver[8];
 	int err;
 
-	err = ibv_cmd_query_device_any(context, input, attr, attr_size, &resp,
+	err = ibv_cmd_query_device_any(context, input, attr, attr_size, &resp.ibv_resp,
 				       &resp_size);
 	if (err)
 		return err;
 
-	memcpy(fw_ver, &resp.base.fw_ver, sizeof(resp.base.fw_ver));
+	memcpy(fw_ver, &resp.ibv_resp.base.fw_ver, sizeof(resp.ibv_resp.base.fw_ver));
 	snprintf(attr->orig_attr.fw_ver, 64, "%d.%d.%d.%d", fw_ver[0],
 		 fw_ver[1], fw_ver[2], fw_ver[3]);
+
+	if (attr_size >=
+	    offsetofend(struct ibv_device_attr_ex, packet_pacing_caps)) {
+		attr->packet_pacing_caps.qp_rate_limit_min =
+			resp.packet_pacing_caps.qp_rate_limit_min;
+		attr->packet_pacing_caps.qp_rate_limit_max =
+			resp.packet_pacing_caps.qp_rate_limit_max;
+		attr->packet_pacing_caps.supported_qpts =
+			resp.packet_pacing_caps.supported_qpts;
+	}
+
 	return 0;
 }
 
@@ -2142,11 +2153,14 @@ struct ibv_qp *bnxt_re_create_qp(struct ibv_pd *ibvpd,
 int bnxt_re_modify_qp(struct ibv_qp *ibvqp, struct ibv_qp_attr *attr,
 		      int attr_mask)
 {
-	struct ibv_modify_qp cmd = {};
+	struct ib_uverbs_ex_modify_qp_resp resp = {};
 	struct bnxt_re_qp *qp = to_bnxt_re_qp(ibvqp);
+	struct ibv_modify_qp_ex cmd_ex = {};
 	int rc;
 
-	rc = ibv_cmd_modify_qp(ibvqp, attr, attr_mask, &cmd, sizeof(cmd));
+	rc = ibv_cmd_modify_qp_ex(ibvqp, attr, attr_mask,
+				  &cmd_ex, sizeof(cmd_ex), &resp,
+				  sizeof(resp));
 	if (!rc) {
 		if (attr_mask & IBV_QP_STATE) {
 			qp->qpst = attr->qp_state;
@@ -2989,5 +3003,38 @@ int bnxt_re_destroy_flow(struct ibv_flow *flow)
 	ret = ibv_cmd_destroy_flow(flow);
 
 	free(flow);
+	return ret;
+}
+
+int bnxt_re_modify_qp_rate_limit(struct ibv_qp *qp,
+				 struct ibv_qp_rate_limit_attr *attr)
+{
+	struct bnxt_re_qp *re_qp = to_bnxt_re_qp(qp);
+	struct ib_uverbs_ex_modify_qp_resp resp = {};
+	struct ibv_modify_qp_ex cmd = {};
+	struct ibv_qp_attr qp_attr = {};
+	int ret;
+
+	if (attr->comp_mask)
+		return EINVAL;
+
+	if (attr->max_burst_sz ||
+	    attr->typical_pkt_sz ||
+	    !attr->rate_limit ||
+	    !(BNXT_RE_RATE_LIMIT_EN(re_qp->cntx)))
+		return EINVAL;
+
+	/* Rate limit is supported only after QP is modified to RTR or
+	 * it is modifed to RTS
+	 */
+	if (qp->state != IBV_QPS_RTR && qp->state != IBV_QPS_RTS)
+		return EINVAL;
+
+	qp_attr.rate_limit = attr->rate_limit;
+
+	ret = ibv_cmd_modify_qp_ex(qp, &qp_attr, IBV_QP_RATE_LIMIT,
+				   &cmd, sizeof(cmd),
+				   &resp, sizeof(resp));
+
 	return ret;
 }
