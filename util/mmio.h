@@ -124,7 +124,53 @@ static inline uint8_t mmio_read8(const void *addr)
 	return res;
 }
 
-#else /* __s390x__ */
+#elif defined(__riscv)
+
+#define MAKE_WRITE(_NAME_, _SZ_)                                        \
+	static inline void _NAME_##_be(void *addr, __be##_SZ_ val)  \
+	{                                                                     \
+		__atomic_thread_fence(__ATOMIC_RELEASE);                            \
+		*(volatile uint##_SZ_##_t *)addr = (uint##_SZ_##_t) val;            \
+		__atomic_thread_fence(__ATOMIC_SEQ_CST);                            \
+	}                                                                     \
+	static inline void _NAME_##_le(void *addr, __le##_SZ_ val)  \
+	{                                                                     \
+		__atomic_thread_fence(__ATOMIC_RELEASE);                            \
+		*(volatile uint##_SZ_##_t *)addr = (uint##_SZ_##_t) val;            \
+		__atomic_thread_fence(__ATOMIC_SEQ_CST);                            \
+	}
+
+#define MAKE_READ(_NAME_, _SZ_)                                         \
+	static inline __be##_SZ_ _NAME_##_be(const void *addr)      \
+	{                                                                     \
+		__atomic_thread_fence(__ATOMIC_RELEASE);                            \
+		__be##_SZ_ val = *(const uint##_SZ_##_t *)addr;           \
+		__atomic_thread_fence(__ATOMIC_SEQ_CST);                            \
+		return val;                                                         \
+	}                                                                     \
+	static inline __le##_SZ_ _NAME_##_le(const void *addr)      \
+	{                                                                     \
+		__atomic_thread_fence(__ATOMIC_RELEASE);                            \
+		__le##_SZ_ val = *(const uint##_SZ_##_t *)addr;           \
+		__atomic_thread_fence(__ATOMIC_SEQ_CST);                            \
+		return val;                                                         \
+	}
+
+static inline void mmio_write8(void *addr, uint8_t val)
+{
+	__atomic_thread_fence(__ATOMIC_RELEASE);
+	*(uint8_t *)addr = val;
+	__atomic_thread_fence(__ATOMIC_SEQ_CST);
+}
+static inline uint8_t mmio_read8(const void *addr)
+{
+	__atomic_thread_fence(__ATOMIC_RELEASE);
+	uint8_t val = *(uint8_t *)addr;
+	__atomic_thread_fence(__ATOMIC_SEQ_CST);
+	return val;
+}
+
+#else
 
 #define MAKE_WRITE(_NAME_, _SZ_)                                               \
 	static inline void _NAME_##_be(void *addr, __be##_SZ_ value)           \
@@ -161,7 +207,7 @@ static inline uint8_t mmio_read8(const void *addr)
 	return atomic_load_explicit((_Atomic(uint8_t) *)addr,
 				    memory_order_relaxed);
 }
-#endif /* __s390x__ */
+#endif
 
 MAKE_WRITE(mmio_write16, 16)
 MAKE_WRITE(mmio_write32, 32)
@@ -170,8 +216,10 @@ MAKE_READ(mmio_read16, 16)
 MAKE_READ(mmio_read32, 32)
 
 #if SIZEOF_LONG == 8
+
 MAKE_WRITE(mmio_write64, 64)
 MAKE_READ(mmio_read64, 64)
+
 #else
 void mmio_write64_be(void *addr, __be64 val);
 static inline void mmio_write64_le(void *addr, __le64 val)
@@ -234,6 +282,51 @@ static inline void _mmio_memcpy_x64(void *dest, const void *src, size_t bytecnt)
 	})
 #elif defined(__s390x__)
 void mmio_memcpy_x64(void *dst, const void *src, size_t bytecnt);
+#elif defined(__riscv)
+static inline void _mmio_memcpy_x64_64b(void *dest, const void *src)
+{
+#if defined(__riscv_vector)
+    const uint64_t *s = (const uint64_t *)src;
+    volatile uint64_t *d = (uint64_t *)dest;
+    size_t n = 8;
+
+    while (n) {
+				size_t vl = vsetvl_e64m1(n);
+				vuint64m1_t v = vle64_v_u64m1(s, vl);
+				vse64_v_u64m1(d, v, vl);
+				s += vl;
+				d += vl;
+				n -= vl;
+		}
+#else
+		const uint64_t *s = (const uint64_t *)src;
+		volatile uint64_t *d = (uint64_t *)dest;
+		__atomic_thread_fence(__ATOMIC_RELEASE);
+		for (int i = 0; i < 8; i++)
+			d[i] = s[i];
+		__atomic_thread_fence(__ATOMIC_SEQ_CST);
+#endif
+}
+
+static inline void _mmio_memcpy_x64(void *dest, const void *src, size_t bytecnt)
+{
+		const char *s = (const char *)src;
+		char *d = (char *)dest;
+		do {
+				_mmio_memcpy_x64_64b(d, s);
+				bytecnt -= 64;
+				s += 64;
+				d += 64;
+		} while (bytecnt > 0);
+}
+
+#define mmio_memcpy_x64(dest, src, bytecount)               \
+	({                                                        \
+		if (__builtin_constant_p((bytecount) == 64))            \
+			_mmio_memcpy_x64_64b((dest), (src));                  \
+		else                                                    \
+			_mmio_memcpy_x64((dest), (src), (bytecount));         \
+	})
 #else
 /* Transfer is some multiple of 64 bytes */
 static inline void mmio_memcpy_x64(void *dest, const void *src, size_t bytecnt)
