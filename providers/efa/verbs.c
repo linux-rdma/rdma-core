@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: GPL-2.0 OR BSD-2-Clause
 /*
- * Copyright 2019-2025 Amazon.com, Inc. or its affiliates. All rights reserved.
+ * Copyright 2019-2026 Amazon.com, Inc. or its affiliates. All rights reserved.
  */
 
 #include <assert.h>
@@ -549,6 +549,7 @@ static enum ibv_wc_status to_ibv_status(enum efa_io_comp_status status)
 		return IBV_WC_REM_INV_RD_REQ_ERR;
 	case EFA_IO_COMP_STATUS_REMOTE_ERROR_BAD_STATUS:
 		return IBV_WC_BAD_RESP_ERR;
+	case EFA_IO_COMP_STATUS_REMOTE_ERROR_FEATURE_MISMATCH:
 	case EFA_IO_COMP_STATUS_REMOTE_ERROR_BAD_LENGTH:
 		return IBV_WC_REM_INV_REQ_ERR;
 	case EFA_IO_COMP_STATUS_LOCAL_ERROR_UNRESP_REMOTE:
