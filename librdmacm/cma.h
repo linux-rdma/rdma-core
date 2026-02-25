@@ -96,6 +96,7 @@ int ucma_init(void);
 extern int af_ib_support;
 
 #define RAI_ROUTEONLY		0x01000000
+#define EPOLL_FLAG			0x80000000
 
 void ucma_ib_init(void);
 void ucma_ib_cleanup(void);

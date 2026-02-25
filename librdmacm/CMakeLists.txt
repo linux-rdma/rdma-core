@@ -11,7 +11,7 @@ publish_headers(infiniband
 
 rdma_library(rdmacm librdmacm.map
   # See Documentation/versioning.md
-  1 1.4.${PACKAGE_VERSION}
+  1 1.5.${PACKAGE_VERSION}
   acm.c
   addrinfo.c
   cma.c
@@ -25,12 +25,69 @@ target_link_libraries(rdmacm LINK_PRIVATE
   ${RT_LIBRARIES}
   )
 
+# When building without LFS (_FILE_OFFSET_BITS != 64), we may need to wrap
+# fcntl64/sendfile64. Only do so if the system libc actually provides them
+set(CMAKE_REQUIRED_QUIET 1)
+set(SAVE_DEFS "${CMAKE_REQUIRED_DEFINITIONS}")
+set(CMAKE_REQUIRED_DEFINITIONS "")
+check_c_source_compiles("
+#include <fcntl.h>
+#include <sys/sendfile.h>
+int main(void) {
+  (void)&fcntl64;
+  (void)&sendfile64;
+  return 0;
+}
+" RDMA_PRELOAD_HAVE_64)
+set(CMAKE_REQUIRED_DEFINITIONS "${SAVE_DEFS}")
+set(CMAKE_REQUIRED_QUIET 0)
+if(RDMA_PRELOAD_HAVE_64)
+  set(RDMA_PRELOAD_HAVE_LFS_WRAPPER_SYMS 1)
+else()
+  set(RDMA_PRELOAD_HAVE_LFS_WRAPPER_SYMS 0)
+endif()
+
+# Detect at configure time if fcntl64/sendfile64 is declared so we can
+# add our forward declarations only when needed.
+set(RDMA_PRELOAD_FCNTL64_IN_HEADER 0)
+set(RDMA_PRELOAD_SENDFILE64_IN_HEADER 0)
+if(RDMA_PRELOAD_HAVE_LFS_WRAPPER_SYMS)
+  set(CMAKE_REQUIRED_QUIET 1)
+  set(SAVE_FLAGS "${CMAKE_REQUIRED_FLAGS}")
+  set(CMAKE_REQUIRED_FLAGS "${CMAKE_C_FLAGS}")
+  check_c_source_compiles("
+#define _GNU_SOURCE
+#include <fcntl.h>
+int fcntl64(int socket, int cmd, ...) { (void)socket;(void)cmd; return 0; }
+" RDMA_PRELOAD_FCNTL64_DECLARED_IN_HEADER)
+  if(RDMA_PRELOAD_FCNTL64_DECLARED_IN_HEADER)
+    set(RDMA_PRELOAD_FCNTL64_IN_HEADER 1)
+  endif()
+  check_c_source_compiles("
+#define _GNU_SOURCE
+#include <sys/sendfile.h>
+#include <sys/types.h>
+ssize_t sendfile64(int out_fd, int in_fd, off64_t *offset64, size_t count) {
+  (void)out_fd;(void)in_fd;(void)offset64;(void)count; return 0;
+}
+" RDMA_PRELOAD_SENDFILE64_DECLARED_IN_HEADER)
+  if(RDMA_PRELOAD_SENDFILE64_DECLARED_IN_HEADER)
+    set(RDMA_PRELOAD_SENDFILE64_IN_HEADER 1)
+  endif()
+  set(CMAKE_REQUIRED_FLAGS "${SAVE_FLAGS}")
+  set(CMAKE_REQUIRED_QUIET 0)
+endif()
+
 # The preload library is a bit special, it needs to be open coded
 # Since it is a LD_PRELOAD it has no soname, and is installed in sub dir
 add_library(rspreload MODULE
   preload.c
   indexer.c
   )
+target_compile_definitions(rspreload PRIVATE
+  RDMA_PRELOAD_HAVE_64=${RDMA_PRELOAD_HAVE_LFS_WRAPPER_SYMS}
+  RDMA_PRELOAD_FCNTL64_IN_HEADER=${RDMA_PRELOAD_FCNTL64_IN_HEADER}
+  RDMA_PRELOAD_SENDFILE64_IN_HEADER=${RDMA_PRELOAD_SENDFILE64_IN_HEADER})
 # Even though this is a module we still want to use Wl,--no-undefined
 set_target_properties(rspreload PROPERTIES LINK_FLAGS ${CMAKE_SHARED_LINKER_FLAGS})
 set_target_properties(rspreload PROPERTIES LIBRARY_OUTPUT_DIRECTORY "${BUILD_LIB}")

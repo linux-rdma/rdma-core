@@ -1,5 +1,5 @@
 .\" Licensed under the OpenIB.org BSD license (FreeBSD Variant) - See COPYING.md
-.TH "RSOCKET" 7 "2019-04-16" "librdmacm" "Librdmacm Programmer's Manual" librdmacm
+.TH "RSOCKET" 7 "2024-12-24" "librdmacm" "Librdmacm Programmer's Manual" librdmacm
 .SH NAME
 rsocket \- RDMA socket API
 .SH SYNOPSIS
@@ -30,6 +30,7 @@ rpoll, rselect
 rgetpeername, rgetsockname
 .P
 rsetsockopt, rgetsockopt, rfcntl
+repoll_create1, repoll_ctl, repoll_wait
 .P
 Functions take the same parameters as that used for sockets.  The
 follow capabilities and flags are supported at this time:
@@ -150,6 +151,8 @@ polling_time - default number of microseconds to poll for data before waiting
 wake_up_interval - maximum number of milliseconds to block in poll.
 This value is used to safe guard against potential application hangs
 in rpoll().
+.P
+max_events - maximum number of events for the epoll thread to handle for an epoll_instance.
 .P
 All configuration files should contain a single integer value.  Values may
 be set by issuing a command similar to the following example.
