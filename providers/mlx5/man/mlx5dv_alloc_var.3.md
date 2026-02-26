@@ -29,13 +29,18 @@ Create / free a VAR which can be used for some device commands over the DEVX int
 The DEVX API enables direct access from the user space area to the mlx5 device
 driver, the VAR information is needed for few commands related to Virtio.
 
+The VAR type used depends on the *flags* argument.
 
 # ARGUMENTS
 *context*
 :	RDMA device context to work on.
 
 *flags*
-:	Allocation flags for the UAR.
+:	Allocation flags for the VAR.
+	0:
+		Allocate a standard VirtIO VAR.
+	MLX5DV_VAR_ALLOC_FLAG_TLP:
+		Allocate a TLP VAR for TLP emulation.
 
 ## dv_var
 
@@ -63,8 +68,10 @@ Upon success *mlx5dv_alloc_var* returns a pointer to the created VAR
 
 # SEE ALSO
 
-**mlx5dv_open_device**, **mlx5dv_devx_obj_create**
+**mlx5dv_import_var**(3), **mlx5dv_export_var**(3), **mlx5dv_open_device**(3), **mlx5dv_devx_obj_create**(3)
 
 # AUTHOR
 
 Yishai Hadas  <yishaih@mellanox.com>
+
+Maher Sanalla <msanalla@nvidia.com>

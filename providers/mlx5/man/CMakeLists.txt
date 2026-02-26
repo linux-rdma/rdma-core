@@ -20,10 +20,12 @@ rdma_man_pages(
   mlx5dv_devx_create_event_channel.3.md
   mlx5dv_devx_get_event.3.md
   mlx5dv_devx_obj_create.3.md
+  mlx5dv_devx_obj_export.3.md
   mlx5dv_devx_qp_modify.3.md
   mlx5dv_devx_query_eqn.3.md
   mlx5dv_devx_subscribe_devx_event.3.md
   mlx5dv_devx_uar_export_dmabuf_fd.3.md
+  mlx5dv_devx_umem_export.3.md
   mlx5dv_devx_umem_reg.3.md
   mlx5dv_dm_map_op_addr.3.md
   mlx5dv_dr_flow.3.md
@@ -31,6 +33,7 @@ rdma_man_pages(
   mlx5dv_flow_action_esp.3.md
   mlx5dv_get_clock_info.3
   mlx5dv_get_data_direct_sysfs_path.3.md
+  mlx5dv_get_export_sizes.3.md
   mlx5dv_get_vfio_device_list.3.md
   mlx5dv_init_obj.3
   mlx5dv_is_supported.3.md
@@ -49,6 +52,7 @@ rdma_man_pages(
   mlx5dv_reserved_qpn_alloc.3.md
   mlx5dv_sched_node_create.3.md
   mlx5dv_ts_to_ns.3
+  mlx5dv_var_export.3.md
   mlx5dv_wr_mkey_configure.3.md
   mlx5dv_vfio_get_events_fd.3.md
   mlx5dv_vfio_process_events.3.md
@@ -78,6 +82,8 @@ rdma_alias_man_pages(
  mlx5dv_devx_obj_create.3 mlx5dv_devx_obj_query.3
  mlx5dv_devx_obj_create.3 mlx5dv_devx_obj_query_async.3
  mlx5dv_devx_obj_create.3 mlx5dv_devx_obj_modify.3
+ mlx5dv_devx_obj_export.3 mlx5dv_devx_obj_import.3
+ mlx5dv_devx_obj_export.3 mlx5dv_devx_obj_unimport.3
  mlx5dv_devx_qp_modify.3 mlx5dv_devx_qp_query.3
  mlx5dv_devx_qp_modify.3 mlx5dv_devx_cq_modify.3
  mlx5dv_devx_qp_modify.3 mlx5dv_devx_cq_query.3
@@ -88,6 +94,8 @@ rdma_alias_man_pages(
  mlx5dv_devx_qp_modify.3 mlx5dv_devx_ind_tbl_modify.3
  mlx5dv_devx_qp_modify.3 mlx5dv_devx_ind_tbl_query.3
  mlx5dv_devx_subscribe_devx_event.3 mlx5dv_devx_subscribe_devx_event_fd.3
+ mlx5dv_devx_umem_export.3 mlx5dv_devx_umem_import.3
+ mlx5dv_devx_umem_export.3 mlx5dv_devx_umem_unimport.3
  mlx5dv_devx_umem_reg.3 mlx5dv_devx_umem_dereg.3
  mlx5dv_devx_umem_reg.3 mlx5dv_devx_umem_reg_ex.3
  mlx5dv_dr_flow.3 mlx5dv_dr_action_create_aso.3
@@ -136,6 +144,8 @@ rdma_alias_man_pages(
  mlx5dv_sched_node_create.3 mlx5dv_sched_leaf_modify.3
  mlx5dv_sched_node_create.3 mlx5dv_sched_node_destroy.3
  mlx5dv_sched_node_create.3 mlx5dv_sched_node_modify.3
+ mlx5dv_var_export.3 mlx5dv_var_import.3
+ mlx5dv_var_export.3 mlx5dv_var_unimport.3
  mlx5dv_wr_mkey_configure.3 mlx5dv_wr_set_mkey_access_flags.3
  mlx5dv_wr_mkey_configure.3 mlx5dv_wr_set_mkey_layout_interleaved.3
  mlx5dv_wr_mkey_configure.3 mlx5dv_wr_set_mkey_layout_list.3

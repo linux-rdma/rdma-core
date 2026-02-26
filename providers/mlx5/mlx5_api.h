@@ -73,5 +73,6 @@
 #define mlx5dv_port mlx5_ib_uapi_query_port
 #define mlx5dv_reg mlx5_ib_uapi_reg
 #define MLX5DV_REG_DMABUF_ACCESS_DATA_DIRECT MLX5_IB_UAPI_REG_DMABUF_ACCESS_DATA_DIRECT
+#define MLX5DV_VAR_ALLOC_FLAG_TLP MLX5_IB_UAPI_VAR_ALLOC_FLAG_TLP
 
 #endif
