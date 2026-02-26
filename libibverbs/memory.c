@@ -43,6 +43,10 @@
 #include <dirent.h>
 #include <limits.h>
 #include <inttypes.h>
+#include <sys/types.h>
+#include <sys/ioctl.h>
+#include <fcntl.h>
+#include <linux/fs.h>
 
 #include "ibverbs.h"
 #include "util/rdma_nl.h"
@@ -90,11 +94,42 @@ static unsigned long smaps_page_size(FILE *file)
 static unsigned long get_page_size(void *base)
 {
 	unsigned long ret = page_size;
-	pid_t pid;
+	pid_t pid = getpid();
 	FILE *file;
 	char buf[1024];
+#ifdef PROCMAP_QUERY
+	static bool procmap_query_unavailable;
 
-	pid = getpid();
+	if (!procmap_query_unavailable) {
+		struct procmap_query query = {};
+		int fd;
+		bool success;
+
+		snprintf(buf, sizeof(buf), "/proc/%d/maps", pid);
+
+		fd = open(buf, O_RDONLY);
+		if (fd >= 0) {
+			query.size = sizeof(query);
+			query.query_addr = (uintptr_t)base;
+
+			if (ioctl(fd, PROCMAP_QUERY, &query) >= 0) {
+				ret = query.vma_page_size;
+				success = true;
+			} else if (errno == ENOENT)
+				success = true;
+			else
+				success = false;
+
+			close(fd);
+
+			if (success)
+				return ret;
+
+			procmap_query_unavailable = true;
+		}
+	}
+#endif
+
 	snprintf(buf, sizeof(buf), "/proc/%d/smaps", pid);
 
 	file = fopen(buf, "r" STREAM_CLOEXEC);
@@ -134,7 +169,8 @@ int ibv_fork_init(void)
 	if (mm_root)
 		return 0;
 
-	if (ibv_is_fork_initialized() == IBV_FORK_UNNEEDED)
+	if (!check_env("RDMAV_USE_MADVISE") &&
+	    ibv_is_fork_initialized() == IBV_FORK_UNNEEDED)
 		return 0;
 
 	if (too_late)
