@@ -76,6 +76,14 @@ static void irdma_ufree_context(struct ibv_context *ibctx)
 	free(iwvctx);
 }
 
+static const struct verbs_context_ops irdma_uctx_srq_ops = {
+	.create_srq = irdma_ucreate_srq,
+	.destroy_srq = irdma_udestroy_srq,
+	.modify_srq = irdma_umodify_srq,
+	.post_srq_recv = irdma_upost_srq,
+	.query_srq = irdma_uquery_srq,
+};
+
 static const struct verbs_context_ops irdma_uctx_ops = {
 	.alloc_mw = irdma_ualloc_mw,
 	.alloc_pd = irdma_ualloc_pd,
@@ -154,6 +162,7 @@ static struct verbs_context *irdma_ualloc_context(struct ibv_device *ibdev,
 		return NULL;
 
 	cmd.comp_mask |= IRDMA_ALLOC_UCTX_USE_RAW_ATTR;
+	cmd.comp_mask |= IRDMA_SUPPORT_WQE_FORMAT_V2;
 	cmd.userspace_ver = user_ver;
 	if (ibv_cmd_get_context(&iwvctx->ibv_ctx,
 				(struct ibv_get_context *)&cmd, sizeof(cmd),
@@ -168,6 +177,8 @@ static struct verbs_context *irdma_ualloc_context(struct ibv_device *ibdev,
 	}
 
 	verbs_set_ops(&iwvctx->ibv_ctx, &irdma_uctx_ops);
+	if (resp.feature_flags & IRDMA_FEATURE_SRQ)
+		verbs_set_ops(&iwvctx->ibv_ctx, &irdma_uctx_srq_ops);
 
 	/* Legacy i40iw does not populate hw_rev. The irdma driver always sets it */
 	if (!resp.hw_rev) {
@@ -186,6 +197,7 @@ static struct verbs_context *irdma_ualloc_context(struct ibv_device *ibdev,
 		iwvctx->uk_attrs.max_hw_sq_chunk = resp.max_hw_sq_chunk;
 		iwvctx->uk_attrs.max_hw_cq_size = resp.max_hw_cq_size;
 		iwvctx->uk_attrs.min_hw_cq_size = resp.min_hw_cq_size;
+		iwvctx->uk_attrs.max_hw_srq_quanta = resp.max_hw_srq_quanta;
 		iwvctx->abi_ver = user_ver;
 		if (resp.comp_mask & IRDMA_ALLOC_UCTX_USE_RAW_ATTR)
 			iwvctx->use_raw_attrs = true;
