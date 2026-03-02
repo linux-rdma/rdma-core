@@ -1660,6 +1660,11 @@ int efadv_get_max_sq_depth(struct ibv_context *ibvctx, struct efadv_sq_depth_att
 	return efa_calc_sq_max_depth(ctx, attr->max_inline_data, write_with_inline);
 }
 
+static int efa_calc_rq_max_depth(struct efa_context *ctx, uint32_t max_recv_sge)
+{
+	return ctx->max_rq_wr / max_recv_sge;
+}
+
 int efadv_get_max_rq_depth(struct ibv_context *ibvctx, struct efadv_rq_depth_attr *attr,
 			   uint32_t inlen)
 {
@@ -1681,7 +1686,7 @@ int efadv_get_max_rq_depth(struct ibv_context *ibvctx, struct efadv_rq_depth_att
 		return -EINVAL;
 	}
 
-	return ctx->max_rq_wr / attr->max_recv_sge;
+	return efa_calc_rq_max_depth(ctx, attr->max_recv_sge);
 }
 
 static void efa_setup_qp(struct efa_context *ctx,
@@ -1831,7 +1836,7 @@ static int efa_check_qp_limits(struct efa_context *ctx,
 			       struct efadv_qp_init_attr *efa_attr)
 {
 	bool inline_write_enabled = !!(efa_attr->flags & EFADV_QP_FLAGS_INLINE_WRITE);
-	int sq_max_depth;
+	int sq_max_depth, rq_max_depth;
 
 	if (attr->cap.max_send_sge > ctx->max_sq_sge) {
 		verbs_err(&ctx->ibvctx,
@@ -1854,10 +1859,11 @@ static int efa_check_qp_limits(struct efa_context *ctx,
 		return EINVAL;
 	}
 
-	if (attr->cap.max_recv_wr > ctx->max_rq_wr) {
+	rq_max_depth = efa_calc_rq_max_depth(ctx, attr->cap.max_recv_sge);
+	if (attr->cap.max_recv_wr > rq_max_depth) {
 		verbs_err(&ctx->ibvctx,
-			  "Max receive WR %u > %u\n", attr->cap.max_recv_wr,
-			  ctx->max_rq_wr);
+			  "Requested max SGE %u, max receive WR %u > %u\n", attr->cap.max_recv_sge,
+			  attr->cap.max_recv_wr, rq_max_depth);
 		return EINVAL;
 	}
 
