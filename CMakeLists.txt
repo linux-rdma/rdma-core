@@ -573,6 +573,7 @@ endif()
 
 # Dynamic Tracing support
 if (TRACING STREQUAL "LTTNG")
+  set(ENABLE_LTTNG 1)
   include(FindLTTngUST REQUIRED)
   add_definitions(-DLTTNG_ENABLED)
 elseif (TRACING STREQUAL "USDT")
