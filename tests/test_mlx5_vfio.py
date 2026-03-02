@@ -31,7 +31,7 @@ EVENT_REGISTRATION_TIMEOUT = 3  # In seconds
 class Mlx5VfioResources(Mlx5DevxRcResources):
     def __init__(self, ib_port, pci_name, gid_index=None, ctx=None, activate_port_state=False):
         self.pci_name = pci_name
-        self.ctx = ctx
+        self._provided_ctx = ctx
         super().__init__(None, ib_port, gid_index, activate_port_state=activate_port_state)
 
     def create_context(self):
@@ -42,7 +42,8 @@ class Mlx5VfioResources(Mlx5DevxRcResources):
         same context would be used.
         :return: None
         """
-        if self.ctx:
+        if self._provided_ctx:
+            self.ctx = self._provided_ctx
             return
         try:
             vfio_attr = Mlx5VfioAttr(pci_name=self.pci_name)
