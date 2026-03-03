@@ -88,6 +88,7 @@ rdma_man_pages(
   )
 rdma_alias_man_pages(
   ibv_alloc_buf.3 ibv_free_buf.3
+  ibv_alloc_buf.3 ibv_reg_buf_mr.3
   ibv_alloc_dm.3 ibv_free_dm.3
   ibv_alloc_dm.3 ibv_reg_dm_mr.3
   ibv_alloc_dm.3 ibv_memcpy_to_dm.3

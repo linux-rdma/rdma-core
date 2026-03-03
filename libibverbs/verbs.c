@@ -440,6 +440,20 @@ void *ibv_alloc_buf(struct ibv_pd *pd, size_t size, struct ibv_buf **buf)
 	return get_ops(pd->context)->alloc_buf(pd, size, buf);
 }
 
+struct ibv_mr *ibv_reg_buf_mr(struct ibv_pd *pd, struct ibv_buf *buf,
+			      void *addr, size_t length, int access)
+{
+	struct ibv_mr_init_attr mr_init_attr = {
+		.length = length,
+		.access = access,
+		.comp_mask = IBV_REG_MR_MASK_BUF | IBV_REG_MR_MASK_ADDR,
+		.addr = addr,
+		.buf = buf,
+	};
+
+	return ibv_reg_mr_ex(pd, &mr_init_attr);
+}
+
 void ibv_free_buf(struct ibv_buf *buf)
 {
 	get_ops(buf->pd->context)->free_buf(buf);
