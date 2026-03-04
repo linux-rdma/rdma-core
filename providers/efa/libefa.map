@@ -29,3 +29,9 @@ EFA_1.4 {
 		efadv_query_qp_wqs;
 		efadv_query_cq;
 } EFA_1.3;
+
+EFA_1.5 {
+	global:
+		efadv_get_max_sq_depth;
+		efadv_get_max_rq_depth;
+} EFA_1.4;
