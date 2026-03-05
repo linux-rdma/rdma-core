@@ -236,6 +236,11 @@ MLX5_1.25 {
 		mlx5dv_reg_dmabuf_mr;
 } MLX5_1.24;
 
+MLX5_1.25.1 {
+	global:
+		 __mlx5dv_create_flow;
+} MLX5_1.25;
+
 MLX5_1.26 {
 	global:
 		mlx5dv_devx_uar_export_dmabuf_fd;

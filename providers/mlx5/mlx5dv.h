@@ -802,10 +802,24 @@ struct mlx5dv_flow_action_attr {
 };
 
 struct ibv_flow *
-mlx5dv_create_flow(struct mlx5dv_flow_matcher *matcher,
-		   struct mlx5dv_flow_match_parameters *match_value,
-		   size_t num_actions,
-		   struct mlx5dv_flow_action_attr actions_attr[]);
+__mlx5dv_create_flow(struct mlx5dv_flow_matcher *matcher,
+		     struct mlx5dv_flow_match_parameters *match_value,
+		     size_t num_actions,
+		     struct mlx5dv_flow_action_attr actions_attr[],
+		     size_t attr_len);
+
+static inline struct ibv_flow *
+_mlx5dv_create_flow(struct mlx5dv_flow_matcher *matcher,
+		    struct mlx5dv_flow_match_parameters *match_value,
+		    size_t num_actions,
+		    struct mlx5dv_flow_action_attr actions_attr[])
+{
+	return __mlx5dv_create_flow(matcher, match_value, num_actions, actions_attr,
+				  sizeof(struct mlx5dv_flow_action_attr));
+}
+
+#define mlx5dv_create_flow(matcher, match_value, num_actions, actions_attr) \
+	_mlx5dv_create_flow(matcher, match_value, num_actions, actions_attr)
 
 struct ibv_flow_action *mlx5dv_create_flow_action_esp(struct ibv_context *ctx,
 						      struct ibv_flow_action_esp_attr *esp,
