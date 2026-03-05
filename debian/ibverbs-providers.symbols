@@ -33,6 +33,7 @@ libmlx5.so.1 ibverbs-providers #MINVER#
  MLX5_1.23@MLX5_1.23 40
  MLX5_1.24@MLX5_1.24 42
  MLX5_1.25@MLX5_1.25 54
+ MLX5_1.25.1@MLX5_1.25.1 63
  MLX5_1.26@MLX5_1.26 62
  MLX5_1.27@MLX5_1.27 63
  mlx5dv_init_obj@MLX5_1.0 13
@@ -167,6 +168,7 @@ libmlx5.so.1 ibverbs-providers #MINVER#
  mlx5dv_dr_action_create_dest_root_table@MLX5_1.24 42
  mlx5dv_get_data_direct_sysfs_path@MLX5_1.25 54
  mlx5dv_reg_dmabuf_mr@MLX5_1.25 54
+ __mlx5dv_create_flow@MLX5_1.25.1 63
  _mlx5dv_get_export_sizes@MLX5_1.27 63
  mlx5dv_devx_obj_export@MLX5_1.27 63
  mlx5dv_devx_obj_import@MLX5_1.27 63
