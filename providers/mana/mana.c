@@ -198,6 +198,40 @@ int mana_dealloc_pd(struct ibv_pd *ibpd)
 	return 0;
 }
 
+static struct ibv_mw *
+mana_alloc_mw(struct ibv_pd *pd, enum ibv_mw_type type)
+{
+	struct ib_uverbs_alloc_mw_resp resp;
+	struct ibv_alloc_mw cmd;
+	struct ibv_mw *mw;
+	int ret;
+
+	mw = calloc(1, sizeof(*mw));
+	if (!mw)
+		return NULL;
+
+	ret = ibv_cmd_alloc_mw(pd, type, mw, &cmd, sizeof(cmd), &resp,
+			       sizeof(resp));
+	if (ret) {
+		free(mw);
+		return NULL;
+	}
+
+	return mw;
+}
+
+static int mana_dealloc_mw(struct ibv_mw *mw)
+{
+	int ret;
+
+	ret = ibv_cmd_dealloc_mw(mw);
+	if (ret)
+		return ret;
+
+	free(mw);
+	return 0;
+}
+
 struct ibv_mr *mana_reg_dmabuf_mr(struct ibv_pd *pd, uint64_t offset,
 				  size_t length, uint64_t iova, int fd,
 				  int access)
@@ -362,6 +396,7 @@ static void mana_async_event(struct ibv_context *context,
 }
 
 static const struct verbs_context_ops mana_ctx_ops = {
+	.alloc_mw = mana_alloc_mw,
 	.alloc_pd = mana_alloc_pd,
 	.alloc_dm = mana_alloc_dm,
 	.async_event = mana_async_event,
@@ -371,6 +406,7 @@ static const struct verbs_context_ops mana_ctx_ops = {
 	.create_qp_ex = mana_create_qp_ex,
 	.create_rwq_ind_table = mana_create_rwq_ind_table,
 	.create_wq = mana_create_wq,
+	.dealloc_mw = mana_dealloc_mw,
 	.dealloc_pd = mana_dealloc_pd,
 	.dereg_mr = mana_dereg_mr,
 	.destroy_cq = mana_destroy_cq,
