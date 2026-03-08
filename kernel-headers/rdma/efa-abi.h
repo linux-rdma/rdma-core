@@ -1,6 +1,6 @@
 /* SPDX-License-Identifier: ((GPL-2.0 WITH Linux-syscall-note) OR BSD-2-Clause) */
 /*
- * Copyright 2018-2025 Amazon.com, Inc. or its affiliates. All rights reserved.
+ * Copyright 2018-2026 Amazon.com, Inc. or its affiliates. All rights reserved.
  */
 
 #ifndef EFA_ABI_USER_H
@@ -44,7 +44,8 @@ struct efa_ibv_alloc_ucontext_resp {
 	__u32 max_llq_size; /* bytes */
 	__u16 max_tx_batch; /* units of 64 bytes */
 	__u16 min_sq_wr;
-	__u8 reserved_a0[4];
+	__u16 inline_buf_size_ex;
+	__u8 reserved_b0[2];
 };
 
 struct efa_ibv_alloc_pd_resp {
