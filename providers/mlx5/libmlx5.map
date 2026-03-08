@@ -240,3 +240,17 @@ MLX5_1.26 {
 	global:
 		mlx5dv_devx_uar_export_dmabuf_fd;
 } MLX5_1.25;
+
+MLX5_1.27 {
+	global:
+		_mlx5dv_get_export_sizes;
+		mlx5dv_devx_obj_export;
+		mlx5dv_devx_obj_import;
+		mlx5dv_devx_obj_unimport;
+		mlx5dv_devx_umem_export;
+		mlx5dv_devx_umem_import;
+		mlx5dv_devx_umem_unimport;
+		mlx5dv_var_export;
+		mlx5dv_var_import;
+		mlx5dv_var_unimport;
+} MLX5_1.26;
