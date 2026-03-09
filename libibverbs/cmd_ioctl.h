@@ -146,7 +146,7 @@ unsigned int __ioctl_final_num_attrs(unsigned int num_attrs,
 
 /*
  * C99 does not permit an initializer for VLAs, so this function does the init
- * instead. It is called in the wonky way so that DELCARE_COMMAND_BUFFER can
+ * instead. It is called in the wonky way so that DECLARE_COMMAND_BUFFER can
  * still be a 'variable', and we so we don't require C11 mode.
  */
 static inline int _ioctl_init_cmdb(struct ibv_command_buffer *cmd,
