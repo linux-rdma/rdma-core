@@ -936,7 +936,6 @@ def check_ok(msg: str):
 
 def check_fail(msg: str):
     print(f"FAIL\t{msg}")
-    sys.exit(100)
 
 
 def cmd_check(args):
@@ -948,12 +947,15 @@ def cmd_check(args):
     check_ok("All ConnectX DMA functions have correct PCI topology")
 
     acs = topo.compute_acs()
+    fatal = False
     for pdev, acs in sorted(acs.items(), key=lambda x: x[0].bdf):
         cur_acs = pdev.get_acs_ctrl()
         if cur_acs is None:
             check_fail(
                 f"Could not read ACS control register for {pdev.device_type} {pdev.bdf}"
             )
+            fatal = True
+            continue
         new_acs = combine_acs(cur_acs, acs)
         if new_acs == cur_acs:
             check_ok(
@@ -963,10 +965,14 @@ def cmd_check(args):
             check_fail(
                 f"ACS for {pdev.device_type} {pdev.bdf} has incorrect values {cur_acs:07b} != {acs}, (0x{cur_acs:x} != 0x{new_acs:x})"
             )
+            fatal = True
 
     for nvcx in topo.nvcxs:
-        nvcx.check()
+        if not nvcx.check():
+            fatal = True
 
+    if fatal:
+        sys.exit(100)
 
 # -------------------------------------------------------------------
 def args_dump(parser):
