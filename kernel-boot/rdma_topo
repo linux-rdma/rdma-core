@@ -16,6 +16,7 @@ import subprocess
 import sys
 import tempfile
 
+from abc import ABC, abstractmethod
 from base64 import b64encode, b64decode
 from typing import *
 from zlib import compress, decompress
@@ -367,7 +368,51 @@ class PCIDevice(object):
         return self.sysfs_device.subsystems or {}
 
 
-class NVCX_Complex(object):
+class NVCX_Complex(ABC):
+    @property
+    @abstractmethod
+    def primary_nic(self) -> PCIDevice:
+        """Primary ConnectX PF for this complex."""
+        pass
+
+    @abstractmethod
+    def compute_acs(self) -> Dict[PCIDevice, str]:
+        """Computes the ACS values for this complex.
+
+        Used to implement commands which check and/or set ACS values.
+        """
+        pass
+
+    @abstractmethod
+    def to_dict(self) -> Dict[str, Any]:
+        """Returns a JSON-serializable dictionary which represents this complex.
+
+        Used to implement topology dump command with `-j / --json` flag.
+
+        Output format should be maintained for backwards compatibility.
+        """
+        pass
+
+    @abstractmethod
+    def check(self) -> bool:
+        """Runs additional checks on this complex.
+
+        Returns True if all checks pass, False otherwise.
+
+        Used to implement the `check` command.
+        """
+        pass
+
+    @abstractmethod
+    def __str__(self) -> str:
+        """Returns a string representation of this complex.
+
+        Used to implement the `topo` command.
+        """
+        pass
+
+
+class NVCX_DMA_Complex(NVCX_Complex):
     """Hold the related PCI functions together. A complex includes a CX PF, a CX
     DMA function, an GPU and related PCI switches in the DMA function
     segment."""
@@ -397,6 +442,10 @@ class NVCX_Complex(object):
             if pdev.device_type == "nvme":
                 self.nvmes.add(pdev)
 
+    @property
+    def primary_nic(self) -> PCIDevice:
+        return self.cx_pf
+
     def __find_shared_usp(self) -> PCIDevice:
         """Find the USP that is shared by both devices, the immediate downstream
         bus is the point in the topology where P2P traffic will switch from an
@@ -413,12 +462,103 @@ class NVCX_Complex(object):
                     assert i.device_type == "cx_switch"
                 return pdev
 
-    def get_subsystems(self):
+    def compute_acs(self) -> Dict[PCIDevice, str]:
+        acs: Dict[PCIDevice, str] = {}
+
+        # For the DSP in the shared switch toward the CX8 DMA Direct interface:
+        # Enable these bits:
+        # bit-4 : ACS Upstream Forwarding
+        # bit-3 : ACS P2P Completion Redirect
+        # bit-0 : ACS Source Validation
+        # Disable these bits:
+        # bit-2 : ACS P2P Request Redirect
+        assert self.cx_dma_dsp.has_acs
+        acs[self.cx_dma_dsp] = "xx110x1"
+
+        # For the DSP in the shared switch toward the GPU:
+        # Enable the following bits:
+        # bit-4 : ACS Upstream Forwarding
+        # bit-2 : ACS P2P Request Redirect
+        # bit-0 : ACS Source Validation
+        # Disable the following bits:
+        # bit-3 : ACS P2P Completion Redirect
+        assert self.nvgpu_dsp.has_acs
+        acs[self.nvgpu_dsp] = "xx101x1"
+
+        # Disable ACS SV on the root port, this forces the entire segment
+        # into one iommu_group and avoids kernel bugs building groups for
+        # irregular ACS.
+        for pdev in self.cx_dma_dsp.iterupstream_path():
+            if not pdev.parent:
+                assert pdev.has_acs
+                acs[pdev] = "xx111x0"
+
+        return acs
+
+    def to_dict(self) -> Dict[str, Any]:
+        res = {
+            "rdma_nic_pf_bdf": str(self.cx_pf.bdf),
+            "rdma_dma_bdf": str(self.cx_dma.bdf),
+            "gpu_bdf": str(self.nvgpu.bdf),
+            "subsystems": {},
+        }
+        devname = self.cx_pf.vpd_name
+        if devname:
+            res["rdma_nic_vpd_name"] = self.cx_pf.vpd_name
+        if self.cx_pf.numa_node is not None:
+            res["numa_node"] = self.cx_pf.numa_node
+        if self.nvmes:
+            res["nvme_bdf"] = str(next(iter(self.nvmes)).bdf)
+
+        for pdev in sorted(
+            itertools.chain(self.cx_pfs, [self.nvgpu, self.cx_dma], self.nvmes),
+            key=lambda x: x.bdf,
+        ):
+            subsys = pdev.get_subsystems()
+            if subsys:
+                res["subsystems"][str(pdev.bdf)] = {
+                    subsys: list(devs) for subsys, devs in subsys.items()
+                }
+        return res
+
+    def __str__(self):
+        res = f"RDMA NIC={self.cx_pf.bdf}, GPU={self.nvgpu.bdf}, RDMA DMA Function={self.cx_dma.bdf}\n"
+        devname = self.cx_pf.vpd_name
+        if devname:
+            res += f"\t{devname}\n"
+
+        if self.cx_pf.numa_node is not None:
+            res += f"\tNUMA Node: {self.cx_pf.numa_node}\n"
+
+        if len(self.cx_pfs):
+            res += print_list("NIC PCI device", [str(I.bdf) for I in self.cx_pfs])
+
         subsystems: Dict[str, Set[str]] = collections.defaultdict(set)
         for pdev in itertools.chain(self.cx_pfs, [self.nvgpu, self.cx_dma], self.nvmes):
             for k, v in pdev.get_subsystems().items():
                 subsystems[k].update(v)
-        return subsystems
+        res += print_list("RDMA device", subsystems["infiniband"])
+        res += print_list("Net device", subsystems["net"])
+        res += print_list("DRM device", subsystems["drm"])
+        res += print_list("NVMe device", subsystems["nvme"])
+
+        return res[:-1]
+
+    def check(self) -> bool:
+        # Correct iommu_groups are required to avoid NVreg_GrdmaPciTopoCheckOverride
+        if (
+            self.cx_dma.iommu_group == self.nvgpu.iommu_group
+            and self.cx_dma.iommu_group is not None
+        ):
+            check_ok(
+                f"Kernel iommu_group for DMA {self.cx_dma.bdf} and GPU {self.nvgpu.bdf} are both {self.cx_dma.iommu_group}"
+            )
+            return True
+
+        check_fail(
+            f"Kernel iommu_group for DMA {self.cx_dma.bdf} and GPU {self.nvgpu.bdf} are not equal {self.cx_dma.iommu_group} != {self.nvgpu.iommu_group}"
+        )
+        return False
 
 
 def check_parent(pdev: PCIDevice, parent_type: str):
@@ -540,7 +680,8 @@ class PCITopo(object):
             raise ValueError(
                 f"CX DMA function {cx_dma} has unexpected PCI devices in the topology"
             )
-        return NVCX_Complex(cx_pfs, cx_dma, nvgpu)
+
+        return NVCX_DMA_Complex(cx_pfs, cx_dma, nvgpu)
 
     def __build_topo(self):
         """Collect cross-device information together and build the NVCX_Complex
@@ -559,7 +700,7 @@ class PCITopo(object):
             if pdev.device_type == "cx_dma":
                 nvcx = self.__get_nvcx_complex(pdev)
                 self.nvcxs.append(nvcx)
-        self.nvcxs.sort(key=lambda x: x.cx_pf.bdf)
+        self.nvcxs.sort(key=lambda x: x.primary_nic.bdf)
 
     @property
     def supported(self) -> bool:
@@ -571,33 +712,7 @@ class PCITopo(object):
         have"""
         acs: Dict[PCIDevice, str] = {}
         for nvcx in self.nvcxs:
-            # For the DSP in the shared switch toward the CX8 DMA Direct interface:
-            # Enable these bits:
-            # bit-4 : ACS Upstream Forwarding
-            # bit-3 : ACS P2P Completion Redirect
-            # bit-0 : ACS Source Validation
-            # Disable these bits:
-            # bit-2 : ACS P2P Request Redirect
-            assert nvcx.cx_dma_dsp.has_acs
-            acs[nvcx.cx_dma_dsp] = "xx110x1"
-
-            # For the DSP in the shared switch toward the GPU:
-            # Enable the following bits:
-            # bit-4 : ACS Upstream Forwarding
-            # bit-2 : ACS P2P Request Redirect
-            # bit-0 : ACS Source Validation
-            # Disable the following bits:
-            # bit-3 : ACS P2P Completion Redirect
-            assert nvcx.nvgpu_dsp.has_acs
-            acs[nvcx.nvgpu_dsp] = "xx101x1"
-
-            # Disable ACS SV on the root port, this forces the entire segment
-            # into one iommu_group and avoids kernel bugs building groups for
-            # irregular ACS.
-            for pdev in nvcx.cx_dma_dsp.iterupstream_path():
-                if not pdev.parent:
-                    assert pdev.has_acs
-                    acs[pdev] = "xx111x0"
+            acs.update(nvcx.compute_acs())
 
         # For all other CX bridges set kernel's default ACS enable
         # Enable these bits:
@@ -630,11 +745,11 @@ def add_sysfs_dump_argument(parser):
 # -------------------------------------------------------------------
 def print_list(title: str, items: list[str]):
     if not items:
-        return
+        return ""
     if len(items) > 1:
         title = title + "s"
     list_str = ", ".join(sorted(items))
-    print(f"\t{title}: {list_str}")
+    return f"\t{title}: {list_str}\n"
 
 
 def args_topology(parser):
@@ -653,30 +768,7 @@ def topo_json(topo: PCITopo):
 
     jtop = []
     for nvcx in topo.nvcxs:
-        jnvcx = {
-            "rdma_nic_pf_bdf": str(nvcx.cx_pf.bdf),
-            "rdma_dma_bdf": str(nvcx.cx_dma.bdf),
-            "gpu_bdf": str(nvcx.nvgpu.bdf),
-            "subsystems": {},
-        }
-        devname = nvcx.cx_pf.vpd_name
-        if devname:
-            jnvcx["rdma_nic_vpd_name"] = nvcx.cx_pf.vpd_name
-        if nvcx.cx_pf.numa_node is not None:
-            jnvcx["numa_node"] = nvcx.cx_pf.numa_node
-        if nvcx.nvmes:
-            jnvcx["nvme_bdf"] = str(next(iter(nvcx.nvmes)).bdf)
-
-        for pdev in sorted(
-            itertools.chain(nvcx.cx_pfs, [nvcx.nvgpu, nvcx.cx_dma], nvcx.nvmes),
-            key=lambda x: x.bdf,
-        ):
-            subsys = pdev.get_subsystems()
-            if subsys:
-                jnvcx["subsystems"][str(pdev.bdf)] = {
-                    subsys: list(devs) for subsys, devs in subsys.items()
-                }
-        jtop.append(jnvcx)
+        jtop.append(nvcx.to_dict())
     print(json.dumps(jtop, indent=4))
 
 
@@ -691,25 +783,8 @@ def cmd_topology(args):
         return topo_json(topo)
 
     for nvcx in topo.nvcxs:
-        print(
-            f"RDMA NIC={nvcx.cx_pf.bdf}, GPU={nvcx.nvgpu.bdf}, RDMA DMA Function={nvcx.cx_dma.bdf}"
-        )
+        print(nvcx)
 
-        devname = nvcx.cx_pf.vpd_name
-        if devname:
-            print(f"\t{devname}")
-
-        if nvcx.cx_pf.numa_node is not None:
-            print(f"\tNUMA Node: {nvcx.cx_pf.numa_node}")
-
-        if len(nvcx.cx_pfs):
-            print_list("NIC PCI device", [str(I.bdf) for I in nvcx.cx_pfs])
-
-        subsystems = nvcx.get_subsystems()
-        print_list("RDMA device", subsystems["infiniband"])
-        print_list("Net device", subsystems["net"])
-        print_list("DRM device", subsystems["drm"])
-        print_list("NVMe device", subsystems["nvme"])
 cmd_topology.__aliases__ = ("topo",)
 
 # -------------------------------------------------------------------
@@ -889,19 +964,8 @@ def cmd_check(args):
                 f"ACS for {pdev.device_type} {pdev.bdf} has incorrect values {cur_acs:07b} != {acs}, (0x{cur_acs:x} != 0x{new_acs:x})"
             )
 
-    # Correct iommu_groups are required to avoid NVreg_GrdmaPciTopoCheckOverride
     for nvcx in topo.nvcxs:
-        if (
-            nvcx.cx_dma.iommu_group == nvcx.nvgpu.iommu_group
-            and nvcx.cx_dma.iommu_group is not None
-        ):
-            check_ok(
-                f"Kernel iommu_group for DMA {nvcx.cx_dma.bdf} and GPU {nvcx.nvgpu.bdf} are both {nvcx.cx_dma.iommu_group}"
-            )
-        else:
-            check_fail(
-                f"Kernel iommu_group for DMA {nvcx.cx_dma.bdf} and GPU {nvcx.nvgpu.bdf} are not equal {nvcx.cx_dma.iommu_group} != {nvcx.nvgpu.iommu_group}"
-            )
+        nvcx.check()
 
 
 # -------------------------------------------------------------------
