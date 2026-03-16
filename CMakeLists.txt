@@ -553,6 +553,19 @@ find_package(Systemd)
 include_directories(${SYSTEMD_INCLUDE_DIRS})
 RDMA_DoFixup("${SYSTEMD_FOUND}" "systemd/sd-daemon.h")
 
+# https://www.freedesktop.org/software/systemd/man/latest/sysusers.d.html
+set(SYSUSERS_DIR "")
+if (NOT ${CMAKE_VERSION} VERSION_LESS "3.4")
+  pkg_check_modules(SYSTEMD_PC systemd QUIET)
+  if (SYSTEMD_PC_FOUND)
+    pkg_get_variable(SYSUSERS_DIR systemd sysusersdir)
+  endif()
+endif()
+if ("${SYSUSERS_DIR}" STREQUAL "")
+  set(SYSUSERS_DIR "/usr/lib/sysusers.d")
+endif()
+install(FILES rdma-sysusers.conf DESTINATION "${SYSUSERS_DIR}" RENAME rdma.conf)
+
 # drm headers
 
 # Check if the headers have been installed by kernel-headers
