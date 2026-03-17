@@ -1,5 +1,5 @@
 # SPDX-License-Identifier: (GPL-2.0 OR Linux-OpenIB)
-# Copyright 2020-2024 Amazon.com, Inc. or its affiliates. All rights reserved.
+# Copyright 2020-2026 Amazon.com, Inc. or its affiliates. All rights reserved.
 
 #cython: language_level=3
 
@@ -50,3 +50,11 @@ cdef class EfaDVCQInitAttr(PyverbsObject):
 
 cdef class EfaDVMRAttr(PyverbsObject):
     cdef dv.efadv_mr_attr mr_attr
+
+
+cdef class EfaDVSQDepthAttr(PyverbsObject):
+    cdef dv.efadv_sq_depth_attr sq_depth_attr
+
+
+cdef class EfaDVRQDepthAttr(PyverbsObject):
+    cdef dv.efadv_rq_depth_attr rq_depth_attr
