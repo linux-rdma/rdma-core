@@ -22,12 +22,12 @@
  */
 
 enum {
-	EFA_ALLOC_UCONTEXT_CMD_COMP_TX_BATCH  = 1 << 0,
-	EFA_ALLOC_UCONTEXT_CMD_COMP_MIN_SQ_WR = 1 << 1,
+	EFA_ALLOC_UCONTEXT_CMD_SUPP_CAPS_TX_BATCH  = 1 << 0,
+	EFA_ALLOC_UCONTEXT_CMD_SUPP_CAPS_MIN_SQ_WR = 1 << 1,
 };
 
 struct efa_ibv_alloc_ucontext_cmd {
-	__u32 comp_mask;
+	__u32 supported_caps;
 	__u8 reserved_20[4];
 };
 
