@@ -2,6 +2,7 @@
 # Copyright (c) 2019, Mellanox Technologies. All rights reserved.
 import weakref
 from libc.stdint cimport uintptr_t
+from libc.stdlib cimport malloc, free
 
 from pyverbs.pyverbs_error import PyverbsError, PyverbsRDMAError
 from pyverbs.base import PyverbsRDMAErrno
@@ -157,23 +158,27 @@ cdef class CQ(PyverbsCM):
         :return: (npolled, wcs): The number of polled completions and an array
                  of the polled completions
         """
-        cdef v.ibv_wc wc
+        cdef v.ibv_wc *wcs_c
+        cdef int i
         wcs = []
-        npolled = 0
 
-        while npolled < num_entries:
-            rc = v.ibv_poll_cq(self.cq, 1, &wc)
-            if rc < 0:
-                raise PyverbsRDMAError('Failed to poll CQ', -rc)
-            if rc == 0:
-                break;
-            npolled += 1
-            wcs.append(WC(wr_id=wc.wr_id, status=wc.status, opcode=wc.opcode,
-                          vendor_err=wc.vendor_err, byte_len=wc.byte_len,
-                          qp_num=wc.qp_num, src_qp=wc.src_qp,
-                          imm_data=wc.imm_data, wc_flags=wc.wc_flags,
-                          pkey_index=wc.pkey_index, slid=wc.slid, sl=wc.sl,
-                          dlid_path_bits=wc.dlid_path_bits))
+        wcs_c = <v.ibv_wc *>malloc(num_entries * sizeof(v.ibv_wc))
+        if wcs_c == NULL:
+            raise MemoryError('Failed to allocate WC array')
+        try:
+            npolled = v.ibv_poll_cq(self.cq, num_entries, wcs_c)
+            if npolled < 0:
+                raise PyverbsRDMAError('Failed to poll CQ', -npolled)
+            for i in range(npolled):
+                wcs.append(WC(wr_id=wcs_c[i].wr_id, status=wcs_c[i].status,
+                              opcode=wcs_c[i].opcode, vendor_err=wcs_c[i].vendor_err,
+                              byte_len=wcs_c[i].byte_len, qp_num=wcs_c[i].qp_num,
+                              src_qp=wcs_c[i].src_qp, imm_data=wcs_c[i].imm_data,
+                              wc_flags=wcs_c[i].wc_flags, pkey_index=wcs_c[i].pkey_index,
+                              slid=wcs_c[i].slid, sl=wcs_c[i].sl,
+                              dlid_path_bits=wcs_c[i].dlid_path_bits))
+        finally:
+            free(wcs_c)
         return npolled, wcs
 
     def req_notify(self, solicited_only = False):
