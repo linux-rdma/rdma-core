@@ -588,6 +588,7 @@ static int print_hca_cap(struct ibv_device *ib_dev, uint8_t ib_port)
 			printf("\tmax_srq_sge:\t\t\t%d\n", device_attr.orig_attr.max_srq_sge);
 		}
 		printf("\tmax_pkeys:\t\t\t%d\n", device_attr.orig_attr.max_pkeys);
+		printf("\tmax_comp_cntr:\t\t\t\t%d\n", device_attr.max_comp_cntr);
 		printf("\tlocal_ca_ack_delay:\t\t%d\n", device_attr.orig_attr.local_ca_ack_delay);
 
 		print_odp_caps(&device_attr);
