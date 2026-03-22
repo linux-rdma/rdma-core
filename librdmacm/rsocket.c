@@ -135,7 +135,7 @@ static uint16_t def_rqsize = 384;
 static uint32_t def_mem = (1 << 17);
 static uint32_t def_wmem = (1 << 17);
 static uint32_t polling_time = 10;
-static int wake_up_interval = 5000;
+static int wake_up_interval = 500;
 
 /*
  * Immediate data format is determined by the upper bits
@@ -317,7 +317,7 @@ struct ds_qp {
 };
 
 struct rsocket {
-	int		  type;
+	int		  type;  /* SOCK_STREAM or SOCK_DGRAM only; flags in fd_flags/fs_flags */
 	int		  index;
 	fastlock_t	  slock;
 	fastlock_t	  rlock;
@@ -377,6 +377,8 @@ struct rsocket {
 
 	int		  opts;
 	int		  fd_flags;
+	int		  fs_flags;
+	int		  ipv4_opts;
 	uint64_t	  so_opts;
 	uint64_t	  ipv6_opts;
 	void		  *optval;
@@ -652,6 +654,7 @@ static struct rsocket *rs_alloc(struct rsocket *inherited_rs, int type)
 		return NULL;
 
 	rs->type = type;
+
 	rs->index = -1;
 	if (type == SOCK_DGRAM) {
 		rs->udp_sock = -1;
@@ -846,7 +849,7 @@ static int rs_create_cq(struct rsocket *rs, struct rdma_cm_id *cm_id)
 	if (!cm_id->recv_cq)
 		goto err1;
 
-	if (rs->fd_flags & O_NONBLOCK) {
+	if (rs->fs_flags & O_NONBLOCK) {
 		if (set_fd_nonblock(cm_id->recv_cq_channel->fd, true))
 			goto err2;
 	}
@@ -1197,19 +1200,23 @@ int rsocket(int domain, int type, int protocol)
 {
 	struct rsocket *rs;
 	int index, ret;
+	int socket_type = type & ~(SOCK_CLOEXEC | SOCK_NONBLOCK);
 
 	if ((domain != AF_INET && domain != AF_INET6 && domain != AF_IB) ||
-	    ((type != SOCK_STREAM) && (type != SOCK_DGRAM)) ||
-	    (type == SOCK_STREAM && protocol && protocol != IPPROTO_TCP) ||
-	    (type == SOCK_DGRAM && protocol && protocol != IPPROTO_UDP))
+	    (socket_type != SOCK_STREAM && socket_type != SOCK_DGRAM) ||
+	    ((socket_type == SOCK_STREAM) && protocol && protocol != IPPROTO_TCP) ||
+	    ((socket_type == SOCK_DGRAM) && protocol && protocol != IPPROTO_UDP))
 		return ERR(ENOTSUP);
 
 	rs_configure();
-	rs = rs_alloc(NULL, type);
+	rs = rs_alloc(NULL, socket_type);
 	if (!rs)
 		return ERR(ENOMEM);
 
-	if (type == SOCK_STREAM) {
+	rs->fd_flags = (type & SOCK_CLOEXEC) ? FD_CLOEXEC : 0;
+	rs->fs_flags = (type & SOCK_NONBLOCK) ? O_NONBLOCK : 0;
+
+	if (socket_type == SOCK_STREAM) {
 		ret = rdma_create_id(NULL, &rs->cm_id, rs, RDMA_PS_TCP);
 		if (ret)
 			goto err;
@@ -1220,7 +1227,6 @@ int rsocket(int domain, int type, int protocol)
 		ret = ds_init(rs, domain);
 		if (ret)
 			goto err;
-
 		index = rs->udp_sock;
 	}
 
@@ -1278,7 +1284,7 @@ int rlisten(int socket, int backlog)
 	if (ret)
 		return ret;
 
-	if (rs->fd_flags & O_NONBLOCK) {
+	if (rs->fs_flags & O_NONBLOCK) {
 		ret = set_fd_nonblock(rs->accept_queue[0], true);
 		if (ret)
 			return ret;
@@ -1313,6 +1319,8 @@ static void rs_accept(struct rsocket *rs)
 	if (!new_rs)
 		goto err;
 	new_rs->cm_id = cm_id;
+	new_rs->fd_flags = rs->fd_flags;
+	new_rs->fs_flags = rs->fs_flags;
 
 	ret = rs_insert(new_rs, new_rs->cm_id->channel->fd);
 	if (ret < 0)
@@ -1470,7 +1478,7 @@ connected:
 		rs->state = rs_connect_rdwr;
 		break;
 	case rs_accepting:
-		if (!(rs->fd_flags & O_NONBLOCK))
+		if (!(rs->fs_flags & O_NONBLOCK))
 			set_fd_nonblock(rs->cm_id->channel->fd, true);
 
 		ret = ucma_complete(rs->cm_id);
@@ -1725,9 +1733,11 @@ int rconnect(int socket, const struct sockaddr *addr, socklen_t addrlen)
 	if (rs->type == SOCK_STREAM) {
 		memcpy(&rs->cm_id->route.addr.dst_addr, addr, addrlen);
 		ret = rs_do_connect(rs);
-		if (ret == -1 && errno == EINPROGRESS) {
+		if (ret == 0 || (ret == -1 && errno == EINPROGRESS)) {
 			save_errno = errno;
-			/* The app can still drive the CM state on failure */
+			/* Add rsocket to internal thread that drives CM progress
+			 * so the app can drive state and respond to disconnect requests.
+			 */
 			rs_notify_svc(&connect_svc, rs, RS_SVC_ADD_CM);
 			errno = save_errno;
 		}
@@ -2345,7 +2355,7 @@ static int ds_get_comp(struct rsocket *rs, int nonblock, int (*test)(struct rsoc
 
 static int rs_nonblocking(struct rsocket *rs, int flags)
 {
-	return (rs->fd_flags & O_NONBLOCK) || (flags & MSG_DONTWAIT);
+	return (rs->fs_flags & O_NONBLOCK) || (flags & MSG_DONTWAIT);
 }
 
 static int rs_is_cq_armed(struct rsocket *rs)
@@ -3367,8 +3377,10 @@ int rpoll(struct pollfd *fds, nfds_t nfds, int timeout)
 
 		if (timeout >= 0) {
 			timeout -= (int) ((rs_time_us() - start_time) / 1000);
-			if (timeout <= 0)
+			if (timeout <= 0) {
+				rs_poll_exit();
 				return 0;
+			}
 			pollsleep = min(timeout, wake_up_interval);
 		} else {
 			pollsleep = wake_up_interval;
@@ -3492,7 +3504,7 @@ int rshutdown(int socket, int how)
 	if (rs->opts & RS_OPT_KEEPALIVE)
 		rs_notify_svc(&tcp_svc, rs, RS_SVC_REM_KEEPALIVE);
 
-	if (rs->fd_flags & O_NONBLOCK)
+	if (rs->fs_flags & O_NONBLOCK)
 		rs_set_nonblocking(rs, 0);
 
 	if (rs->state & rs_connected) {
@@ -3525,8 +3537,8 @@ int rshutdown(int socket, int how)
 		rs_process_cq(rs, 0, rs_conn_all_sends_done);
 
 out:
-	if ((rs->fd_flags & O_NONBLOCK) && (rs->state & rs_connected))
-		rs_set_nonblocking(rs, rs->fd_flags);
+	if ((rs->fs_flags & O_NONBLOCK) && (rs->state & rs_connected))
+		rs_set_nonblocking(rs, rs->fs_flags);
 
 	if (rs->state & rs_disconnected) {
 		/* Generate event by flushing receives to unblock rpoll */
@@ -3542,14 +3554,14 @@ static void ds_shutdown(struct rsocket *rs)
 	if (rs->opts & RS_OPT_UDP_SVC)
 		rs_notify_svc(&udp_svc, rs, RS_SVC_REM_DGRAM);
 
-	if (rs->fd_flags & O_NONBLOCK)
+	if (rs->fs_flags & O_NONBLOCK)
 		rs_set_nonblocking(rs, 0);
 
 	rs->state &= ~(rs_readable | rs_writable);
 	ds_process_cqs(rs, 0, ds_all_sends_done);
 
-	if (rs->fd_flags & O_NONBLOCK)
-		rs_set_nonblocking(rs, rs->fd_flags);
+	if (rs->fs_flags & O_NONBLOCK)
+		rs_set_nonblocking(rs, rs->fs_flags);
 }
 
 int rclose(int socket)
@@ -3658,7 +3670,7 @@ int rsetsockopt(int socket, int level, int optname,
 	rs = idm_lookup(&idm, socket);
 	if (!rs)
 		return ERR(EBADF);
-	if (rs->type == SOCK_DGRAM && level != SOL_RDMA) {
+	if ((rs->type == SOCK_DGRAM) && level != SOL_RDMA) {
 		ret = setsockopt(rs->udp_sock, level, optname, optval, optlen);
 		if (ret)
 			return ret;
@@ -3681,8 +3693,8 @@ int rsetsockopt(int socket, int level, int optname,
 			opt_on = *(int *) optval;
 			break;
 		case SO_RCVBUF:
-			if ((rs->type == SOCK_STREAM && !rs->rbuf) ||
-			    (rs->type == SOCK_DGRAM && !rs->qp_list))
+			if (((rs->type == SOCK_STREAM) && !rs->rbuf) ||
+			    ((rs->type == SOCK_DGRAM) && !rs->qp_list))
 				rs->rbuf_size = (*(uint32_t *) optval) << 1;
 			ret = 0;
 			break;
@@ -3710,6 +3722,18 @@ int rsetsockopt(int socket, int level, int optname,
 			break;
 		}
 		break;
+	case IPPROTO_IP:
+		switch (optname) {
+		case IP_TOS:
+			rs->ipv4_opts = *(int *)optval;
+			ret = rdma_set_option(rs->cm_id, RDMA_OPTION_ID,
+						      RDMA_OPTION_ID_TOS,
+						      (void *) optval, optlen);
+			break;
+		default:
+			break;
+		}
+		break;
 	case IPPROTO_TCP:
 		opts = &rs->tcp_opts;
 		switch (optname) {
@@ -3731,6 +3755,7 @@ int rsetsockopt(int socket, int level, int optname,
 			ret = 0;
 			break;
 		case TCP_MAXSEG:
+		case TCP_CONGESTION:
 			ret = 0;
 			break;
 		default:
@@ -3834,6 +3859,7 @@ int rgetsockopt(int socket, int level, int optname,
 	struct rsocket *rs;
 	void *opt;
 	struct ibv_sa_path_rec *path_rec;
+	struct tcp_info *info;
 	struct ibv_path_data path_data;
 	socklen_t len;
 	int ret = 0;
@@ -3871,6 +3897,21 @@ int rgetsockopt(int socket, int level, int optname,
 			*optlen = sizeof(int);
 			rs->err = 0;
 			break;
+		case SO_BROADCAST:
+			ret = 0;
+			break;
+		default:
+			ret = ENOTSUP;
+			break;
+		}
+		break;
+	case IPPROTO_IP:
+		switch (optname) {
+		case IP_TOS:
+			*((int *) optval) = rs->ipv4_opts;
+			*optlen = sizeof(int);
+			break;
+
 		default:
 			ret = ENOTSUP;
 			break;
@@ -3878,6 +3919,7 @@ int rgetsockopt(int socket, int level, int optname,
 		break;
 	case IPPROTO_TCP:
 		switch (optname) {
+		case TCP_CONGESTION:
 		case TCP_KEEPCNT:
 		case TCP_KEEPINTVL:
 			*((int *) optval) = 1;   /* N/A */
@@ -3896,6 +3938,17 @@ int rgetsockopt(int socket, int level, int optname,
 					    2048;
 			*optlen = sizeof(int);
 			break;
+		case TCP_INFO:
+			//TODO: support other tcp_info fields.
+			info = (struct tcp_info *) optval;
+			memset(info, 0, sizeof(struct tcp_info));
+			info->tcpi_state = (rs->state == rs_connected) ?
+				TCP_ESTABLISHED : TCP_CLOSE;
+			info->tcpi_snd_cwnd = rs->sq_size;
+
+			*optlen = sizeof(struct tcp_info);
+			break;
+
 		default:
 			ret = ENOTSUP;
 			break;
@@ -3986,15 +4039,22 @@ int rfcntl(int socket, int cmd, ... /* arg */ )
 	va_start(args, cmd);
 	switch (cmd) {
 	case F_GETFL:
-		ret = rs->fd_flags;
+		ret = rs->fs_flags;
 		break;
 	case F_SETFL:
 		param = va_arg(args, int);
-		if ((rs->fd_flags & O_NONBLOCK) != (param & O_NONBLOCK))
+		if ((rs->fs_flags & O_NONBLOCK) != (param & O_NONBLOCK))
 			ret = rs_set_nonblocking(rs, param & O_NONBLOCK);
 
 		if (!ret)
-			rs->fd_flags = param;
+			rs->fs_flags = param;
+		break;
+	case F_GETFD:
+		ret = rs->fd_flags;
+		break;
+	case F_SETFD:
+		param = va_arg(args, int);
+		rs->fd_flags = param;
 		break;
 	default:
 		ret = ERR(ENOTSUP);
