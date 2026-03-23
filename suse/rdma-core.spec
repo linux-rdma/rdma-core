@@ -694,11 +694,13 @@ done
 %{_mandir}/man3/*_to_ibv_rate.*
 %{_mandir}/man7/rdma_cm.*
 %if 0%{?dma_coherent}
+%{_mandir}/man3/bnxt_re_dv*
 %{_mandir}/man3/efadv*
 %{_mandir}/man3/hnsdv*
 %{_mandir}/man3/manadv*
 %{_mandir}/man3/mlx5dv*
 %{_mandir}/man3/mlx4dv*
+%{_mandir}/man7/bnxt_re_dv*
 %{_mandir}/man7/efadv*
 %{_mandir}/man7/hnsdv*
 %{_mandir}/man7/manadv*
