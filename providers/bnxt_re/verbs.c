@@ -2116,8 +2116,10 @@ static struct ibv_qp *__bnxt_re_create_qp(struct ibv_context *ibvctx,
 	if (qp->qpmode == BNXT_RE_WQE_MODE_VARIABLE)
 		req.sq_slots = qattr[BNXT_RE_QATTR_SQ_INDX].slots;
 
-	if (ibv_cmd_create_qp_ex(ibvctx, &qp->vqp, attr,
-				 &req.ibv_cmd, sizeof(req), &resp.ibv_resp, sizeof(resp)))
+	fprintf(stderr, "qpsva: 0x%llx qprva: 0x%llx\n", req.qpsva, req.qprva);
+	if (ibv_cmd_create_qp_ex2(ibvctx, &qp->vqp, attr,
+				  &req.ibv_cmd, sizeof(req),
+				  &resp.ibv_resp, sizeof(resp)))
 		goto fail;
 
 

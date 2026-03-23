@@ -241,6 +241,9 @@ struct bnxt_re_qp {
 	uint8_t qptyp;
 	struct bnxt_re_mem *mem;
 	struct bnxt_re_wr_send_qp wr_sq;
+	struct bnxt_re_pd *re_pd;
+	struct bnxt_re_dpi dv_dpi;
+	uint32_t qp_handle;
 };
 
 struct bnxt_re_mr {
