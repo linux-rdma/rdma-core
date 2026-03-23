@@ -2116,8 +2116,9 @@ static struct ibv_qp *__bnxt_re_create_qp(struct ibv_context *ibvctx,
 	if (qp->qpmode == BNXT_RE_WQE_MODE_VARIABLE)
 		req.sq_slots = qattr[BNXT_RE_QATTR_SQ_INDX].slots;
 
-	if (ibv_cmd_create_qp_ex(ibvctx, &qp->vqp, attr,
-				&req.ibv_cmd, sizeof(req), &resp.ibv_resp, sizeof(resp)))
+	if (ibv_cmd_create_qp_ex2(ibvctx, &qp->vqp, attr,
+				  &req.ibv_cmd, sizeof(req),
+				  &resp.ibv_resp, sizeof(resp), NULL))
 		goto fail;
 
 
@@ -2194,11 +2195,13 @@ int bnxt_re_modify_qp(struct ibv_qp *ibvqp, struct ibv_qp_attr *attr,
 			qp->qpst = attr->qp_state;
 			/* transition to reset */
 			if (qp->qpst == IBV_QPS_RESET) {
-				qp->jsqq->hwque->head = 0;
-				qp->jsqq->hwque->tail = 0;
+				if (qp->jsqq) {
+					qp->jsqq->hwque->head = 0;
+					qp->jsqq->hwque->tail = 0;
+					qp->jsqq->start_idx = 0;
+					qp->jsqq->last_idx = 0;
+				}
 				bnxt_re_cleanup_cq(qp, qp->scq);
-				qp->jsqq->start_idx = 0;
-				qp->jsqq->last_idx = 0;
 				if (qp->jrqq) {
 					qp->jrqq->hwque->head = 0;
 					qp->jrqq->hwque->tail = 0;

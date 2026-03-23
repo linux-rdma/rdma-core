@@ -234,3 +234,192 @@ fail:
 	free(cq);
 	return NULL;
 }
+
+static void bnxt_re_dv_init_ib_qp(struct ibv_context *ibvctx,
+				  struct ibv_qp_init_attr_ex *attr,
+				  struct bnxt_re_qp *qp)
+{
+	struct ibv_qp *ibvqp = qp->ibvqp;
+
+	ibvqp->qp_num =	qp->qpid;
+	ibvqp->context = ibvctx;
+	ibvqp->qp_context = attr->qp_context;
+	ibvqp->pd = attr->pd;
+	ibvqp->send_cq = attr->send_cq;
+	ibvqp->recv_cq = attr->recv_cq;
+	ibvqp->srq = attr->srq;
+	ibvqp->qp_type = attr->qp_type;
+	ibvqp->state = IBV_QPS_RESET;
+	ibvqp->events_completed = 0;
+	pthread_mutex_init(&ibvqp->mutex, NULL);
+	pthread_cond_init(&ibvqp->cond, NULL);
+}
+
+static void bnxt_re_dv_init_qp(struct ibv_context *ibvctx,
+			       struct ibv_qp_init_attr_ex *attr,
+			       struct bnxt_re_qp *qp,
+			       struct ubnxt_re_qp_resp *resp)
+{
+	struct bnxt_re_context *cntx = to_bnxt_re_context(ibvctx);
+	struct ibv_device_attr *devattr;
+	struct bnxt_re_qpcap *cap;
+	struct bnxt_re_dev *rdev;
+
+	qp->qpid = resp->qpid;
+	qp->qptyp = attr->qp_type;
+	qp->qpst = IBV_QPS_RESET;
+	qp->scq = to_bnxt_re_cq(attr->send_cq);
+	qp->rcq = to_bnxt_re_cq(attr->recv_cq);
+	if (attr->srq)
+		qp->srq = to_bnxt_re_srq(attr->srq);
+	qp->rand.seed = qp->qpid;
+	qp->sq_psn = 0;
+
+	rdev = cntx->rdev;
+	devattr = &rdev->devattr;
+	cap = &qp->cap;
+	cap->max_ssge = attr->cap.max_send_sge;
+	cap->max_rsge = attr->cap.max_recv_sge;
+	cap->max_inline = attr->cap.max_inline_data;
+	cap->sqsig = attr->sq_sig_all;
+	cap->is_atomic_cap = devattr->atomic_cap;
+	fque_init_node(&qp->snode);
+	fque_init_node(&qp->rnode);
+
+	bnxt_re_dv_init_ib_qp(ibvctx, attr, qp);
+}
+
+static void fill_ib_attr_from_dv_qp_attr(struct bnxt_re_dv_qp_init_attr *dv_qp_attr,
+					 struct ibv_qp_init_attr *attr)
+{
+	attr->send_cq = dv_qp_attr->send_cq;
+	attr->recv_cq = dv_qp_attr->recv_cq;
+	attr->srq = dv_qp_attr->srq;
+	attr->cap.max_send_wr = dv_qp_attr->max_send_wr;
+	attr->cap.max_send_sge = dv_qp_attr->max_send_sge;
+	attr->qp_type =  dv_qp_attr->qp_type;
+	attr->cap.max_inline_data =  dv_qp_attr->max_inline_data;
+	attr->cap.max_recv_wr =  dv_qp_attr->max_recv_wr;
+	attr->cap.max_recv_sge =  dv_qp_attr->max_recv_sge;
+}
+
+static int
+bnxt_re_dv_create_qp_cmd(struct ibv_context *ibvctx,
+			 struct bnxt_re_dv_qp_init_attr *dv_qp_attr,
+			 struct ibv_qp_init_attr_ex *attr_ex,
+			 struct ubnxt_re_qp_resp *resp,
+			 struct bnxt_re_qp *qp)
+{
+	DECLARE_COMMAND_BUFFER_LINK(driver_attrs, UVERBS_OBJECT_QP,
+				    UVERBS_METHOD_QP_CREATE, 3, NULL);
+	struct ib_uverbs_buffer_desc sq_buf_umem_desc, rq_buf_umem_desc;
+	struct bnxt_re_context *cntx = to_bnxt_re_context(ibvctx);
+	struct bnxt_re_dv_db_region_attr *db_attr = NULL;
+	struct ibv_buf *sq_buf = NULL;
+	struct ibv_buf *rq_buf = NULL;
+	struct ubnxt_re_qp req = {};
+	void *buf_addr;
+	uint64_t offset;
+	uint32_t size;
+	int ret;
+
+	req.qp_handle = dv_qp_attr->qp_handle;
+
+	/* Setup SQ buffer attributes */
+	sq_buf = dv_qp_attr->sq_umem_handle;
+	offset = dv_qp_attr->sq_umem_offset;
+	size = dv_qp_attr->sq_len;
+	if (!bnxt_re_dv_is_valid_buf(cntx->rdev, sq_buf, offset, size))
+		return -EINVAL;
+
+	req.sq_slots = dv_qp_attr->sq_slots;
+	req.sq_npsn = dv_qp_attr->sq_npsn;
+	buf_addr = (uint8_t *)sq_buf->addr + offset;
+	fill_attr_in_buf_umem(driver_attrs, UVERBS_ATTR_CREATE_QP_SQ_BUF_UMEM,
+			      &sq_buf_umem_desc, sq_buf,
+			      buf_addr, size);
+	/* Keep qpsva as fallback for kernels without SQ_BUF_UMEM support */
+	req.qpsva = (uintptr_t)buf_addr;
+
+	/* Setup RQ buffer attributes */
+	if (!dv_qp_attr->srq) {
+		rq_buf = dv_qp_attr->rq_umem_handle;
+		offset = dv_qp_attr->rq_umem_offset;
+		size = dv_qp_attr->rq_len;
+		if (!bnxt_re_dv_is_valid_buf(cntx->rdev, rq_buf, offset, size))
+			return -EINVAL;
+
+		buf_addr = (uint8_t *)rq_buf->addr + offset;
+		fill_attr_in_buf_umem(driver_attrs,
+				      UVERBS_ATTR_CREATE_QP_RQ_BUF_UMEM,
+				      &rq_buf_umem_desc, rq_buf,
+				      buf_addr, size);
+		/* Keep qprva as fallback for kernels without RQ_BUF_UMEM support */
+		req.qprva = (uintptr_t)buf_addr;
+	}
+
+	req.comp_mask = BNXT_RE_QP_REQ_MASK_FIXED_QUE_ATTR;
+	if (dv_qp_attr->dbr_handle) {
+		db_attr = dv_qp_attr->dbr_handle;
+		qp->dv_dpi.dbpage = (__u64 *)db_attr->dbr;
+		qp->dv_dpi.dpindx = db_attr->dpi;
+		qp->udpi = &qp->dv_dpi;
+		fill_attr_in_obj(driver_attrs, BNXT_RE_CREATE_QP_ATTR_DBR_HANDLE,
+				 db_attr->handle);
+	} else {
+		qp->udpi = &cntx->udpi;
+	}
+	ret = ibv_cmd_create_qp_ex2(ibvctx, &qp->vqp, attr_ex,
+				    &req.ibv_cmd, sizeof(req),
+				    &resp->ibv_resp, sizeof(*resp),
+				    driver_attrs);
+	if (ret)
+		return ret;
+
+	return 0;
+}
+
+struct ibv_qp *bnxt_re_dv_create_qp(struct ibv_pd *ibvpd,
+				    struct bnxt_re_dv_qp_init_attr *dv_qp_attr)
+{
+	struct bnxt_re_context *cntx = to_bnxt_re_context(ibvpd->context);
+	struct bnxt_re_dev *dev = to_bnxt_re_dev(ibvpd->context->device);
+	struct ibv_qp_init_attr_ex attr_ex;
+	struct ibv_qp_init_attr attr = {};
+	struct ubnxt_re_qp_resp resp = {};
+	struct bnxt_re_qp *qp;
+	int rc;
+
+	if (!(dev->vdev.core_support & IB_UVERBS_CORE_SUPPORT_ROBUST_UDATA))
+		return NULL;
+
+	if (dv_qp_attr->comp_mask)
+		return NULL;
+
+	qp = malloc(sizeof(*qp));
+	if (!qp)
+		return NULL;
+
+	memset(qp, 0, sizeof(*qp));
+	qp->ibvqp = &qp->vqp.qp;
+	qp->mem = NULL;
+	qp->cctx = &cntx->cctx;
+	qp->cntx = cntx;
+	qp->qpmode = cntx->wqe_mode & BNXT_RE_WQE_MODE_VARIABLE;
+
+	dv_qp_attr->qp_handle = (uintptr_t)qp;
+	memset(&attr_ex, 0, sizeof(attr_ex));
+	fill_ib_attr_from_dv_qp_attr(dv_qp_attr, &attr);
+	memcpy(&attr_ex, &attr, sizeof(attr));
+	attr_ex.comp_mask = IBV_QP_INIT_ATTR_PD;
+	attr_ex.pd = ibvpd;
+
+	rc = bnxt_re_dv_create_qp_cmd(ibvpd->context, dv_qp_attr, &attr_ex, &resp, qp);
+	if (rc) {
+		free(qp);
+		return NULL;
+	}
+
+	bnxt_re_dv_init_qp(ibvpd->context, &attr_ex, qp, &resp);
+	return qp->ibvqp;
+}
