@@ -468,6 +468,7 @@ fi
 %endif
 %{_libdir}/lib*.so
 %{_libdir}/pkgconfig/*.pc
+%{_mandir}/man3/bnxt_re_dv*
 %{_mandir}/man3/efadv*
 %{_mandir}/man3/hnsdv*
 %{_mandir}/man3/ibv_*
@@ -480,6 +481,7 @@ fi
 %{_mandir}/man3/manadv*
 %{_mandir}/man3/mlx5dv*
 %{_mandir}/man3/mlx4dv*
+%{_mandir}/man7/bnxt_re_dv*
 %{_mandir}/man7/efadv*
 %{_mandir}/man7/hnsdv*
 %{_mandir}/man7/ionicdv*
