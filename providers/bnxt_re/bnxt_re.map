@@ -6,5 +6,6 @@ BNXT_RE_1.1 {
 		bnxt_re_dv_free_db_region;
 		bnxt_re_dv_get_default_db_region;
 		bnxt_re_dv_create_cq;
+		bnxt_re_dv_create_qp;
 	local: *;
 };
