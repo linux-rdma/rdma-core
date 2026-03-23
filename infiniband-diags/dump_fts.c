@@ -296,7 +296,7 @@ static void dump_unicast_tables(ibnd_node_t *node, int startl, int endl,
 				ibnd_fabric_t *fabric)
 {
 	ib_portid_t * portid = &node->path_portid;
-	char lft[IB_SMP_DATA_SIZE] = { 0 };
+	uint8_t lft[IB_SMP_DATA_SIZE] = { 0 };
 	char str[200];
 	uint64_t nodeguid;
 	int block, i, e, top;
