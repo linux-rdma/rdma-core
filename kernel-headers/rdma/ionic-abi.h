@@ -48,6 +48,7 @@ struct ionic_ctx_resp {
 	__u8 expdb_qtypes;
 
 	__u8 rsvd2[3];
+	__aligned_u64 phc_offset;
 };
 
 struct ionic_qdesc {
@@ -110,6 +111,17 @@ struct ionic_srq_resp {
 	__u8 udma_idx;
 	__u8 rsvd[2];
 	__aligned_u64 rq_cmb_offset;
+};
+
+struct ionic_phc_state {
+    __u32 seq;
+    __u32 rsvd;
+    __aligned_u64 mask;
+    __aligned_u64 tick;
+    __aligned_u64 nsec;
+    __aligned_u64 frac;
+    __u32 mult;
+    __u32 shift;
 };
 
 #endif /* IONIC_ABI_H */
