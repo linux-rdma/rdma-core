@@ -2987,6 +2987,9 @@ static void ionic_free_context(struct ibv_context *ibctx)
 
 	pthread_mutex_destroy(&ctx->mut);
 
+	if (ctx->phc_state)
+		munmap(ctx->phc_state, IONIC_PAGE_SIZE);
+
 	ionic_unmap(ctx->dbpage_page, 1u << ctx->pg_shift);
 
 	verbs_uninit_context(&ctx->vctx);

@@ -79,6 +79,7 @@ struct ionic_ctx {
 
 	void			*dbpage_page;
 	uint64_t		*dbpage;
+	struct ionic_phc_state	*phc_state;
 
 	pthread_mutex_t		mut;
 	struct ionic_tbl_root	qp_tbl;
