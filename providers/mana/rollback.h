@@ -39,6 +39,8 @@ static inline struct mana_ib_rollback_shared_mem
 
 static inline void mana_ib_init_rb_shmem(struct mana_qp *qp)
 {
+	if (qp->ibqp.qp.qp_type != IBV_QPT_RC)
+		return;
 	// take some bytes for rollback memory
 	struct mana_gdma_queue *req_sq =
 		&qp->rnic_qp.queues[USER_RNIC_SEND_QUEUE_REQUESTER];
@@ -54,6 +56,8 @@ static inline void mana_ib_init_rb_shmem(struct mana_qp *qp)
 
 static inline void mana_ib_deinit_rb_shmem(struct mana_qp *qp)
 {
+	if (qp->ibqp.qp.qp_type != IBV_QPT_RC)
+		return;
 	// return back bytes for rollback memory
 	struct mana_gdma_queue *req_sq =
 		&qp->rnic_qp.queues[USER_RNIC_SEND_QUEUE_REQUESTER];
@@ -62,6 +66,9 @@ static inline void mana_ib_deinit_rb_shmem(struct mana_qp *qp)
 
 static inline void mana_ib_reset_rb_shmem(struct mana_qp *qp)
 {
+	if (qp->ibqp.qp.qp_type != IBV_QPT_RC)
+		return;
+
 	struct mana_ib_rollback_shared_mem *rb_shmem =
 		mana_ib_get_rollback_sh_mem(qp);
 
@@ -71,6 +78,9 @@ static inline void mana_ib_reset_rb_shmem(struct mana_qp *qp)
 
 static inline void mana_ib_update_shared_mem_right_offset(struct mana_qp *qp, uint32_t offset_in_bu)
 {
+	if (qp->ibqp.qp.qp_type != IBV_QPT_RC)
+		return;
+
 	struct mana_ib_rollback_shared_mem *rb_shmem =
 			mana_ib_get_rollback_sh_mem(qp);
 
