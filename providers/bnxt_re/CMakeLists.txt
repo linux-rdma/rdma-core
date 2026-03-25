@@ -4,3 +4,7 @@ rdma_provider(bnxt_re
 	memory.c
 	verbs.c
 )
+
+publish_headers(infiniband
+  bnxt_re-hsi.h
+)
