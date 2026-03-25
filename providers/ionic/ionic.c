@@ -5,6 +5,7 @@
 
 #include <stdio.h>
 #include <stdlib.h>
+#include <sys/mman.h>
 
 #include "ionic.h"
 
@@ -86,6 +87,16 @@ static struct verbs_context *ionic_alloc_context(struct ibv_device *ibdev,
 	}
 	ctx->dbpage = ctx->dbpage_page + (resp.dbell_offset & mask);
 
+	if (resp.phc_offset) {
+		ctx->phc_state = mmap(NULL, IONIC_PAGE_SIZE, PROT_READ, MAP_SHARED,
+				      cmd_fd, resp.phc_offset);
+		if (ctx->phc_state == MAP_FAILED) {
+			ctx->phc_state = NULL;
+			rc = errno;
+			goto err_phc;
+		}
+	}
+
 	pthread_mutex_init(&ctx->mut, NULL);
 	ionic_tbl_init(&ctx->qp_tbl);
 
@@ -98,6 +109,8 @@ static struct verbs_context *ionic_alloc_context(struct ibv_device *ibdev,
 	verbs_debug(&ctx->vctx, "Attached to ctx %p", ctx);
 	return &ctx->vctx;
 
+err_phc:
+	ionic_unmap(ctx->dbpage_page, 1u << ctx->pg_shift);
 err_cmd:
 	verbs_uninit_context(&ctx->vctx);
 err_ctx:
