@@ -50,6 +50,7 @@
 #include <util/util.h>
 #include <infiniband/driver.h>
 #include <util/udma_barrier.h>
+#include <infiniband/bnxt_re-hsi.h>
 
 #include "bnxt_re-abi.h"
 #include "memory.h"
