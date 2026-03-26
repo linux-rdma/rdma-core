@@ -164,6 +164,38 @@ static inline void ionic_mmio_memcpy_x64(void *dst, const void *src, size_t byte
 #define IONIC_OP(version, opname) \
 	((version) < 2 ? IONIC_V1_OP_##opname : IONIC_V2_OP_##opname)
 
+static int ionic_phc_update(struct ionic_phc *phc, struct ionic_phc_state *state)
+{
+	uint32_t seq, *state_seq;
+	int retry;
+
+	state_seq = &state->seq;
+
+	for (retry = 10; true; --retry) {
+		if (!retry)
+			return EBUSY;
+
+		seq = atomic_load((_Atomic(uint32_t) *)state_seq);
+
+		/* odd seq means state is updating */
+		if (seq & 1)
+			continue;
+
+		phc->mask = state->mask;
+		phc->tick = state->tick;
+		phc->nsec = state->nsec;
+		phc->frac = state->frac;
+		phc->mult = state->mult;
+		phc->shift = state->shift;
+
+		/* same seq means state did not update */
+		if (seq == atomic_load((_Atomic(uint32_t) *)state_seq))
+			break;
+	}
+
+	return 0;
+}
+
 static int ionic_query_device_ex(struct ibv_context *ibctx,
 				 const struct ibv_query_device_ex_input *input,
 				 struct ibv_device_attr_ex *ex,
@@ -171,6 +203,7 @@ static int ionic_query_device_ex(struct ibv_context *ibctx,
 {
 	struct ibv_device_attr *dev_attr = &ex->orig_attr;
 	struct ib_uverbs_ex_query_device_resp resp = {};
+	struct ionic_ctx *ctx = to_ionic_ctx(ibctx);
 	size_t resp_size = sizeof(resp);
 	int rc;
 
@@ -182,6 +215,24 @@ static int ionic_query_device_ex(struct ibv_context *ibctx,
 				 dev_attr->fw_ver, sizeof(dev_attr->fw_ver));
 	if (rc < 0)
 		dev_attr->fw_ver[0] = 0;
+
+	if (ctx->phc_state) {
+		struct ionic_phc phc = {};
+
+		rc = ionic_phc_update(&phc, ctx->phc_state);
+		if (!rc) {
+			const uint64_t ns_per_ms = 1000000;
+			const uint32_t shift = phc.shift;
+			const uint32_t mult = phc.mult;
+
+			if (ex_size > offsetof(typeof(*ex), completion_timestamp_mask))
+				ex->completion_timestamp_mask = phc.mask;
+
+			if (ex_size > offsetof(typeof(*ex), hca_core_clock))
+				ex->hca_core_clock =
+					((ns_per_ms << shift) + (mult >> 1)) / mult;
+		}
+	}
 
 	return 0;
 }
@@ -436,6 +487,25 @@ static void ionic_vcq_cq_init2(struct ionic_cq *cq, uint32_t resp_cqid)
 	ionic_queue_dbell_init(&cq->q, cq->cqid);
 }
 
+static uint64_t ionic_phc_ts_to_ns(struct ionic_phc *phc, uint64_t ts)
+{
+	uint64_t dt, dt_sign, ns;
+
+	dt = (ts - phc->tick) & phc->mask;
+	dt_sign = phc->mask ^ (phc->mask >> 1);
+
+	ns = phc->nsec;
+
+	if (dt & dt_sign) {
+		dt = -dt & phc->mask;
+		ns -= ((dt * phc->mult) - phc->frac) >> phc->shift;
+	} else {
+		ns += ((dt * phc->mult) + phc->frac) >> phc->shift;
+	}
+
+	return ns;
+}
+
 /*
  * NOTE: ionic_start_poll, ionic_next_poll and ionic_end_poll provide a
  * minimal implementations of the ibv_cq_ex polling mechanism, sufficient to
@@ -447,14 +517,34 @@ static int ionic_start_poll(struct ibv_cq_ex *ibcq_ex, struct ibv_poll_cq_attr *
 {
 	struct ibv_cq *ibcq = ibv_cq_ex_to_cq(ibcq_ex);
 	struct ionic_vcq *vcq = to_ionic_vcq(ibcq);
+	int rc;
 
-	int rc = ionic_poll_cq(ibcq, 1, &vcq->cur_wc);
+	if (!vcq->cur_wc_pending) {
+		rc = ionic_poll_cq(ibcq, 1, &vcq->cur_wc);
 
-	if (rc != 1) /* no completions ready or poll failed */
-		return (rc == 0) ? ENOENT : rc;
+		if (rc != 1) /* no completions ready or poll failed */
+			return (rc == 0) ? ENOENT : rc;
 
-	ibcq_ex->wr_id = vcq->cur_wc.wr_id;
-	ibcq_ex->status = vcq->cur_wc.status;
+		ibcq_ex->wr_id = vcq->cur_wc.wr_id;
+		ibcq_ex->status = vcq->cur_wc.status;
+
+		/* if there is an error after polling the cur_wc,
+		 * don't replace it in the next call to start.
+		 */
+		vcq->cur_wc_pending = true;
+	}
+
+	if (vcq->phc_update) {
+		struct ionic_ctx *ctx = to_ionic_ctx(ibcq->context);
+
+		rc = ionic_phc_update(&vcq->phc, ctx->phc_state);
+		if (rc)
+			return rc;
+	}
+
+	/* success, so the next call to start should replace cur_wc */
+	vcq->cur_wc_pending = false;
+
 	return 0;
 }
 
@@ -548,6 +638,22 @@ static uint8_t ionic_wc_read_dlid_path_bits(struct ibv_cq_ex *ibcq_ex)
 	return vcq->cur_wc.dlid_path_bits;
 }
 
+static uint64_t ionic_wc_read_completion_ts(struct ibv_cq_ex *ibcq_ex)
+{
+	struct ibv_cq *ibcq = ibv_cq_ex_to_cq(ibcq_ex);
+	struct ionic_vcq *vcq = to_ionic_vcq(ibcq);
+
+	return vcq->cur_wc_timestamp;
+}
+
+static uint64_t ionic_wc_read_completion_wallclock_ns(struct ibv_cq_ex *ibcq_ex)
+{
+	struct ibv_cq *ibcq = ibv_cq_ex_to_cq(ibcq_ex);
+	struct ionic_vcq *vcq = to_ionic_vcq(ibcq);
+
+	return ionic_phc_ts_to_ns(&vcq->phc, vcq->cur_wc_timestamp);
+}
+
 static struct ibv_cq_ex *ionic_create_cq_ex(struct ibv_context *ibctx,
 					    struct ibv_cq_init_attr_ex *ex)
 {
@@ -633,6 +739,23 @@ static struct ibv_cq_ex *ionic_create_cq_ex(struct ibv_context *ibctx,
 		vcq->vcq.cq_ex.read_slid = ionic_wc_read_slid;
 	if (ex->wc_flags & IBV_WC_EX_WITH_DLID_PATH_BITS)
 		vcq->vcq.cq_ex.read_dlid_path_bits = ionic_wc_read_dlid_path_bits;
+	if (ex->wc_flags & IBV_WC_EX_WITH_COMPLETION_TIMESTAMP) {
+		if (!ctx->phc_state) {
+			rc = EOPNOTSUPP;
+			goto err_udma;
+		}
+		vcq->vcq.cq_ex.read_completion_ts = ionic_wc_read_completion_ts;
+	}
+	if (ex->wc_flags & IBV_WC_EX_WITH_COMPLETION_TIMESTAMP_WALLCLOCK) {
+		if (!ctx->phc_state) {
+			rc = EOPNOTSUPP;
+			goto err_udma;
+		}
+
+		vcq->phc_update = true;
+		vcq->vcq.cq_ex.read_completion_wallclock_ns =
+			ionic_wc_read_completion_wallclock_ns;
+	}
 
 	return &vcq->vcq.cq_ex;
 
@@ -703,6 +826,7 @@ static int ionic_flush_recv(struct ionic_qp *qp, struct ibv_wc *wc)
 	struct ionic_rq_meta *meta;
 	struct ionic_v1_wqe *wqe;
 	struct ionic_ctx *ctx;
+	uint64_t wqe_idx;
 
 	if (!qp->rq.flush)
 		return 0;
@@ -711,20 +835,19 @@ static int ionic_flush_recv(struct ionic_qp *qp, struct ibv_wc *wc)
 		return 0;
 
 	wqe = ionic_queue_at_cons(&qp->rq.queue);
+	wqe_idx = le64toh(wqe->base.wqe_idx);
 	ctx = to_ionic_ctx(qp->vqp.qp.context);
 
-	/* wqe_id must be a valid queue index */
-	if (unlikely(wqe->base.wqe_id >> qp->rq.queue.depth_log2)) {
-		verbs_err(&ctx->vctx, "invalid id %#lx",
-			  (unsigned long)wqe->base.wqe_id);
+	/* wqe_idx must be a valid queue index */
+	if (unlikely(wqe_idx >> qp->rq.queue.depth_log2)) {
+		verbs_err(&ctx->vctx, "invalid id %#lx", (unsigned long)wqe_idx);
 		return -EIO;
 	}
 
-	/* wqe_id must indicate a request that is outstanding */
-	meta = &qp->rq.meta[wqe->base.wqe_id];
+	/* wqe_idx must indicate a request that is outstanding */
+	meta = &qp->rq.meta[wqe_idx];
 	if (unlikely(meta->next != IONIC_META_POSTED)) {
-		verbs_err(&ctx->vctx, "wqe not posted %#lx",
-			  (unsigned long)wqe->base.wqe_id);
+		verbs_err(&ctx->vctx, "wqe not posted %#lx", (unsigned long)wqe_idx);
 		return -EIO;
 	}
 
@@ -803,8 +926,9 @@ static int ionic_poll_recv(struct ionic_ctx *ctx, struct ionic_cq *cq,
 {
 	struct ionic_qp *qp = NULL;
 	struct ionic_rq_meta *meta;
+	uint64_t wqe_idx_timestamp;
+	uint16_t vlan_tag, wqe_idx;
 	uint32_t src_qpn, st_len;
-	uint16_t vlan_tag;
 	uint8_t op;
 
 	if (cqe_qp->rq.flush)
@@ -814,7 +938,7 @@ static int ionic_poll_recv(struct ionic_ctx *ctx, struct ionic_cq *cq,
 
 	st_len = be32toh(cqe->status_length);
 
-	/* ignore wqe_id in case of flush error */
+	/* ignore wqe_idx in case of flush error */
 	if (ionic_v1_cqe_error(cqe) && st_len == IONIC_STS_WQE_FLUSHED_ERR) {
 		cqe_qp->rq.flush = true;
 		cq->flush = true;
@@ -831,19 +955,21 @@ static int ionic_poll_recv(struct ionic_ctx *ctx, struct ionic_cq *cq,
 		return -EIO;
 	}
 
-	/* wqe_id must be a valid queue index */
-	if (unlikely(cqe->recv.wqe_id >> qp->rq.queue.depth_log2)) {
-		verbs_err(&ctx->vctx, "invalid id %#lx",
-			  (unsigned long)cqe->recv.wqe_id);
+	wqe_idx_timestamp = le64toh(cqe->recv.wqe_idx_timestamp);
+	wqe_idx = wqe_idx_timestamp & IONIC_V1_CQE_WQE_IDX_MASK;
+
+	/* wqe_idx must be a valid queue index */
+	if (unlikely(wqe_idx >> qp->rq.queue.depth_log2)) {
+		verbs_err(&ctx->vctx, "invalid id %#lx", (unsigned long)wqe_idx);
 		return -EIO;
 	}
 
-	/* wqe_id must indicate a request that is outstanding */
-	meta = &qp->rq.meta[qp->rq.meta_idx[cqe->recv.wqe_id]];
+	/* wqe_idx must indicate a request that is outstanding */
+	meta = &qp->rq.meta[qp->rq.meta_idx[wqe_idx]];
 	if (unlikely(meta->next != IONIC_META_POSTED)) {
 		verbs_err(&ctx->vctx, "wqe is not posted for idx %lu meta_idx %u qpid %u rq.prod %u rq.cons %u cqid %u",
-			  (unsigned long)cqe->recv.wqe_id,
-			  qp->rq.meta_idx[cqe->recv.wqe_id],
+			  (unsigned long)wqe_idx,
+			  qp->rq.meta_idx[wqe_idx],
 			  qp->qpid, qp->rq.queue.prod,
 			  qp->rq.queue.cons, cq->cqid);
 		return -EIO;
@@ -851,6 +977,7 @@ static int ionic_poll_recv(struct ionic_ctx *ctx, struct ionic_cq *cq,
 
 	meta->next = qp->rq.meta_head;
 	qp->rq.meta_head = meta;
+	cq->vcq->cur_wc_timestamp = wqe_idx_timestamp >> IONIC_V1_CQE_TIMESTAMP_SHIFT;
 
 	memset(wc, 0, sizeof(*wc));
 
@@ -977,6 +1104,8 @@ static int ionic_poll_send(struct ionic_ctx *ctx,
 		/* produce wc only if signaled or error status */
 	} while (!meta->signal && meta->ibsts == IBV_WC_SUCCESS);
 
+	cq->vcq->cur_wc_timestamp = meta->cqe_timestamp;
+
 	memset(wc, 0, sizeof(*wc));
 
 	wc->status = meta->ibsts;
@@ -1040,6 +1169,7 @@ static int ionic_comp_msn(struct ionic_ctx *ctx,
 {
 	struct ionic_sq_meta *meta;
 	uint16_t cqe_seq, cqe_idx;
+	uint64_t timestamp;
 	int rc;
 
 	if (qp->sq.flush)
@@ -1059,6 +1189,16 @@ static int ionic_comp_msn(struct ionic_ctx *ctx,
 			  be32toh(cqe->send.msg_msn), qp->qpid, cq->cqid,
 			  cqe_seq, qp->sq.msn_prod, qp->sq.msn_cons);
 		return rc;
+	}
+
+	timestamp = le64toh(cqe->send.npg_wqe_idx_timestamp) >> IONIC_V1_CQE_TIMESTAMP_SHIFT;
+
+	for (cqe_idx = qp->sq.msn_cons;
+	     cqe_idx != cqe_seq;
+	     cqe_idx = ionic_queue_next(&qp->sq.queue, cqe_idx)) {
+		meta = &qp->sq.meta[cqe_idx];
+		if (meta->remote)
+			meta->cqe_timestamp = timestamp;
 	}
 
 	qp->sq.msn_cons = cqe_seq;
@@ -1086,7 +1226,8 @@ static int ionic_comp_npg(struct ionic_ctx *ctx,
 			  struct ionic_v1_cqe *cqe)
 {
 	struct ionic_sq_meta *meta;
-	uint16_t cqe_idx;
+	uint64_t wqe_idx_timestamp;
+	uint16_t wqe_idx;
 	uint32_t st_len;
 
 	if (qp->sq.flush)
@@ -1107,9 +1248,11 @@ static int ionic_comp_npg(struct ionic_ctx *ctx,
 		return 0;
 	}
 
-	cqe_idx = cqe->send.npg_wqe_id & qp->sq.queue.mask;
-	meta = &qp->sq.meta[cqe_idx];
+	wqe_idx_timestamp = le64toh(cqe->send.npg_wqe_idx_timestamp);
+	wqe_idx = wqe_idx_timestamp & qp->sq.queue.mask;
+	meta = &qp->sq.meta[wqe_idx];
 	meta->local_comp = true;
+	meta->cqe_timestamp = wqe_idx_timestamp >> IONIC_V1_CQE_TIMESTAMP_SHIFT;
 
 	if (ionic_v1_cqe_error(cqe)) {
 		struct ionic_cq *cq =
@@ -2100,7 +2243,7 @@ static void ionic_v1_prep_base(struct ionic_qp *qp,
 	meta->signal = false;
 	meta->local_comp = false;
 
-	wqe->base.wqe_id = qp->sq.queue.prod;
+	wqe->base.wqe_idx = htole64(qp->sq.queue.prod);
 	if (qp->sq.color)
 		wqe->base.flags |= htobe16(IONIC_V1_FLAG_COLOR);
 
@@ -2708,7 +2851,7 @@ static int ionic_v1_prep_recv(struct ionic_qp *qp,
 
 	meta->wrid = wr->wr_id;
 
-	wqe->base.wqe_id = qp->rq.queue.prod;
+	wqe->base.wqe_idx = htole64(qp->rq.queue.prod);
 	wqe->base.num_sge_key = wr->num_sge;
 
 	qp->rq.meta_idx[qp->rq.queue.prod] = meta - qp->rq.meta;

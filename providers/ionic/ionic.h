@@ -54,7 +54,9 @@ enum {
 	    IBV_WC_EX_WITH_SRC_QP         |
 	    IBV_WC_EX_WITH_SLID           |
 	    IBV_WC_EX_WITH_SL             |
-	    IBV_WC_EX_WITH_DLID_PATH_BITS
+	    IBV_WC_EX_WITH_DLID_PATH_BITS |
+	    IBV_WC_EX_WITH_COMPLETION_TIMESTAMP |
+	    IBV_WC_EX_WITH_COMPLETION_TIMESTAMP_WALLCLOCK
 };
 
 struct ionic_ctx {
@@ -113,6 +115,7 @@ struct ionic_cq {
 	struct list_head	poll_sq;
 	struct list_head	poll_rq;
 	bool			flush;
+	bool			do_timestamp;
 	struct list_head	flush_sq;
 	struct list_head	flush_rq;
 	struct ionic_queue	q;
@@ -124,6 +127,16 @@ struct ionic_cq {
 	int			reserve_pending;
 	uint16_t		arm_any_prod;
 	uint16_t		arm_sol_prod;
+	uint64_t		phc_tick;
+};
+
+struct ionic_phc {
+	uint64_t		mask;
+	uint64_t		tick;
+	uint64_t		nsec;
+	uint64_t		frac;
+	uint32_t		mult;
+	uint32_t		shift;
 };
 
 struct ionic_vcq {
@@ -131,11 +144,16 @@ struct ionic_vcq {
 	struct ionic_cq		cq[2];
 	uint8_t			udma_mask;
 	uint8_t			poll_idx;
+	bool			phc_update;
+	bool			cur_wc_pending;
 	struct ibv_wc		cur_wc; /* for use with start_poll/next_poll */
+	uint64_t		cur_wc_timestamp;
+	struct ionic_phc	phc;
 };
 
 struct ionic_sq_meta {
 	uint64_t		wrid;
+	uint64_t		cqe_timestamp;
 	uint32_t		len;
 	uint16_t		seq;
 	uint8_t			ibop;
