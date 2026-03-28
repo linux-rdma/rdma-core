@@ -191,7 +191,7 @@ stages:
               CONTAINER: leap
               SPEC: suse/rdma-core.spec
               RPMBUILD_OPTS:  --define 'EXTRA_CMAKE_FLAGS -DCMAKE_BUILD_TYPE=Debug -DENABLE_WERROR=1' --without=curlmini
-        container: $[ variables['CONTAINER'] ]
+        container: centos9
         steps:
           - checkout: none
 
