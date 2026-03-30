@@ -54,6 +54,7 @@ rdma_python_test(tests
   test_odp.py
   test_pd.py
   test_parent_domain.py
+  test_phc_timestamp.py
   test_qp.py
   test_qpex.py
   test_rdmacm.py
