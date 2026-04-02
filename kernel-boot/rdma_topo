@@ -28,6 +28,9 @@ class CommandError(Exception):
     pass
 
 
+TOPO_NOT_SUPPORTED = CommandError("No supported topology detected")
+
+
 def sysfs_read_str(sysdir: str, fn: str) -> str:
     """Read the entire content of a sysfs file to a string"""
     with open(os.path.join(sysdir, fn)) as F:
@@ -292,6 +295,7 @@ class PCITopo(object):
 
     def __init__(self):
         self.devices = self.__load_devices("/sys/bus/pci/devices/")
+        self.nvcxs: List[NVCX_Complex] = []
         self.has_cx_dma = any(
             pdev.device_type == "cx_dma" for pdev in self.devices.values()
         )
@@ -383,12 +387,16 @@ class PCITopo(object):
             if pdev.vpd_v3:
                 self.vpd_v3s[pdev.vpd_v3].add(pdev)
 
-        self.nvcxs: List[NVCX_Complex] = []
         for pdev in self.devices.values():
             if pdev.device_type == "cx_dma":
                 nvcx = self.__get_nvcx_complex(pdev)
                 self.nvcxs.append(nvcx)
         self.nvcxs.sort(key=lambda x: x.cx_pf.bdf)
+
+    @property
+    def supported(self) -> bool:
+        """True if the system has a topology that is supported by the rdma_topo tool"""
+        return self.has_cx_dma and len(self.nvcxs) > 0
 
     def compute_acs(self):
         """Return a dictionary of PCI devices and the ACS mask the device should
@@ -496,8 +504,8 @@ def cmd_topology(args):
     """List the ConnectX NICs in the system with the corresponding NIC
     function, DMA Direct function and associated GPU."""
     topo = PCITopo()
-    if not topo.has_cx_dma:
-        raise CommandError("No ConnectX DMA Direct functions detected")
+    if not topo.supported:
+        raise TOPO_NOT_SUPPORTED
 
     if args.json:
         return topo_json(topo)
@@ -572,10 +580,13 @@ def cmd_write_grub_acs(args):
     removed. This command is intended for Debian style systems with a
     /etc/default/grub.d and update-grub command."""
     topo = PCITopo()
-    if not topo.has_cx_dma:
+    if not topo.supported:
         if args.dry_run:
-            raise CommandError("No ConnectX DMA Direct functions detected")
+            raise TOPO_NOT_SUPPORTED
         if os.path.exists(args.output):
+            print(
+                f"W: Found ACS drop-in file {args.output} but the system does not have a supported topology. Deleting file."
+            )
             os.unlink(args.output)
         return
 
@@ -635,6 +646,8 @@ def cmd_setpci_acs(args):
     failures, use with caution!
     """
     topo = PCITopo()
+    if not topo.supported:
+        raise TOPO_NOT_SUPPORTED
     acs = topo.compute_acs()
     cmds: List[List[str]] = []
     for pdev, acs in sorted(acs.items(), key=lambda x: x[0].bdf):
@@ -671,8 +684,8 @@ def cmd_check(args):
     """Check that the running kernel and PCI environment are setup correctly for
     GPU Direct with ConnectX DMA Direct PCI functions."""
     topo = PCITopo()
-    if not topo.has_cx_dma:
-        raise CommandError("No ConnectX DMA Direct functions detected")
+    if not topo.supported:
+        raise TOPO_NOT_SUPPORTED
     check_ok("All ConnectX DMA functions have correct PCI topology")
 
     acs = topo.compute_acs()
