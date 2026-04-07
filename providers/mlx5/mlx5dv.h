@@ -802,10 +802,24 @@ struct mlx5dv_flow_action_attr {
 };
 
 struct ibv_flow *
-mlx5dv_create_flow(struct mlx5dv_flow_matcher *matcher,
-		   struct mlx5dv_flow_match_parameters *match_value,
-		   size_t num_actions,
-		   struct mlx5dv_flow_action_attr actions_attr[]);
+__mlx5dv_create_flow(struct mlx5dv_flow_matcher *matcher,
+		     struct mlx5dv_flow_match_parameters *match_value,
+		     size_t num_actions,
+		     struct mlx5dv_flow_action_attr actions_attr[],
+		     size_t attr_len);
+
+static inline struct ibv_flow *
+_mlx5dv_create_flow(struct mlx5dv_flow_matcher *matcher,
+		    struct mlx5dv_flow_match_parameters *match_value,
+		    size_t num_actions,
+		    struct mlx5dv_flow_action_attr actions_attr[])
+{
+	return __mlx5dv_create_flow(matcher, match_value, num_actions, actions_attr,
+				  sizeof(struct mlx5dv_flow_action_attr));
+}
+
+#define mlx5dv_create_flow(matcher, match_value, num_actions, actions_attr) \
+	_mlx5dv_create_flow(matcher, match_value, num_actions, actions_attr)
 
 struct ibv_flow_action *mlx5dv_create_flow_action_esp(struct ibv_context *ctx,
 						      struct ibv_flow_action_esp_attr *esp,
@@ -1767,6 +1781,12 @@ int mlx5dv_devx_obj_query(struct mlx5dv_devx_obj *obj, const void *in, size_t in
 int mlx5dv_devx_obj_modify(struct mlx5dv_devx_obj *obj, const void *in, size_t inlen,
 			   void *out, size_t outlen);
 int mlx5dv_devx_obj_destroy(struct mlx5dv_devx_obj *obj);
+
+int mlx5dv_devx_obj_export(struct mlx5dv_devx_obj *obj, void *data);
+struct mlx5dv_devx_obj *mlx5dv_devx_obj_import(struct ibv_context *context,
+					       void *data);
+void mlx5dv_devx_obj_unimport(struct mlx5dv_devx_obj *obj);
+
 int mlx5dv_devx_general_cmd(struct ibv_context *context, const void *in, size_t inlen,
 			    void *out, size_t outlen);
 
@@ -1807,6 +1827,11 @@ mlx5dv_devx_umem_reg_ex(struct ibv_context *ctx, struct mlx5dv_devx_umem_in *ume
 
 int mlx5dv_devx_umem_dereg(struct mlx5dv_devx_umem *umem);
 
+int mlx5dv_devx_umem_export(struct mlx5dv_devx_umem *umem, void *data);
+struct mlx5dv_devx_umem *
+mlx5dv_devx_umem_import(struct ibv_context *context, void *data);
+void mlx5dv_devx_umem_unimport(struct mlx5dv_devx_umem *umem);
+
 struct mlx5dv_devx_uar {
 	void *reg_addr;
 	void *base_addr;
@@ -1831,6 +1856,26 @@ struct mlx5dv_var {
 struct mlx5dv_var *
 mlx5dv_alloc_var(struct ibv_context *context, uint32_t flags);
 void mlx5dv_free_var(struct mlx5dv_var *dv_var);
+
+int mlx5dv_var_export(struct mlx5dv_var *dv_var, void *data);
+struct mlx5dv_var *mlx5dv_var_import(struct ibv_context *context,
+				     void *data);
+void mlx5dv_var_unimport(struct mlx5dv_var *dv_var);
+
+struct mlx5dv_export_sizes {
+	uint32_t var_attrs_size;
+	uint32_t devx_umem_attrs_size;
+	uint32_t devx_obj_attrs_size;
+};
+
+void _mlx5dv_get_export_sizes(struct mlx5dv_export_sizes *sizes,
+			      size_t sizes_len);
+
+static inline void
+mlx5dv_get_export_sizes(struct mlx5dv_export_sizes *sizes)
+{
+	_mlx5dv_get_export_sizes(sizes, sizeof(*sizes));
+}
 
 int mlx5dv_devx_query_eqn(struct ibv_context *context, uint32_t vector,
 			  uint32_t *eqn);

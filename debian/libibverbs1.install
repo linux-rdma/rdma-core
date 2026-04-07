@@ -1,2 +1,3 @@
 usr/lib/*/libibverbs*.so.*
+usr/lib/sysusers.d/rdma.conf
 usr/share/doc/rdma-core/libibverbs.md usr/share/doc/libibverbs1/

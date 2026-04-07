@@ -809,6 +809,26 @@ struct mlx5_var_obj {
 	uint32_t handle;
 };
 
+struct mlx5dv_var_attrs {
+	uint32_t handle;
+	uint32_t page_id;
+	uint32_t length;
+	off_t mmap_off;
+};
+
+struct mlx5dv_devx_obj_attrs {
+	uint32_t handle;
+	uint32_t type;
+	uint32_t object_id;
+	uint64_t rx_icm_addr;
+	uint8_t log_obj_range;
+};
+
+struct mlx5dv_devx_umem_attrs {
+	uint32_t handle;
+	uint32_t umem_id;
+};
+
 struct mlx5_pp_obj {
 	struct mlx5dv_pp dv_pp;
 	struct ibv_context *context;
@@ -960,10 +980,11 @@ struct mlx5_devx_eq {
 };
 
 struct ibv_flow *
-_mlx5dv_create_flow(struct mlx5dv_flow_matcher *flow_matcher,
-		    struct mlx5dv_flow_match_parameters *match_value,
-		    size_t num_actions,
-		    struct mlx5dv_flow_action_attr actions_attr[]);
+___mlx5dv_create_flow(struct mlx5dv_flow_matcher *flow_matcher,
+		      struct mlx5dv_flow_match_parameters *match_value,
+		      size_t num_actions,
+		      struct mlx5dv_flow_action_attr actions_attr[],
+		      size_t attr_len);
 
 extern int mlx5_stall_num_loop;
 extern int mlx5_stall_cq_poll_min;
@@ -1593,7 +1614,8 @@ struct mlx5_dv_context_ops {
 		struct mlx5dv_flow_matcher *flow_matcher,
 		struct mlx5dv_flow_match_parameters *match_value,
 		size_t num_actions,
-		struct mlx5dv_flow_action_attr actions_attr[]);
+		struct mlx5dv_flow_action_attr actions_attr[],
+		size_t attr_len);
 
 	struct mlx5dv_steering_anchor *(*create_steering_anchor)(struct ibv_context *conterxt,
 								 struct mlx5dv_steering_anchor_attr *attr);

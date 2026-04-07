@@ -276,7 +276,7 @@ cdef class Mlx5DevxObj(PyverbsCM):
 
     @property
     def obj(self):
-        return <object>self.obj
+        return <uintptr_t>self.obj
 
     def __dealloc__(self):
         self.close()

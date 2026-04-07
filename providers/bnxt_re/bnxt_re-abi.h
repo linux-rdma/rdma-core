@@ -59,6 +59,8 @@ DECLARE_DRV_CMD(ubnxt_re_mr, IB_USER_VERBS_CMD_REG_MR,
 		empty, empty);
 DECLARE_DRV_CMD(ubnxt_re_srq, IB_USER_VERBS_CMD_CREATE_SRQ,
 		bnxt_re_srq_req, bnxt_re_srq_resp);
+DECLARE_DRV_CMD(ubnxt_re_query_device_ex, IB_USER_VERBS_EX_CMD_QUERY_DEVICE,
+		empty, bnxt_re_query_device_ex_resp);
 
 enum bnxt_re_wr_opcode {
 	BNXT_RE_WR_OPCD_SEND		= 0x00,
@@ -226,6 +228,7 @@ enum {
 	BNXT_RE_COMP_MASK_UCNTX_DBR_PACING_ENABLED = 0x02,
 	BNXT_RE_COMP_MASK_UCNTX_POW2_DISABLED = 0x04,
 	BNXT_RE_COMP_MASK_UCNTX_MSN_TABLE_ENABLED = 0x08,
+	BNXT_RE_COMP_MASK_UCNTX_RATE_LIMIT_ENABLED = 0x10,
 };
 
 enum bnxt_re_que_flags_mask {

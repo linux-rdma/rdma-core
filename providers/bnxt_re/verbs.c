@@ -61,19 +61,30 @@ int bnxt_re_query_device(struct ibv_context *context,
 			 const struct ibv_query_device_ex_input *input,
 			 struct ibv_device_attr_ex *attr, size_t attr_size)
 {
-	struct ib_uverbs_ex_query_device_resp resp;
+	struct ubnxt_re_query_device_ex_resp resp = {};
 	size_t resp_size = sizeof(resp);
 	uint8_t fw_ver[8];
 	int err;
 
-	err = ibv_cmd_query_device_any(context, input, attr, attr_size, &resp,
+	err = ibv_cmd_query_device_any(context, input, attr, attr_size, &resp.ibv_resp,
 				       &resp_size);
 	if (err)
 		return err;
 
-	memcpy(fw_ver, &resp.base.fw_ver, sizeof(resp.base.fw_ver));
+	memcpy(fw_ver, &resp.ibv_resp.base.fw_ver, sizeof(resp.ibv_resp.base.fw_ver));
 	snprintf(attr->orig_attr.fw_ver, 64, "%d.%d.%d.%d", fw_ver[0],
 		 fw_ver[1], fw_ver[2], fw_ver[3]);
+
+	if (attr_size >=
+	    offsetofend(struct ibv_device_attr_ex, packet_pacing_caps)) {
+		attr->packet_pacing_caps.qp_rate_limit_min =
+			resp.packet_pacing_caps.qp_rate_limit_min;
+		attr->packet_pacing_caps.qp_rate_limit_max =
+			resp.packet_pacing_caps.qp_rate_limit_max;
+		attr->packet_pacing_caps.supported_qpts =
+			resp.packet_pacing_caps.supported_qpts;
+	}
+
 	return 0;
 }
 
@@ -2142,11 +2153,14 @@ struct ibv_qp *bnxt_re_create_qp(struct ibv_pd *ibvpd,
 int bnxt_re_modify_qp(struct ibv_qp *ibvqp, struct ibv_qp_attr *attr,
 		      int attr_mask)
 {
-	struct ibv_modify_qp cmd = {};
+	struct ib_uverbs_ex_modify_qp_resp resp = {};
 	struct bnxt_re_qp *qp = to_bnxt_re_qp(ibvqp);
+	struct ibv_modify_qp_ex cmd_ex = {};
 	int rc;
 
-	rc = ibv_cmd_modify_qp(ibvqp, attr, attr_mask, &cmd, sizeof(cmd));
+	rc = ibv_cmd_modify_qp_ex(ibvqp, attr, attr_mask,
+				  &cmd_ex, sizeof(cmd_ex), &resp,
+				  sizeof(resp));
 	if (!rc) {
 		if (attr_mask & IBV_QP_STATE) {
 			qp->qpst = attr->qp_state;
@@ -2260,50 +2274,76 @@ static int bnxt_re_put_inline(struct bnxt_re_queue *que, uint32_t *idx,
 			      struct ibv_sge *sgl, uint32_t nsg,
 			      uint16_t max_ils)
 {
-	int len, t_len, offt = 0;
-	int t_cplen = 0, cplen;
-	bool pull_dst = true;
-	void *il_dst = NULL;
-	void *il_src = NULL;
-	int alsize;
+	const int alsize = sizeof(struct bnxt_re_sge);
+	uint32_t n_slots, start_phys, slots_nowrap;
+	uint32_t sge_idx, sge_off;
+	int copied, cplen, len;
+	int nowrap_bytes;
+	int t_len = 0;
+	void *il_dst;
 	int indx;
 
-	alsize = sizeof(struct bnxt_re_sge);
-
-	t_len = 0;
 	for (indx = 0; indx < nsg; indx++) {
-		len = sgl[indx].length;
-		il_src = (void *)(uintptr_t)(sgl[indx].addr);
-		t_len += len;
+		t_len += sgl[indx].length;
 		if (t_len > max_ils)
-			goto bad;
+			return -ENOMEM;
+	}
 
-		while (len) {
-			if (pull_dst) {
-				pull_dst = false;
-				il_dst = bnxt_re_get_hwqe(que, (*idx)++);
-				if (pbuf)
-					pbuf->wqe[*idx - 1] =
-					(uintptr_t)il_dst;
-				t_cplen = 0;
-				offt = 0;
-			}
-			cplen = MIN(len, alsize);
-			cplen = MIN(cplen, (alsize - offt));
-			memcpy(il_dst, il_src, cplen);
-			t_cplen += cplen;
-			il_src += cplen;
+	n_slots = (t_len + alsize - 1) / alsize;
+	start_phys = (que->tail + *idx) % que->depth;
+	slots_nowrap = que->depth - start_phys;
+
+	/* Record push buffer slots for all slots we use */
+	if (pbuf) {
+		for (indx = 0; indx < n_slots; indx++)
+			pbuf->wqe[*idx + indx] =
+				(uintptr_t)bnxt_re_get_hwqe(que, *idx + indx);
+	}
+
+	il_dst = bnxt_re_get_hwqe(que, *idx);
+
+	if (n_slots <= slots_nowrap) {
+		/* No wraparound: copy each SGE in one shot */
+		for (indx = 0; indx < nsg; indx++) {
+			memcpy(il_dst, (void *)(uintptr_t)sgl[indx].addr,
+			       sgl[indx].length);
+			il_dst += sgl[indx].length;
+		}
+	} else {
+		/* Wraparound: copy first part to end of ring, rest from start */
+		nowrap_bytes = slots_nowrap * alsize;
+		copied = 0;
+		sge_idx = 0;
+		sge_off = 0;
+		while (copied < nowrap_bytes) {
+			len = sgl[sge_idx].length - sge_off;
+			cplen = len <= (nowrap_bytes - copied) ?
+				len : (nowrap_bytes - copied);
+			memcpy(il_dst,
+			       (char *)(uintptr_t)sgl[sge_idx].addr + sge_off,
+			       cplen);
 			il_dst += cplen;
-			offt += cplen;
-			len -= cplen;
-			if (t_cplen == alsize)
-				pull_dst = true;
+			copied += cplen;
+			sge_off += cplen;
+			if (sge_off == sgl[sge_idx].length) {
+				sge_idx++;
+				sge_off = 0;
+			}
+		}
+		il_dst = que->va;
+		while (sge_idx < nsg) {
+			len = sgl[sge_idx].length - sge_off;
+			memcpy(il_dst,
+			       (char *)(uintptr_t)sgl[sge_idx].addr + sge_off,
+			       len);
+			il_dst += len;
+			sge_off = 0;
+			sge_idx++;
 		}
 	}
 
+	*idx += n_slots;
 	return t_len;
-bad:
-	return -ENOMEM;
 }
 
 static int bnxt_re_required_slots(struct bnxt_re_qp *qp, struct ibv_send_wr *wr,
@@ -2989,5 +3029,38 @@ int bnxt_re_destroy_flow(struct ibv_flow *flow)
 	ret = ibv_cmd_destroy_flow(flow);
 
 	free(flow);
+	return ret;
+}
+
+int bnxt_re_modify_qp_rate_limit(struct ibv_qp *qp,
+				 struct ibv_qp_rate_limit_attr *attr)
+{
+	struct bnxt_re_qp *re_qp = to_bnxt_re_qp(qp);
+	struct ib_uverbs_ex_modify_qp_resp resp = {};
+	struct ibv_modify_qp_ex cmd = {};
+	struct ibv_qp_attr qp_attr = {};
+	int ret;
+
+	if (attr->comp_mask)
+		return EINVAL;
+
+	if (attr->max_burst_sz ||
+	    attr->typical_pkt_sz ||
+	    !attr->rate_limit ||
+	    !(BNXT_RE_RATE_LIMIT_EN(re_qp->cntx)))
+		return EINVAL;
+
+	/* Rate limit is supported only after QP is modified to RTR or
+	 * it is modifed to RTS
+	 */
+	if (qp->state != IBV_QPS_RTR && qp->state != IBV_QPS_RTS)
+		return EINVAL;
+
+	qp_attr.rate_limit = attr->rate_limit;
+
+	ret = ibv_cmd_modify_qp_ex(qp, &qp_attr, IBV_QP_RATE_LIMIT,
+				   &cmd, sizeof(cmd),
+				   &resp, sizeof(resp));
+
 	return ret;
 }
