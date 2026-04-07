@@ -49,10 +49,18 @@
 
 struct verbs_device;
 
+enum {
+	IBV_BUF_DMABUF = 1 << 0,
+};
+
 struct ibv_buf {
 	struct ibv_pd *pd;
 	void *addr;
 	size_t size;
+	uint32_t comp_mask;
+	struct {
+		int fd;
+	} dmabuf;
 };
 
 static inline void ibv_buf_init(struct ibv_buf *buf, struct ibv_pd *pd,
@@ -61,6 +69,14 @@ static inline void ibv_buf_init(struct ibv_buf *buf, struct ibv_pd *pd,
 	buf->pd = pd;
 	buf->addr = addr;
 	buf->size = size;
+}
+
+static inline void ibv_buf_init_dmabuf(struct ibv_buf *buf, struct ibv_pd *pd,
+				       void *addr, size_t size, int fd)
+{
+	ibv_buf_init(buf, pd, addr, size);
+	buf->comp_mask = IBV_BUF_DMABUF;
+	buf->dmabuf.fd = fd;
 }
 
 enum {
