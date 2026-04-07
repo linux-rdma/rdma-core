@@ -54,6 +54,7 @@ struct ibv_buf {
 	void *addr;
 	size_t size;
 	struct ibv_pd *pd;
+	int dmabuf_fd;
 };
 
 static inline void ibv_buf_init(struct ibv_buf *buf, struct ibv_pd *pd,
@@ -62,6 +63,14 @@ static inline void ibv_buf_init(struct ibv_buf *buf, struct ibv_pd *pd,
 	buf->pd = pd;
 	buf->addr = addr;
 	buf->size = size;
+	buf->dmabuf_fd = -1;
+}
+
+static inline void ibv_buf_init_dmabuf(struct ibv_buf *buf, struct ibv_pd *pd,
+				       void *addr, size_t size, int fd)
+{
+	ibv_buf_init(buf, pd, addr, size);
+	buf->dmabuf_fd = fd;
 }
 
 enum {
