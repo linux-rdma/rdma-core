@@ -261,15 +261,15 @@ static int dr_qp_alloc_buf(struct dr_qp *dr_qp, int size)
 	}
 
 	al_size = align(size, sysconf(_SC_PAGESIZE));
-	ret = posix_memalign(&dr_qp->buf.buf, sysconf(_SC_PAGESIZE), al_size);
+	ret = posix_memalign(&dr_qp->buf.ibv_buf.addr, sysconf(_SC_PAGESIZE), al_size);
 	if (ret) {
 		errno = ret;
 		goto free_wqe_head;
 	}
 
-	dr_qp->buf.length = al_size;
+	dr_qp->buf.ibv_buf.size = al_size;
 	dr_qp->buf.type = MLX5_ALLOC_TYPE_ANON;
-	memset(dr_qp->buf.buf, 0, dr_qp->buf.length);
+	memset(dr_qp->buf.ibv_buf.addr, 0, dr_qp->buf.ibv_buf.size);
 
 	return 0;
 
@@ -298,8 +298,8 @@ static struct dr_qp *dr_create_rc_qp(struct ibv_context *ctx,
 	if (dr_qp_alloc_buf(dr_qp, size))
 		goto err_alloc_bufs;
 
-	dr_qp->sq_start = dr_qp->buf.buf + dr_qp->sq.offset;
-	dr_qp->sq.qend = dr_qp->buf.buf + dr_qp->sq.offset +
+	dr_qp->sq_start = dr_qp->buf.ibv_buf.addr + dr_qp->sq.offset;
+	dr_qp->sq.qend = dr_qp->buf.ibv_buf.addr + dr_qp->sq.offset +
 		(dr_qp->sq.wqe_cnt << dr_qp->sq.wqe_shift);
 	dr_qp->rq.head = 0;
 	dr_qp->rq.tail = 0;
@@ -320,8 +320,8 @@ static struct dr_qp *dr_create_rc_qp(struct ibv_context *ctx,
 	if (!dr_qp->db_umem)
 		goto err_db_umem;
 
-	dr_qp->buf_umem = mlx5dv_devx_umem_reg(ctx, dr_qp->buf.buf,
-					       dr_qp->buf.length,
+	dr_qp->buf_umem = mlx5dv_devx_umem_reg(ctx, dr_qp->buf.ibv_buf.addr,
+					       dr_qp->buf.ibv_buf.size,
 					       IBV_ACCESS_LOCAL_WRITE |
 					       IBV_ACCESS_REMOTE_WRITE |
 					       IBV_ACCESS_REMOTE_READ);
@@ -360,7 +360,7 @@ err_db_umem:
 	free(dr_qp->db);
 err_db_alloc:
 	free(dr_qp->sq.wqe_head);
-	free(dr_qp->buf.buf);
+	free(dr_qp->buf.ibv_buf.addr);
 err_alloc_bufs:
 	free(dr_qp);
 	return NULL;
@@ -384,7 +384,7 @@ static int dr_destroy_qp(struct dr_qp *dr_qp)
 
 	free(dr_qp->db);
 	free(dr_qp->sq.wqe_head);
-	free(dr_qp->buf.buf);
+	free(dr_qp->buf.ibv_buf.addr);
 	free(dr_qp);
 
 	return 0;

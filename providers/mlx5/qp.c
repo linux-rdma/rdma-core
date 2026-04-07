@@ -64,7 +64,7 @@ static const uint32_t mlx5_ib_opcode[] = {
 
 static void *get_recv_wqe(struct mlx5_qp *qp, int n)
 {
-	return qp->buf.buf + qp->rq.offset + (n << qp->rq.wqe_shift);
+	return qp->buf.ibv_buf.addr + qp->rq.offset + (n << qp->rq.wqe_shift);
 }
 
 static void *get_wq_recv_wqe(struct mlx5_rwq *rwq, int n)

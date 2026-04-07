@@ -437,8 +437,7 @@ struct mlx5_hugetlb_mem {
 };
 
 struct mlx5_buf {
-	void			       *buf;
-	size_t				length;
+	struct ibv_buf			ibv_buf;
 	int                             base;
 	struct mlx5_hugetlb_mem	       *hmem;
 	enum mlx5_alloc_type		type;
@@ -1113,16 +1112,18 @@ void mlx5_open_debug_file(FILE **dbg_fp);
 void mlx5_close_debug_file(FILE *dbg_fp);
 void mlx5_set_debug_mask(void);
 
-int mlx5_alloc_buf(struct mlx5_buf *buf, size_t size, int page_size);
+int mlx5_alloc_buf(struct mlx5_buf *buf, size_t size, int page_size,
+		   struct ibv_pd *pd);
 void mlx5_free_buf(struct mlx5_buf *buf);
 int mlx5_alloc_buf_contig(struct mlx5_context *mctx, struct mlx5_buf *buf,
-			  size_t size, int page_size, const char *component);
+			  size_t size, int page_size, const char *component,
+			  struct ibv_pd *pd);
 void mlx5_free_buf_contig(struct mlx5_context *mctx, struct mlx5_buf *buf);
 int mlx5_alloc_prefered_buf(struct mlx5_context *mctx,
 			    struct mlx5_buf *buf,
 			    size_t size, int page_size,
 			    enum mlx5_alloc_type alloc_type,
-			    const char *component);
+			    const char *component, struct ibv_pd *pd);
 int mlx5_free_actual_buf(struct mlx5_context *ctx, struct mlx5_buf *buf);
 void mlx5_get_alloc_type(struct mlx5_context *context,
 			 struct ibv_pd *pd,
@@ -1133,7 +1134,7 @@ int mlx5_use_huge(const char *key);
 bool mlx5_is_custom_alloc(struct ibv_pd *pd);
 bool mlx5_is_extern_alloc(struct mlx5_context *context);
 int mlx5_alloc_buf_extern(struct mlx5_context *ctx, struct mlx5_buf *buf,
-			  size_t size);
+			  size_t size, struct ibv_pd *pd);
 void mlx5_free_buf_extern(struct mlx5_context *ctx, struct mlx5_buf *buf);
 
 __be32 *mlx5_alloc_dbrec(struct mlx5_context *context, struct ibv_pd *pd,

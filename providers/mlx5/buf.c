@@ -120,15 +120,15 @@ out_free:
 }
 
 static int alloc_huge_buf(struct mlx5_context *mctx, struct mlx5_buf *buf,
-			  size_t size, int page_size)
+			  size_t size, int page_size, struct ibv_pd *pd)
 {
 	int found = 0;
 	int nchunk;
 	struct mlx5_hugetlb_mem *hmem;
 	int ret;
 
-	buf->length = align(size, MLX5_Q_CHUNK_SIZE);
-	nchunk = buf->length / MLX5_Q_CHUNK_SIZE;
+	buf->ibv_buf.size = align(size, MLX5_Q_CHUNK_SIZE);
+	nchunk = buf->ibv_buf.size / MLX5_Q_CHUNK_SIZE;
 
 	if (!nchunk)
 		return 0;
@@ -151,7 +151,7 @@ static int alloc_huge_buf(struct mlx5_context *mctx, struct mlx5_buf *buf,
 	mlx5_spin_unlock(&mctx->hugetlb_lock);
 
 	if (!found) {
-		hmem = alloc_huge_mem(buf->length);
+		hmem = alloc_huge_mem(buf->ibv_buf.size);
 		if (!hmem)
 			return -1;
 
@@ -169,9 +169,11 @@ static int alloc_huge_buf(struct mlx5_context *mctx, struct mlx5_buf *buf,
 		mlx5_spin_unlock(&mctx->hugetlb_lock);
 	}
 
-	buf->buf = hmem->shmaddr + buf->base * MLX5_Q_CHUNK_SIZE;
+	ibv_buf_init(&buf->ibv_buf, pd,
+		     hmem->shmaddr + buf->base * MLX5_Q_CHUNK_SIZE,
+		     buf->ibv_buf.size);
 
-	ret = ibv_dontfork_range(buf->buf, buf->length);
+	ret = ibv_dontfork_range(buf->ibv_buf.addr, buf->ibv_buf.size);
 	if (ret) {
 		mlx5_dbg(stderr, MLX5_DBG_CONTIG, "\n");
 		goto out_fork;
@@ -197,7 +199,7 @@ static void free_huge_buf(struct mlx5_context *ctx, struct mlx5_buf *buf)
 {
 	int nchunk;
 
-	nchunk = buf->length / MLX5_Q_CHUNK_SIZE;
+	nchunk = buf->ibv_buf.size / MLX5_Q_CHUNK_SIZE;
 	if (!nchunk)
 		return;
 
@@ -213,12 +215,12 @@ static void free_huge_buf(struct mlx5_context *ctx, struct mlx5_buf *buf)
 
 void mlx5_free_buf_extern(struct mlx5_context *ctx, struct mlx5_buf *buf)
 {
-	ibv_dofork_range(buf->buf, buf->length);
-	ctx->extern_alloc.free(buf->buf, ctx->extern_alloc.data);
+	ibv_dofork_range(buf->ibv_buf.addr, buf->ibv_buf.size);
+	ctx->extern_alloc.free(buf->ibv_buf.addr, ctx->extern_alloc.data);
 }
 
 int mlx5_alloc_buf_extern(struct mlx5_context *ctx, struct mlx5_buf *buf,
-		size_t size)
+		size_t size, struct ibv_pd *pd)
 {
 	void *addr;
 
@@ -231,8 +233,7 @@ int mlx5_alloc_buf_extern(struct mlx5_context *ctx, struct mlx5_buf *buf,
 				ctx->extern_alloc.data);
 			return -1;
 		}
-		buf->buf = addr;
-		buf->length = size;
+		ibv_buf_init(&buf->ibv_buf, pd, addr, size);
 		buf->type = MLX5_ALLOC_TYPE_EXTERNAL;
 		return 0;
 	}
@@ -248,12 +249,12 @@ static void mlx5_free_buf_custom(struct mlx5_context *ctx,
 
 	mparent_domain->free(&mparent_domain->mpd.ibv_pd,
 			     mparent_domain->pd_context,
-			     buf->buf,
+			     buf->ibv_buf.addr,
 			     buf->resource_type);
 }
 
 static int mlx5_alloc_buf_custom(struct mlx5_context *ctx,
-			  struct mlx5_buf *buf, size_t size)
+			  struct mlx5_buf *buf, size_t size, struct ibv_pd *pd)
 {
 	struct mlx5_parent_domain *mparent_domain = buf->mparent_domain;
 	void *addr;
@@ -266,8 +267,7 @@ static int mlx5_alloc_buf_custom(struct mlx5_context *ctx,
 		return 1;
 
 	if (addr || size == 0) {
-		buf->buf = addr;
-		buf->length = size;
+		ibv_buf_init(&buf->ibv_buf, pd, addr, size);
 		buf->type = MLX5_ALLOC_TYPE_CUSTOM;
 		return 0;
 	}
@@ -279,12 +279,13 @@ int mlx5_alloc_prefered_buf(struct mlx5_context *mctx,
 			    struct mlx5_buf *buf,
 			    size_t size, int page_size,
 			    enum mlx5_alloc_type type,
-			    const char *component)
+			    const char *component,
+			    struct ibv_pd *pd)
 {
 	int ret;
 
 	if (type == MLX5_ALLOC_TYPE_CUSTOM) {
-		ret = mlx5_alloc_buf_custom(mctx, buf, size);
+		ret = mlx5_alloc_buf_custom(mctx, buf, size, pd);
 		if (ret <= 0)
 			return ret;
 
@@ -300,7 +301,7 @@ int mlx5_alloc_prefered_buf(struct mlx5_context *mctx,
 	if (type == MLX5_ALLOC_TYPE_HUGE ||
 	    type == MLX5_ALLOC_TYPE_PREFER_HUGE ||
 	    type == MLX5_ALLOC_TYPE_ALL) {
-		ret = alloc_huge_buf(mctx, buf, size, page_size);
+		ret = alloc_huge_buf(mctx, buf, size, page_size, pd);
 		if (!ret)
 			return 0;
 
@@ -315,7 +316,8 @@ int mlx5_alloc_prefered_buf(struct mlx5_context *mctx,
 	if (type == MLX5_ALLOC_TYPE_CONTIG ||
 	    type == MLX5_ALLOC_TYPE_PREFER_CONTIG ||
 	    type == MLX5_ALLOC_TYPE_ALL) {
-		ret = mlx5_alloc_buf_contig(mctx, buf, size, page_size, component);
+		ret = mlx5_alloc_buf_contig(mctx, buf, size, page_size, component,
+					    pd);
 		if (!ret)
 			return 0;
 
@@ -326,9 +328,9 @@ int mlx5_alloc_prefered_buf(struct mlx5_context *mctx,
 	}
 
 	if (type == MLX5_ALLOC_TYPE_EXTERNAL)
-		return mlx5_alloc_buf_extern(mctx, buf, size);
+		return mlx5_alloc_buf_extern(mctx, buf, size, pd);
 
-	return mlx5_alloc_buf(buf, size, page_size);
+	return mlx5_alloc_buf(buf, size, page_size, pd);
 
 }
 
@@ -483,7 +485,7 @@ static void mlx5_alloc_get_env_info(struct mlx5_context *mctx,
 int mlx5_alloc_buf_contig(struct mlx5_context *mctx,
 			  struct mlx5_buf *buf, size_t size,
 			  int page_size,
-			  const char *component)
+			  const char *component, struct ibv_pd *pd)
 {
 	void *addr = MAP_FAILED;
 	int block_size_exp;
@@ -529,8 +531,7 @@ int mlx5_alloc_buf_contig(struct mlx5_context *mctx,
 		return -1;
 	}
 
-	buf->buf = addr;
-	buf->length = size;
+	ibv_buf_init(&buf->ibv_buf, pd, addr, size);
 	buf->type = MLX5_ALLOC_TYPE_CONTIG;
 
 	return 0;
@@ -538,26 +539,28 @@ int mlx5_alloc_buf_contig(struct mlx5_context *mctx,
 
 void mlx5_free_buf_contig(struct mlx5_context *mctx, struct mlx5_buf *buf)
 {
-	ibv_dofork_range(buf->buf, buf->length);
-	munmap(buf->buf, buf->length);
+	ibv_dofork_range(buf->ibv_buf.addr, buf->ibv_buf.size);
+	munmap(buf->ibv_buf.addr, buf->ibv_buf.size);
 }
 
-int mlx5_alloc_buf(struct mlx5_buf *buf, size_t size, int page_size)
+int mlx5_alloc_buf(struct mlx5_buf *buf, size_t size, int page_size,
+		   struct ibv_pd *pd)
 {
+	void *addr;
 	int ret;
 	int al_size;
 
 	al_size = align(size, page_size);
-	ret = posix_memalign(&buf->buf, page_size, al_size);
+	ret = posix_memalign(&addr, page_size, al_size);
 	if (ret)
 		return ret;
 
-	ret = ibv_dontfork_range(buf->buf, al_size);
+	ret = ibv_dontfork_range(addr, al_size);
 	if (ret)
-		free(buf->buf);
+		free(addr);
 
 	if (!ret) {
-		buf->length = al_size;
+		ibv_buf_init(&buf->ibv_buf, pd, addr, al_size);
 		buf->type = MLX5_ALLOC_TYPE_ANON;
 	}
 
@@ -566,6 +569,6 @@ int mlx5_alloc_buf(struct mlx5_buf *buf, size_t size, int page_size)
 
 void mlx5_free_buf(struct mlx5_buf *buf)
 {
-	ibv_dofork_range(buf->buf, buf->length);
-	free(buf->buf);
+	ibv_dofork_range(buf->ibv_buf.addr, buf->ibv_buf.size);
+	free(buf->ibv_buf.addr);
 }
