@@ -49,6 +49,21 @@
 
 struct verbs_device;
 
+/* Must change the PRIVATE IBVERBS_PRIVATE_ symbol if this is changed */
+struct ibv_buf {
+	void *addr;
+	size_t size;
+	struct ibv_pd *pd;
+};
+
+static inline void ibv_buf_init(struct ibv_buf *buf, struct ibv_pd *pd,
+				void *addr, size_t size)
+{
+	buf->pd = pd;
+	buf->addr = addr;
+	buf->size = size;
+}
+
 enum {
 	VERBS_LOG_LEVEL_NONE,
 	VERBS_LOG_ERR,

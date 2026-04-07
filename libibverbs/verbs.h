@@ -636,6 +636,8 @@ struct ibv_dmah {
 	struct ibv_context *context;
 };
 
+struct ibv_buf;
+
 struct ibv_pd {
 	struct ibv_context     *context;
 	uint32_t		handle;
