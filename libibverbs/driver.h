@@ -49,6 +49,20 @@
 
 struct verbs_device;
 
+struct ibv_buf {
+	struct ibv_pd *pd;
+	void *addr;
+	size_t size;
+};
+
+static inline void ibv_buf_init(struct ibv_buf *buf, struct ibv_pd *pd,
+				void *addr, size_t size)
+{
+	buf->pd = pd;
+	buf->addr = addr;
+	buf->size = size;
+}
+
 enum {
 	VERBS_LOG_LEVEL_NONE,
 	VERBS_LOG_ERR,
