@@ -496,6 +496,7 @@ if (NOT HAVE_SPARSE)
 endif()
 
 RDMA_Check_SSE(HAVE_TARGET_SSE)
+RDMA_Check_LS64(HAVE_LS64)
 
 # Enable development support features
 # Prune unneeded shared libraries during linking
@@ -929,6 +930,9 @@ if (NOT HAVE_GLIBC_UAPI_COMPAT)
 endif()
 if (NOT HAVE_TARGET_SSE)
   message(STATUS " attribute(target(\"sse\")) does NOT work")
+endif()
+if (NOT HAVE_LS64 AND CMAKE_SYSTEM_PROCESSOR MATCHES "aarch64")
+  message(STATUS " AArch64 ST64B intrinsic NOT supported")
 endif()
 if (NOT DRM_INCLUDE_DIRS)
   message(STATUS " DMABUF NOT supported (disabling some tests)")
