@@ -1,6 +1,6 @@
 /* SPDX-License-Identifier: GPL-2.0 OR BSD-2-Clause */
 /*
- * Copyright 2019-2025 Amazon.com, Inc. or its affiliates. All rights reserved.
+ * Copyright 2019-2026 Amazon.com, Inc. or its affiliates. All rights reserved.
  */
 
 #ifndef __EFA_H__
@@ -31,6 +31,7 @@ struct efa_context {
 	uint32_t cmds_supp_udata_mask;
 	uint16_t sub_cqs_per_cq;
 	uint16_t inline_buf_size;
+	uint16_t inline_buf_size_ex;
 	uint32_t max_llq_size;
 	uint32_t device_caps;
 	uint32_t max_sq_wr;
@@ -133,6 +134,21 @@ struct efa_rq {
 	size_t buf_size;
 };
 
+struct efa_tx_wqe_ctx {
+	/* wqe buffer */
+	void *buff;
+	/* wqe meta descriptor */
+	struct efa_io_tx_meta_desc *md;
+	/* wqe local memory / SGL */
+	struct efa_io_tx_buf_desc *local_mem;
+	/* wqe remote memory - RDMA only */
+	struct efa_io_remote_mem_addr *remote_mem;
+	/* wqe inline data buffer */
+	uint8_t *inline_data;
+	/* max sge allowed for this wqe */
+	uint8_t max_sge;
+};
+
 struct efa_sq {
 	struct efa_wq wq;
 	uint8_t *desc;
@@ -141,6 +157,8 @@ struct efa_sq {
 	size_t max_inline_data;
 	size_t max_wr_rdma_sge;
 	uint16_t max_batch_wr;
+	uint16_t wqe_size;
+	bool inline_write_enabled;
 
 	/* Buffer for pending WR entries in the current session */
 	uint8_t *local_queue;
@@ -149,7 +167,7 @@ struct efa_sq {
 	/* Phase before current session */
 	int phase_rb;
 	/* Current wqe being built */
-	struct efa_io_tx_wqe *curr_tx_wqe;
+	struct efa_tx_wqe_ctx curr_tx_wqe;
 };
 
 struct efa_qp {
