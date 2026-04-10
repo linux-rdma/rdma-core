@@ -64,8 +64,8 @@ static struct verbs_context *efa_alloc_context(struct ibv_device *vdev,
 	struct efa_alloc_ucontext cmd = {};
 	struct efa_context *ctx;
 
-	cmd.comp_mask |= EFA_ALLOC_UCONTEXT_CMD_COMP_TX_BATCH;
-	cmd.comp_mask |= EFA_ALLOC_UCONTEXT_CMD_COMP_MIN_SQ_WR;
+	cmd.supported_caps |= EFA_ALLOC_UCONTEXT_CMD_SUPP_CAPS_TX_BATCH;
+	cmd.supported_caps |= EFA_ALLOC_UCONTEXT_CMD_SUPP_CAPS_MIN_SQ_WR;
 
 	ctx = verbs_init_and_alloc_context(vdev, cmd_fd, ctx, ibvctx,
 					   RDMA_DRIVER_EFA);
