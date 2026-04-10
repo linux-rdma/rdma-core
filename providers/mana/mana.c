@@ -23,7 +23,8 @@
 DECLARE_DRV_CMD(mana_alloc_ucontext, IB_USER_VERBS_CMD_GET_CONTEXT, empty,
 		empty);
 
-DECLARE_DRV_CMD(mana_alloc_pd, IB_USER_VERBS_CMD_ALLOC_PD, empty, empty);
+DECLARE_DRV_CMD(mana_alloc_pd, IB_USER_VERBS_CMD_ALLOC_PD, mana_ib_alloc_pd,
+		mana_ib_alloc_pd_resp);
 
 static const struct verbs_match_ent hca_table[] = {
 	VERBS_DRIVER_ID(RDMA_DRIVER_MANA),
@@ -114,10 +115,11 @@ int mana_query_port(struct ibv_context *context, uint8_t port,
 	return ibv_cmd_query_port(context, port, attr, &cmd, sizeof(cmd));
 }
 
-struct ibv_pd *mana_alloc_pd(struct ibv_context *context)
+struct ibv_pd *mana_alloc_pd_ex(struct ibv_context *context, uint32_t flags)
 {
-	struct ibv_alloc_pd cmd;
-	struct mana_alloc_pd_resp resp;
+	struct mana_alloc_pd_resp resp = {};
+	struct mana_ib_alloc_pd *cmd_drv;
+	struct mana_alloc_pd cmd = {};
 	struct mana_pd *pd;
 	int ret;
 
@@ -125,7 +127,11 @@ struct ibv_pd *mana_alloc_pd(struct ibv_context *context)
 	if (!pd)
 		return NULL;
 
-	ret = ibv_cmd_alloc_pd(context, &pd->ibv_pd, &cmd, sizeof(cmd),
+	cmd_drv = &cmd.drv_payload;
+	cmd_drv->flags = flags;
+	resp.pdn = UINT32_MAX;
+
+	ret = ibv_cmd_alloc_pd(context, &pd->ibv_pd, &cmd.ibv_cmd, sizeof(cmd),
 			       &resp.ibv_resp, sizeof(resp));
 	if (ret) {
 		verbs_err(verbs_get_ctx(context), "Failed to allocate PD\n");
@@ -134,7 +140,14 @@ struct ibv_pd *mana_alloc_pd(struct ibv_context *context)
 		return NULL;
 	}
 
+	pd->pdn = resp.pdn;
+
 	return &pd->ibv_pd;
+}
+
+static struct ibv_pd *mana_alloc_pd(struct ibv_context *context)
+{
+	return mana_alloc_pd_ex(context, 0);
 }
 
 struct ibv_pd *
