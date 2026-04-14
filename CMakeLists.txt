@@ -453,7 +453,7 @@ endif()
 # preload should implement the fcntl64/sendfile64 wrapper (see RDMA_PRELOAD_WRAP_LFS64 below).
 set(CMAKE_REQUIRED_QUIET 1)
 set(SAFE_CMAKE_REQUIRED_DEFINITIONS "${CMAKE_REQUIRED_DEFINITIONS}")
-set(CMAKE_REQUIRED_DEFINITIONS "")
+set(CMAKE_REQUIRED_DEFINITIONS "-D_GNU_SOURCE")
 CHECK_C_SOURCE_COMPILES("
 #include <fcntl.h>
 #include <sys/sendfile.h>
