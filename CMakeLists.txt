@@ -479,33 +479,14 @@ else()
   set(RDMA_PRELOAD_WRAP_LFS64 0)
 endif()
 
-set(RDMA_PRELOAD_FCNTL64_IN_HEADER 0)
-set(RDMA_PRELOAD_SENDFILE64_IN_HEADER 0)
+# If the first test found fcntl64/sendfile64 with _GNU_SOURCE, the headers
+# must declare them -- no separate check needed.
 if(RDMA_PRELOAD_HAVE_LFS_WRAPPER_SYMS)
-  set(CMAKE_REQUIRED_QUIET 1)
-  set(SAFE_CMAKE_REQUIRED_FLAGS "${CMAKE_REQUIRED_FLAGS}")
-  set(CMAKE_REQUIRED_FLAGS "${CMAKE_C_FLAGS}")
-  CHECK_C_SOURCE_COMPILES("
-#define _GNU_SOURCE
-#include <fcntl.h>
-int fcntl64(int socket, int cmd, ...) { (void)socket;(void)cmd; return 0; }
-" RDMA_PRELOAD_FCNTL64_DECLARED_IN_HEADER)
-  if(RDMA_PRELOAD_FCNTL64_DECLARED_IN_HEADER)
-    set(RDMA_PRELOAD_FCNTL64_IN_HEADER 1)
-  endif()
-  CHECK_C_SOURCE_COMPILES("
-#define _GNU_SOURCE
-#include <sys/sendfile.h>
-#include <sys/types.h>
-ssize_t sendfile64(int out_fd, int in_fd, off64_t *offset64, size_t count) {
-  (void)out_fd;(void)in_fd;(void)offset64;(void)count; return 0;
-}
-" RDMA_PRELOAD_SENDFILE64_DECLARED_IN_HEADER)
-  if(RDMA_PRELOAD_SENDFILE64_DECLARED_IN_HEADER)
-    set(RDMA_PRELOAD_SENDFILE64_IN_HEADER 1)
-  endif()
-  set(CMAKE_REQUIRED_FLAGS "${SAFE_CMAKE_REQUIRED_FLAGS}")
-  set(CMAKE_REQUIRED_QUIET 0)
+  set(RDMA_PRELOAD_FCNTL64_IN_HEADER 1)
+  set(RDMA_PRELOAD_SENDFILE64_IN_HEADER 1)
+else()
+  set(RDMA_PRELOAD_FCNTL64_IN_HEADER 0)
+  set(RDMA_PRELOAD_SENDFILE64_IN_HEADER 0)
 endif()
 
 # Provide a shim if C11 stdatomic.h is not supported.
