@@ -43,11 +43,16 @@
 #include <sys/stat.h>
 #include <fcntl.h>
 #include <errno.h>
+#include <dirent.h>
 #include <linux/types.h> /* __be64 */
 
 #include <infiniband/umad.h>
 
 #include <ibdiag_common.h>
+
+/* IB spec: Port supports Connection Manager (cap_mask bit 16) */
+#define IB_PORT_CAP_CM                (0x10000)
+#define SYS_PORT_GID                  "gids/0"
 
 static const char * const node_type_str[] = {
 	"???",
@@ -193,13 +198,55 @@ static int port_dump(umad_port_t * port, int alone)
 	return 0;
 }
 
+static bool port_has_gid(const char *ca_name, int portnum)
+{
+	char path[256];
+	FILE *f;
+
+	snprintf(path, sizeof(path),
+		SYS_INFINIBAND "/%s/ports/%d/" SYS_PORT_GID, ca_name, portnum);
+
+	f = fopen(path, "r");
+	if (!f)
+		return false;
+
+	fclose(f);
+	return true;
+}
+
+static int port_has_cm_cap(const char *ca_name, int portnum)
+{
+	char path[256], buf[32];
+	uint32_t capmask;
+
+	snprintf(path, sizeof(path),
+		SYS_INFINIBAND "/%s/ports/%d", ca_name, portnum);
+
+	if (sys_read_string(path, SYS_PORT_CAPMASK, buf, sizeof(buf)) < 0)
+		return 0;
+
+	capmask = strtoul(buf, NULL, 0);
+	return (capmask & IB_PORT_CAP_CM);
+}
+
 static int ca_stat(const char *ca_name, int portnum, int no_ports)
 {
 	umad_ca_t ca;
-	int r;
+	int r, check_port;
 
-	if ((r = umad_get_ca(ca_name, &ca)) < 0)
+	r = umad_get_ca(ca_name, &ca);
+	if (r < 0) {
+		if (portnum == -1)
+			check_port = 1;
+		else
+			check_port = portnum;
+
+		if ((!port_has_gid(ca_name, check_port)) && (!port_has_cm_cap(ca_name, check_port))) {
+			DEBUG("The device %s is not RDMA endpoint device", ca_name);
+			return 0;
+		}
 		return r;
+	}
 
 	if (!ca.node_type)
 		return 0;
