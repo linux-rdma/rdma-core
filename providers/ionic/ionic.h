@@ -201,6 +201,7 @@ struct ionic_qp {
 
 	struct ionic_sq		sq;
 	struct ionic_rq		rq;
+	bool			sig_all;
 };
 
 struct ionic_ah {
