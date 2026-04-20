@@ -10,3 +10,8 @@ IONIC_1.0 {
 		ionic_dv_pd_set_rqcmb;
 	local: *;
 };
+
+IONIC_1.1 {
+	global:
+		ionic_dv_create_qp_ex;
+} IONIC_1.0;
