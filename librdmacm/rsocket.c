@@ -5170,3 +5170,93 @@ int repoll_ctl(int epfd, int op, int fd, struct epoll_event *event)
 	pthread_mutex_unlock(&ri->lock);
 	return ret;
 }
+
+static uint32_t poll_to_epoll_events(uint32_t poll_revents)
+{
+	uint32_t epoll_events = 0;
+
+	if (poll_revents & POLLIN)
+		epoll_events |= EPOLLIN;
+	if (poll_revents & POLLOUT)
+		epoll_events |= EPOLLOUT;
+	if (poll_revents & POLLERR)
+		epoll_events |= EPOLLERR;
+	if (poll_revents & POLLHUP)
+		epoll_events |= EPOLLHUP;
+	return epoll_events;
+}
+
+static void repoll_wake_monitor(struct repoll_info *ri)
+{
+	atomic_store(&ri->monitor_state, REPOLL_MONITOR_RUNNING);
+	pthread_cond_signal(&ri->monitor_wake);
+}
+
+static int repoll_collect_events(struct repoll_info *ri,
+				 struct pollfd *polled_fds, int polled_nfds,
+				 struct epoll_event *events, int maxevents)
+{
+	int j = 0;
+
+	for (int i = 0; j < maxevents && i < polled_nfds; ++i) {
+		int slot = i + 1;
+
+		if (polled_fds[i].revents && slot < ri->slot_count &&
+		    ri->fds[slot].fd == polled_fds[i].fd) {
+			memcpy(&events[j].data, &ri->user_data[slot],
+			       sizeof(events->data));
+			events[j].events =
+				poll_to_epoll_events(polled_fds[i].revents);
+			++j;
+		}
+	}
+	return j;
+}
+
+/* Future option: disable the monitor thread for a threadless mode
+ * where repoll_wait calls rpoll directly.
+ */
+
+int repoll_wait(int epfd, struct epoll_event *events, int maxevents,
+		int timeout)
+{
+	struct repoll_info *ri;
+	struct pollfd *local_fds;
+	int nfds, ret;
+
+	if (epfd < 0)
+		return EBADF;
+
+	ri = idm_lookup(&repoll_idm, epfd);
+	if (!ri)
+		return EINVAL;
+
+	pthread_mutex_lock(&ri->lock);
+	nfds = ri->slot_count - 1;
+	if (nfds <= 0) {
+		pthread_mutex_unlock(&ri->lock);
+		return 0;
+	}
+	local_fds = malloc(sizeof(*local_fds) * nfds);
+	if (!local_fds) {
+		pthread_mutex_unlock(&ri->lock);
+		return ENOMEM;
+	}
+	memcpy(local_fds, ri->fds + 1, sizeof(*local_fds) * nfds);
+	pthread_mutex_unlock(&ri->lock);
+
+	ret = rpoll(local_fds, nfds, timeout);
+
+	if (ret > 0) {
+		pthread_mutex_lock(&ri->lock);
+		ret = repoll_collect_events(ri, local_fds, nfds, events,
+					    maxevents);
+		pthread_mutex_unlock(&ri->lock);
+	} else if (ret == 0) {
+		if (atomic_load(&ri->monitor_state) == REPOLL_MONITOR_SLEEPING)
+			repoll_wake_monitor(ri);
+	}
+
+	free(local_fds);
+	return ret;
+}

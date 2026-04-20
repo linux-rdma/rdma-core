@@ -31,7 +31,7 @@ rgetpeername, rgetsockname
 .P
 rsetsockopt, rgetsockopt, rfcntl
 .P
-repoll_create, repoll_ctl
+repoll_create, repoll_ctl, repoll_wait
 .P
 Functions take the same parameters as that used for sockets.  The
 follow capabilities and flags are supported at this time:
@@ -152,6 +152,8 @@ polling_time - default number of microseconds to poll for data before waiting
 wake_up_interval - maximum number of milliseconds to block in poll.
 This value is used to safe guard against potential application hangs
 in rpoll().
+.P
+max_events - maximum number of events for the epoll thread to handle for an epoll_instance.
 .P
 All configuration files should contain a single integer value.  Values may
 be set by issuing a command similar to the following example.

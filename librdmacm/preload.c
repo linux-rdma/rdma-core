@@ -1364,3 +1364,8 @@ int epoll_ctl(int epfd, int op, int fd, struct epoll_event *event)
 
 	return repoll_ctl(epfd, op, internal_fd, event);
 }
+
+int epoll_wait(int epfd, struct epoll_event *events, int maxevents, int timeout)
+{
+	return repoll_wait(epfd, events, maxevents, timeout);
+}

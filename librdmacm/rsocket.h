@@ -95,6 +95,8 @@ size_t riowrite(int socket, const void *buf, size_t count, off_t offset, int fla
 
 int repoll_create(int flags);
 int repoll_ctl(int epfd, int op, int fd, struct epoll_event *event);
+int repoll_wait(int epfd, struct epoll_event *events, int maxevents,
+		int timeout);
 
 #ifdef __cplusplus
 }
