@@ -94,6 +94,7 @@ int riounmap(int socket, void *buf, size_t len);
 size_t riowrite(int socket, const void *buf, size_t count, off_t offset, int flags);
 
 int repoll_create(int flags);
+int repoll_ctl(int epfd, int op, int fd, struct epoll_event *event);
 
 #ifdef __cplusplus
 }

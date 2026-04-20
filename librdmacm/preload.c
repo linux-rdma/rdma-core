@@ -1357,3 +1357,10 @@ int epoll_create(int size)
 {
 	return epoll_create1(0);
 }
+
+int epoll_ctl(int epfd, int op, int fd, struct epoll_event *event)
+{
+	int internal_fd = fd_getd(fd);
+
+	return repoll_ctl(epfd, op, internal_fd, event);
+}
