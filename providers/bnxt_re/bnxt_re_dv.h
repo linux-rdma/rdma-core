@@ -1,7 +1,6 @@
+/* SPDX-License-Identifier: GPL-2.0 OR Linux-OpenIB */
 /*
- * Broadcom NetXtreme-E User Space RoCE driver
- *
- * Copyright (c) 2015-2017, Broadcom. All rights reserved.  The term
+ * Copyright (c) 2025, Broadcom. All rights reserved.  The term
  * Broadcom refers to Broadcom Limited and/or its subsidiaries.
  *
  * This software is available to you under a choice of one of two
@@ -33,30 +32,56 @@
  * OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN
  * IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  *
- * Description: ABI data structure definition
+ * Description: Direct verb support user interface header
  */
 
-#ifndef __BNXT_RE_ABI_H__
-#define __BNXT_RE_ABI_H__
+#ifndef __BNXT_RE_DV_H__
+#define __BNXT_RE_DV_H__
 
-#include <infiniband/kern-abi.h>
-#include <rdma/bnxt_re-abi.h>
-#include <kernel-abi/bnxt_re-abi.h>
-
-DECLARE_DRV_CMD(ubnxt_re_pd, IB_USER_VERBS_CMD_ALLOC_PD,
-		empty, bnxt_re_pd_resp);
-DECLARE_DRV_CMD(ubnxt_re_cq, IB_USER_VERBS_EX_CMD_CREATE_CQ,
-		bnxt_re_cq_req, bnxt_re_cq_resp);
-DECLARE_DRV_CMD(ubnxt_re_resize_cq, IB_USER_VERBS_CMD_RESIZE_CQ,
-		bnxt_re_resize_cq_req, empty);
-DECLARE_DRV_CMD(ubnxt_re_qp, IB_USER_VERBS_CMD_CREATE_QP,
-		bnxt_re_qp_req, bnxt_re_qp_resp);
-DECLARE_DRV_CMD(ubnxt_re_cntx, IB_USER_VERBS_CMD_GET_CONTEXT,
-		bnxt_re_uctx_req, bnxt_re_uctx_resp);
-DECLARE_DRV_CMD(ubnxt_re_mr, IB_USER_VERBS_CMD_REG_MR,
-		empty, empty);
-DECLARE_DRV_CMD(ubnxt_re_srq, IB_USER_VERBS_CMD_CREATE_SRQ,
-		bnxt_re_srq_req, bnxt_re_srq_resp);
-DECLARE_DRV_CMD(ubnxt_re_query_device_ex, IB_USER_VERBS_EX_CMD_QUERY_DEVICE,
-		empty, bnxt_re_query_device_ex_resp);
+#include <stdint.h>
+#include <infiniband/verbs.h>
+#ifdef __cplusplus
+extern "C" {
 #endif
+
+struct bnxt_re_dv_db_region_attr {
+	uint32_t handle;
+	uint32_t dpi;
+	uint64_t umdbr;
+	uint64_t *dbr;
+};
+
+enum  bnxt_re_dv_umem_in_flags {
+	BNXT_RE_DV_UMEM_FLAGS_DMABUF = 1 << 0,
+};
+
+struct bnxt_re_dv_umem_reg_attr {
+	void *addr;
+	size_t size;
+	uint64_t comp_mask;
+	int dmabuf_fd;
+};
+
+struct bnxt_re_dv_umem;
+struct bnxt_re_dv_cq_init_attr {
+	void *umem_handle;	/* umem_handle from umem_reg */
+	uint64_t umem_offset;	/* offset into umem */
+	uint32_t ncqe;		/* num cq entries */
+};
+
+struct bnxt_re_dv_db_region_attr *
+bnxt_re_dv_alloc_db_region(struct ibv_context *ctx);
+int bnxt_re_dv_free_db_region(struct ibv_context *ctx,
+			      struct bnxt_re_dv_db_region_attr *attr);
+int bnxt_re_dv_get_default_db_region(struct ibv_context *ibvctx,
+				     struct bnxt_re_dv_db_region_attr *out);
+struct bnxt_re_dv_umem *bnxt_re_dv_umem_reg(struct ibv_context *ibvctx,
+					    struct bnxt_re_dv_umem_reg_attr *in);
+int bnxt_re_dv_umem_dereg(struct bnxt_re_dv_umem *umem);
+struct ibv_cq *bnxt_re_dv_create_cq(struct ibv_context *ibvctx,
+				    struct bnxt_re_dv_cq_init_attr *cq_attr);
+int bnxt_re_dv_destroy_cq(struct ibv_cq *ibv_cq);
+#ifdef __cplusplus
+}
+#endif
+#endif /* __BNXT_RE_DV_H__ */

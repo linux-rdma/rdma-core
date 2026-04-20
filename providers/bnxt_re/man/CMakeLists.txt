@@ -1,0 +1,10 @@
+rdma_man_pages(
+  bnxt_re_dv.7.md
+  bnxt_re_dv_alloc_db_region.3.md
+  bnxt_re_dv_free_db_region.3.md
+  bnxt_re_dv_get_default_db_region.3.md
+  bnxt_re_dv_umem_reg.3.md
+  bnxt_re_dv_umem_dereg.3.md
+  bnxt_re_dv_create_cq.3.md
+  bnxt_re_dv_destroy_cq.3.md
+)

@@ -1,7 +1,6 @@
+/* SPDX-License-Identifier: GPL-2.0 OR Linux-OpenIB */
 /*
- * Broadcom NetXtreme-E User Space RoCE driver
- *
- * Copyright (c) 2015-2017, Broadcom. All rights reserved.  The term
+ * Copyright (c) 2025, Broadcom. All rights reserved.  The term
  * Broadcom refers to Broadcom Limited and/or its subsidiaries.
  *
  * This software is available to you under a choice of one of two
@@ -33,30 +32,20 @@
  * OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN
  * IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  *
- * Description: ABI data structure definition
+ * Description: Direct verb support user interface header
  */
 
-#ifndef __BNXT_RE_ABI_H__
-#define __BNXT_RE_ABI_H__
+#ifndef __BNXT_RE_DV_INTERNAL_H__
+#define __BNXT_RE_DV_INTERNAL_H__
 
-#include <infiniband/kern-abi.h>
-#include <rdma/bnxt_re-abi.h>
-#include <kernel-abi/bnxt_re-abi.h>
+#include <stdint.h>
+#include <infiniband/verbs.h>
 
-DECLARE_DRV_CMD(ubnxt_re_pd, IB_USER_VERBS_CMD_ALLOC_PD,
-		empty, bnxt_re_pd_resp);
-DECLARE_DRV_CMD(ubnxt_re_cq, IB_USER_VERBS_EX_CMD_CREATE_CQ,
-		bnxt_re_cq_req, bnxt_re_cq_resp);
-DECLARE_DRV_CMD(ubnxt_re_resize_cq, IB_USER_VERBS_CMD_RESIZE_CQ,
-		bnxt_re_resize_cq_req, empty);
-DECLARE_DRV_CMD(ubnxt_re_qp, IB_USER_VERBS_CMD_CREATE_QP,
-		bnxt_re_qp_req, bnxt_re_qp_resp);
-DECLARE_DRV_CMD(ubnxt_re_cntx, IB_USER_VERBS_CMD_GET_CONTEXT,
-		bnxt_re_uctx_req, bnxt_re_uctx_resp);
-DECLARE_DRV_CMD(ubnxt_re_mr, IB_USER_VERBS_CMD_REG_MR,
-		empty, empty);
-DECLARE_DRV_CMD(ubnxt_re_srq, IB_USER_VERBS_CMD_CREATE_SRQ,
-		bnxt_re_srq_req, bnxt_re_srq_resp);
-DECLARE_DRV_CMD(ubnxt_re_query_device_ex, IB_USER_VERBS_EX_CMD_QUERY_DEVICE,
-		empty, bnxt_re_query_device_ex_resp);
-#endif
+struct bnxt_re_dv_umem {
+	struct ibv_context *context;
+	void *addr;
+	size_t size;
+	int dmabuf_fd;
+};
+
+#endif /* __BNXT_RE_DV_INTERNAL_H__ */
