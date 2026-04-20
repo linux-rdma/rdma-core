@@ -98,10 +98,11 @@ BuildRequires:  valgrind-devel
 BuildRequires:  systemd-rpm-macros
 BuildRequires:  pkgconfig(libnl-3.0)
 BuildRequires:  pkgconfig(libnl-route-3.0)
+%if %{with systemd}
 BuildRequires:  pkgconfig(systemd)
+%{systemd_requires}
 Requires:       kmod
-Requires:       systemd
-Requires:       udev
+%endif
 Recommends:     rdma-ndd
 
 # SUSE previously shipped rdma as a stand-alone
