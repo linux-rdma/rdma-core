@@ -80,6 +80,8 @@ static struct verbs_context *ionic_alloc_context(struct ibv_device *ibdev,
 
 	ctx->robust_udata = !!(verbs_get_device(ibdev)->core_support &
 			       IB_UVERBS_CORE_SUPPORT_ROBUST_UDATA);
+	ctx->ionic_flags_supported = !!(resp.comp_mask & IONIC_CTX_CMASK_IONIC_FLAGS);
+	ctx->rcq_sign_bit = resp.rcq_sign_bit;
 
 	mask = (1u << ctx->pg_shift) - 1;
 	ctx->dbpage_page = ionic_map_device(1u << ctx->pg_shift, cmd_fd,
