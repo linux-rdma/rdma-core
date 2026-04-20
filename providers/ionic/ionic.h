@@ -76,6 +76,7 @@ struct ionic_ctx {
 	uint8_t			expdb_mask;
 	bool			sq_expdb;
 	bool			rq_expdb;
+	uint8_t			rcq_sign_bit;
 
 	void			*dbpage_page;
 	uint64_t		*dbpage;

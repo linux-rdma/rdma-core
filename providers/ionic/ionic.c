@@ -77,6 +77,8 @@ static struct verbs_context *ionic_alloc_context(struct ibv_device *ibdev,
 	ctx->sq_expdb = !!(resp.expdb_qtypes & IONIC_EXPDB_SQ);
 	ctx->rq_expdb = !!(resp.expdb_qtypes & IONIC_EXPDB_RQ);
 
+	ctx->rcq_sign_bit = resp.rcq_sign_bit;
+
 	mask = (1u << ctx->pg_shift) - 1;
 	ctx->dbpage_page = ionic_map_device(1u << ctx->pg_shift, cmd_fd,
 					    resp.dbell_offset & ~mask);
