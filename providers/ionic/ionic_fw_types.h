@@ -70,22 +70,34 @@ union ionic_v1_pld {
 	__u8			data[32];
 };
 
+struct ionic_v1_cqe_send {
+	__u8			rsvd[4];
+	__be32			msg_msn;
+	__u8			rsvd2[8];
+	__le64			npg_wqe_idx;
+};
+
+struct ionic_v1_cqe_recv {
+	__le64			wqe_idx;
+	__be32			src_qpn_op;
+	__u8			src_mac[6];
+	__be16			vlan_tag;
+	__be32			imm_data_rkey;
+};
+
+struct ionic_v1_cqe_rcqe {
+	__be64			wqe_idx;
+	__u8			rsvd[8];
+	__be32			seq_op_flags;
+	__be32			imm_data_rkey;
+};
+
 /* completion queue v1 cqe */
 struct ionic_v1_cqe {
 	union {
-		struct {
-			__le64		wqe_idx;
-			__be32		src_qpn_op;
-			__u8		src_mac[6];
-			__be16		vlan_tag;
-			__be32		imm_data_rkey;
-		} recv;
-		struct {
-			__u8		rsvd[4];
-			__be32		msg_msn;
-			__u8		rsvd2[8];
-			__le64		npg_wqe_idx;
-		} send;
+		struct ionic_v1_cqe_send send;
+		struct ionic_v1_cqe_recv recv;
+		struct ionic_v1_cqe_rcqe rcqe;
 	};
 	__be32				status_length;
 	__be32				qid_type_flags;
@@ -94,6 +106,14 @@ struct ionic_v1_cqe {
 /* bits for cqe wqe_idx */
 enum ionic_v1_cqe_wqe_idx_bits {
 	IONIC_V1_CQE_WQE_IDX_MASK	= 0xffff,
+};
+
+/* bits for rcqe seq_op_flags */
+enum ionic_v1_cqe_rcqe_op_flag_bits {
+	IONIC_V1_CQE_RCQE_SEQ_MASK	= 0xffffff,
+	IONIC_V1_CQE_RCQE_FLAG_V	= 1u << 24,
+	IONIC_V1_CQE_RCQE_FLAG_I	= 1u << 25,
+	IONIC_V1_CQE_RCQE_OP_SHIFT	= 28,
 };
 
 /* bits for cqe recv */

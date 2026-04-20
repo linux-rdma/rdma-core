@@ -162,6 +162,16 @@ struct ionic_sq_meta {
 struct ionic_rq_meta {
 	struct ionic_rq_meta	*next;
 	uint64_t		wrid;
+	struct {
+		uint64_t	timestamp;
+		uint32_t	seq;
+		uint32_t	imm_rkey;
+		uint32_t	sts_len;
+		uint8_t		valid:1;
+		uint8_t		ready:1;
+		uint8_t		error:1;
+		uint8_t		op;
+	} rcqe;
 };
 
 struct ionic_rq {
