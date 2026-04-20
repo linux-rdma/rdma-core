@@ -103,6 +103,8 @@ struct ionic_ctx {
 	bool			sq_expdb;
 	bool			rq_expdb;
 	bool			robust_udata;
+	bool			ionic_flags_supported;
+	uint8_t			rcq_sign_bit;
 
 	void			*dbpage_page;
 	uint64_t		*dbpage;
