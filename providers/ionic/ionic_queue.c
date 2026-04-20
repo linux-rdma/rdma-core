@@ -9,6 +9,7 @@
 #include "ionic.h"
 #include "ionic_queue.h"
 #include "ionic_memory.h"
+#include "ionic_fw.h"
 
 static void ionic_queue_map(struct ionic_queue *q, struct ionic_pd *pd, uint64_t pd_tag, int stride)
 {
@@ -64,6 +65,9 @@ int ionic_queue_init(struct ionic_queue *q, struct ionic_pd *pd,
 
 	q->size = BIT_ULL(q->depth_log2 + q->stride_log2);
 	q->mask = BIT(q->depth_log2) - 1;
+
+	if (pd_tag == IONIC_PD_TAG_RCQ)
+		q->size += IONIC_RCQ_SIZE;
 
 	ionic_queue_map(q, pd, pd_tag, stride);
 	if (!q->ptr)
