@@ -217,6 +217,48 @@ static inline int ionic_v1_use_spec_sge(int min_sge, int spec)
 	return spec;
 }
 
+static inline uint32_t ionic_v1_rcqe_seq(uint32_t seq_opf)
+{
+	return seq_opf & IONIC_V1_CQE_RCQE_SEQ_MASK;
+}
+
+static inline uint8_t ionic_v1_rcqe_op(uint32_t seq_opf)
+{
+	return seq_opf >> IONIC_V1_CQE_RCQE_OP_SHIFT;
+}
+
+static inline bool ionic_v1_rcqe_valid(uint32_t seq_opf)
+{
+	return seq_opf & IONIC_V1_CQE_RCQE_FLAG_V;
+}
+
+static inline bool ionic_v1_rcqe_ready(uint32_t seq_opf)
+{
+	return seq_opf & IONIC_V1_CQE_RCQE_FLAG_I;
+}
+
 #define IONIC_RCQ_SIZE 4096
+
+struct ionic_rcq_hdr {
+	__be32 seq;
+	__be32 ack;
+};
+
+struct ionic_rcq {
+	union {
+		uint8_t bytes[IONIC_RCQ_SIZE];
+		struct ionic_rcq_hdr hdr;
+	};
+};
+
+static inline uint32_t ionic_rcq_seq(struct ionic_rcq *rcq)
+{
+	return be32toh(rcq->hdr.seq) & IONIC_V1_CQE_RCQE_SEQ_MASK;
+}
+
+static inline void ionic_rcq_ack(struct ionic_rcq *rcq, uint32_t ack)
+{
+	rcq->hdr.ack = htobe32(ack);
+}
 
 #endif /* IONIC_FW_H */
