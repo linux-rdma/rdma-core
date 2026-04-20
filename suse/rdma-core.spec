@@ -85,6 +85,7 @@ BuildRequires:  pkgconfig(libudev)
 BuildRequires:  pkgconfig(systemd)
 BuildRequires:  pkgconfig(udev)
 %if %{with_pyverbs}
+BuildRequires:  libdrm-devel
 BuildRequires:  python3-Cython
 BuildRequires:  python3-devel
 %endif
