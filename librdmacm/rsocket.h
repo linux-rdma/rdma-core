@@ -38,6 +38,7 @@
 #include <sys/socket.h>
 #include <errno.h>
 #include <poll.h>
+#include <sys/epoll.h>
 #include <sys/select.h>
 #include <sys/mman.h>
 
@@ -91,6 +92,8 @@ int rfcntl(int socket, int cmd, ... /* arg */ );
 off_t riomap(int socket, void *buf, size_t len, int prot, int flags, off_t offset);
 int riounmap(int socket, void *buf, size_t len);
 size_t riowrite(int socket, const void *buf, size_t count, off_t offset, int flags);
+
+int repoll_create(int flags);
 
 #ifdef __cplusplus
 }

@@ -1,5 +1,5 @@
 .\" Licensed under the OpenIB.org BSD license (FreeBSD Variant) - See COPYING.md
-.TH "RSOCKET" 7 "2019-04-16" "librdmacm" "Librdmacm Programmer's Manual" librdmacm
+.TH "RSOCKET" 7 "2026-04-13" "librdmacm" "Librdmacm Programmer's Manual" librdmacm
 .SH NAME
 rsocket \- RDMA socket API
 .SH SYNOPSIS
@@ -30,6 +30,8 @@ rpoll, rselect
 rgetpeername, rgetsockname
 .P
 rsetsockopt, rgetsockopt, rfcntl
+.P
+repoll_create
 .P
 Functions take the same parameters as that used for sockets.  The
 follow capabilities and flags are supported at this time:

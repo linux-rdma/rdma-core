@@ -45,6 +45,8 @@
 #include <stddef.h>
 #include <string.h>
 #include <netinet/tcp.h>
+#include <sched.h>
+#include <stdatomic.h>
 #include <sys/epoll.h>
 #include <sys/eventfd.h>
 #include <search.h>
@@ -68,6 +70,16 @@
 #define RS_QP_CTRL_SIZE 4	/* must be power of 2 */
 #define RS_CONN_RETRIES 6
 #define RS_SGL_SIZE 2
+#define REPOLL_CMD_REFRESH_FDS 1
+#define REPOLL_INIT_FD_CAP 1024
+
+enum repoll_monitor_state {
+	REPOLL_MONITOR_SLEEPING = 0,
+	REPOLL_MONITOR_STARTING = 1,
+	REPOLL_MONITOR_RUNNING = 2,
+	REPOLL_MONITOR_RELOADED = 3,
+};
+
 static struct index_map idm;
 static pthread_mutex_t mut = PTHREAD_MUTEX_INITIALIZER;
 static pthread_mutex_t svc_mut = PTHREAD_MUTEX_INITIALIZER;
@@ -4756,4 +4768,230 @@ static void *cm_svc_run(void *arg)
 	} while (svc->cnt >= 1);
 
 	return NULL;
+}
+
+struct repoll_info {
+	int epfd;
+	int epfd_peer;
+	int cmd_pipe[2];
+	pthread_t monitor;
+	pthread_mutex_t lock;
+	pthread_cond_t monitor_wake;
+	struct index_map fd_index;
+	struct pollfd *fds;
+	union epoll_data *user_data;
+	uint16_t slot_count;
+	uint16_t active_fds;
+	uint16_t capacity;
+
+	_Atomic(int) monitor_state;
+	_Atomic(int) monitor_running;
+};
+
+static struct index_map repoll_idm;
+
+static int repoll_monitor_refresh_fds(struct repoll_info *ri,
+				      struct pollfd **fds, int *nfds)
+{
+	free(*fds);
+	*fds = malloc(sizeof(**fds) * ri->capacity);
+	if (!*fds)
+		return -1;
+	memcpy(*fds, ri->fds, sizeof(**fds) * ri->capacity);
+	*nfds = ri->slot_count;
+	return 0;
+}
+
+static int repoll_monitor_has_user_events(struct pollfd *fds, int nfds)
+{
+	for (int i = 1; i < nfds; ++i) {
+		if (fds[i].fd > 0 && fds[i].revents)
+			return 1;
+	}
+	return 0;
+}
+
+static int repoll_monitor_sleep(struct repoll_info *ri)
+{
+	sched_yield();
+	atomic_store(&ri->monitor_state, REPOLL_MONITOR_SLEEPING);
+	pthread_mutex_lock(&ri->lock);
+	while (atomic_load(&ri->monitor_state) == REPOLL_MONITOR_SLEEPING &&
+	       atomic_load(&ri->monitor_running))
+		pthread_cond_wait(&ri->monitor_wake, &ri->lock);
+	pthread_mutex_unlock(&ri->lock);
+	return atomic_load(&ri->monitor_running) ? 0 : -1;
+}
+
+static int repoll_monitor_read_cmd(struct pollfd *fds)
+{
+	int cmd, size;
+
+	if (!(fds[0].revents & POLLIN))
+		return 0;
+	size = read(fds[0].fd, &cmd, sizeof(cmd));
+	if (size != sizeof(cmd))
+		return 0;
+	return cmd;
+}
+
+static void repoll_monitor_ack_reload(struct repoll_info *ri)
+{
+	int state = REPOLL_MONITOR_RUNNING;
+
+	atomic_compare_exchange_strong(&ri->monitor_state, &state,
+				       REPOLL_MONITOR_RELOADED);
+}
+
+static void *repoll_monitor_fn(void *arg)
+{
+	struct repoll_info *ri = arg;
+	struct pollfd *fds = NULL;
+	int nfds;
+	int state;
+
+	if (repoll_monitor_refresh_fds(ri, &fds, &nfds)) {
+		atomic_store(&ri->monitor_state, REPOLL_MONITOR_SLEEPING);
+		return NULL;
+	}
+
+	state = REPOLL_MONITOR_STARTING;
+	atomic_compare_exchange_strong(&ri->monitor_state, &state,
+				       REPOLL_MONITOR_RUNNING);
+
+	while (atomic_load(&ri->monitor_running)) {
+		if (rpoll(fds, nfds, -1) <= 0)
+			continue;
+
+		if (repoll_monitor_has_user_events(fds, nfds)) {
+			if (repoll_monitor_sleep(ri))
+				break;
+			if (repoll_monitor_refresh_fds(ri, &fds, &nfds))
+				break;
+			continue;
+		}
+
+		switch (repoll_monitor_read_cmd(fds)) {
+		case REPOLL_CMD_REFRESH_FDS:
+			if (repoll_monitor_refresh_fds(ri, &fds, &nfds))
+				goto out;
+			repoll_monitor_ack_reload(ri);
+			break;
+		default:
+			break;
+		}
+	}
+
+out:
+	free(fds);
+	return NULL;
+}
+
+static void repoll_stop_monitor(struct repoll_info *ri)
+{
+	atomic_store(&ri->monitor_running, 0);
+	pthread_cond_signal(&ri->monitor_wake);
+	pthread_join(ri->monitor, NULL);
+}
+
+static int repoll_alloc_fd_arrays(struct repoll_info *ri)
+{
+	ri->capacity = REPOLL_INIT_FD_CAP;
+
+	ri->fds = malloc(sizeof(*ri->fds) * ri->capacity);
+	if (!ri->fds)
+		return -1;
+	for (int i = 0; i < ri->capacity; ++i)
+		ri->fds[i].fd = -1;
+
+	ri->user_data = malloc(sizeof(*ri->user_data) * ri->capacity);
+	if (!ri->user_data) {
+		free(ri->fds);
+		return -1;
+	}
+	return 0;
+}
+
+static int repoll_setup_cmd_pipe(struct repoll_info *ri)
+{
+	int ret;
+
+	ret = pipe2(ri->cmd_pipe, O_DIRECT);
+	if (ret == -1)
+		return -1;
+
+	ri->fds[0].fd = ri->cmd_pipe[0];
+	ri->fds[0].events = POLLIN;
+	ri->fds[0].revents = 0;
+	ri->slot_count = 1;
+	ri->active_fds = 1;
+	return 0;
+}
+
+static int repoll_start_monitor(struct repoll_info *ri)
+{
+	int ret;
+
+	atomic_store(&ri->monitor_running, 1);
+	atomic_store(&ri->monitor_state, REPOLL_MONITOR_STARTING);
+
+	ret = pthread_create(&ri->monitor, NULL, repoll_monitor_fn, ri);
+	if (ret)
+		return -1;
+
+	while (atomic_load(&ri->monitor_state) == REPOLL_MONITOR_STARTING)
+		;
+	return 0;
+}
+
+int repoll_create(int flags)
+{
+	struct repoll_info *ri;
+	int pipefd[2];
+	int ret;
+
+	ri = calloc(1, sizeof(*ri));
+	if (!ri)
+		return ERR(ENOMEM);
+
+	if (repoll_alloc_fd_arrays(ri))
+		goto fail_fds;
+
+	ret = pipe2(pipefd, O_DIRECT | (flags & (O_CLOEXEC | O_NONBLOCK)));
+	if (ret == -1)
+		goto fail_pipe;
+
+	ri->epfd = pipefd[0];
+	ri->epfd_peer = pipefd[1];
+	pthread_mutex_init(&ri->lock, NULL);
+	pthread_cond_init(&ri->monitor_wake, NULL);
+
+	if (repoll_setup_cmd_pipe(ri))
+		goto fail_comm;
+
+	if (repoll_start_monitor(ri))
+		goto fail_thread;
+
+	pthread_mutex_lock(&mut);
+	ret = idm_set(&repoll_idm, ri->epfd, ri);
+	pthread_mutex_unlock(&mut);
+	if (ret < 0)
+		goto fail_idm;
+
+	return ri->epfd;
+
+fail_idm:
+	repoll_stop_monitor(ri);
+fail_thread:
+	close(ri->cmd_pipe[0]);
+	close(ri->cmd_pipe[1]);
+fail_comm:
+	close(ri->epfd);
+	close(ri->epfd_peer);
+fail_pipe:
+	free(ri->user_data);
+	free(ri->fds);
+fail_fds:
+	free(ri);
+	return -1;
 }
