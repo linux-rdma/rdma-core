@@ -85,10 +85,11 @@ BuildRequires:  pkgconfig(libudev)
 BuildRequires:  pkgconfig(systemd)
 BuildRequires:  pkgconfig(udev)
 %if %{with_pyverbs}
+BuildRequires:  libdrm-devel
 BuildRequires:  python3-Cython
 BuildRequires:  python3-devel
 %endif
-%ifnarch s390 s390x
+%ifnarch s390 s390x loongarch64
 %if 0%{?suse_version} >= 1550
 BuildRequires:  valgrind-client-headers
 %else
@@ -98,10 +99,11 @@ BuildRequires:  valgrind-devel
 BuildRequires:  systemd-rpm-macros
 BuildRequires:  pkgconfig(libnl-3.0)
 BuildRequires:  pkgconfig(libnl-route-3.0)
+%if %{with systemd}
 BuildRequires:  pkgconfig(systemd)
+%{systemd_requires}
 Requires:       kmod
-Requires:       systemd
-Requires:       udev
+%endif
 Recommends:     rdma-ndd
 
 # SUSE previously shipped rdma as a stand-alone
