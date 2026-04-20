@@ -217,4 +217,6 @@ static inline int ionic_v1_use_spec_sge(int min_sge, int spec)
 	return spec;
 }
 
+#define IONIC_RCQ_SIZE 4096
+
 #endif /* IONIC_FW_H */
