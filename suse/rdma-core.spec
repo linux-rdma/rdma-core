@@ -88,7 +88,7 @@ BuildRequires:  pkgconfig(udev)
 BuildRequires:  python3-Cython
 BuildRequires:  python3-devel
 %endif
-%ifnarch s390 s390x
+%ifnarch s390 s390x loongarch64
 %if 0%{?suse_version} >= 1550
 BuildRequires:  valgrind-client-headers
 %else
