@@ -20,6 +20,7 @@ DRIVERS=="ib_qib", ENV{ID_RDMA_INFINIBAND}="1"
 
 # Hardware that supports OPA
 DRIVERS=="hfi1", ENV{ID_RDMA_OPA}="1"
+DRIVERS=="hfi2", ENV{ID_RDMA_OPA}="1"
 
 # Hardware that supports iWarp
 DRIVERS=="cxgb4", ENV{ID_RDMA_IWARP}="1"
