@@ -967,7 +967,7 @@ int poll(struct pollfd *fds, nfds_t nfds, int timeout)
 	struct pollfd *rfds;
 	struct fd_info *fdi;
 	int i, ret;
-	int has_rsocket = 0;
+	int has_rsocket = 0; 
 
 	init_preload();
 
