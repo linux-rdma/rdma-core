@@ -964,7 +964,7 @@ static int *fds_r_alloc(nfds_t nfds)
 
 int poll(struct pollfd *fds, nfds_t nfds, int timeout)
 {
-		struct pollfd *rfds;
+	struct pollfd *rfds;
 	struct fd_info *fdi;
 	int i, ret;
 	int has_rsocket = 0;
@@ -972,8 +972,7 @@ int poll(struct pollfd *fds, nfds_t nfds, int timeout)
 	init_preload();
 
 	rfds = fds_alloc(nfds);
-	if (!rfds)
-	{
+	if (!rfds) {
 		return ERR(ENOMEM);
 	}
 
