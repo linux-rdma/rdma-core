@@ -972,30 +972,25 @@ int poll(struct pollfd *fds, nfds_t nfds, int timeout)
 	init_preload();
 
 	rfds = fds_alloc(nfds);
-	if (!rfds) {
+	if (!rfds)
 		return ERR(ENOMEM);
-	}
 
 	for (i = 0; i < nfds; i++) {
 		rfds[i].fd = fd_getd(fds[i].fd);
 		rfds[i].events = fds[i].events;
 		rfds[i].revents = 0;
 
-		if (fd_gett(fds[i].fd) == fd_rsocket) {
+		if (fd_gett(fds[i].fd) == fd_rsocket)
 			has_rsocket = 1;
-		}
 	}
 
-	if (!has_rsocket) {
+	if (!has_rsocket)
 		ret = real.poll(rfds, nfds, timeout);
-	}
-	else {
+	else
 		ret = rpoll(rfds, nfds, timeout);
-	}
 
-	for (i = 0; i < nfds; i++) {
+	for (i = 0; i < nfds; i++)
 		fds[i].revents = rfds[i].revents;
-	}
 
 	return ret;
 }
