@@ -801,13 +801,13 @@ static void efa_process_ex_cqe(struct efa_cq *cq, struct efa_qp *qp)
 }
 
 static inline int efa_poll_sub_cq(struct efa_cq *cq, struct efa_sub_cq *sub_cq,
-				  struct efa_qp **cur_qp, struct ibv_wc *wc,
+				  struct ibv_wc *wc,
 				  bool extended) ALWAYS_INLINE;
 static inline int efa_poll_sub_cq(struct efa_cq *cq, struct efa_sub_cq *sub_cq,
-				  struct efa_qp **cur_qp, struct ibv_wc *wc,
-				  bool extended)
+				  struct ibv_wc *wc, bool extended)
 {
 	struct efa_context *ctx = to_efa_context(cq->verbs_cq.cq.context);
+	struct efa_qp *qp;
 	uint32_t qpn;
 
 	cq->cur_cqe = cq_next_sub_cqe_get(sub_cq);
@@ -815,25 +815,21 @@ static inline int efa_poll_sub_cq(struct efa_cq *cq, struct efa_sub_cq *sub_cq,
 		return ENOENT;
 
 	qpn = cq->cur_cqe->qp_num;
-	if (!*cur_qp || qpn != (*cur_qp)->verbs_qp.qp.qp_num) {
-		/* We do not have to take the QP table lock here,
-		 * because CQs will be locked while QPs are removed
-		 * from the table.
-		 */
-		*cur_qp = ctx->qp_table[qpn & ctx->qp_table_sz_m1];
-		if (!*cur_qp || qpn != (*cur_qp)->verbs_qp.qp.qp_num) {
-			cq->cur_wq = NULL;
-			verbs_err(&ctx->ibvctx,
-				  "QP[%u] does not exist in QP table\n",
-				  qpn);
-			return EINVAL;
-		}
+	/* We do not have to take the QP table lock here,
+	 * because CQs will be locked while QPs are removed
+	 * from the table.
+	 */
+	qp = ctx->qp_table[qpn & ctx->qp_table_sz_m1];
+	if (!qp || qpn != qp->verbs_qp.qp.qp_num) {
+		cq->cur_wq = NULL;
+		verbs_err(&ctx->ibvctx, "QP[%u] does not exist in QP table\n", qpn);
+		return EINVAL;
 	}
 
 	if (extended) {
-		efa_process_ex_cqe(cq, *cur_qp);
+		efa_process_ex_cqe(cq, qp);
 	} else {
-		efa_process_cqe(cq, wc, *cur_qp);
+		efa_process_cqe(cq, wc, qp);
 		if (cq->cur_wq)
 			efa_wq_put_wrid_idx_unlocked(cq->cur_wq, cq->cur_cqe->req_id);
 	}
@@ -848,7 +844,6 @@ static inline int efa_poll_sub_cqs(struct efa_cq *cq, struct ibv_wc *wc,
 {
 	uint16_t num_sub_cqs = cq->num_sub_cqs;
 	struct efa_sub_cq *sub_cq;
-	struct efa_qp *qp = NULL;
 	uint16_t sub_cq_idx;
 	int err = ENOENT;
 
@@ -856,7 +851,7 @@ static inline int efa_poll_sub_cqs(struct efa_cq *cq, struct ibv_wc *wc,
 		sub_cq = &cq->sub_cq_arr[cq->next_poll_idx++];
 		cq->next_poll_idx %= num_sub_cqs;
 
-		err = efa_poll_sub_cq(cq, sub_cq, &qp, wc, extended);
+		err = efa_poll_sub_cq(cq, sub_cq, wc, extended);
 		if (err != ENOENT) {
 			cq->cc++;
 			break;
@@ -957,14 +952,13 @@ static int efa_start_poll_single_sub_cq(struct ibv_cq_ex *ibvcqx,
 					struct ibv_poll_cq_attr *attr)
 {
 	struct efa_cq *cq = to_efa_cq_ex(ibvcqx);
-	struct efa_qp *qp = NULL;
 	int ret;
 
 	if (efa_start_poll_comp_check(ibvcqx, attr))
 		return EINVAL;
 
 	pthread_spin_lock(&cq->lock);
-	ret = efa_poll_sub_cq(cq, cq->sub_cq_arr, &qp, NULL, true);
+	ret = efa_poll_sub_cq(cq, cq->sub_cq_arr, NULL, true);
 	if (ret != ENOENT)
 		cq->cc++;
 
@@ -977,13 +971,12 @@ static int efa_start_poll_single_sub_cq(struct ibv_cq_ex *ibvcqx,
 static int efa_next_poll_single_sub_cq(struct ibv_cq_ex *ibvcqx)
 {
 	struct efa_cq *cq = to_efa_cq_ex(ibvcqx);
-	struct efa_qp *qp = NULL;
 	int ret;
 
 	if (cq->cur_wq)
 		efa_wq_put_wrid_idx_unlocked(cq->cur_wq, cq->cur_cqe->req_id);
 
-	ret = efa_poll_sub_cq(cq, cq->sub_cq_arr, &qp, NULL, true);
+	ret = efa_poll_sub_cq(cq, cq->sub_cq_arr, NULL, true);
 	if (ret != ENOENT)
 		cq->cc++;
 
@@ -1012,13 +1005,12 @@ static int efa_start_poll_single_sub_cq_single_thread(struct ibv_cq_ex *ibvcqx,
 						      struct ibv_poll_cq_attr *attr)
 {
 	struct efa_cq *cq = to_efa_cq_ex(ibvcqx);
-	struct efa_qp *qp = NULL;
 	int ret;
 
 	if (efa_start_poll_comp_check(ibvcqx, attr))
 		return EINVAL;
 
-	ret = efa_poll_sub_cq(cq, cq->sub_cq_arr, &qp, NULL, true);
+	ret = efa_poll_sub_cq(cq, cq->sub_cq_arr, NULL, true);
 	if (ret != ENOENT)
 		cq->cc++;
 
