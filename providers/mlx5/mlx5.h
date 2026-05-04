@@ -505,6 +505,7 @@ struct mlx5_cq {
 	uint32_t			cqn;
 	uint32_t			cons_index;
 	__be32			       *dbrec;
+	struct ibv_buf		       *dbrec_ibv_buf;
 	bool				custom_db;
 	int				arm_sn;
 	int				cqe_sz;
@@ -695,6 +696,7 @@ struct mlx5_qp {
 	struct mlx5_wq                  sq;
 
 	__be32                         *db;
+	struct ibv_buf		       *dbrec_ibv_buf;
 	bool				custom_db;
 	struct mlx5_wq                  rq;
 	int                             wq_sig;
@@ -1145,7 +1147,7 @@ int mlx5_alloc_buf_dmabuf(struct mlx5_context *ctx, struct mlx5_buf *buf,
 void mlx5_free_buf_dmabuf(struct mlx5_context *ctx, struct mlx5_buf *buf);
 
 __be32 *mlx5_alloc_dbrec(struct mlx5_context *context, struct ibv_pd *pd,
-			 bool *custom_alloc);
+			 bool *custom_alloc, struct ibv_buf **dbrec_buf);
 void mlx5_free_db(struct mlx5_context *context, __be32 *db, struct ibv_pd *pd,
 		  bool custom_alloc);
 
