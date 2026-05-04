@@ -1693,6 +1693,7 @@ static struct ibv_qp *ionic_create_qp_ex(struct ibv_context *ibctx,
 	qp->has_sq = true;
 	qp->has_rq = true;
 	qp->lockfree = false;
+	qp->sig_all = ex->sq_sig_all;
 
 	list_node_init(&qp->cq_poll_sq);
 	list_node_init(&qp->cq_poll_rq);
@@ -2111,7 +2112,7 @@ static void ionic_v1_prep_base(struct ionic_qp *qp,
 	if (wr->send_flags & IBV_SEND_SOLICITED)
 		wqe->base.flags |= htobe16(IONIC_V1_FLAG_SOL);
 
-	if (wr->send_flags & IBV_SEND_SIGNALED) {
+	if (qp->sig_all || (wr->send_flags & IBV_SEND_SIGNALED)) {
 		wqe->base.flags |= htobe16(IONIC_V1_FLAG_SIG);
 		meta->signal = true;
 	}
