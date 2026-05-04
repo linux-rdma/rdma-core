@@ -1061,8 +1061,10 @@ static struct ibv_cq_ex *create_cq(struct ibv_context *context,
 				   struct mlx5dv_cq_init_attr *mlx5cq_attr)
 {
 	DECLARE_COMMAND_BUFFER_LINK(driver_attrs, UVERBS_OBJECT_CQ,
-				    UVERBS_METHOD_CQ_CREATE, 1,
+				    UVERBS_METHOD_CQ_CREATE, 3,
 				    NULL);
+	struct ib_uverbs_buffer_desc	cq_buf_umem_desc;
+	struct ib_uverbs_buffer_desc	cq_dbr_umem_desc;
 	struct mlx5_create_cq_ex	cmd_ex = {};
 	struct mlx5_create_cq_ex_resp	resp_ex = {};
 	struct mlx5_ib_create_cq       *cmd_drv;
@@ -1165,7 +1167,7 @@ static struct ibv_cq_ex *create_cq(struct ibv_context *context,
 	}
 
 	cq->dbrec  = mlx5_alloc_dbrec(to_mctx(context), cq->parent_domain,
-				      &cq->custom_db);
+				      &cq->custom_db, &cq->dbrec_ibv_buf);
 	if (!cq->dbrec) {
 		mlx5_dbg(fp, MLX5_DBG_CQ, "\n");
 		goto err_buf;
@@ -1233,6 +1235,12 @@ static struct ibv_cq_ex *create_cq(struct ibv_context *context,
 			cmd_drv->uar_page_index = mctx->nc_uar->page_id;
 		}
 	}
+
+	fill_attr_in_buf_umem(driver_attrs, UVERBS_ATTR_CREATE_CQ_BUF_UMEM,
+			      &cq_buf_umem_desc, &cq->buf_a.ibv_buf, NULL, 0);
+	fill_attr_in_buf_umem(driver_attrs, MLX5_IB_ATTR_CREATE_CQ_DBR_BUF_UMEM,
+			      &cq_dbr_umem_desc, cq->dbrec_ibv_buf, cq->dbrec,
+			      sizeof(*cq->dbrec) * 2);
 
 	{
 		struct ibv_cq_init_attr_ex cq_attr_ex = *cq_attr;
@@ -1469,7 +1477,8 @@ struct ibv_srq *mlx5_create_srq(struct ibv_pd *pd,
 		goto err;
 	}
 
-	srq->db = mlx5_alloc_dbrec(to_mctx(pd->context), pd, &srq->custom_db);
+	srq->db = mlx5_alloc_dbrec(to_mctx(pd->context), pd, &srq->custom_db,
+				   NULL);
 	if (!srq->db) {
 		mlx5_err(ctx->dbg_fp, "%s-%d:\n", __func__, __LINE__);
 		goto err_free;
@@ -2249,7 +2258,8 @@ static int mlx5_cmd_create_qp_ex(struct ibv_context *context,
 				 struct ibv_qp_init_attr_ex *attr,
 				 struct mlx5_create_qp *cmd,
 				 struct mlx5_qp *qp,
-				 struct mlx5_create_qp_ex_resp *resp)
+				 struct mlx5_create_qp_ex_resp *resp,
+				 struct ibv_command_buffer *driver_attrs)
 {
 	struct mlx5_create_qp_ex cmd_ex;
 	int ret;
@@ -2259,10 +2269,10 @@ static int mlx5_cmd_create_qp_ex(struct ibv_context *context,
 
 	cmd_ex.drv_payload = cmd->drv_payload;
 
-	ret = ibv_cmd_create_qp_ex2(context, &qp->verbs_qp,
+	ret = ibv_cmd_create_qp_ex3(context, &qp->verbs_qp,
 				    attr, &cmd_ex.ibv_cmd,
 				    sizeof(cmd_ex), &resp->ibv_resp,
-				    sizeof(*resp));
+				    sizeof(*resp), driver_attrs);
 
 	return ret;
 }
@@ -2477,6 +2487,11 @@ static struct ibv_qp *create_qp(struct ibv_context *context,
 				struct ibv_qp_init_attr_ex *attr,
 				struct mlx5dv_qp_init_attr *mlx5_qp_attr)
 {
+	DECLARE_COMMAND_BUFFER_LINK(driver_attrs, UVERBS_OBJECT_QP,
+				    UVERBS_METHOD_QP_CREATE, 3, NULL);
+	struct ib_uverbs_buffer_desc	qp_buf_umem_desc;
+	struct ib_uverbs_buffer_desc	qp_sq_buf_umem_desc;
+	struct ib_uverbs_buffer_desc	qp_dbr_umem_desc;
 	struct mlx5_create_qp		cmd;
 	struct mlx5_create_qp_resp	resp;
 	struct mlx5_create_qp_ex_resp  resp_ex;
@@ -2490,6 +2505,8 @@ static struct ibv_qp *create_qp(struct ibv_context *context,
 	FILE *fp = ctx->dbg_fp;
 	struct mlx5_parent_domain *mparent_domain;
 	struct mlx5_ib_create_qp_resp  *resp_drv;
+	bool				need_buf_umem;
+	uint16_t			qp_main_attr_id;
 
 	if (attr->comp_mask & ~MLX5_CREATE_QP_SUP_COMP_MASK)
 		return NULL;
@@ -2741,7 +2758,8 @@ static struct ibv_qp *create_qp(struct ibv_context *context,
 			mlx5_spinlock_init_pd(&qp->rq.lock, attr->pd))
 		goto err_free_qp_buf;
 
-	qp->db = mlx5_alloc_dbrec(ctx, attr->pd, &qp->custom_db);
+	qp->db = mlx5_alloc_dbrec(ctx, attr->pd, &qp->custom_db,
+				  &qp->dbrec_ibv_buf);
 	if (!qp->db) {
 		mlx5_dbg(fp, MLX5_DBG_QP, "\n");
 		goto err_free_qp_buf;
@@ -2798,8 +2816,31 @@ static struct ibv_qp *create_qp(struct ibv_context *context,
 		/* Create QP should start from ECE version 1 as a trigger */
 		cmd.ece_options = 0x10000000;
 
-	if (attr->comp_mask & MLX5_CREATE_QP_EX2_COMP_MASK)
-		ret = mlx5_cmd_create_qp_ex(context, attr, &cmd, qp, &resp_ex);
+	qp_main_attr_id = (attr->qp_type == IBV_QPT_RAW_PACKET ||
+			   qp->flags & MLX5_QP_FLAGS_USE_UNDERLAY) ?
+			  UVERBS_ATTR_CREATE_QP_RQ_BUF_UMEM :
+			  UVERBS_ATTR_CREATE_QP_BUF_UMEM;
+
+	fill_attr_in_buf_umem(driver_attrs, qp_main_attr_id,
+			      &qp_buf_umem_desc, &qp->buf.ibv_buf, NULL, 0);
+	if (qp->sq_buf.ibv_buf.addr)
+		fill_attr_in_buf_umem(driver_attrs,
+				      UVERBS_ATTR_CREATE_QP_SQ_BUF_UMEM,
+				      &qp_sq_buf_umem_desc,
+				      &qp->sq_buf.ibv_buf, NULL, 0);
+	fill_attr_in_buf_umem(driver_attrs,
+			      MLX5_IB_ATTR_CREATE_QP_DBR_BUF_UMEM,
+			      &qp_dbr_umem_desc, qp->dbrec_ibv_buf, qp->db,
+			      sizeof(*qp->db) * 2);
+
+	need_buf_umem = (qp->buf.ibv_buf.comp_mask & IBV_BUF_DMABUF) ||
+			(qp->sq_buf.ibv_buf.comp_mask & IBV_BUF_DMABUF) ||
+			(qp->dbrec_ibv_buf &&
+			 (qp->dbrec_ibv_buf->comp_mask & IBV_BUF_DMABUF));
+
+	if ((attr->comp_mask & MLX5_CREATE_QP_EX2_COMP_MASK) || need_buf_umem)
+		ret = mlx5_cmd_create_qp_ex(context, attr, &cmd, qp, &resp_ex,
+					    driver_attrs);
 	else
 		ret = ibv_cmd_create_qp_ex(context, &qp->verbs_qp,
 					   attr, &cmd.ibv_cmd, sizeof(cmd),
@@ -2809,7 +2850,8 @@ static struct ibv_qp *create_qp(struct ibv_context *context,
 		goto err_free_uidx;
 	}
 
-	resp_drv = attr->comp_mask & MLX5_CREATE_QP_EX2_COMP_MASK ?
+	resp_drv = ((attr->comp_mask & MLX5_CREATE_QP_EX2_COMP_MASK) ||
+		    need_buf_umem) ?
 			&resp_ex.drv_payload : &resp.drv_payload;
 	if (!ctx->cqe_version) {
 		if (qp->sq.wqe_cnt || qp->rq.wqe_cnt) {
@@ -3878,7 +3920,7 @@ struct ibv_srq *mlx5_create_srq_ex(struct ibv_context *context,
 		goto err;
 	}
 
-	msrq->db = mlx5_alloc_dbrec(ctx, attr->pd, &msrq->custom_db);
+	msrq->db = mlx5_alloc_dbrec(ctx, attr->pd, &msrq->custom_db, NULL);
 	if (!msrq->db) {
 		mlx5_err(ctx->dbg_fp, "%s-%d:\n", __func__, __LINE__);
 		goto err_free;
@@ -4509,7 +4551,7 @@ static struct ibv_wq *create_wq(struct ibv_context *context,
 	if (mlx5_spinlock_init_pd(&rwq->rq.lock, attr->pd))
 		goto err_free_rwq_buf;
 
-	rwq->db = mlx5_alloc_dbrec(ctx, attr->pd, &rwq->custom_db);
+	rwq->db = mlx5_alloc_dbrec(ctx, attr->pd, &rwq->custom_db, NULL);
 	if (!rwq->db)
 		goto err_free_rwq_buf;
 

@@ -90,11 +90,14 @@ static struct mlx5_db_page *__add_page(struct mlx5_context *context,
 }
 
 __be32 *mlx5_alloc_dbrec(struct mlx5_context *context, struct ibv_pd *pd,
-			 bool *custom_alloc)
+			 bool *custom_alloc, struct ibv_buf **dbrec_buf)
 {
 	struct mlx5_db_page *page;
 	__be32 *db = NULL;
 	int i, j;
+
+	if (dbrec_buf)
+		*dbrec_buf = NULL;
 
 	if (!mlx5_is_dmabuf_alloc(pd) && mlx5_is_custom_alloc(pd)) {
 		struct mlx5_parent_domain *mparent_domain = to_mparent_domain(pd);
@@ -139,6 +142,8 @@ found:
 	--j;
 	page->free[i] &= ~(1UL << j);
 	db = page->buf.ibv_buf.addr + (i * 8 * sizeof(long) + j) * context->cache_line_size;
+	if (dbrec_buf)
+		*dbrec_buf = &page->buf.ibv_buf;
 
 out:
 	pthread_mutex_unlock(&context->dbr_map_mutex);
