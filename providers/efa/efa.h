@@ -45,6 +45,7 @@ struct efa_context {
 	size_t cqe_size;
 	size_t ex_cqe_size;
 	struct efa_qp **qp_table;
+	uint16_t *qp_gen_table;
 	unsigned int qp_table_sz_m1;
 	pthread_spinlock_t qp_table_lock;
 };
@@ -119,6 +120,8 @@ struct efa_wq {
 	uint16_t desc_mask;
 	/* wrid_idx_pool_next: Index of the next entry to use in wrid_idx_pool. */
 	uint16_t wrid_idx_pool_next;
+	uint16_t gen_mask;
+	uint16_t shifted_gen;
 	int max_sge;
 	int phase;
 	pthread_spinlock_t wqlock;
@@ -179,6 +182,7 @@ struct efa_qp {
 	int wr_session_err;
 	struct ibv_device *dev;
 	struct efa_parent_domain *parent_domain;
+	uint16_t gen;
 };
 
 struct efa_mr {
