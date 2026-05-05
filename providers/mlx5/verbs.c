@@ -2168,7 +2168,7 @@ static int mlx5_cmd_create_rss_qp(struct ibv_context *context,
 	ret = ibv_cmd_create_qp_ex2(context, &qp->verbs_qp,
 				    attr,
 				    &cmd_ex_rss.ibv_cmd, sizeof(cmd_ex_rss),
-				    &resp.ibv_resp, sizeof(resp));
+				    &resp.ibv_resp, sizeof(resp), NULL);
 	if (ret)
 		return ret;
 
@@ -2201,7 +2201,7 @@ static int mlx5_cmd_create_qp_ex(struct ibv_context *context,
 	ret = ibv_cmd_create_qp_ex2(context, &qp->verbs_qp,
 				    attr, &cmd_ex.ibv_cmd,
 				    sizeof(cmd_ex), &resp->ibv_resp,
-				    sizeof(*resp));
+				    sizeof(*resp), NULL);
 
 	return ret;
 }
