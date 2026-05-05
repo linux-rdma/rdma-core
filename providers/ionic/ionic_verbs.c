@@ -1674,17 +1674,18 @@ static int ionic_qp_sq_init(struct ionic_ctx *ctx, struct ionic_qp *qp, struct i
 
 	qp->sq.spec = ionic_v1_use_spec_sge(max_sge, ctx->spec);
 
-	if (qp->sq.cmb & IONIC_CMB_EXPDB) {
-		wqe_size = ionic_v1_send_wqe_min_size(max_sge, max_data,
-						      qp->sq.spec, true);
+	wqe_size = ionic_v1_send_wqe_min_size(max_sge, max_data,
+					      qp->sq.spec, false);
 
-		if (!ionic_expdb_wqe_size_supported(ctx, wqe_size))
+	if (qp->sq.cmb & IONIC_CMB_EXPDB) {
+		uint32_t expdb_size = ionic_v1_send_wqe_min_size(max_sge, max_data,
+								 qp->sq.spec, true);
+
+		if (ionic_expdb_wqe_size_supported(ctx, expdb_size))
+			wqe_size = expdb_size;
+		else
 			qp->sq.cmb &= ~IONIC_CMB_EXPDB;
 	}
-
-	if (!(qp->sq.cmb & IONIC_CMB_EXPDB))
-		wqe_size = ionic_v1_send_wqe_min_size(max_sge, max_data,
-						      qp->sq.spec, false);
 
 	rc = ionic_queue_init(&qp->sq.queue, pd, IONIC_PD_TAG_SQ,
 			      ctx->pg_shift, max_wr, wqe_size);
@@ -1754,15 +1755,16 @@ static int ionic_qp_rq_init(struct ionic_ctx *ctx, struct ionic_qp *qp, struct i
 	}
 	qp->rq.spec = ionic_v1_use_spec_sge(max_sge, ctx->spec);
 
-	if (qp->rq.cmb & IONIC_CMB_EXPDB) {
-		wqe_size = ionic_v1_recv_wqe_min_size(max_sge, qp->rq.spec, true);
+	wqe_size = ionic_v1_recv_wqe_min_size(max_sge, qp->rq.spec, false);
 
-		if (!ionic_expdb_wqe_size_supported(ctx, wqe_size))
+	if (qp->rq.cmb & IONIC_CMB_EXPDB) {
+		uint32_t expdb_size = ionic_v1_recv_wqe_min_size(max_sge, qp->rq.spec, true);
+
+		if (ionic_expdb_wqe_size_supported(ctx, expdb_size))
+			wqe_size = expdb_size;
+		else
 			qp->rq.cmb &= ~IONIC_CMB_EXPDB;
 	}
-
-	if (!(qp->rq.cmb & IONIC_CMB_EXPDB))
-		wqe_size = ionic_v1_recv_wqe_min_size(max_sge, qp->rq.spec, false);
 
 	rc = ionic_queue_init(&qp->rq.queue, pd, pd_tag, ctx->pg_shift, max_wr, wqe_size);
 	if (rc)
