@@ -698,7 +698,8 @@ int ibv_cmd_create_qp_ex2(struct ibv_context *context,
 			  struct ibv_create_qp_ex *cmd,
 			  size_t cmd_size,
 			  struct ib_uverbs_ex_create_qp_resp *resp,
-			  size_t resp_size);
+			  size_t resp_size,
+			  struct ibv_command_buffer *driver);
 int ibv_cmd_open_qp(struct ibv_context *context,
 		    struct verbs_qp *qp,  int vqp_sz,
 		    struct ibv_qp_open_attr *attr,

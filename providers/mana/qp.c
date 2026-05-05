@@ -526,7 +526,7 @@ static struct ibv_qp *mana_create_qp_ex_raw(struct ibv_context *context,
 	cmd_drv->port = port;
 
 	ret = ibv_cmd_create_qp_ex2(context, &qp->ibqp, attr, &cmd.ibv_cmd,
-				    sizeof(cmd), &resp.ibv_resp, sizeof(resp));
+				    sizeof(cmd), &resp.ibv_resp, sizeof(resp), NULL);
 	if (ret) {
 		verbs_err(verbs_get_ctx(context), "Create QP EX failed\n");
 		free(qp);
