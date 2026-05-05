@@ -427,9 +427,22 @@ int ibv_cmd_create_qp_ex2(struct ibv_context *context,
 			  struct ib_uverbs_ex_create_qp_resp *resp,
 			  size_t resp_size)
 {
-	DECLARE_CMD_BUFFER_COMPAT(cmdb, UVERBS_OBJECT_QP,
-				  UVERBS_METHOD_QP_CREATE, cmd, cmd_size, resp,
-				  resp_size);
+	return ibv_cmd_create_qp_ex3(context, qp, attr_ex, cmd, cmd_size,
+				     resp, resp_size, NULL);
+}
+
+int ibv_cmd_create_qp_ex3(struct ibv_context *context,
+			  struct verbs_qp *qp,
+			  struct ibv_qp_init_attr_ex *attr_ex,
+			  struct ibv_create_qp_ex *cmd,
+			  size_t cmd_size,
+			  struct ib_uverbs_ex_create_qp_resp *resp,
+			  size_t resp_size,
+			  struct ibv_command_buffer *driver)
+{
+	DECLARE_CMD_BUFFER_LINK_COMPAT(cmdb, UVERBS_OBJECT_QP,
+				       UVERBS_METHOD_QP_CREATE,
+				       driver, cmd, cmd_size, resp, resp_size);
 
 	if (!check_comp_mask(attr_ex->comp_mask,
 			     IBV_QP_INIT_ATTR_PD |
