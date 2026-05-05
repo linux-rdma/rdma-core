@@ -44,6 +44,7 @@
 #include <config.h>
 #include <stdbool.h>
 #include <rdma/rdma_user_ioctl_cmds.h>
+#include <rdma/ib_user_ioctl_verbs.h>
 #include <infiniband/cmd_ioctl.h>
 #include <sys/types.h>
 
@@ -828,6 +829,27 @@ static inline void ibv_initialize_parent_domain(struct ibv_pd *parent_domain,
 {
 	parent_domain->context = contained_pd->context;
 	parent_domain->handle = contained_pd->handle;
+}
+
+/**
+ * In case the length is 0, the buffer size is used.
+ */
+static inline void
+fill_attr_in_buf_umem(struct ibv_command_buffer *cmdb, uint16_t attr_id,
+		      struct ib_uverbs_buffer_desc *storage,
+		      struct ibv_buf *buf, void *addr, size_t length)
+{
+	if (!buf || buf->dmabuf_fd == -1)
+		return;
+
+	*storage = (struct ib_uverbs_buffer_desc){
+		.type	= IB_UVERBS_BUFFER_TYPE_DMABUF,
+		.fd	= buf->dmabuf_fd,
+		.addr	= addr ? (uintptr_t)addr - (uintptr_t)buf->addr : 0,
+		.length	= length ? length : buf->size,
+	};
+	fill_attr_in_ptr(cmdb, attr_id, storage);
+	cmdb->fallback_ioctl_only = 1;
 }
 
 #endif /* INFINIBAND_DRIVER_H */
