@@ -2232,7 +2232,7 @@ struct ibv_srq *bnxt_re_create_srq(struct ibv_pd *ibvpd,
 	struct bnxt_re_context *cntx = to_bnxt_re_context(ibvpd->context);
 	struct bnxt_re_qattr qattr = {};
 	struct ubnxt_re_srq_resp resp;
-	struct ubnxt_re_srq req;
+	struct ubnxt_re_srq req = {};
 	struct bnxt_re_srq *srq;
 	void *mem;
 	int ret;
