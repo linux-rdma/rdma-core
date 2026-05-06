@@ -167,6 +167,7 @@ libibverbs.so.1 libibverbs1 #MINVER#
  ibv_cmd_destroy_srq@IBVERBS_PRIVATE_59 59
  ibv_cmd_destroy_wq@IBVERBS_PRIVATE_59 59
  ibv_cmd_detach_mcast@IBVERBS_PRIVATE_59 59
+ ibv_cmd_export_dmabuf_fd@IBVERBS_PRIVATE_59 63
  ibv_cmd_free_dm@IBVERBS_PRIVATE_59 59
  ibv_cmd_free_dmah@IBVERBS_PRIVATE_59 59
  ibv_cmd_get_context@IBVERBS_PRIVATE_59 59
@@ -186,6 +187,7 @@ libibverbs.so.1 libibverbs1 #MINVER#
  ibv_cmd_query_device_any@IBVERBS_PRIVATE_59 59
  ibv_cmd_query_mr@IBVERBS_PRIVATE_59 59
  ibv_cmd_query_port@IBVERBS_PRIVATE_59 59
+ ibv_cmd_query_port_speed@IBVERBS_PRIVATE_59 63
  ibv_cmd_query_qp@IBVERBS_PRIVATE_59 59
  ibv_cmd_query_srq@IBVERBS_PRIVATE_59 59
  ibv_cmd_read_counters@IBVERBS_PRIVATE_59 59
