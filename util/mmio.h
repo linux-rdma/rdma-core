@@ -204,16 +204,47 @@ __le64 mmio_read64_le(const void *addr);
 		return le##_SZ_##toh(_NAME_##_le(addr));                       \
 	}
 
-/* This strictly guarantees the order of TLP generation for the memory copy to
-   be in ascending address order.
-*/
+/* mmio_memcpy_x64 - Copy to MMIO space in 64-byte blocks, strictly in
+ * ascending address order (guarantees TLP generation order).
+ *
+ *   Caller must guarantee:
+ *	assert(bytecnt != 0);
+ *	assert((bytecnt % 64) == 0);
+ *	assert(((uintptr_t)dest) % __alignof__(uintptr_t) == 0);
+ *	assert(((uintptr_t)src) % __alignof__(uintptr_t) == 0);
+ *   When aarch64 ST64B is used:
+ *	assert(((uintptr_t)dest) % 64 == 0);
+ */
 #if defined(__aarch64__) || defined(__arm__)
 #include <arm_neon.h>
 
+/*
+ * When compiled with -march=armv8-a+ls64, the compiler defines
+ * __ARM_FEATURE_LS64 and ST64B is used for single-copy atomic 64-byte
+ * writes. At runtime aarch64_has_ls64 verifies the CPU has FEAT_LS64.
+ *
+ * Files compiled without the above flags get the SIMD-instruction path.
+ */
+#ifdef __ARM_FEATURE_LS64
+#include <arm_acle.h>
+#include <stdbool.h>
+
+extern bool aarch64_has_ls64;
+
+static inline void _mmio_memcpy_x64_64b(void *dest, const void *src)
+{
+	if (aarch64_has_ls64) {
+		__arm_st64b(dest, *(const data512_t *)src);
+		return;
+	}
+	vst4q_u64(dest, vld4q_u64(src));
+}
+#else
 static inline void _mmio_memcpy_x64_64b(void *dest, const void *src)
 {
 	vst4q_u64(dest, vld4q_u64(src));
 }
+#endif /* __ARM_FEATURE_LS64 */
 
 static inline void _mmio_memcpy_x64(void *dest, const void *src, size_t bytecnt)
 {
@@ -235,17 +266,9 @@ static inline void _mmio_memcpy_x64(void *dest, const void *src, size_t bytecnt)
 #elif defined(__s390x__)
 void mmio_memcpy_x64(void *dst, const void *src, size_t bytecnt);
 #else
-/* Transfer is some multiple of 64 bytes */
 static inline void mmio_memcpy_x64(void *dest, const void *src, size_t bytecnt)
 {
 	uintptr_t *dst_p = dest;
-
-	/* Caller must guarantee:
-	    assert(bytecnt != 0);
-	    assert((bytecnt % 64) == 0);
-	    assert(((uintptr_t)dest) % __alignof__(*dst) == 0);
-	    assert(((uintptr_t)src) % __alignof__(*dst) == 0);
-	*/
 
 	/* Use the native word size for the copy */
 	if (sizeof(*dst_p) == 8) {

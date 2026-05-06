@@ -5,9 +5,13 @@
 
 #include <pthread.h>
 #include <stdbool.h>
+#include <stdlib.h>
+
+#if (defined(__aarch64__) && defined(HAVE_LS64)) || defined(__s390x__)
+#include <sys/auxv.h>
+#endif
 
 #ifdef __s390x__
-#include <sys/auxv.h>
 #include <ccan/minmax.h>
 
 bool s390_is_mio_supported;
@@ -72,6 +76,25 @@ mmio_memcpy_x64_fn_t resolve_mmio_memcpy_x64(uint64_t hwcap)
 		return &s390_mmio_write_syscall;
 }
 #endif /* __s390x__ */
+
+#if defined(__aarch64__) && defined(HAVE_LS64)
+
+/* FEAT_LS64 (ST64B) is exposed as bit 3 of AT_HWCAP3. */
+#ifndef AT_HWCAP3
+#define AT_HWCAP3  29
+#endif
+#ifndef HWCAP3_LS64
+#define HWCAP3_LS64  (1UL << 3)
+#endif
+
+bool aarch64_has_ls64;
+
+static __attribute__((constructor)) void init_aarch64_caps(void)
+{
+	aarch64_has_ls64 = getauxval(AT_HWCAP3) & HWCAP3_LS64;
+}
+
+#endif /* __aarch64__ && HAVE_LS64 */
 
 #if SIZEOF_LONG != 8
 

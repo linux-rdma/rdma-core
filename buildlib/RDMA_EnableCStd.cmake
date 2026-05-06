@@ -127,3 +127,25 @@ int main(int argc, char *argv[])
   endif()
   set(${TO_VAR} "${HAVE_TARGET_SSE}" PARENT_SCOPE)
 endFunction()
+
+function(RDMA_Check_LS64 TO_VAR)
+  set(LS64_CHECK_PROGRAM "
+#include <arm_acle.h>
+int main(void)
+{
+	static char buf[64] __attribute__((aligned(64)));
+
+	__arm_st64b(buf, *(const data512_t *)buf);
+	return 0;
+}
+")
+
+  RDMA_Check_C_Compiles(HAVE_LS64 "${LS64_CHECK_PROGRAM}" "-march=armv8-a+ls64")
+
+  if (HAVE_LS64)
+    set(LS64_FLAGS "-march=armv8-a+ls64" PARENT_SCOPE)
+    set(${TO_VAR} TRUE PARENT_SCOPE)
+  else()
+    set(${TO_VAR} FALSE PARENT_SCOPE)
+  endif()
+endFunction()

@@ -52,6 +52,10 @@ publish_headers(infiniband
   mlx5dv.h
 )
 
+if (LS64_FLAGS)
+  set_source_files_properties(qp.c PROPERTIES COMPILE_FLAGS "${LS64_FLAGS}")
+endif()
+
 rdma_pkg_config("mlx5" "libibverbs" "${CMAKE_THREAD_LIBS_INIT}")
 
 if (ENABLE_LTTNG AND LTTNGUST_FOUND)
