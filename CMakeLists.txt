@@ -77,6 +77,10 @@ if(POLICY CMP0056)
   cmake_policy(SET CMP0056 NEW)
 endif()
 
+if(POLICY CMP0177)
+  cmake_policy(SET CMP0177 NEW)
+endif()
+
 set(PACKAGE_NAME "RDMA")
 
 # See Documentation/versioning.md
