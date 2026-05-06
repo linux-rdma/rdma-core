@@ -320,7 +320,7 @@ struct ibv_cq *bnxt_re_create_cq(struct ibv_context *ibvctx, int ncqe,
 				 struct ibv_comp_channel *channel, int vec)
 {
 	struct bnxt_re_cq *cq;
-	struct ubnxt_re_cq cmd;
+	struct ubnxt_re_cq cmd = {};
 	struct ubnxt_re_cq_resp resp;
 	struct bnxt_re_mmap_info minfo = {};
 	int ret;
@@ -2042,7 +2042,7 @@ static struct ibv_qp *__bnxt_re_create_qp(struct ibv_context *ibvctx,
 	struct ubnxt_re_qp_resp resp = {};
 	struct bnxt_re_qattr qattr[2];
 	struct bnxt_re_qpcap *cap;
-	struct ubnxt_re_qp req;
+	struct ubnxt_re_qp req = {};
 	struct bnxt_re_qp *qp;
 	void *mem;
 
