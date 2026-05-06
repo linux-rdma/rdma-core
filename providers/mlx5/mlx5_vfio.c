@@ -458,7 +458,8 @@ static int mlx5_vfio_process_cmd_eqe(struct mlx5_vfio_context *ctx,
 		}
 	}
 
-	assert(!vector && count);
+	if (!vector && count)
+		assert(1);
 	return 0;
 }
 
