@@ -43,6 +43,7 @@ cdef class DrActionPopVLan(DrAction):
 
 cdef class DrActionDestAttr(PyverbsCM):
     cdef DrAction dest
+    cdef DrAction reformat
     cdef dv.mlx5dv_dr_action_dest_attr *action_dest_attr
     cdef dv.mlx5dv_dr_action_dest_reformat *dest_reformat
 
