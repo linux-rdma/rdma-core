@@ -23,6 +23,8 @@ cdef extern from '<rdma/rdma_cma.h>':
         RDMA_CM_EVENT_MULTICAST_ERROR
         RDMA_CM_EVENT_ADDR_CHANGE
         RDMA_CM_EVENT_TIMEWAIT_EXIT
+        RDMA_CM_EVENT_ADDRINFO_RESOLVED
+        RDMA_CM_EVENT_ADDRINFO_ERROR
 
     cpdef enum rdma_port_space:
         RDMA_PS_IPOIB
@@ -36,6 +38,8 @@ cdef extern from '<rdma/rdma_cma.h>':
         RAI_NUMERICHOST
         RAI_NOROUTE
         RAI_FAMILY
+        RAI_SA
+        RAI_DNS
 
     cpdef enum rdma_cm_join_mc_attr_mask:
         RDMA_CM_JOIN_MC_ATTR_ADDRESS

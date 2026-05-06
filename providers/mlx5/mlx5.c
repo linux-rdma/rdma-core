@@ -176,6 +176,8 @@ static const struct verbs_context_ops mlx5_ctx_common_ops = {
 	.alloc_dmah = mlx5_alloc_dmah,
 	.dealloc_dmah = mlx5_dealloc_dmah,
 	.reg_mr_ex = mlx5_reg_mr_ex,
+	.query_port_speed = mlx5_query_port_speed,
+	.dm_export_dmabuf_fd = mlx5_dm_export_dmabuf_fd,
 };
 
 static const struct verbs_context_ops mlx5_ctx_cqev1_ops = {

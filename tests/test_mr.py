@@ -484,6 +484,18 @@ class DeviceMemoryAPITest(PyverbsAPITestCase):
             with self.assertRaisesRegex(PyverbsRDMAError, 'Failed to register a device MR'):
                 DMMR(PD(self.ctx), dm_size + 4, dm_access, dm, 0)
 
+    def test_dm_export_dmabuf_fd(self):
+        """Test exporting a DM as a dmabuf FD"""
+        dm_size = 100
+        try:
+            with d.DM(self.ctx, d.AllocDmAttr(length=dm_size)) as dm:
+                dmabuf_fd = dm.export_dmabuf_fd()
+                self.assertGreater(dmabuf_fd, 0, 'Expected a valid dmabuf FD greater than 0')
+        except PyverbsRDMAError as ex:
+            if ex.error_code in [errno.EOPNOTSUPP, errno.EPROTONOSUPPORT]:
+                raise unittest.SkipTest('DM dmabuf export is not supported')
+            raise ex
+
 
 def check_dmabuf_support(gpu=0):
     """

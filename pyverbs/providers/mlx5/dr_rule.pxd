@@ -9,3 +9,4 @@ from pyverbs.base cimport PyverbsCM
 cdef class DrRule(PyverbsCM):
     cdef dv.mlx5dv_dr_rule *rule
     cdef object dr_matcher
+    cdef object actions

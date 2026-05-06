@@ -74,7 +74,7 @@ union ionic_v1_pld {
 struct ionic_v1_cqe {
 	union {
 		struct {
-			__u64		wqe_id;
+			__le64		wqe_idx;
 			__be32		src_qpn_op;
 			__u8		src_mac[6];
 			__be16		vlan_tag;
@@ -84,11 +84,16 @@ struct ionic_v1_cqe {
 			__u8		rsvd[4];
 			__be32		msg_msn;
 			__u8		rsvd2[8];
-			__u64		npg_wqe_id;
+			__le64		npg_wqe_idx;
 		} send;
 	};
 	__be32				status_length;
 	__be32				qid_type_flags;
+};
+
+/* bits for cqe wqe_idx */
+enum ionic_v1_cqe_wqe_idx_bits {
+	IONIC_V1_CQE_WQE_IDX_MASK	= 0xffff,
 };
 
 /* bits for cqe recv */
@@ -125,7 +130,7 @@ enum ionic_v1_cqe_qtf_bits {
 
 /* v1 base wqe header */
 struct ionic_v1_base_hdr {
-	__u64				wqe_id;
+	__le64				wqe_idx;
 	__u8				op;
 	__u8				num_sge_key;
 	__be16				flags;

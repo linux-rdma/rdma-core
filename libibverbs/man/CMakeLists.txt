@@ -28,6 +28,7 @@ rdma_man_pages(
   ibv_create_wq.3
   ibv_devices.1
   ibv_devinfo.1
+  ibv_dm_export_dmabuf_fd.3.md
   ibv_event_type_str.3.md
   ibv_fork_init.3.md
   ibv_get_async_event.3
@@ -64,6 +65,7 @@ rdma_man_pages(
   ibv_query_gid_table.3.md
   ibv_query_pkey.3.md
   ibv_query_port.3
+  ibv_query_port_speed.3.md
   ibv_query_qp.3
   ibv_query_qp_data_in_order.3.md
   ibv_query_rt_values_ex.3

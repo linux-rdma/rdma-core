@@ -285,6 +285,12 @@ static int detach_mcast(struct ibv_qp *qp, const union ibv_gid *gid,
 	return EOPNOTSUPP;
 }
 
+static int dm_export_dmabuf_fd(struct ibv_dm *dm)
+{
+	errno = EOPNOTSUPP;
+	return -1;
+}
+
 static void free_context(struct ibv_context *ctx)
 {
 	return;
@@ -417,6 +423,12 @@ static int query_qp_data_in_order(struct ibv_qp *qp, enum ibv_wr_opcode op,
 
 static int query_port(struct ibv_context *context, uint8_t port_num,
 		      struct ibv_port_attr *port_attr)
+{
+	return EOPNOTSUPP;
+}
+
+static int query_port_speed(struct ibv_context *context, uint32_t port_num,
+			    uint64_t *speed)
 {
 	return EOPNOTSUPP;
 }
@@ -563,6 +575,7 @@ const struct verbs_context_ops verbs_dummy_ops = {
 	destroy_srq,
 	destroy_wq,
 	detach_mcast,
+	dm_export_dmabuf_fd,
 	free_context,
 	free_dm,
 	get_srq_num,
@@ -585,6 +598,7 @@ const struct verbs_context_ops verbs_dummy_ops = {
 	query_device_ex,
 	query_ece,
 	query_port,
+	query_port_speed,
 	query_qp,
 	query_qp_data_in_order,
 	query_rt_values,
@@ -691,6 +705,7 @@ void verbs_set_ops(struct verbs_context *vctx,
 	SET_PRIV_OP(ctx, destroy_srq);
 	SET_OP(vctx, destroy_wq);
 	SET_PRIV_OP(ctx, detach_mcast);
+	SET_OP(vctx, dm_export_dmabuf_fd);
 	SET_PRIV_OP_IC(ctx, free_context);
 	SET_OP(vctx, free_dm);
 	SET_OP(vctx, get_srq_num);
@@ -713,6 +728,7 @@ void verbs_set_ops(struct verbs_context *vctx,
 	SET_OP(vctx, query_device_ex);
 	SET_PRIV_OP_IC(vctx, query_ece);
 	SET_PRIV_OP_IC(ctx, query_port);
+	SET_PRIV_OP_IC(ctx, query_port_speed);
 	SET_PRIV_OP(ctx, query_qp);
 	SET_PRIV_OP_IC(ctx, query_qp_data_in_order);
 	SET_OP(vctx, query_rt_values);

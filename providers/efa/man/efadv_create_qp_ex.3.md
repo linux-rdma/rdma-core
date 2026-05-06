@@ -68,6 +68,9 @@ struct efadv_qp_init_attr {
 	EFADV_QP_FLAGS_UNSOLICITED_WRITE_RECV:
 		Receive WRs will not be consumed for RDMA write with imm.
 
+	EFADV_QP_FLAGS_INLINE_WRITE:
+		QP supports RDMA write with inline operations.
+
 *sl*
 :	Service Level - 0 value implies default level.
 

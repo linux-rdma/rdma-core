@@ -412,6 +412,11 @@ int ibv_dealloc_dmah(struct ibv_dmah *dmah)
 	return get_ops(dmah->context)->dealloc_dmah(dmah);
 }
 
+int ibv_dm_export_dmabuf_fd(struct ibv_dm *dm)
+{
+	return get_ops(dm->context)->dm_export_dmabuf_fd(dm);
+}
+
 struct ibv_mr *ibv_reg_dmabuf_mr(struct ibv_pd *pd, uint64_t offset,
 				 size_t length, uint64_t iova, int fd,
 				 int access)
@@ -1185,4 +1190,11 @@ int ibv_set_ece(struct ibv_qp *qp, struct ibv_ece *ece)
 int ibv_query_ece(struct ibv_qp *qp, struct ibv_ece *ece)
 {
 	return get_ops(qp->context)->query_ece(qp, ece);
+}
+
+int ibv_query_port_speed(struct ibv_context *context, uint32_t port_num,
+			 uint64_t *port_speed)
+{
+	return get_ops(context)->query_port_speed(context, port_num,
+						  port_speed);
 }

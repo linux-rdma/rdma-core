@@ -471,6 +471,7 @@ enum ibv_event_type {
 	IBV_EVENT_CLIENT_REREGISTER,
 	IBV_EVENT_GID_CHANGE,
 	IBV_EVENT_WQ_FATAL,
+	IBV_EVENT_DEVICE_SPEED_CHANGE,
 };
 
 struct ibv_async_event {
@@ -2182,6 +2183,7 @@ struct ibv_values_ex {
 
 struct verbs_context {
 	/*  "grows up" - new fields go here */
+	int (*dm_export_dmabuf_fd)(struct ibv_dm *dm);
 	struct ibv_mr *(*reg_mr_ex)(struct ibv_pd *pd,
 				    struct ibv_mr_init_attr *mr_init_attr);
 	int (*dealloc_dmah)(struct ibv_dmah *dmah);
@@ -2454,6 +2456,12 @@ int ibv_query_device(struct ibv_context *context,
  */
 int ibv_query_port(struct ibv_context *context, uint8_t port_num,
 		   struct _compat_ibv_port_attr *port_attr);
+
+/**
+ * ibv_query_port_speed - Get port effective speed in 100 Mb/s granularity.
+ */
+int ibv_query_port_speed(struct ibv_context *context, uint32_t port_num,
+			 uint64_t *port_speed);
 
 static inline int ___ibv_query_port(struct ibv_context *context,
 				    uint8_t port_num,
@@ -2829,6 +2837,8 @@ int ibv_free_dm(struct ibv_dm *dm)
 
 	return vctx->free_dm(dm);
 }
+
+int ibv_dm_export_dmabuf_fd(struct ibv_dm *dm);
 
 /**
  * ibv_memcpy_to/from_dm - copy to/from device allocated memory

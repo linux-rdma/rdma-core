@@ -104,6 +104,7 @@ cdef extern from '<infiniband/verbs.h>':
         IBV_EVENT_CLIENT_REREGISTER
         IBV_EVENT_GID_CHANGE
         IBV_EVENT_WQ_FATAL
+        IBV_EVENT_DEVICE_SPEED_CHANGE
 
     cpdef enum ibv_access_flags:
         IBV_ACCESS_LOCAL_WRITE

@@ -29,7 +29,7 @@ static inline struct mana_ib_rollback_shared_mem
 {
 	struct mana_ib_rollback_shared_mem *rb_shmem;
 	struct mana_gdma_queue *req_sq =
-		&qp->rc_qp.queues[USER_RC_SEND_QUEUE_REQUESTER];
+		&qp->rnic_qp.queues[USER_RNIC_SEND_QUEUE_REQUESTER];
 
 	rb_shmem = (struct mana_ib_rollback_shared_mem *)
 		((uint8_t *)req_sq->buffer + req_sq->size);
@@ -41,7 +41,7 @@ static inline void mana_ib_init_rb_shmem(struct mana_qp *qp)
 {
 	// take some bytes for rollback memory
 	struct mana_gdma_queue *req_sq =
-		&qp->rc_qp.queues[USER_RC_SEND_QUEUE_REQUESTER];
+		&qp->rnic_qp.queues[USER_RNIC_SEND_QUEUE_REQUESTER];
 	req_sq->size -= sizeof(struct mana_ib_rollback_shared_mem);
 
 	struct mana_ib_rollback_shared_mem *rb_shmem =
@@ -56,7 +56,7 @@ static inline void mana_ib_deinit_rb_shmem(struct mana_qp *qp)
 {
 	// return back bytes for rollback memory
 	struct mana_gdma_queue *req_sq =
-		&qp->rc_qp.queues[USER_RC_SEND_QUEUE_REQUESTER];
+		&qp->rnic_qp.queues[USER_RNIC_SEND_QUEUE_REQUESTER];
 	req_sq->size += sizeof(struct mana_ib_rollback_shared_mem);
 }
 

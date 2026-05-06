@@ -100,6 +100,10 @@ enum mlx5_ib_uapi_query_port_flags {
 	MLX5_IB_UAPI_QUERY_PORT_ESW_OWNER_VHCA_ID	= 1 << 5,
 };
 
+enum mlx5_ib_uapi_var_alloc_flags {
+	MLX5_IB_UAPI_VAR_ALLOC_FLAG_TLP = 1 << 0,
+};
+
 struct mlx5_ib_uapi_reg {
 	__u32 value;
 	__u32 mask;

@@ -1,5 +1,5 @@
 # SPDX-License-Identifier: (GPL-2.0 OR Linux-OpenIB)
-# Copyright 2020-2024 Amazon.com, Inc. or its affiliates. All rights reserved.
+# Copyright 2020-2026 Amazon.com, Inc. or its affiliates. All rights reserved.
 
 cimport pyverbs.providers.efa.efa_enums as dve
 cimport pyverbs.providers.efa.libefa as dv
@@ -93,6 +93,10 @@ cdef class EfaDVDeviceAttr(PyverbsObject):
         return self.device_attr.inline_buf_size
 
     @property
+    def inline_buf_size_ex(self):
+        return self.device_attr.inline_buf_size_ex
+
+    @property
     def device_caps(self):
         return self.device_attr.device_caps
 
@@ -108,6 +112,7 @@ cdef class EfaDVDeviceAttr(PyverbsObject):
             print_format.format('Max SQ SQE', self.device_attr.max_sq_sge) + \
             print_format.format('Max RQ SQE', self.device_attr.max_rq_sge) + \
             print_format.format('Inline buffer size', self.device_attr.inline_buf_size) + \
+            print_format.format('Inline buffer size ex', self.device_attr.inline_buf_size_ex) + \
             print_format.format('Device Capabilities', dev_cap_to_str(self.device_attr.device_caps)) + \
             print_format.format('Max RDMA Size', self.device_attr.max_rdma_size)
 
@@ -325,3 +330,69 @@ cdef class EfaMR(MR):
             raise PyverbsRDMAError(f'Failed to query EFA MR', rc)
 
         return mr_attr
+
+
+cdef class EfaDVSQDepthAttr(PyverbsObject):
+    """
+    Represents efadv_sq_depth_attr struct
+    """
+    @property
+    def comp_mask(self):
+        return self.sq_depth_attr.comp_mask
+
+    @comp_mask.setter
+    def comp_mask(self, val):
+        self.sq_depth_attr.comp_mask = val
+
+    @property
+    def flags(self):
+        return self.sq_depth_attr.flags
+
+    @flags.setter
+    def flags(self, val):
+        self.sq_depth_attr.flags = val
+
+    @property
+    def max_send_sge(self):
+        return self.sq_depth_attr.max_send_sge
+
+    @max_send_sge.setter
+    def max_send_sge(self, val):
+        self.sq_depth_attr.max_send_sge = val
+
+    @property
+    def max_rdma_sge(self):
+        return self.sq_depth_attr.max_rdma_sge
+
+    @max_rdma_sge.setter
+    def max_rdma_sge(self, val):
+        self.sq_depth_attr.max_rdma_sge = val
+
+    @property
+    def max_inline_data(self):
+        return self.sq_depth_attr.max_inline_data
+
+    @max_inline_data.setter
+    def max_inline_data(self, val):
+        self.sq_depth_attr.max_inline_data = val
+
+
+cdef class EfaDVRQDepthAttr(PyverbsObject):
+    """
+    Represents efadv_rq_depth_attr struct
+    """
+    @property
+    def comp_mask(self):
+        return self.sq_depth_attr.comp_mask
+
+    @comp_mask.setter
+    def comp_mask(self, val):
+        self.rq_depth_attr.comp_mask = val
+
+    @property
+    def max_recv_sge(self):
+        return self.sq_depth_attr.max_recv_sge
+
+    @max_recv_sge.setter
+    def max_recv_sge(self, val):
+        self.rq_depth_attr.max_recv_sge = val

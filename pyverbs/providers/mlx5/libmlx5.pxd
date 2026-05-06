@@ -568,6 +568,7 @@ cdef extern from 'infiniband/mlx5dv.h':
     # DevX APIs
     mlx5dv_devx_uar *mlx5dv_devx_alloc_uar(v.ibv_context *context, uint32_t flags)
     void mlx5dv_devx_free_uar(mlx5dv_devx_uar *devx_uar)
+    int mlx5dv_devx_uar_export_dmabuf_fd(mlx5dv_devx_uar *devx_uar)
     int mlx5dv_devx_general_cmd(v.ibv_context *context, const void *in_,
                                 size_t inlen, void *out, size_t outlen)
     mlx5dv_devx_umem *mlx5dv_devx_umem_reg(v.ibv_context *ctx, void *addr,

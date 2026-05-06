@@ -266,6 +266,18 @@ cdef class Context(PyverbsCM):
                                    format(p=port_num), rc)
         return port_attrs
 
+    def query_port_speed(self, unsigned int port_num):
+        """
+        Query port <port_num> speed in 100 Mb/s granularity.
+        :param port_num: Port number to query
+        :return: Port speed
+        """
+        cdef uint64_t port_speed
+        rc = v.ibv_query_port_speed(self.context, port_num, &port_speed)
+        if rc != 0:
+            raise PyverbsRDMAError(f'Failed to query port speed for port {port_num}', rc)
+        return port_speed
+
     def query_gid_table(self, size_t max_entries, uint32_t flags=0):
         """
         Queries the GID tables of the device for at most <max_entries> entries
@@ -854,6 +866,16 @@ cdef class DM(PyverbsCM):
         free(data)
         return res
 
+    def export_dmabuf_fd(self):
+        """
+        Export a dmabuf FD for this DM object.
+        :return: A file descriptor (int) for the dmabuf FD
+        """
+        fd = v.ibv_dm_export_dmabuf_fd(self.dm)
+        if fd < 0:
+            raise PyverbsRDMAErrno('Failed to export dmabuf FD for DM')
+        return fd
+
     @property
     def handle(self):
         return self.dm.handle
@@ -1266,7 +1288,8 @@ def translate_event_type(event_type):
         e.IBV_EVENT_QP_LAST_WQE_REACHED: '.IBV_EVENT_QP_LAST_WQE_REACHED',
         e.IBV_EVENT_CLIENT_REREGISTER: 'IBV_EVENT_CLIENT_REREGISTER',
         e.IBV_EVENT_GID_CHANGE: 'IBV_EVENT_GID_CHANGE',
-        e.IBV_EVENT_WQ_FATAL: 'IBV_EVENT_WQ_FATAL'
+        e.IBV_EVENT_WQ_FATAL: 'IBV_EVENT_WQ_FATAL',
+        e.IBV_EVENT_DEVICE_SPEED_CHANGE: 'IBV_EVENT_DEVICE_SPEED_CHANGE'
     }
     try:
         return types[event_type]

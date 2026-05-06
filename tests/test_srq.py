@@ -20,7 +20,7 @@ class SrqTestCase(RDMATestCase):
 
     def test_resize_srq(self):
         """
-        Test modify_srq with IBV_SRQ_MAX_WR which allows to modify max_wr.
+        Test modify_srq with IBV_SRQ_MAX_WR which allows modifying max_wr.
         Once modified, query the SRQ and verify that the new value is greater
         or equal than the requested max_wr.
         """

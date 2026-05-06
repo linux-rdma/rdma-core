@@ -176,7 +176,7 @@ cdef class Mlx5ModifyFlowAction(FlowAction):
     def __init__(self, Context ctx, ft_type=dv.MLX5DV_FLOW_TABLE_TYPE_NIC_RX, actions=list()):
         """
         Initialize a Mlx5ModifyFlowAction object derived from FlowAction class and represents modify
-        flow steering action that allows to modify packet headers.
+        flow steering action that allows modifying packet headers.
         :param ctx: Context object
         :param ft_type: Flow table type
         :param actions: List of modify actions of types AddActionIn, SetActionIn, CopyActionIn

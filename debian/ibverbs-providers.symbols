@@ -33,6 +33,9 @@ libmlx5.so.1 ibverbs-providers #MINVER#
  MLX5_1.23@MLX5_1.23 40
  MLX5_1.24@MLX5_1.24 42
  MLX5_1.25@MLX5_1.25 54
+ MLX5_1.25.1@MLX5_1.25.1 63
+ MLX5_1.26@MLX5_1.26 62
+ MLX5_1.27@MLX5_1.27 63
  mlx5dv_init_obj@MLX5_1.0 13
  mlx5dv_init_obj@MLX5_1.2 15
  mlx5dv_query_device@MLX5_1.0 13
@@ -55,6 +58,7 @@ libmlx5.so.1 ibverbs-providers #MINVER#
  mlx5dv_devx_obj_modify@MLX5_1.7 21
  mlx5dv_devx_obj_query@MLX5_1.7 21
  mlx5dv_devx_query_eqn@MLX5_1.7 21
+ mlx5dv_devx_uar_export_dmabuf_fd@MLX5_1.26 62
  mlx5dv_devx_umem_dereg@MLX5_1.7 21
  mlx5dv_devx_umem_reg@MLX5_1.7 21
  mlx5dv_open_device@MLX5_1.7 21
@@ -164,6 +168,17 @@ libmlx5.so.1 ibverbs-providers #MINVER#
  mlx5dv_dr_action_create_dest_root_table@MLX5_1.24 42
  mlx5dv_get_data_direct_sysfs_path@MLX5_1.25 54
  mlx5dv_reg_dmabuf_mr@MLX5_1.25 54
+ __mlx5dv_create_flow@MLX5_1.25.1 63
+ _mlx5dv_get_export_sizes@MLX5_1.27 63
+ mlx5dv_devx_obj_export@MLX5_1.27 63
+ mlx5dv_devx_obj_import@MLX5_1.27 63
+ mlx5dv_devx_obj_unimport@MLX5_1.27 63
+ mlx5dv_devx_umem_export@MLX5_1.27 63
+ mlx5dv_devx_umem_import@MLX5_1.27 63
+ mlx5dv_devx_umem_unimport@MLX5_1.27 63
+ mlx5dv_var_export@MLX5_1.27 63
+ mlx5dv_var_import@MLX5_1.27 63
+ mlx5dv_var_unimport@MLX5_1.27 63
 libefa.so.1 ibverbs-providers #MINVER#
 * Build-Depends-Package: libibverbs-dev
  EFA_1.0@EFA_1.0 24
@@ -171,6 +186,7 @@ libefa.so.1 ibverbs-providers #MINVER#
  EFA_1.2@EFA_1.2 43
  EFA_1.3@EFA_1.3 50
  EFA_1.4@EFA_1.4 59
+ EFA_1.5@EFA_1.5 63
  efadv_create_driver_qp@EFA_1.0 24
  efadv_create_qp_ex@EFA_1.1 26
  efadv_query_device@EFA_1.1 26
@@ -180,6 +196,8 @@ libefa.so.1 ibverbs-providers #MINVER#
  efadv_query_mr@EFA_1.3 50
  efadv_query_qp_wqs@EFA_1.4 59
  efadv_query_cq@EFA_1.4 59
+ efadv_get_max_sq_depth@EFA_1.5 63
+ efadv_get_max_rq_depth@EFA_1.5 63
 libhns.so.1 ibverbs-providers #MINVER#
 * Build-Depends-Package: libibverbs-dev
  HNS_1.0@HNS_1.0 51

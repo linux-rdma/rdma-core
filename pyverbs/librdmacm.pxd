@@ -8,6 +8,9 @@ from pyverbs.librdmacm_enums cimport *
 from pyverbs.libibverbs cimport *
 
 
+cdef extern from '<infiniband/ib.h>':
+        cdef int AF_IB
+
 cdef extern from '<rdma/rdma_cma.h>':
 
     cdef struct rdma_cm_id:
@@ -125,6 +128,9 @@ cdef extern from '<rdma/rdma_cma.h>':
     int rdma_establish(rdma_cm_id *id)
     int rdma_getaddrinfo(char *node, char *service, rdma_addrinfo *hints,
                          rdma_addrinfo **res)
+    int rdma_resolve_addrinfo(rdma_cm_id *id, char *node, char *service,
+                              rdma_addrinfo * hints)
+    int rdma_query_addrinfo(rdma_cm_id *id, rdma_addrinfo **res)
     void rdma_freeaddrinfo(rdma_addrinfo *res)
     int rdma_init_qp_attr(rdma_cm_id *id, ibv_qp_attr *qp_attr,
                           int *qp_attr_mask)

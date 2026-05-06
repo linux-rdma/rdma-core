@@ -6,6 +6,7 @@ publish_internal_headers(util
   node_name_map.h
   rdma_nl.h
   symver.h
+  usdt.h
   util.h
   )
 

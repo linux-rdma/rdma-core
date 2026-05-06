@@ -15,7 +15,7 @@ if (ENABLE_LTTNG AND LTTNGUST_FOUND)
 endif()
 
 rdma_shared_provider(mlx5 libmlx5.map
-  1 1.25.${PACKAGE_VERSION}
+  1 1.27.${PACKAGE_VERSION}
   ${TRACE_FILE}
   buf.c
   cq.c
@@ -51,6 +51,10 @@ publish_headers(infiniband
   mlx5_api.h
   mlx5dv.h
 )
+
+if (LS64_FLAGS)
+  set_source_files_properties(qp.c PROPERTIES COMPILE_FLAGS "${LS64_FLAGS}")
+endif()
 
 rdma_pkg_config("mlx5" "libibverbs" "${CMAKE_THREAD_LIBS_INIT}")
 

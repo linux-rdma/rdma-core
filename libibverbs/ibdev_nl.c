@@ -195,7 +195,7 @@ int find_sysfs_devs_nl(struct list_head *tmp_sysfs_dev_list)
 
 	nl = rdmanl_socket_alloc();
 	if (!nl)
-		return -EOPNOTSUPP;
+		return EOPNOTSUPP;
 
 	if (rdmanl_get_devices(nl, find_sysfs_devs_nl_cb, tmp_sysfs_dev_list))
 		goto err;

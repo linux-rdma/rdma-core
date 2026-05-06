@@ -3,6 +3,7 @@
 
 import unittest
 import errno
+import time
 
 from tests.mlx5_base import Mlx5DcResources, Mlx5RDMATestCase, Mlx5DcStreamsRes
 from pyverbs.pyverbs_error import PyverbsRDMAError
@@ -121,9 +122,10 @@ class DCTest(Mlx5RDMATestCase):
             with self.assertRaisesRegex(PyverbsRDMAError, r'Remote access error'):
                 u.rdma_traffic(**self.traffic_args, new_send=True,
                                send_op=ibv_wr_opcode.IBV_WR_RDMA_WRITE)
-        # Retry mechanism: QP state update to ERR takes time after errors occur
+        # Poll QP state with timeout: it takes time to transition QP to ERR after errors
         qp_in_err_state = False
-        for _ in range(3):
+        start = time.perf_counter()
+        while time.perf_counter() - start < 1.0:
             qp_attr, _ = self.client.qps[qp_idx].query(ibv_qp_attr_mask.IBV_QP_STATE)
             if qp_attr.cur_qp_state == ibv_qp_state.IBV_QPS_ERR:
                 qp_in_err_state = True

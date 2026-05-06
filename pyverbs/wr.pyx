@@ -141,6 +141,9 @@ cdef class RecvWR(PyverbsCM):
     def num_sge(self, val):
         self.recv_wr.num_sge = val
 
+    @property
+    def sg_list(self):
+        return <uintptr_t> self.recv_wr.sg_list
 
 cdef class SendWR(PyverbsCM):
     def __init__(self, wr_id=0, opcode=e.IBV_WR_SEND, num_sge=0, imm_data=0,
@@ -238,9 +241,12 @@ cdef class SendWR(PyverbsCM):
     def send_flags(self, val):
         self.send_wr.send_flags = val
 
-    property sg_list:
-        def __set__(self, SGE val not None):
-            self.send_wr.sg_list = val.sge
+    @property
+    def sg_list(self):
+        return <uintptr_t> self.send_wr.sg_list
+    @sg_list.setter
+    def sg_list(self, SGE val not None):
+        self.send_wr.sg_list = val.sge
 
     def set_wr_ud(self, AH ah not None, rqpn, rqkey):
         """
@@ -312,6 +318,14 @@ cdef class SendWR(PyverbsCM):
         :return: None
         """
         self.send_wr.qp_type.xrc.remote_srqn = remote_srqn
+
+    @property
+    def rdma_remote_addr(self):
+        return self.send_wr.wr.rdma.remote_addr
+
+    @property
+    def rdma_rkey(self):
+        return self.send_wr.wr.rdma.rkey
 
 def send_flags_to_str(flags):
     send_flags = {e.IBV_SEND_FENCE: 'IBV_SEND_FENCE',

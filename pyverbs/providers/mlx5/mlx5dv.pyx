@@ -276,7 +276,7 @@ cdef class Mlx5DevxObj(PyverbsCM):
 
     @property
     def obj(self):
-        return <object>self.obj
+        return <uintptr_t>self.obj
 
     def __dealloc__(self):
         self.close()
@@ -1454,6 +1454,16 @@ cdef class Mlx5UAR(PyverbsObject):
     @property
     def uar(self):
         return <uintptr_t>self.uar
+
+    def export_dmabuf_fd(self):
+        """
+        Export a dmabuf FD for this UAR object.
+        :return: A file descriptor (int) for the dmabuf FD
+        """
+        fd = dv.mlx5dv_devx_uar_export_dmabuf_fd(self.uar)
+        if fd < 0:
+            raise PyverbsRDMAErrno('Failed to export dmabuf FD for UAR')
+        return fd
 
 
 cdef class Mlx5DmOpAddr(PyverbsCM):

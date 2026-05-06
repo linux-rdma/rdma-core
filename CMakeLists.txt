@@ -24,7 +24,7 @@
 #      Use the historical search path for providers, in the standard system library.
 #  -DNO_COMPAT_SYMS=1 (default disabled)
 #      Do not generate backwards compatibility symbols in the shared
-#      libraries. This may is necessary if using a dynmic linker that does
+#      libraries. This may be necessary if using a dynamic linker that does
 #      not support symbol versions, such as uclibc.
 #  -DIOCTL_MODE=write (default both)
 #      Disable new kABI ioctl() support and support only the legacy write
@@ -52,8 +52,9 @@
 #      Disable man pages. Allows rdma-core to be built and installed
 #      (without man pages) when neither pandoc/rst2man nor the pandoc-prebuilt
 #      directory are available.
-#   -DENABLE_LTTNG (default, no tracing support)
-#      Enable LTTng tracing.
+#   -DTRACING=LTTNG/USDT/None (default None)
+#      Enable LTTng (Linux Trace Toolkit) or USDT (Userspace Statically Defined)
+#      trace points for dynamic tracing.
 
 if (${CMAKE_VERSION} VERSION_LESS "3.18.1")
 	# Centos 7 support
@@ -76,10 +77,14 @@ if(POLICY CMP0056)
   cmake_policy(SET CMP0056 NEW)
 endif()
 
+if(POLICY CMP0177)
+  cmake_policy(SET CMP0177 NEW)
+endif()
+
 set(PACKAGE_NAME "RDMA")
 
 # See Documentation/versioning.md
-set(PACKAGE_VERSION "61.0")
+set(PACKAGE_VERSION "63.0")
 # When this is changed the values in these files need changing too:
 #   debian/control
 #   debian/libibverbs1.symbols
@@ -170,6 +175,9 @@ endif()
 
 set(DISTRO_FLAVOUR "None" CACHE
   STRING "Flavour of distribution to install for. This primarily impacts the init.d scripts installed.")
+
+set(TRACING "None" CACHE
+  STRING "Enable LTTNG (Linux Trace Toolkit) or USDT (Userspace Statically Defined Tracing).")
 
 #-------------------------
 # Load CMake components
@@ -445,6 +453,46 @@ if (NOT HAVE_LARGE_FILES)
   add_definitions("-D_FILE_OFFSET_BITS=64")
 endif()
 
+# librspreload: probe libc for fcntl64/sendfile64; CMake sets RDMA_PRELOAD_WRAP_LFS64 when
+# preload should implement the fcntl64/sendfile64 wrapper (see RDMA_PRELOAD_WRAP_LFS64 below).
+set(CMAKE_REQUIRED_QUIET 1)
+set(SAFE_CMAKE_REQUIRED_DEFINITIONS "${CMAKE_REQUIRED_DEFINITIONS}")
+set(CMAKE_REQUIRED_DEFINITIONS "-D_GNU_SOURCE")
+CHECK_C_SOURCE_COMPILES("
+#include <fcntl.h>
+#include <sys/sendfile.h>
+int main(void) {
+  (void)&fcntl64;
+  (void)&sendfile64;
+  return 0;
+}
+" RDMA_PRELOAD_LIBC_HAS_FCNTL64_SENDFILE64)
+set(CMAKE_REQUIRED_DEFINITIONS "${SAFE_CMAKE_REQUIRED_DEFINITIONS}")
+set(CMAKE_REQUIRED_QUIET 0)
+if(RDMA_PRELOAD_LIBC_HAS_FCNTL64_SENDFILE64)
+  set(RDMA_PRELOAD_HAVE_LFS_WRAPPER_SYMS 1)
+else()
+  set(RDMA_PRELOAD_HAVE_LFS_WRAPPER_SYMS 0)
+endif()
+
+# Single gate for preload.c fcntl64/sendfile64 wrappers: need libc symbols and must
+# not compile preload with _FILE_OFFSET_BITS=64 (CMake adds that when HAVE_LARGE_FILES is false).
+if(RDMA_PRELOAD_HAVE_LFS_WRAPPER_SYMS AND HAVE_LARGE_FILES)
+  set(RDMA_PRELOAD_WRAP_LFS64 1)
+else()
+  set(RDMA_PRELOAD_WRAP_LFS64 0)
+endif()
+
+# If the first test found fcntl64/sendfile64 with _GNU_SOURCE, the headers
+# must declare them -- no separate check needed.
+if(RDMA_PRELOAD_HAVE_LFS_WRAPPER_SYMS)
+  set(RDMA_PRELOAD_FCNTL64_IN_HEADER 1)
+  set(RDMA_PRELOAD_SENDFILE64_IN_HEADER 1)
+else()
+  set(RDMA_PRELOAD_FCNTL64_IN_HEADER 0)
+  set(RDMA_PRELOAD_SENDFILE64_IN_HEADER 0)
+endif()
+
 # Provide a shim if C11 stdatomic.h is not supported.
 if (NOT HAVE_SPARSE)
   CHECK_INCLUDE_FILE("stdatomic.h" HAVE_STDATOMIC)
@@ -452,6 +500,7 @@ if (NOT HAVE_SPARSE)
 endif()
 
 RDMA_Check_SSE(HAVE_TARGET_SSE)
+RDMA_Check_LS64(HAVE_LS64)
 
 # Enable development support features
 # Prune unneeded shared libraries during linking
@@ -549,6 +598,19 @@ find_package(Systemd)
 include_directories(${SYSTEMD_INCLUDE_DIRS})
 RDMA_DoFixup("${SYSTEMD_FOUND}" "systemd/sd-daemon.h")
 
+# https://www.freedesktop.org/software/systemd/man/latest/sysusers.d.html
+set(SYSUSERS_DIR "")
+if (NOT ${CMAKE_VERSION} VERSION_LESS "3.4")
+  pkg_check_modules(SYSTEMD_PC systemd QUIET)
+  if (SYSTEMD_PC_FOUND)
+    pkg_get_variable(SYSUSERS_DIR systemd sysusersdir)
+  endif()
+endif()
+if ("${SYSUSERS_DIR}" STREQUAL "")
+  set(SYSUSERS_DIR "/usr/lib/sysusers.d")
+endif()
+install(FILES rdma-sysusers.conf DESTINATION "${SYSUSERS_DIR}" RENAME rdma.conf)
+
 # drm headers
 
 # Check if the headers have been installed by kernel-headers
@@ -567,10 +629,15 @@ if (DRM_INCLUDE_DIRS)
   endif()
 endif()
 
-# LTTng Tracer support
-if (DEFINED ENABLE_LTTNG)
+# Dynamic Tracing support
+if (TRACING STREQUAL "LTTNG")
+  set(ENABLE_LTTNG 1)
   include(FindLTTngUST REQUIRED)
   add_definitions(-DLTTNG_ENABLED)
+elseif (TRACING STREQUAL "USDT")
+  add_definitions(-DUSDT_ENABLED)
+elseif (NOT TRACING STREQUAL "None")
+  message(FATAL_ERROR "-DTRACING=${TRACING} is not a valid choice")
 endif()
 
 #-------------------------
@@ -867,6 +934,9 @@ if (NOT HAVE_GLIBC_UAPI_COMPAT)
 endif()
 if (NOT HAVE_TARGET_SSE)
   message(STATUS " attribute(target(\"sse\")) does NOT work")
+endif()
+if (NOT HAVE_LS64 AND CMAKE_SYSTEM_PROCESSOR MATCHES "aarch64")
+  message(STATUS " AArch64 ST64B intrinsic NOT supported")
 endif()
 if (NOT DRM_INCLUDE_DIRS)
   message(STATUS " DMABUF NOT supported (disabling some tests)")

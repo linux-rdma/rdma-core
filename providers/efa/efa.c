@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: GPL-2.0 OR BSD-2-Clause
 /*
- * Copyright 2019-2025 Amazon.com, Inc. or its affiliates. All rights reserved.
+ * Copyright 2019-2026 Amazon.com, Inc. or its affiliates. All rights reserved.
  */
 
 #include <stdio.h>
@@ -64,8 +64,8 @@ static struct verbs_context *efa_alloc_context(struct ibv_device *vdev,
 	struct efa_alloc_ucontext cmd = {};
 	struct efa_context *ctx;
 
-	cmd.comp_mask |= EFA_ALLOC_UCONTEXT_CMD_COMP_TX_BATCH;
-	cmd.comp_mask |= EFA_ALLOC_UCONTEXT_CMD_COMP_MIN_SQ_WR;
+	cmd.supported_caps |= EFA_ALLOC_UCONTEXT_CMD_SUPP_CAPS_TX_BATCH;
+	cmd.supported_caps |= EFA_ALLOC_UCONTEXT_CMD_SUPP_CAPS_MIN_SQ_WR;
 
 	ctx = verbs_init_and_alloc_context(vdev, cmd_fd, ctx, ibvctx,
 					   RDMA_DRIVER_EFA);
@@ -83,6 +83,10 @@ static struct verbs_context *efa_alloc_context(struct ibv_device *vdev,
 	ctx->cqe_size = sizeof(struct efa_io_rx_cdesc);
 	ctx->ex_cqe_size = sizeof(struct efa_io_rx_cdesc_ex);
 	ctx->inline_buf_size = resp.inline_buf_size;
+	ctx->inline_buf_size_ex = resp.inline_buf_size_ex;
+	if (ctx->inline_buf_size_ex == 0)
+		ctx->inline_buf_size_ex = ctx->inline_buf_size;
+
 	ctx->max_llq_size = resp.max_llq_size;
 	ctx->max_tx_batch = resp.max_tx_batch;
 	ctx->min_sq_wr = resp.min_sq_wr;
@@ -113,6 +117,7 @@ static void efa_free_context(struct ibv_context *ibvctx)
 	struct efa_context *ctx = to_efa_context(ibvctx);
 
 	free(ctx->qp_table);
+	free(ctx->qp_gen_table);
 	pthread_spin_destroy(&ctx->qp_table_lock);
 	verbs_uninit_context(&ctx->ibvctx);
 	free(ctx);

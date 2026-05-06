@@ -1,5 +1,5 @@
 # SPDX-License-Identifier: (GPL-2.0 OR Linux-OpenIB)
-# Copyright 2020-2024 Amazon.com, Inc. or its affiliates. All rights reserved.
+# Copyright 2020-2026 Amazon.com, Inc. or its affiliates. All rights reserved.
 
 #cython: language_level=3
 
@@ -17,7 +17,7 @@ cdef extern from 'infiniband/efadv.h':
         uint16_t max_sq_sge;
         uint16_t max_rq_sge;
         uint16_t inline_buf_size;
-        uint8_t reserved[2];
+        uint16_t inline_buf_size_ex;
         uint32_t device_caps;
         uint32_t max_rdma_size;
 
@@ -47,6 +47,17 @@ cdef extern from 'infiniband/efadv.h':
         uint16_t rdma_read_ic_id;
         uint16_t rdma_recv_ic_id;
 
+    cdef struct efadv_sq_depth_attr:
+        uint64_t comp_mask;
+        uint32_t flags;
+        uint32_t max_send_sge;
+        uint32_t max_rdma_sge;
+        uint32_t max_inline_data;
+
+    cdef struct efadv_rq_depth_attr:
+        uint64_t comp_mask;
+        uint32_t max_recv_sge;
+
     int efadv_query_device(v.ibv_context *ibvctx, efadv_device_attr *attrs,
                            uint32_t inlen)
     int efadv_query_ah(v.ibv_ah *ibvah, efadv_ah_attr *attr,
@@ -65,3 +76,7 @@ cdef extern from 'infiniband/efadv.h':
     int efadv_wc_read_sgid(efadv_cq *efadv_cq, v.ibv_gid *sgid)
     bool efadv_wc_is_unsolicited(efadv_cq *efadv_cq)
     int efadv_query_mr(v.ibv_mr *ibvmr, efadv_mr_attr *attr, uint32_t inlen)
+    int efadv_get_max_sq_depth(v.ibv_context *ibvctx, efadv_sq_depth_attr *attr,
+                               uint32_t inlen)
+    int efadv_get_max_rq_depth(v.ibv_context *ibvctx, efadv_rq_depth_attr *attr,
+                               uint32_t inlen);
