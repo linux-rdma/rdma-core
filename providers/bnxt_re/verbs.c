@@ -54,6 +54,7 @@
 
 #include "main.h"
 #include "verbs.h"
+#include "bnxt_re_dv.h"
 
 static int bnxt_re_poll_one(struct bnxt_re_cq *cq, int nwc, struct ibv_wc *wc,
 			    uint32_t *resize);
@@ -330,10 +331,11 @@ static void *bnxt_re_alloc_cqslab(struct bnxt_re_context *cntx,
 struct ibv_cq *bnxt_re_create_cq(struct ibv_context *ibvctx, int ncqe,
 				 struct ibv_comp_channel *channel, int vec)
 {
-	struct bnxt_re_cq *cq;
-	struct ubnxt_re_cq cmd;
-	struct ubnxt_re_cq_resp resp;
+	struct ibv_cq_init_attr_ex cq_attr_ex = {};
 	struct bnxt_re_mmap_info minfo = {};
+	struct ubnxt_re_cq_resp resp = {};
+	struct ubnxt_re_cq cmd = {};
+	struct bnxt_re_cq *cq;
 	int ret;
 
 	struct bnxt_re_context *cntx = to_bnxt_re_context(ibvctx);
@@ -375,10 +377,15 @@ struct ibv_cq *bnxt_re_create_cq(struct ibv_context *ibvctx, int ncqe,
 	cmd.cq_va = (uintptr_t)cq->cqq->va;
 	cmd.cq_handle = (uintptr_t)cq;
 
-	memset(&resp, 0, sizeof(resp));
-	if (ibv_cmd_create_cq(ibvctx, ncqe, channel, vec,
-			      &cq->ibvcq, &cmd.ibv_cmd, sizeof(cmd),
-			      &resp.ibv_resp, sizeof(resp)))
+	cq_attr_ex.cqe = ncqe;
+	cq_attr_ex.channel = channel;
+	cq_attr_ex.comp_vector = vec;
+	if (ibv_cmd_create_cq_ex(ibvctx, &cq_attr_ex, NULL,
+				 (struct verbs_cq *)&cq->ibvcq,
+				 (struct ibv_create_cq_ex *)&cmd.ibv_cmd,
+				 sizeof(cmd),
+				 (struct ib_uverbs_ex_create_cq_resp *)&resp.ibv_resp,
+				 sizeof(resp), 0))
 		goto cmdfail;
 
 	cq->cqid = resp.cqid;
@@ -1091,7 +1098,7 @@ int bnxt_re_poll_cq(struct ibv_cq *ibvcq, int nwc, struct ibv_wc *wc)
 	return dqed;
 }
 
-static void bnxt_re_cleanup_cq(struct bnxt_re_qp *qp, struct bnxt_re_cq *cq)
+void bnxt_re_cleanup_cq(struct bnxt_re_qp *qp, struct bnxt_re_cq *cq)
 {
 	struct bnxt_re_queue *que = cq->cqq;
 	struct bnxt_re_bcqe *hdr;
@@ -1099,6 +1106,9 @@ static void bnxt_re_cleanup_cq(struct bnxt_re_qp *qp, struct bnxt_re_cq *cq)
 	struct bnxt_re_rc_cqe *rcqe;
 	void *cqe;
 	int indx, type;
+
+	if (cq->dv_cq_flags & BNXT_DV_CQ_FLAGS_VALID)
+		return;
 
 	pthread_spin_lock(&que->qlock);
 	for (indx = 0; indx < que->depth; indx++) {
@@ -2052,8 +2062,8 @@ static struct ibv_qp *__bnxt_re_create_qp(struct ibv_context *ibvctx,
 	struct bnxt_re_dev *dev = to_bnxt_re_dev(cntx->ibvctx.context.device);
 	struct ubnxt_re_qp_resp resp = {};
 	struct bnxt_re_qattr qattr[2];
+	struct ubnxt_re_qp req = {};
 	struct bnxt_re_qpcap *cap;
-	struct ubnxt_re_qp req;
 	struct bnxt_re_qp *qp;
 	void *mem;
 
@@ -2089,7 +2099,7 @@ static struct ibv_qp *__bnxt_re_create_qp(struct ibv_context *ibvctx,
 		req.sq_slots = qattr[BNXT_RE_QATTR_SQ_INDX].slots;
 
 	if (ibv_cmd_create_qp_ex(ibvctx, &qp->vqp, attr,
-				&req.ibv_cmd, sizeof(req), &resp.ibv_resp, sizeof(resp)))
+				 &req.ibv_cmd, sizeof(req), &resp.ibv_resp, sizeof(resp)))
 		goto fail;
 
 
