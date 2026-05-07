@@ -195,6 +195,40 @@ static int ionic_query_port(struct ibv_context *ibctx, uint8_t port,
 				  &req, sizeof(req));
 }
 
+static struct ibv_td *ionic_alloc_td(struct ibv_context *ibctx,
+				     struct ibv_td_init_attr *init_attr)
+{
+	struct ionic_td *td;
+
+	if (init_attr->comp_mask) {
+		errno = EOPNOTSUPP;
+		return NULL;
+	}
+
+	td = calloc(1, sizeof(*td));
+	if (!td) {
+		errno = ENOMEM;
+		return NULL;
+	}
+
+	td->ibtd.context = ibctx;
+	atomic_init(&td->refcount, 1);
+
+	return &td->ibtd;
+}
+
+static int ionic_dealloc_td(struct ibv_td *ibtd)
+{
+	struct ionic_td *td = to_ionic_td(ibtd);
+
+	if (atomic_load(&td->refcount) > 1)
+		return EBUSY;
+
+	free(td);
+
+	return 0;
+}
+
 static struct ibv_pd *ionic_alloc_parent_domain(struct ibv_context *context,
 						struct ibv_parent_domain_init_attr *attr)
 {
@@ -229,6 +263,11 @@ static struct ibv_pd *ionic_alloc_parent_domain(struct ibv_context *context,
 	pd->udma_mask = init_pd->udma_mask;
 	pd->sq_cmb = init_pd->sq_cmb;
 	pd->rq_cmb = init_pd->rq_cmb;
+
+	if (attr->td) {
+		pd->td = to_ionic_td(attr->td);
+		atomic_fetch_add(&pd->td->refcount, 1);
+	}
 
 	if (attr->comp_mask & IBV_PARENT_DOMAIN_INIT_ATTR_ALLOCATORS) {
 		pd->alloc = attr->alloc;
@@ -295,6 +334,8 @@ static int ionic_dealloc_pd(struct ibv_pd *ibpd)
 		rc = ibv_cmd_dealloc_pd(&pd->ibpd);
 		if (rc)
 			return rc;
+	} else if (pd->td) {
+		atomic_fetch_sub(&pd->td->refcount, 1);
 	}
 
 	free(pd);
@@ -398,7 +439,7 @@ static int ionic_vcq_cq_init1(struct ionic_ctx *ctx,
 
 	cq->vcq = vcq;
 
-	cq->lockfree = false;
+	cq->lockfree = pd ? ionic_pd_lockfree(&pd->ibpd) : false;
 	pthread_spin_init(&cq->lock, PTHREAD_PROCESS_PRIVATE);
 	list_head_init(&cq->poll_sq);
 	list_head_init(&cq->poll_rq);
@@ -1692,7 +1733,7 @@ static struct ibv_qp *ionic_create_qp_ex(struct ibv_context *ibctx,
 	qp->vqp.qp.qp_type = ex->qp_type;
 	qp->has_sq = true;
 	qp->has_rq = true;
-	qp->lockfree = false;
+	qp->lockfree = ex->pd ? ionic_pd_lockfree(ex->pd) : false;
 	qp->sig_all = ex->sq_sig_all;
 
 	list_node_init(&qp->cq_poll_sq);
@@ -3007,6 +3048,8 @@ bool is_ionic_ctx(struct ibv_context *ibctx)
 static const struct verbs_context_ops ionic_ctx_ops = {
 	.query_device_ex	= ionic_query_device_ex,
 	.query_port		= ionic_query_port,
+	.alloc_td		= ionic_alloc_td,
+	.dealloc_td		= ionic_dealloc_td,
 	.alloc_parent_domain	= ionic_alloc_parent_domain,
 	.alloc_pd		= ionic_alloc_pd,
 	.dealloc_pd		= ionic_dealloc_pd,
