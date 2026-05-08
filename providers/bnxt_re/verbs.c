@@ -2174,7 +2174,8 @@ int bnxt_re_modify_qp(struct ibv_qp *ibvqp, struct ibv_qp_attr *attr,
 				if (qp->jrqq) {
 					qp->jrqq->hwque->head = 0;
 					qp->jrqq->hwque->tail = 0;
-					bnxt_re_cleanup_cq(qp, qp->rcq);
+					if (qp->rcq != qp->scq)
+						bnxt_re_cleanup_cq(qp, qp->rcq);
 					qp->jrqq->start_idx = 0;
 					qp->jrqq->last_idx = 0;
 				}
@@ -2220,8 +2221,9 @@ int bnxt_re_destroy_qp(struct ibv_qp *ibvqp)
 		bnxt_re_put_pbuf(qp->cntx, qp->pbuf);
 		qp->pbuf = NULL;
 	}
-	bnxt_re_cleanup_cq(qp, qp->rcq);
 	bnxt_re_cleanup_cq(qp, qp->scq);
+	if (qp->rcq != qp->scq)
+		bnxt_re_cleanup_cq(qp, qp->rcq);
 	mem = qp->mem;
 	bnxt_re_free_mem(mem);
 	return 0;
