@@ -31,5 +31,7 @@ DECLARE_DRV_CMD(irdma_urereg_mr, IB_USER_VERBS_CMD_REREG_MR,
 		irdma_mem_reg_req, empty);
 DECLARE_DRV_CMD(irdma_ucreate_ah, IB_USER_VERBS_CMD_CREATE_AH,
 		empty, irdma_create_ah_resp);
+DECLARE_DRV_CMD(irdma_ucreate_srq, IB_USER_VERBS_CMD_CREATE_SRQ,
+		irdma_create_srq_req, irdma_create_srq_resp);
 
 #endif /* PROVIDER_IRDMA_ABI_H */

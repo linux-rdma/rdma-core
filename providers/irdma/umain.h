@@ -21,15 +21,14 @@
 #define IRDMA_DB_CQ_OFFSET		64
 
 enum irdma_supported_wc_flags {
-	IRDMA_CQ_SUPPORTED_WC_FLAGS = IBV_WC_EX_WITH_BYTE_LEN
+	IRDMA_STANDARD_WC_FLAGS_EX = IBV_WC_EX_WITH_BYTE_LEN
 				    | IBV_WC_EX_WITH_IMM
 				    | IBV_WC_EX_WITH_QP_NUM
 				    | IBV_WC_EX_WITH_SRC_QP
 				    | IBV_WC_EX_WITH_SLID
-				    | IBV_WC_EX_WITH_SL
-				    | IBV_WC_EX_WITH_DLID_PATH_BITS
-				    | IBV_WC_EX_WITH_COMPLETION_TIMESTAMP_WALLCLOCK
-				    | IBV_WC_EX_WITH_COMPLETION_TIMESTAMP,
+				    | IBV_WC_EX_WITH_SL,
+	IRDMA_GEN3_WC_FLAGS_EX = IRDMA_STANDARD_WC_FLAGS_EX |
+				 IBV_WC_EX_WITH_COMPLETION_TIMESTAMP,
 };
 
 struct irdma_udevice {
@@ -65,6 +64,15 @@ struct irdma_cq_buf {
 	struct list_node list;
 	struct irdma_cq_uk cq;
 	struct verbs_mr vmr;
+	size_t buf_size;
+};
+
+struct irdma_usrq {
+	struct verbs_srq v_srq;
+	struct verbs_mr vmr;
+	pthread_spinlock_t lock;
+	struct irdma_srq_uk srq;
+	size_t buf_size;
 };
 
 struct irdma_ucq {
@@ -158,6 +166,14 @@ int irdma_uattach_mcast(struct ibv_qp *qp, const union ibv_gid *gid,
 			uint16_t lid);
 int irdma_udetach_mcast(struct ibv_qp *qp, const union ibv_gid *gid,
 			uint16_t lid);
+struct ibv_srq *irdma_ucreate_srq(struct ibv_pd *pd,
+				  struct ibv_srq_init_attr *initattr);
+int irdma_udestroy_srq(struct ibv_srq *ibsrq);
+int irdma_uquery_srq(struct ibv_srq *ibsrq, struct ibv_srq_attr *attr);
+int irdma_umodify_srq(struct ibv_srq *ibsrq, struct ibv_srq_attr *attr,
+		      int attr_mask);
+int irdma_upost_srq(struct ibv_srq *ib_srq, struct ibv_recv_wr *ib_wr,
+		    struct ibv_recv_wr **bad_wr);
 void irdma_async_event(struct ibv_context *context,
 		       struct ibv_async_event *event);
 void irdma_set_hw_attrs(struct irdma_hw_attrs *attrs);
