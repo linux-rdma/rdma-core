@@ -745,6 +745,7 @@ static int bnxt_re_poll_flush_wcs(struct bnxt_re_joint_queue *jqq,
 		}
 
 		ibvwc->status = IBV_WC_WR_FLUSH_ERR;
+		ibvwc->vendor_err = 0;
 		ibvwc->opcode = opcode;
 		ibvwc->wr_id = wrid->wrid;
 		ibvwc->qp_num = qpid;
