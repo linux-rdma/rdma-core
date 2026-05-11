@@ -797,7 +797,7 @@ static uint8_t bnxt_re_poll_rcqe(struct bnxt_re_qp *qp, struct ibv_wc *ibvwc,
 	return pcqe;
 }
 
-static void bnxt_re_qp_move_flush_err(struct bnxt_re_qp *qp)
+static void bnxt_re_qp_move_flush_err(struct bnxt_re_cq *cq, struct bnxt_re_qp *qp)
 {
 	struct bnxt_re_cq *scq, *rcq;
 
@@ -806,20 +806,32 @@ static void bnxt_re_qp_move_flush_err(struct bnxt_re_qp *qp)
 
 	if (qp->qpst != IBV_QPS_ERR)
 		qp->qpst = IBV_QPS_ERR;
-	bnxt_re_fque_add_node(&rcq->rfhead, &qp->rnode);
-	bnxt_re_fque_add_node(&scq->sfhead, &qp->snode);
+	if (!qp->srq && qp->rcq == cq)
+		bnxt_re_fque_add_node(&rcq->rfhead, &qp->rnode);
+	if (qp->scq == cq)
+		bnxt_re_fque_add_node(&scq->sfhead, &qp->snode);
 }
 
-static uint8_t bnxt_re_poll_term_cqe(struct bnxt_re_qp *qp, int *cnt)
+static uint8_t bnxt_re_poll_term_cqe(struct bnxt_re_cq *cq, struct bnxt_re_qp *qp, int *cnt)
 {
+	struct bnxt_re_cq *other_cq;
 	/* For now just add the QP to flush list without
 	 * considering the index reported in the CQE.
 	 * Continue reporting flush completions until the
 	 * SQ and RQ are empty.
 	 */
 	*cnt = 0;
-	if (qp->qpst != IBV_QPS_RESET)
-		bnxt_re_qp_move_flush_err(qp);
+	if (qp->qpst != IBV_QPS_RESET) {
+		if (qp->qpst != IBV_QPS_ERR)
+			qp->qpst = IBV_QPS_ERR;
+		bnxt_re_qp_move_flush_err(cq, qp);
+		other_cq = (cq == qp->scq) ? qp->rcq : qp->scq;
+		if (other_cq && other_cq != cq) {
+			pthread_spin_lock(&other_cq->cqq->qlock);
+			bnxt_re_qp_move_flush_err(other_cq, qp);
+			pthread_spin_unlock(&other_cq->cqq->qlock);
+		}
+	}
 
 	return 0;
 }
@@ -889,7 +901,7 @@ static int bnxt_re_poll_one(struct bnxt_re_cq *cq, int nwc, struct ibv_wc *wc,
 			     (uintptr_t)le64toh(scqe->qp_handle);
 			if (!qp)
 				break;
-			pcqe = bnxt_re_poll_term_cqe(qp, &cnt);
+			pcqe = bnxt_re_poll_term_cqe(cq, qp, &cnt);
 			break;
 		case BNXT_RE_WC_TYPE_COFF:
 			/* Stop further processing and return */
@@ -1109,8 +1121,10 @@ static void bnxt_re_cleanup_cq(struct bnxt_re_qp *qp, struct bnxt_re_cq *cq)
 
 	}
 
-	bnxt_re_fque_del_node(&qp->snode);
-	bnxt_re_fque_del_node(&qp->rnode);
+	if (_fque_node_valid(&qp->snode) && qp->scq == cq)
+		bnxt_re_fque_del_node(&qp->snode);
+	if (!qp->srq && _fque_node_valid(&qp->rnode) && qp->rcq == cq)
+		bnxt_re_fque_del_node(&qp->rnode);
 	pthread_spin_unlock(&que->qlock);
 }
 
@@ -1476,7 +1490,16 @@ void bnxt_re_async_event(struct ibv_context *context,
 	case IBV_EVENT_PATH_MIG_ERR: {
 		ibvqp = event->element.qp;
 		qp = to_bnxt_re_qp(ibvqp);
-		bnxt_re_qp_move_flush_err(qp);
+		if (qp->qpst != IBV_QPS_ERR)
+			qp->qpst = IBV_QPS_ERR;
+		pthread_spin_lock(&qp->scq->cqq->qlock);
+		bnxt_re_qp_move_flush_err(qp->scq, qp);
+		pthread_spin_unlock(&qp->scq->cqq->qlock);
+		if (qp->rcq && qp->rcq != qp->scq) {
+			pthread_spin_lock(&qp->rcq->cqq->qlock);
+			bnxt_re_qp_move_flush_err(qp->rcq, qp);
+			pthread_spin_unlock(&qp->rcq->cqq->qlock);
+		}
 		break;
 	}
 	case IBV_EVENT_SQ_DRAINED:
