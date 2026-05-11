@@ -2130,7 +2130,7 @@ struct ibv_qp *bnxt_re_create_qp(struct ibv_pd *ibvpd,
 	struct ibv_qp *qp;
 
 	memset(&attr_ex, 0, sizeof(attr_ex));
-	memcpy(&attr_ex, attr, sizeof(attr_ex));
+	memcpy(&attr_ex, attr, sizeof(*attr));
 	attr_ex.comp_mask = IBV_QP_INIT_ATTR_PD;
 	attr_ex.pd = ibvpd;
 	qp = __bnxt_re_create_qp(ibvpd->context, &attr_ex);
