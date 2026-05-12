@@ -21,6 +21,14 @@
 #   pci = 0000:00:0c.4
 #   Device type = IB
 #   mlx5_0 -> ibp0s12f4
+# * NAME_PCI with sub-function (SF)
+#   parent pci = 0000:c1:00.0, sfnum = 88
+#   Device type = RoCE
+#   mlx5_5 -> rocep193s0f0S88
+# * NAME_PCI with SF on SR-IOV VF (VF-SF)
+#   parent pci = 0000:c1:00.4 (VF of 0000:c1:00.0), sfnum = 99
+#   Device type = RoCE
+#   mlx5_6 -> rocep193s0f0v0S99
 # * NAME_GUID
 #   GUID = 5254:00c0:fe12:3455
 #   Device type = RoCE
