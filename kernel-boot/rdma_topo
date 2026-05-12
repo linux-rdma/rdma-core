@@ -26,7 +26,6 @@ from zlib import compress, decompress
 DEVDIR = os.environ.get("RDMA_TOPO_DEVDIR", "/sys/bus/pci/devices/")
 
 BDF_RE = re.compile(r"^([0-9a-f]+?):([0-9a-f]{2}?):([0-9a-f]{2}?)\.([0-9a-f])$")
-KERNEL_ACS_ISOLATED = "xx111x1"
 pci_vendors = {
     "MELLANOX": 0x15B3,
     "NVIDIA": 0x10DE,
@@ -288,6 +287,13 @@ def has_ats_cap(config: bytes) -> bool:
     return parse_ext_cap(config, PCI_EXT_CAP_ID_ATS) is not None
 
 
+def kernel_acs_isolated(device_type: str) -> str:
+    if device_type == "vera_rp":
+        # Advertises P2P Completion Redirect (bit-3) as read-only and disabled.
+        return "xx101x1"
+    return "xx111x1"
+
+
 def PCI_VDEVICE(vendor: str, device_id: int) -> re.Pattern:
     """Match a Vendor and device ID"""
     vendor_id = pci_vendors[vendor]
@@ -315,6 +321,8 @@ pci_device_types = {
     PCI_VDEVICE("NVIDIA", 0x22B1): "grace_rp",  # NVIDIA Grace PCI Root Port Bridge
     PCI_VDEVICE("NVIDIA", 0x22B2): "grace_rp",  # NVIDIA Grace PCI Root Port Bridge
     PCI_VDEVICE("NVIDIA", 0x22B8): "grace_rp",  # NVIDIA Grace PCI Root Port Bridge
+    PCI_VDEVICE("NVIDIA", 0x2F95): "vera_rp",  # NVIDIA Vera PCIe Root Port Bridge
+    PCI_VDEVICE("NVIDIA", 0x2F96): "vera_rp",  # NVIDIA Vera PCIe Root Port Bridge
     PCI_VDEVICE("MELLANOX", 0x1021): "cx_nic",  # ConnectX-7
     PCI_VDEVICE("MELLANOX", 0x1023): "cx_nic",  # ConnectX-8
     PCI_VDEVICE("MELLANOX", 0x1025): "cx_nic",  # ConnectX-9
@@ -817,8 +825,8 @@ class NVCX_Inline_Complex(NVCX_Complex):
                 # bit-3 : ACS P2P Completion Redirect
                 # bit-2 : ACS P2P Request Redirect
                 # bit-0 : ACS Source Validation
-                self.nvgpu_dsp: KERNEL_ACS_ISOLATED,
-                self.root_port: KERNEL_ACS_ISOLATED,
+                self.nvgpu_dsp: kernel_acs_isolated(self.nvgpu_dsp.device_type),
+                self.root_port: kernel_acs_isolated(self.root_port.device_type),
             }
         else:
             return {
@@ -931,6 +939,113 @@ class NVCX_Inline_Complex(NVCX_Complex):
         return res[:-1]
 
 
+class NVCX_NUMA_Complex(NVCX_Complex):
+    def __init__(
+        self,
+        numa_node: int,
+        cx_pfs: Set[PCIDevice],
+        nvgpus: Set[PCIDevice],
+    ):
+        if not cx_pfs:
+            raise TopoUnexpectedError("No CX NICs found in NUMA-based complex")
+        if not nvgpus:
+            raise TopoUnexpectedError("No GPUs found in NUMA-based complex")
+        self.numa_node = numa_node
+        self.nvgpus = nvgpus
+        self.cx_topo = NVCX_Topo(cx_pfs)
+
+    @property
+    def primary_nic(self) -> PCIDevice:
+        return self.cx_topo.primary_pf
+
+    def compute_acs(self, _: Optional[bool]) -> Dict[PCIDevice, str]:
+        # All are connected to RPs, which are handled by PCITopo.compute_acs
+        return {}
+
+    def to_dict(self) -> Dict[str, Any]:
+        res = {
+            "numa_node": self.numa_node,
+            "gpu_bdfs": [str(I.bdf) for I in self.nvgpus],
+            "subsystems": {},
+        }
+        res.update(self.cx_topo.to_dict())
+        devname = self.cx_topo.primary_pf.vpd_name
+        if devname:
+            res["rdma_nic_vpd_name"] = devname
+        for pdev in sorted(
+            itertools.chain(self.cx_topo.pfs, self.nvgpus),
+            key=lambda x: x.bdf,
+        ):
+            subsystems = pdev.get_subsystems()
+            if subsystems:
+                res["subsystems"][str(pdev.bdf)] = {
+                    subsys: list(devs) for subsys, devs in subsystems.items()
+                }
+        return res
+
+    def __check_iommu_group(self) -> bool:
+        devs = [*self.cx_topo.pfs, *self.nvgpus]
+        iommu_groups = [dev.iommu_group for dev in devs]
+        devs_without_iommu_group = [dev for dev in devs if dev.iommu_group is None]
+        if len(devs_without_iommu_group) > 0:
+            bdfs = ", ".join([str(dev.bdf) for dev in devs_without_iommu_group])
+            check_fail(
+                f"Kernel iommu_group missing for devices on NUMA node {self.numa_node}: {bdfs}"
+            )
+            return False
+        if len(iommu_groups) == len(set(iommu_groups)):
+            check_ok(
+                f"All kernel iommu_groups for NUMA node {self.numa_node} are unique"
+            )
+            return True
+
+        duplicate_groups = [
+            group for group in iommu_groups if iommu_groups.count(group) > 1
+        ]
+        check_fail(
+            (f"Multiple devices share the same kernel iommu_group for "
+             f"NUMA node {self.numa_node}: {duplicate_groups}")
+        )
+        return False
+
+    def __check_ats(self) -> bool:
+        result = True
+        for cx_pf in self.cx_topo.pfs:
+            if cx_pf.has_ats:
+                check_fail(
+                    f"ATS capability for {cx_pf.device_type} {cx_pf.bdf} is available"
+                )
+                result = False
+            else:
+                check_ok(
+                    f"ATS capability for {cx_pf.device_type} {cx_pf.bdf} is not available"
+                )
+        return result
+
+    def check(self, virt: Optional[bool]) -> bool:
+        res_ats = self.__check_ats()
+        res_iommu_group = self.__check_iommu_group()
+        return res_ats and res_iommu_group
+
+    def __str__(self) -> str:
+        res = f"NUMA Node={self.numa_node}\n"
+        devname = self.primary_nic.vpd_name
+        if devname:
+            res += f"\t{devname}\n"
+        res += f"{self.cx_topo.topo_str()}\n"
+        res += print_list("GPU PCI device", [str(I.bdf) for I in self.nvgpus])
+
+        gpu_subsystems: Set[str] = set()
+        for pdev in self.nvgpus:
+            subsys = pdev.get_subsystems()
+            if "drm" in subsys:
+                gpu_subsystems.update(subsys["drm"])
+        if len(gpu_subsystems) > 0:
+            res += print_list("DRM device", gpu_subsystems)
+
+        return res[:-1]
+
+
 def check_parent(pdev: PCIDevice, parent_type: str):
     if not pdev or not pdev.parent:
         return None
@@ -944,6 +1059,7 @@ class PCITopo(object):
     class TopoType(Enum):
         INLINE = "Inline"
         DMA = "DMA-based"
+        NUMA = "NUMA-based"
 
     def __init__(
         self,
@@ -973,6 +1089,14 @@ class PCITopo(object):
     def __detect_topo_type(self) -> TopoType:
         if any(pdev.device_type == "cx_dma" for pdev in self.devices.values()):
             return self.TopoType.DMA
+
+        if any(
+            pdev.device_type == "nvgpu"
+            and pdev.parent is not None
+            and pdev.parent.device_type.endswith("_rp")
+            for pdev in self.devices.values()
+        ):
+            return self.TopoType.NUMA
 
         found = {
             "cx_switch": False,
@@ -1021,6 +1145,10 @@ class PCITopo(object):
                 continue
             assert bdf not in res
             res[bdf] = PCIDevice(bdf, sdev)
+        for pdev in res.values():
+            if pdev.parent_bdf and pdev.parent_bdf in res:
+                pdev.parent = res[pdev.parent_bdf]
+                pdev.parent.children.add(pdev)
         return res
 
     def __get_nvcx_complex(self, cx_dma: PCIDevice):
@@ -1118,6 +1246,23 @@ class PCITopo(object):
 
         return NVCX_Inline_Complex(root_port, shared_usp1, cx_nic, nvgpu)
 
+    def __get_nvcx_numa_complex(self, numa_node: int):
+        """Match the topology for the NUMA complex.
+
+        All CX NICs and GPUs on the same NUMA node are part of the same complex.
+        """
+        cx_pfs = [
+            pdev
+            for pdev in self.devices.values()
+            if pdev.numa_node == numa_node and pdev.device_type == "cx_nic"
+        ]
+        nvgpus = [
+            pdev
+            for pdev in self.devices.values()
+            if pdev.numa_node == numa_node and pdev.device_type == "nvgpu"
+        ]
+        return NVCX_NUMA_Complex(numa_node, cx_pfs, nvgpus)
+
     def __auto_detect_virt(self) -> bool:
         """Auto-detect if virtualization will be used on this system"""
         first = self.nvcxs[0].primary_nic.has_ats
@@ -1134,10 +1279,6 @@ class PCITopo(object):
         objects for the cx_dma functions"""
         self.vpd_v3s: Dict[str, Set[PCIDevice]] = collections.defaultdict(set)
         for pdev in self.devices.values():
-            if pdev.parent_bdf and pdev.parent_bdf in self.devices:
-                pdev.parent = self.devices[pdev.parent_bdf]
-                pdev.parent.children.add(pdev)
-
             # Many PCI functions may share the same V3
             if pdev.vpd_v3:
                 self.vpd_v3s[pdev.vpd_v3].add(pdev)
@@ -1152,6 +1293,14 @@ class PCITopo(object):
                 if pdev.device_type == "nvgpu":
                     nvcx = self.__get_nvcx_inline_complex(pdev)
                     self.nvcxs.append(nvcx)
+        elif self.type == self.TopoType.NUMA:
+            numa_nodes = {
+                pdev.numa_node
+                for pdev in self.devices.values()
+                if pdev.numa_node is not None and pdev.numa_node >= 0
+            }
+            for numa in numa_nodes:
+                self.nvcxs.append(self.__get_nvcx_numa_complex(numa))
 
         if len(self.nvcxs) == 0:
             raise TopoNotSupportedError(
@@ -1172,8 +1321,8 @@ class PCITopo(object):
             acs.update(nvcx.compute_acs(self.virt))
 
         # Enable, using kernel default, or disable ACS on all other CX
-        # bridges and Grace RP based on the virt parameter or if the topology
-        # has CX DMA functions.
+        # bridges and Grace, Vera RPs based on the virt parameter or if the
+        # topology is DMA-based or NUMA-based.
         #
         # To enable (matches kernel default):
         # bit-4 : ACS Upstream Forwarding
@@ -1183,12 +1332,15 @@ class PCITopo(object):
         for pdev in self.devices.values():
             if (
                 pdev not in acs
-                and ("switch" in pdev.device_type or "grace_rp" in pdev.device_type)
+                and (
+                    "switch" in pdev.device_type
+                    or pdev.device_type in ["grace_rp", "vera_rp"]
+                )
                 and pdev.has_acs
             ):
                 acs[pdev] = (
-                    KERNEL_ACS_ISOLATED
-                    if self.type == self.TopoType.DMA or self.virt
+                    kernel_acs_isolated(pdev.device_type)
+                    if self.type in [self.TopoType.DMA, self.TopoType.NUMA] or self.virt
                     else "xx000x0"
                 )
         return acs
@@ -1324,7 +1476,7 @@ def cmd_write_grub_acs(args):
     config_acs = [
         f"{acs}@{pdev.bdf}"
         for pdev, acs in sorted(acs.items(), key=lambda x: x[0].bdf)
-        if acs != KERNEL_ACS_ISOLATED
+        if acs != kernel_acs_isolated(pdev.device_type)
     ]
     acs_arg = ";".join(config_acs)
     grub_conf = [
@@ -1421,6 +1573,8 @@ def cmd_check(args):
         check_ok("All ConnectX DMA functions have correct PCI topology")
     elif topo.type == PCITopo.TopoType.INLINE:
         check_ok("All NIC/GPU complexes have correct PCI topology")
+    elif topo.type == PCITopo.TopoType.NUMA:
+        check_ok("All NUMA-based complexes have correct PCI topology")
 
     fatal = False
     acs = topo.compute_acs()
