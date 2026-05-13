@@ -111,7 +111,7 @@ int bnxt_re_get_toggle_mem(struct ibv_context *ibvctx,
 	DECLARE_COMMAND_BUFFER(cmd,
 			       BNXT_RE_OBJECT_GET_TOGGLE_MEM,
 			       BNXT_RE_METHOD_GET_TOGGLE_MEM,
-			       4);
+			       6);
 	struct ib_uverbs_attr *handle;
 	int ret;
 
