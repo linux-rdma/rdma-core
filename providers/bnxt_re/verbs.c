@@ -122,7 +122,7 @@ int bnxt_re_get_toggle_mem(struct ibv_context *ibvctx,
 	DECLARE_COMMAND_BUFFER(cmd,
 			       BNXT_RE_OBJECT_GET_TOGGLE_MEM,
 			       BNXT_RE_METHOD_GET_TOGGLE_MEM,
-			       4);
+			       6);
 	struct ib_uverbs_attr *handle;
 	int ret;
 
@@ -812,29 +812,35 @@ static uint8_t bnxt_re_poll_rcqe(struct bnxt_re_qp *qp, struct ibv_wc *ibvwc,
 	return pcqe;
 }
 
-static void bnxt_re_qp_move_flush_err(struct bnxt_re_qp *qp)
+static void bnxt_re_qp_move_flush_err(struct bnxt_re_cq *cq, struct bnxt_re_qp *qp)
 {
-	struct bnxt_re_cq *scq, *rcq;
-
-	scq = to_bnxt_re_cq(qp->ibvqp->send_cq);
-	rcq = to_bnxt_re_cq(qp->ibvqp->recv_cq);
-
-	if (qp->qpst != IBV_QPS_ERR)
-		qp->qpst = IBV_QPS_ERR;
-	bnxt_re_fque_add_node(&rcq->rfhead, &qp->rnode);
-	bnxt_re_fque_add_node(&scq->sfhead, &qp->snode);
+	if (!qp->srq && qp->rcq == cq)
+		bnxt_re_fque_add_node(&cq->rfhead, &qp->rnode);
+	if (qp->scq == cq)
+		bnxt_re_fque_add_node(&cq->sfhead, &qp->snode);
 }
 
-static uint8_t bnxt_re_poll_term_cqe(struct bnxt_re_qp *qp, int *cnt)
+static uint8_t bnxt_re_poll_term_cqe(struct bnxt_re_cq *cq, struct bnxt_re_qp *qp, int *cnt)
 {
+	struct bnxt_re_cq *other_cq;
+
 	/* For now just add the QP to flush list without
 	 * considering the index reported in the CQE.
 	 * Continue reporting flush completions until the
 	 * SQ and RQ are empty.
 	 */
 	*cnt = 0;
-	if (qp->qpst != IBV_QPS_RESET)
-		bnxt_re_qp_move_flush_err(qp);
+	if (qp->qpst != IBV_QPS_RESET) {
+		if (qp->qpst != IBV_QPS_ERR)
+			qp->qpst = IBV_QPS_ERR;
+		bnxt_re_qp_move_flush_err(cq, qp);
+		other_cq = (cq == qp->scq) ? qp->rcq : qp->scq;
+		if (other_cq && other_cq != cq) {
+			pthread_spin_lock(&other_cq->cqq->qlock);
+			bnxt_re_qp_move_flush_err(other_cq, qp);
+			pthread_spin_unlock(&other_cq->cqq->qlock);
+		}
+	}
 
 	return 0;
 }
@@ -903,7 +909,7 @@ static int bnxt_re_poll_one(struct bnxt_re_cq *cq, int nwc, struct ibv_wc *wc,
 			     (uintptr_t)le64toh(scqe->qp_handle);
 			if (!qp)
 				break;
-			pcqe = bnxt_re_poll_term_cqe(qp, &cnt);
+			pcqe = bnxt_re_poll_term_cqe(cq, qp, &cnt);
 			break;
 		case BNXT_RE_WC_TYPE_COFF:
 			/* Stop further processing and return */
@@ -969,6 +975,7 @@ static int bnxt_re_poll_flush_wcs(struct bnxt_re_joint_queue *jqq,
 		}
 
 		ibvwc->status = IBV_WC_WR_FLUSH_ERR;
+		ibvwc->vendor_err = 0;
 		ibvwc->opcode = opcode;
 		ibvwc->wr_id = wrid->wrid;
 		ibvwc->qp_num = qpid;
@@ -1122,8 +1129,10 @@ static void bnxt_re_cleanup_cq(struct bnxt_re_qp *qp, struct bnxt_re_cq *cq)
 
 	}
 
-	bnxt_re_fque_del_node(&qp->snode);
-	bnxt_re_fque_del_node(&qp->rnode);
+	if (_fque_node_valid(&qp->snode) && qp->scq == cq)
+		bnxt_re_fque_del_node(&qp->snode);
+	if (!qp->srq && _fque_node_valid(&qp->rnode) && qp->rcq == cq)
+		bnxt_re_fque_del_node(&qp->rnode);
 	pthread_spin_unlock(&que->qlock);
 }
 
@@ -1492,7 +1501,16 @@ void bnxt_re_async_event(struct ibv_context *context,
 	case IBV_EVENT_PATH_MIG_ERR: {
 		ibvqp = event->element.qp;
 		qp = to_bnxt_re_qp(ibvqp);
-		bnxt_re_qp_move_flush_err(qp);
+		if (qp->qpst != IBV_QPS_ERR)
+			qp->qpst = IBV_QPS_ERR;
+		pthread_spin_lock(&qp->scq->cqq->qlock);
+		bnxt_re_qp_move_flush_err(qp->scq, qp);
+		pthread_spin_unlock(&qp->scq->cqq->qlock);
+		if (qp->rcq && qp->rcq != qp->scq) {
+			pthread_spin_lock(&qp->rcq->cqq->qlock);
+			bnxt_re_qp_move_flush_err(qp->rcq, qp);
+			pthread_spin_unlock(&qp->rcq->cqq->qlock);
+		}
 		break;
 	}
 	case IBV_EVENT_SQ_DRAINED:
@@ -2141,7 +2159,7 @@ struct ibv_qp *bnxt_re_create_qp(struct ibv_pd *ibvpd,
 	struct ibv_qp *qp;
 
 	memset(&attr_ex, 0, sizeof(attr_ex));
-	memcpy(&attr_ex, attr, sizeof(attr_ex));
+	memcpy(&attr_ex, attr, sizeof(*attr));
 	attr_ex.comp_mask = IBV_QP_INIT_ATTR_PD;
 	attr_ex.pd = ibvpd;
 	qp = __bnxt_re_create_qp(ibvpd->context, &attr_ex);
@@ -2174,7 +2192,8 @@ int bnxt_re_modify_qp(struct ibv_qp *ibvqp, struct ibv_qp_attr *attr,
 				if (qp->jrqq) {
 					qp->jrqq->hwque->head = 0;
 					qp->jrqq->hwque->tail = 0;
-					bnxt_re_cleanup_cq(qp, qp->rcq);
+					if (qp->rcq != qp->scq)
+						bnxt_re_cleanup_cq(qp, qp->rcq);
 					qp->jrqq->start_idx = 0;
 					qp->jrqq->last_idx = 0;
 				}
@@ -2220,8 +2239,9 @@ int bnxt_re_destroy_qp(struct ibv_qp *ibvqp)
 		bnxt_re_put_pbuf(qp->cntx, qp->pbuf);
 		qp->pbuf = NULL;
 	}
-	bnxt_re_cleanup_cq(qp, qp->rcq);
 	bnxt_re_cleanup_cq(qp, qp->scq);
+	if (qp->rcq != qp->scq)
+		bnxt_re_cleanup_cq(qp, qp->rcq);
 	mem = qp->mem;
 	bnxt_re_free_mem(mem);
 	return 0;
