@@ -5026,18 +5026,18 @@ static int repoll_grow_fds(struct repoll_info *ri)
 {
 	struct pollfd *new_fds;
 	union epoll_data *new_data;
-	int new_max = ri->capacity * 2;
+	int new_max = ri->capacity + REPOLL_FD_GROW_STEP;
 
-	new_fds = malloc(sizeof(*new_fds) * new_max);
+	new_fds = calloc(new_max, sizeof(*new_fds));
 	if (!new_fds)
 		return -ENOMEM;
-	for (int i = 0; i < new_max; ++i)
-		new_fds[i].fd = -1;
 	memcpy(new_fds, ri->fds, sizeof(*new_fds) * ri->capacity);
+	for (int i = ri->capacity; i < new_max; ++i)
+		new_fds[i].fd = -1;
 	free(ri->fds);
 	ri->fds = new_fds;
 
-	new_data = malloc(sizeof(*new_data) * new_max);
+	new_data = calloc(new_max, sizeof(*new_data));
 	if (!new_data)
 		return -ENOMEM;
 	memcpy(new_data, ri->user_data, sizeof(*new_data) * ri->capacity);
@@ -5046,23 +5046,6 @@ static int repoll_grow_fds(struct repoll_info *ri)
 
 	ri->capacity = new_max;
 	return 0;
-}
-
-static int repoll_find_free_slot(struct repoll_info *ri)
-{
-	if (ri->active_fds >= ri->capacity) {
-		if (repoll_grow_fds(ri))
-			return -1;
-		return ri->slot_count++;
-	}
-	if (ri->active_fds == ri->slot_count + 1)
-		return ri->slot_count++;
-
-	for (int i = 0; i < ri->slot_count; ++i) {
-		if (ri->fds[i].fd <= 0)
-			return i;
-	}
-	return ri->slot_count++;
 }
 
 static void repoll_send_reload(struct repoll_info *ri)
@@ -5096,17 +5079,16 @@ static int repoll_ctl_add(struct repoll_info *ri, int fd,
 	if (!fdi)
 		return ENOMEM;
 
-	ri->active_fds++;
-	slot = repoll_find_free_slot(ri);
-	if (slot < 0) {
-		ri->active_fds--;
-		free(fdi);
-		return ENOMEM;
+	if (ri->slot_count >= ri->capacity) {
+		if (repoll_grow_fds(ri)) {
+			free(fdi);
+			return ENOMEM;
+		}
 	}
+	slot = ri->slot_count;
 	*fdi = slot;
 
 	if (idm_set(&ri->fd_index, fd, fdi) < 0) {
-		ri->active_fds--;
 		free(fdi);
 		return ENOMEM;
 	}
@@ -5115,6 +5097,8 @@ static int repoll_ctl_add(struct repoll_info *ri, int fd,
 	ri->fds[slot].events = epoll_to_poll_events(event->events);
 	ri->fds[slot].revents = 0;
 	memcpy(&ri->user_data[slot], &event->data, sizeof(event->data));
+	ri->slot_count++;
+	ri->active_fds++;
 	return 0;
 }
 
@@ -5135,15 +5119,37 @@ static int repoll_ctl_mod(struct repoll_info *ri, int fd,
 
 static int repoll_ctl_del(struct repoll_info *ri, int fd)
 {
+	int *moved_fdi = NULL;
 	int *fdi = idm_lookup(&ri->fd_index, fd);
+	int moved_fd = -1;
+	int slot;
+	int last;
 
 	if (!fdi)
 		return ENOENT;
+	slot = *fdi;
+	last = ri->slot_count - 1;
+
+	if (slot != last) {
+		moved_fd = ri->fds[last].fd;
+		moved_fdi = idm_lookup(&ri->fd_index, moved_fd);
+		if (!moved_fdi)
+			return EINVAL;
+	}
 
 	idm_clear(&ri->fd_index, fd);
-	ri->fds[*fdi].fd = -fd;
-	ri->active_fds--;
 	free(fdi);
+	if (slot != last) {
+		ri->fds[slot] = ri->fds[last];
+		ri->user_data[slot] = ri->user_data[last];
+		*moved_fdi = slot;
+	}
+	ri->fds[last].fd = -1;
+	ri->fds[last].events = 0;
+	ri->fds[last].revents = 0;
+	memset(&ri->user_data[last], 0, sizeof(ri->user_data[last]));
+	ri->slot_count--;
+	ri->active_fds--;
 	return 0;
 }
 
@@ -5199,8 +5205,12 @@ static uint32_t poll_to_epoll_events(uint32_t poll_revents)
 
 static void repoll_wake_monitor(struct repoll_info *ri)
 {
-	atomic_store(&ri->monitor_state, REPOLL_MONITOR_RUNNING);
-	pthread_cond_signal(&ri->monitor_wake);
+	pthread_mutex_lock(&ri->lock);
+	if (atomic_load(&ri->monitor_state) == REPOLL_MONITOR_SLEEPING) {
+		atomic_store(&ri->monitor_state, REPOLL_MONITOR_RUNNING);
+		pthread_cond_signal(&ri->monitor_wake);
+	}
+	pthread_mutex_unlock(&ri->lock);
 }
 
 static int repoll_collect_events(struct repoll_info *ri,
@@ -5264,8 +5274,7 @@ int repoll_wait(int epfd, struct epoll_event *events, int maxevents,
 					    maxevents);
 		pthread_mutex_unlock(&ri->lock);
 	} else if (ret == 0) {
-		if (atomic_load(&ri->monitor_state) == REPOLL_MONITOR_SLEEPING)
-			repoll_wake_monitor(ri);
+		repoll_wake_monitor(ri);
 	}
 
 	free(local_fds);
