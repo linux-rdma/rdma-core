@@ -195,13 +195,21 @@ cdef class EfaQPInitAttr(PyverbsObject):
     def sl(self,val):
         self.qp_init_attr.sl = val
 
+    @property
+    def wr_flags(self):
+        return self.qp_init_attr.wr_flags
+
+    @wr_flags.setter
+    def wr_flags(self, val):
+        self.qp_init_attr.wr_flags = val
+
 
 cdef class SRDQPEx(QPEx):
     """
     Initializes an SRD QPEx according to the user-provided data.
     :param ctx: Context object
-    :param init_attr: QPInitAttrEx object
-    :param dv_init_attr: EFAQPInitAttr object
+    :param attr_ex: QPInitAttrEx object
+    :param efa_init_attr: EFAQPInitAttr object
     :return: An initialized SRDQPEx
     """
     def __init__(self, Context ctx not None, QPInitAttrEx attr_ex not None, EfaQPInitAttr efa_init_attr not None):
@@ -215,12 +223,16 @@ cdef class SRDQPEx(QPEx):
             pd=<PD>attr_ex.pd
             pd.add_ref(self)
         super().__init__(ctx, attr_ex)
+        self.dv_qp = dv.efadv_qp_from_ibv_qp_ex(self.qp_ex)
 
     def _get_comp_mask(self, dst):
         srd_mask = {'INIT': ibv_qp_attr_mask.IBV_QP_PKEY_INDEX | ibv_qp_attr_mask.IBV_QP_PORT | ibv_qp_attr_mask.IBV_QP_QKEY,
                     'RTR': 0,
                     'RTS': ibv_qp_attr_mask.IBV_QP_SQ_PSN}
         return srd_mask [dst] | ibv_qp_attr_mask.IBV_QP_STATE
+
+    def wr_set_processing_hints(self, hints):
+        dv.efadv_wr_set_processing_hints(self.dv_qp, hints)
 
 
 cdef class EfaDVCQInitAttr(PyverbsObject):

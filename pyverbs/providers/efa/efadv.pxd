@@ -33,7 +33,7 @@ cdef class SRDQP(QP):
 
 
 cdef class SRDQPEx(QPEx):
-    pass
+    cdef dv.efadv_qp *dv_qp
 
 
 cdef class EfaQPInitAttr(PyverbsObject):

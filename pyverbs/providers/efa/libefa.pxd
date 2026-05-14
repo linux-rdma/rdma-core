@@ -31,7 +31,11 @@ cdef extern from 'infiniband/efadv.h':
         uint32_t driver_qp_type;
         uint16_t flags;
         uint8_t sl;
-        uint8_t reserved[1];
+        uint8_t reserved;
+        uint64_t wr_flags;
+
+    cdef struct efadv_qp:
+        uint64_t comp_mask;
 
     cdef struct efadv_cq_init_attr:
         uint64_t comp_mask;
@@ -68,6 +72,8 @@ cdef extern from 'infiniband/efadv.h':
                                  v.ibv_qp_init_attr_ex *attr_ex,
                                  efadv_qp_init_attr *efa_attr,
                                  uint32_t inlen)
+    efadv_qp *efadv_qp_from_ibv_qp_ex(v.ibv_qp_ex *ibvqpx)
+    void efadv_wr_set_processing_hints(efadv_qp *efadv_qp, uint32_t hints)
     v.ibv_cq_ex *efadv_create_cq(v.ibv_context *ibvctx,
                                  v.ibv_cq_init_attr_ex *attr_ex,
                                  efadv_cq_init_attr *efa_attr,

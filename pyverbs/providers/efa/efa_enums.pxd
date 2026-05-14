@@ -20,6 +20,12 @@ cdef extern from 'infiniband/efadv.h':
         EFADV_QP_FLAGS_INLINE_WRITE
 
     cpdef enum:
+        EFADV_WR_EX_WITH_PROCESSING_HINTS
+
+    cpdef enum:
+        EFADV_WR_PROCESSING_HINT_BURST_PPS_SENSITIVE
+
+    cpdef enum:
         EFADV_WC_EX_WITH_SGID
         EFADV_WC_EX_WITH_IS_UNSOLICITED
 
