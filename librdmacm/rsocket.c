@@ -4797,13 +4797,19 @@ struct repoll_info {
 static struct index_map repoll_idm;
 
 static int repoll_monitor_refresh_fds(struct repoll_info *ri,
-				      struct pollfd **fds, int *nfds)
+				      struct pollfd **fds, int *fds_cap,
+				      int *nfds)
 {
-	free(*fds);
-	*fds = malloc(sizeof(**fds) * ri->capacity);
-	if (!*fds)
-		return -1;
-	memcpy(*fds, ri->fds, sizeof(**fds) * ri->capacity);
+	struct pollfd *new_fds;
+
+	if (*fds_cap < ri->capacity) {
+		new_fds = realloc(*fds, sizeof(**fds) * ri->capacity);
+		if (!new_fds)
+			return -1;
+		*fds = new_fds;
+		*fds_cap = ri->capacity;
+	}
+	memcpy(*fds, ri->fds, sizeof(**fds) * ri->slot_count);
 	*nfds = ri->slot_count;
 	return 0;
 }
@@ -4857,10 +4863,11 @@ static void *repoll_monitor_fn(void *arg)
 {
 	struct repoll_info *ri = arg;
 	struct pollfd *fds = NULL;
+	int fds_cap = 0;
 	int nfds;
 	int state;
 
-	if (repoll_monitor_refresh_fds(ri, &fds, &nfds)) {
+	if (repoll_monitor_refresh_fds(ri, &fds, &fds_cap, &nfds)) {
 		atomic_store(&ri->monitor_state, REPOLL_MONITOR_SLEEPING);
 		return NULL;
 	}
@@ -4877,14 +4884,16 @@ static void *repoll_monitor_fn(void *arg)
 		if (repoll_monitor_has_user_events(fds, nfds)) {
 			if (repoll_monitor_sleep(ri))
 				break;
-			if (repoll_monitor_refresh_fds(ri, &fds, &nfds))
+			if (repoll_monitor_refresh_fds(ri, &fds, &fds_cap,
+						       &nfds))
 				break;
 			continue;
 		}
 
 		switch (repoll_monitor_read_cmd(fds)) {
 		case REPOLL_CMD_REFRESH_FDS:
-			if (repoll_monitor_refresh_fds(ri, &fds, &nfds))
+			if (repoll_monitor_refresh_fds(ri, &fds, &fds_cap,
+						       &nfds))
 				goto out;
 			repoll_monitor_ack_reload(ri);
 			break;
