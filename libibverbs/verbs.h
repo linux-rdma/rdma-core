@@ -587,6 +587,8 @@ enum ibv_wc_flags {
 	IBV_WC_TM_SYNC_REQ	= 1 << 4,
 	IBV_WC_TM_MATCH		= 1 << 5,
 	IBV_WC_TM_DATA_VALID	= 1 << 6,
+	IBV_WC_WITH_NETWORK_HDR_TYPE = 1 << 7,
+	IBV_WC_NETWORK_HDR_IPV6 = 1 << 8,
 };
 
 struct ibv_wc {
