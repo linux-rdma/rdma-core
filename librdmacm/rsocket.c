@@ -4902,13 +4902,6 @@ out:
 	return NULL;
 }
 
-static void repoll_stop_monitor(struct repoll_info *ri)
-{
-	atomic_store(&ri->monitor_lifecycle, REPOLL_MONITOR_LIFECYCLE_STOPPED);
-	pthread_cond_signal(&ri->monitor_wake);
-	pthread_join(ri->monitor, NULL);
-}
-
 static int repoll_alloc_fd_arrays(struct repoll_info *ri)
 {
 	ri->capacity = REPOLL_INIT_FD_CAP;
@@ -4947,7 +4940,8 @@ static int repoll_start_monitor(struct repoll_info *ri)
 {
 	int ret;
 
-	atomic_store(&ri->monitor_lifecycle, REPOLL_MONITOR_LIFECYCLE_ACTIVE);
+	atomic_store(&ri->monitor_lifecycle,
+		     REPOLL_MONITOR_LIFECYCLE_ACTIVE);
 	atomic_store(&ri->monitor_state, REPOLL_MONITOR_STARTING);
 
 	ret = pthread_create(&ri->monitor, NULL, repoll_monitor_fn, ri);
@@ -4984,19 +4978,21 @@ int repoll_create(int flags)
 	if (repoll_setup_cmd_pipe(ri))
 		goto fail_comm;
 
-	if (repoll_start_monitor(ri))
-		goto fail_thread;
-
 	pthread_mutex_lock(&mut);
 	ret = idm_set(&repoll_idm, ri->epfd, ri);
 	pthread_mutex_unlock(&mut);
 	if (ret < 0)
-		goto fail_idm;
+		goto fail_thread;
+
+	if (repoll_start_monitor(ri))
+		goto fail_monitor;
 
 	return ri->epfd;
 
-fail_idm:
-	repoll_stop_monitor(ri);
+fail_monitor:
+	pthread_mutex_lock(&mut);
+	idm_clear(&repoll_idm, ri->epfd);
+	pthread_mutex_unlock(&mut);
 fail_thread:
 	close(ri->cmd_pipe[0]);
 	close(ri->cmd_pipe[1]);
