@@ -4823,7 +4823,7 @@ static int repoll_monitor_has_user_events(struct pollfd *fds, int nfds)
 	return 0;
 }
 
-static int repoll_monitor_sleep(struct repoll_info *ri)
+static void repoll_monitor_sleep(struct repoll_info *ri)
 {
 	sched_yield();
 	atomic_store(&ri->monitor_state, REPOLL_MONITOR_SLEEPING);
@@ -4833,10 +4833,6 @@ static int repoll_monitor_sleep(struct repoll_info *ri)
 		       REPOLL_MONITOR_LIFECYCLE_ACTIVE)
 		pthread_cond_wait(&ri->monitor_wake, &ri->lock);
 	pthread_mutex_unlock(&ri->lock);
-	return atomic_load(&ri->monitor_lifecycle) ==
-		       REPOLL_MONITOR_LIFECYCLE_ACTIVE
-		       ? 0
-		       : -1;
 }
 
 static int repoll_monitor_read_cmd(struct pollfd *fds)
@@ -4882,8 +4878,7 @@ static void *repoll_monitor_fn(void *arg)
 			continue;
 
 		if (repoll_monitor_has_user_events(fds, nfds)) {
-			if (repoll_monitor_sleep(ri))
-				break;
+			repoll_monitor_sleep(ri);
 			if (repoll_monitor_refresh_fds(ri, &fds, &fds_cap,
 						       &nfds))
 				break;
