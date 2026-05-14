@@ -81,6 +81,11 @@ enum repoll_monitor_state {
 	REPOLL_MONITOR_RELOADED,
 };
 
+enum repoll_monitor_lifecycle {
+	REPOLL_MONITOR_LIFECYCLE_STOPPED,
+	REPOLL_MONITOR_LIFECYCLE_ACTIVE,
+};
+
 static struct index_map idm;
 static pthread_mutex_t mut = PTHREAD_MUTEX_INITIALIZER;
 static pthread_mutex_t svc_mut = PTHREAD_MUTEX_INITIALIZER;
@@ -4786,7 +4791,7 @@ struct repoll_info {
 	uint16_t capacity;
 
 	_Atomic(int) monitor_state;
-	_Atomic(int) monitor_running;
+	_Atomic(int) monitor_lifecycle;
 };
 
 static struct index_map repoll_idm;
@@ -4818,10 +4823,14 @@ static int repoll_monitor_sleep(struct repoll_info *ri)
 	atomic_store(&ri->monitor_state, REPOLL_MONITOR_SLEEPING);
 	pthread_mutex_lock(&ri->lock);
 	while (atomic_load(&ri->monitor_state) == REPOLL_MONITOR_SLEEPING &&
-	       atomic_load(&ri->monitor_running))
+	       atomic_load(&ri->monitor_lifecycle) ==
+		       REPOLL_MONITOR_LIFECYCLE_ACTIVE)
 		pthread_cond_wait(&ri->monitor_wake, &ri->lock);
 	pthread_mutex_unlock(&ri->lock);
-	return atomic_load(&ri->monitor_running) ? 0 : -1;
+	return atomic_load(&ri->monitor_lifecycle) ==
+		       REPOLL_MONITOR_LIFECYCLE_ACTIVE
+		       ? 0
+		       : -1;
 }
 
 static int repoll_monitor_read_cmd(struct pollfd *fds)
@@ -4860,7 +4869,8 @@ static void *repoll_monitor_fn(void *arg)
 	atomic_compare_exchange_strong(&ri->monitor_state, &state,
 				       REPOLL_MONITOR_RUNNING);
 
-	while (atomic_load(&ri->monitor_running)) {
+	while (atomic_load(&ri->monitor_lifecycle) ==
+	       REPOLL_MONITOR_LIFECYCLE_ACTIVE) {
 		if (rpoll(fds, nfds, -1) <= 0)
 			continue;
 
@@ -4890,7 +4900,7 @@ out:
 
 static void repoll_stop_monitor(struct repoll_info *ri)
 {
-	atomic_store(&ri->monitor_running, 0);
+	atomic_store(&ri->monitor_lifecycle, REPOLL_MONITOR_LIFECYCLE_STOPPED);
 	pthread_cond_signal(&ri->monitor_wake);
 	pthread_join(ri->monitor, NULL);
 }
@@ -4933,7 +4943,7 @@ static int repoll_start_monitor(struct repoll_info *ri)
 {
 	int ret;
 
-	atomic_store(&ri->monitor_running, 1);
+	atomic_store(&ri->monitor_lifecycle, REPOLL_MONITOR_LIFECYCLE_ACTIVE);
 	atomic_store(&ri->monitor_state, REPOLL_MONITOR_STARTING);
 
 	ret = pthread_create(&ri->monitor, NULL, repoll_monitor_fn, ri);
