@@ -87,12 +87,17 @@ enum {
 	EFADV_QP_FLAGS_INLINE_WRITE = 1 << 1,
 };
 
+enum {
+	EFADV_WR_EX_WITH_PROCESSING_HINTS = 1 << 0,
+};
+
 struct efadv_qp_init_attr {
 	uint64_t comp_mask;
 	uint32_t driver_qp_type;
 	uint16_t flags;
 	uint8_t sl;
 	uint8_t reserved;
+	uint64_t wr_flags;
 };
 
 struct ibv_qp *efadv_create_qp_ex(struct ibv_context *ibvctx,
@@ -113,11 +118,21 @@ struct efadv_wq_attr {
 int efadv_query_qp_wqs(struct ibv_qp *ibvqp, struct efadv_wq_attr *sq_attr,
 		       struct efadv_wq_attr *rq_attr, uint32_t inlen);
 
-struct efadv_cq {
-	uint64_t comp_mask;
-	int (*wc_read_sgid)(struct efadv_cq *efadv_cq, union ibv_gid *sgid);
-	bool (*wc_is_unsolicited)(struct efadv_cq *efadv_cq);
+enum efadv_wr_processing_hint {
+	EFADV_WR_PROCESSING_HINT_BURST_PPS_SENSITIVE = 1 << 0,
 };
+
+struct efadv_qp {
+	uint64_t comp_mask;
+	void (*wr_set_processing_hints)(struct efadv_qp *efadv_qp, uint32_t hints);
+};
+
+struct efadv_qp *efadv_qp_from_ibv_qp_ex(struct ibv_qp_ex *ibvqpx);
+
+static inline void efadv_wr_set_processing_hints(struct efadv_qp *efadv_qp, uint32_t hints)
+{
+	efadv_qp->wr_set_processing_hints(efadv_qp, hints);
+}
 
 enum {
 	EFADV_WC_EX_WITH_SGID = 1 << 0,
@@ -155,6 +170,12 @@ struct efadv_cq_attr {
 };
 
 int efadv_query_cq(struct ibv_cq *ibvcq, struct efadv_cq_attr *attr, uint32_t inlen);
+
+struct efadv_cq {
+	uint64_t comp_mask;
+	int (*wc_read_sgid)(struct efadv_cq *efadv_cq, union ibv_gid *sgid);
+	bool (*wc_is_unsolicited)(struct efadv_cq *efadv_cq);
+};
 
 struct efadv_cq *efadv_cq_from_ibv_cq_ex(struct ibv_cq_ex *ibvcqx);
 
