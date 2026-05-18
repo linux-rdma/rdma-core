@@ -1777,8 +1777,9 @@ static void efa_unlock_cqs(struct ibv_qp *ibvqp)
 	}
 }
 
-static void efa_qp_fill_wr_pfns(struct ibv_qp_ex *ibvqpx,
+static void efa_qp_fill_wr_pfns(struct efa_qp *qp,
 				struct ibv_qp_init_attr_ex *attr_ex,
+				struct efadv_qp_init_attr *efa_attr,
 				uint16_t wqe_size);
 
 static int efa_check_qp_attr(struct efa_context *ctx,
@@ -1851,6 +1852,12 @@ static int efa_check_qp_attr(struct efa_context *ctx,
 				  attr->send_ops_flags, supp_send_ops_mask);
 			return EOPNOTSUPP;
 		}
+	}
+
+	if (!check_comp_mask(efa_attr->wr_flags, EFADV_WR_EX_WITH_PROCESSING_HINTS)) {
+		verbs_err(&ctx->ibvctx, "Unsupported wr_flags[%" PRIx64 "]\n",
+			  efa_attr->wr_flags);
+		return EOPNOTSUPP;
 	}
 
 	if (!attr->recv_cq || !attr->send_cq) {
@@ -1983,7 +1990,7 @@ static struct ibv_qp *create_qp(struct ibv_context *ibvctx,
 	pthread_spin_unlock(&ctx->qp_table_lock);
 
 	if (attr->comp_mask & IBV_QP_INIT_ATTR_SEND_OPS_FLAGS) {
-		efa_qp_fill_wr_pfns(&qp->verbs_qp.qp_ex, attr, qp->sq.wqe_size);
+		efa_qp_fill_wr_pfns(qp, attr, efa_attr, qp->sq.wqe_size);
 		qp->verbs_qp.comp_mask |= VERBS_QP_EX;
 	}
 
@@ -2183,6 +2190,13 @@ int efa_query_qp_data_in_order(struct ibv_qp *ibvqp, enum ibv_wr_opcode op,
 		caps |= IBV_QUERY_QP_DATA_IN_ORDER_ALIGNED_128_BYTES;
 
 	return caps;
+}
+
+struct efadv_qp *efadv_qp_from_ibv_qp_ex(struct ibv_qp_ex *ibvqpx)
+{
+	struct efa_qp *qp = to_efa_qp_ex(ibvqpx);
+
+	return &qp->dv_qp;
 }
 
 int efa_destroy_qp(struct ibv_qp *ibvqp)
@@ -2912,6 +2926,20 @@ static void efa_send_wr_set_addr(struct ibv_qp_ex *ibvqpx,
 			efa_wqe_get_data_length(qp->sq));
 }
 
+static void efa_send_wr_set_processing_hints(struct efadv_qp *efadv_qp, uint32_t hints)
+{
+	struct efa_qp *qp = efadv_qp_to_efa_qp(efadv_qp);
+	uint8_t wqe_hints = 0;
+
+	if (unlikely(qp->wr_session_err))
+		return;
+
+	if (hints & EFADV_WR_PROCESSING_HINT_BURST_PPS_SENSITIVE)
+		wqe_hints |= EFA_IO_PROCESSING_HINT_BURST_PPS_SENSITIVE;
+
+	EFA_SET(&qp->sq.curr_tx_wqe.md->ctrl3, EFA_IO_TX_META_DESC_PROCESSING_HINTS, wqe_hints);
+}
+
 static void efa_send_wr_start(struct ibv_qp_ex *ibvqpx)
 {
 	struct efa_qp *qp = to_efa_qp_ex(ibvqpx);
@@ -3012,11 +3040,13 @@ static void efa_send_wr_abort(struct ibv_qp_ex *ibvqpx)
 		pthread_spin_unlock(&sq->wq.wqlock);
 }
 
-static void efa_qp_fill_wr_pfns(struct ibv_qp_ex *ibvqpx,
+static void efa_qp_fill_wr_pfns(struct efa_qp *qp,
 				struct ibv_qp_init_attr_ex *attr_ex,
+				struct efadv_qp_init_attr *efa_attr,
 				uint16_t wqe_size)
 {
 	bool use_64 = wqe_size == EFA_IO_TX_DESC_SIZE_64;
+	struct ibv_qp_ex *ibvqpx = &qp->verbs_qp.qp_ex;
 
 	ibvqpx->wr_start = efa_send_wr_start;
 	ibvqpx->wr_complete = efa_send_wr_complete;
@@ -3045,6 +3075,9 @@ static void efa_qp_fill_wr_pfns(struct ibv_qp_ex *ibvqpx,
 	ibvqpx->wr_set_sge = efa_send_wr_set_sge;
 	ibvqpx->wr_set_sge_list = efa_send_wr_set_sge_list;
 	ibvqpx->wr_set_ud_addr = efa_send_wr_set_addr;
+
+	if (efa_attr->wr_flags & EFADV_WR_EX_WITH_PROCESSING_HINTS)
+		qp->dv_qp.wr_set_processing_hints = efa_send_wr_set_processing_hints;
 }
 
 static int efa_post_recv_validate(struct efa_qp *qp, struct ibv_recv_wr *wr)

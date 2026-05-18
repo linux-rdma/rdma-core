@@ -175,6 +175,7 @@ struct efa_sq {
 
 struct efa_qp {
 	struct verbs_qp verbs_qp;
+	struct efadv_qp dv_qp;
 	struct efa_sq sq;
 	struct efa_rq rq;
 	int page_size;
@@ -237,6 +238,11 @@ static inline struct efa_qp *to_efa_qp(struct ibv_qp *ibvqp)
 static inline struct efa_qp *to_efa_qp_ex(struct ibv_qp_ex *ibvqpx)
 {
 	return container_of(ibvqpx, struct efa_qp, verbs_qp.qp_ex);
+}
+
+static inline struct efa_qp *efadv_qp_to_efa_qp(struct efadv_qp *efadv_qp)
+{
+	return container_of(efadv_qp, struct efa_qp, dv_qp);
 }
 
 static inline struct efa_ah *to_efa_ah(struct ibv_ah *ibvah)

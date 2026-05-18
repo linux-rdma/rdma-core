@@ -35,3 +35,8 @@ EFA_1.5 {
 		efadv_get_max_sq_depth;
 		efadv_get_max_rq_depth;
 } EFA_1.4;
+
+EFA_1.6 {
+	global:
+		efadv_qp_from_ibv_qp_ex;
+} EFA_1.5;
