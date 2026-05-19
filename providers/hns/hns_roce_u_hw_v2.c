@@ -2385,9 +2385,12 @@ static void wr_set_sge_ud(struct ibv_qp_ex *ibv_qp, uint32_t lkey,
 		return;
 
 	wqe->msg_len = htole32(length);
-	hr_reg_write(wqe, UDWQE_SGE_NUM, 1);
+	hr_reg_write(wqe, UDWQE_SGE_NUM, !!length);
 	sge_idx = qp->sge_info.start_idx & (qp->ex_sge.sge_cnt - 1);
 	hr_reg_write(wqe, UDWQE_MSG_START_SGE_IDX, sge_idx);
+
+	if (!length)
+		goto out;
 
 	dseg = get_send_sge_ex(qp, sge_idx);
 
@@ -2396,6 +2399,8 @@ static void wr_set_sge_ud(struct ibv_qp_ex *ibv_qp, uint32_t lkey,
 	dseg->len = htole32(length);
 
 	qp->sge_info.start_idx++;
+out:
+	return;
 }
 
 static void wr_set_sge_list_ud(struct ibv_qp_ex *ibv_qp, size_t num_sge,
