@@ -2549,9 +2549,12 @@ static void wr_set_sge_ud(struct ibv_qp_ex *ibv_qp, uint32_t lkey,
 		return;
 
 	wqe->msg_len = htole32(length);
-	hr_reg_write(wqe, UDWQE_SGE_NUM, 1);
+	hr_reg_write(wqe, UDWQE_SGE_NUM, !!length);
 	sge_idx = qp->sge_info.start_idx & (qp->ex_sge.sge_cnt - 1);
 	hr_reg_write(wqe, UDWQE_MSG_START_SGE_IDX, sge_idx);
+
+	if (!length)
+		goto out;
 
 	dseg = get_send_sge_ex(qp, sge_idx);
 
@@ -2561,6 +2564,7 @@ static void wr_set_sge_ud(struct ibv_qp_ex *ibv_qp, uint32_t lkey,
 
 	qp->sge_info.start_idx++;
 
+out:
 	rdma_tracepoint(rdma_core_hns, post_send,
 			ibv_qp->qp_base.context->device->name, ibv_qp->wr_id,
 			1, ibv_qp->qp_base.qp_num,
