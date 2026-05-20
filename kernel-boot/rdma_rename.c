@@ -5,6 +5,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <libgen.h>
+#include <limits.h>
 #include <stdbool.h>
 #include <errno.h>
 #include <unistd.h>
@@ -41,6 +42,14 @@
  *  pci = 0000:00:0c.4
  *  Device type = IB
  *  mlx5_0 -> ibp0s12f4
+ * NAME_PCI with sub-function (SF)
+ *  parent pci = 0000:c1:00.0, sfnum = 88
+ *  Device type = RoCE
+ *  mlx5_5 -> rocep193s0f0S88
+ * NAME_PCI with SF on SR-IOV VF (VF-SF)
+ *  parent pci = 0000:c1:00.4 (VF of 0000:c1:00.0), sfnum = 99
+ *  Device type = RoCE
+ *  mlx5_6 -> rocep193s0f0v0S99
  * NAME_GUID
  *  GUID = 5254:00c0:fe12:3455
  *  Device type = RoCE
@@ -245,8 +254,81 @@ struct pci_info {
 	unsigned int func;
 	unsigned int sun;
 	unsigned int vf;
+	unsigned int sfnum;
 	bool valid_vf;
+	bool valid_sf;
 };
+
+/*
+ * If the ibdev's parent (the "device" symlink) is an auxiliary device that
+ * carries a stable 'sfnum' attribute, this is a sub-function (SF) host RDMA
+ * device. Read sfnum, then re-point p->pcidev at /sys/bus/pci/devices/<BDF>
+ * of the aux device's PCI parent so that the rest of by_pci() (i.e.
+ * get_virtfn_info(), fill_pci_info() and the name composition) proceeds
+ * unchanged. The PCI parent can be a PF or an SR-IOV VF; both layouts
+ * are handled by the same code path.
+ */
+static int detect_sf(struct data *d, struct pci_info *p)
+{
+	char real_path[PATH_MAX];
+	char *sfnum_path = NULL;
+	char *device_path = NULL;
+	char *last_slash, *bdf;
+	unsigned int sfnum;
+	FILE *fp;
+	int ret;
+
+	ret = asprintf(&sfnum_path,
+		       "/sys/class/infiniband/%s/device/sfnum", d->curr);
+	if (ret < 0)
+		return -ENOMEM;
+
+	fp = fopen(sfnum_path, "r");
+	free(sfnum_path);
+	if (!fp) {
+		/* Auxiliary parent without 'sfnum'; not an SF we recognize. */
+		pr_dbg("%s: Auxiliary parent has no 'sfnum' attribute\n",
+		       d->curr);
+		return -EINVAL;
+	}
+
+	if (fscanf(fp, "%u", &sfnum) != 1) {
+		fclose(fp);
+		return -EINVAL;
+	}
+	fclose(fp);
+
+	ret = asprintf(&device_path, "/sys/class/infiniband/%s/device",
+		       d->curr);
+	if (ret < 0)
+		return -ENOMEM;
+
+	/* The 'device' symlink target is relative (e.g. "../../../<driver>.sf.<id>")
+	 * and does not itself encode the PCI BDF. Resolve it to its absolute,
+	 * canonical form so the path's parent directory exposes the BDF. */
+	if (!realpath(device_path, real_path)) {
+		free(device_path);
+		return -EINVAL;
+	}
+	free(device_path);
+
+	/* Strip the trailing aux-device component to expose the PCI parent. */
+	last_slash = strrchr(real_path, '/');
+	if (!last_slash || last_slash == real_path)
+		return -EINVAL;
+	*last_slash = 0;
+
+	bdf = basename(real_path);
+	ret = asprintf(&p->pcidev, "/sys/bus/pci/devices/%s", bdf);
+	if (ret < 0) {
+		p->pcidev = NULL;
+		return -ENOMEM;
+	}
+
+	p->valid_sf = true;
+	p->sfnum = sfnum;
+	return 0;
+}
 
 static int fill_pci_info(struct data *d, struct pci_info *p)
 {
@@ -379,18 +461,23 @@ static int by_pci(struct data *d)
 	buf[ret] = 0;
 
 	subs = basename(buf);
-	if (strcmp(subs, "pci")) {
+	if (!strcmp(subs, "auxiliary")) {
+		/* SFs sit one auxiliary hop below the underlying PCI function. */
+		ret = detect_sf(d, &p);
+		if (ret)
+			goto out;
+	} else if (!strcmp(subs, "pci")) {
+		ret = asprintf(&p.pcidev,
+			       "/sys/class/infiniband/%s/device", d->curr);
+		if (ret < 0) {
+			ret = -ENOMEM;
+			p.pcidev = NULL;
+			goto out;
+		}
+	} else {
 		/* Ball out virtual devices */
 		pr_dbg("%s: Non-PCI device (%s) was detected\n", d->curr, subs);
 		ret = -EINVAL;
-		goto out;
-	}
-
-	/* Real devices */
-	ret = asprintf(&p.pcidev, "/sys/class/infiniband/%s/device", d->curr);
-	if (ret < 0) {
-		ret = -ENOMEM;
-		p.pcidev = NULL;
 		goto out;
 	}
 
@@ -452,6 +539,23 @@ static int by_pci(struct data *d)
 			}
 			strcat(d->name, buf);
 		}
+	}
+
+	/*
+	 * SF identity is independent of any preceding f<func>/v<vf>
+	 * components, so append S<sfnum> last whenever it was set. For an SF
+	 * whose parent is a multi-function PF this yields
+	 * <prefix>p<bus>s<slot>f<func>S<sfnum>; for an SF on an SR-IOV VF
+	 * (VF-SF) the same rule yields
+	 * <prefix>p<bus>s<slot>f<func>v<vf>S<sfnum>.
+	 */
+	if (p.valid_sf) {
+		ret = sprintf(buf, "S%u", p.sfnum);
+		if (ret == -1) {
+			ret = -ENOMEM;
+			goto out;
+		}
+		strcat(d->name, buf);
 	}
 	ret = 0;
 out:

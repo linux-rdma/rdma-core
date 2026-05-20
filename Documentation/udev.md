@@ -190,6 +190,7 @@ Type of names:
  * s<slot>[f<function>] - hotplug slot index number
  * x<GUID> - Node GUID
  * [P<domain>]p<bus>s<slot>[f<function>] - PCI geographical location
+ * S<sfnum> - sub-function number, appended to the parent PCI device name
 
 Notes:
 
@@ -198,3 +199,5 @@ Notes:
  * When using PCI geography, The PCI domain is only prepended when it is not 0.
  * SR-IOV virtual devices are named based on the name of the parent interface,
  with a suffix of "v<N>", where <N> is the virtual device number.
+ * Sub-functions (SFs) are named based on the name of their parent PCI device,
+ with a suffix of "S<N>", where <N> is the kernel-exposed sfnum.
