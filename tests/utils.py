@@ -382,7 +382,7 @@ def get_qp_init_attr(cq, attr):
     return QPInitAttr(scq=cq, rcq=cq, cap=qp_cap, sq_sig_all=sig)
 
 
-def create_qp_ex(agr_obj, qp_type, send_flags):
+def create_qp_ex(agr_obj, qp_type, send_flags, sq_sig_all=0):
     if qp_type == ibv_qp_type.IBV_QPT_XRC_SEND:
         cap = QPCap(max_send_wr=agr_obj.num_msgs, max_recv_wr=0, max_recv_sge=0,
                     max_send_sge=1)
@@ -390,7 +390,8 @@ def create_qp_ex(agr_obj, qp_type, send_flags):
         cap = QPCap(max_send_wr=agr_obj.num_msgs, max_recv_wr=agr_obj.num_msgs,
                     max_recv_sge=1, max_send_sge=1)
     qia = QPInitAttrEx(cap=cap, qp_type=qp_type, scq=agr_obj.cq,
-                       rcq=agr_obj.cq, pd=agr_obj.pd, send_ops_flags=send_flags,
+                       rcq=agr_obj.cq, pd=agr_obj.pd, sq_sig_all=sq_sig_all,
+                       send_ops_flags=send_flags,
                        comp_mask=ibv_qp_init_attr_mask.IBV_QP_INIT_ATTR_PD |
                                  ibv_qp_init_attr_mask.IBV_QP_INIT_ATTR_SEND_OPS_FLAGS)
     qp_attr = QPAttr(port_num=agr_obj.ib_port)
