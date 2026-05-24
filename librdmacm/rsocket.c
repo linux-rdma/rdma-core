@@ -78,7 +78,6 @@ enum repoll_monitor_state {
 	REPOLL_MONITOR_SLEEPING,
 	REPOLL_MONITOR_STARTING,
 	REPOLL_MONITOR_RUNNING,
-	REPOLL_MONITOR_RELOADED,
 };
 
 enum repoll_monitor_lifecycle {
@@ -4789,6 +4788,9 @@ struct repoll_info {
 	uint16_t slot_count;
 	uint16_t active_fds;
 	uint16_t capacity;
+	uint32_t reload_gen;
+	uint32_t reload_ack;
+	uint32_t event_gen;
 
 	_Atomic(int) monitor_state;
 	_Atomic(int) monitor_lifecycle;
@@ -4823,18 +4825,6 @@ static int repoll_monitor_has_user_events(struct pollfd *fds, int nfds)
 	return 0;
 }
 
-static void repoll_monitor_sleep(struct repoll_info *ri)
-{
-	sched_yield();
-	atomic_store(&ri->monitor_state, REPOLL_MONITOR_SLEEPING);
-	pthread_mutex_lock(&ri->lock);
-	while (atomic_load(&ri->monitor_state) == REPOLL_MONITOR_SLEEPING &&
-	       atomic_load(&ri->monitor_lifecycle) ==
-		       REPOLL_MONITOR_LIFECYCLE_ACTIVE)
-		pthread_cond_wait(&ri->monitor_wake, &ri->lock);
-	pthread_mutex_unlock(&ri->lock);
-}
-
 static int repoll_monitor_read_cmd(struct pollfd *fds)
 {
 	int cmd, size;
@@ -4847,12 +4837,20 @@ static int repoll_monitor_read_cmd(struct pollfd *fds)
 	return cmd;
 }
 
+static void repoll_monitor_signal_events(struct repoll_info *ri)
+{
+	pthread_mutex_lock(&ri->lock);
+	ri->event_gen++;
+	pthread_cond_broadcast(&ri->monitor_wake);
+	pthread_mutex_unlock(&ri->lock);
+}
+
 static void repoll_monitor_ack_reload(struct repoll_info *ri)
 {
-	int state = REPOLL_MONITOR_RUNNING;
-
-	atomic_compare_exchange_strong(&ri->monitor_state, &state,
-				       REPOLL_MONITOR_RELOADED);
+	pthread_mutex_lock(&ri->lock);
+	ri->reload_ack = ri->reload_gen;
+	pthread_cond_broadcast(&ri->monitor_wake);
+	pthread_mutex_unlock(&ri->lock);
 }
 
 static void *repoll_monitor_fn(void *arg)
@@ -4874,18 +4872,13 @@ static void *repoll_monitor_fn(void *arg)
 
 	while (atomic_load(&ri->monitor_lifecycle) ==
 	       REPOLL_MONITOR_LIFECYCLE_ACTIVE) {
+		int cmd;
+
 		if (rpoll(fds, nfds, -1) <= 0)
 			continue;
 
-		if (repoll_monitor_has_user_events(fds, nfds)) {
-			repoll_monitor_sleep(ri);
-			if (repoll_monitor_refresh_fds(ri, &fds, &fds_cap,
-						       &nfds))
-				break;
-			continue;
-		}
-
-		switch (repoll_monitor_read_cmd(fds)) {
+		cmd = repoll_monitor_read_cmd(fds);
+		switch (cmd) {
 		case REPOLL_CMD_REFRESH_FDS:
 			if (repoll_monitor_refresh_fds(ri, &fds, &fds_cap,
 						       &nfds))
@@ -4895,6 +4888,9 @@ static void *repoll_monitor_fn(void *arg)
 		default:
 			break;
 		}
+
+		if (repoll_monitor_has_user_events(fds, nfds))
+			repoll_monitor_signal_events(ri);
 	}
 
 out:
@@ -4924,7 +4920,7 @@ static int repoll_setup_cmd_pipe(struct repoll_info *ri)
 {
 	int ret;
 
-	ret = pipe2(ri->cmd_pipe, O_DIRECT);
+	ret = pipe2(ri->cmd_pipe, O_DIRECT | O_NONBLOCK);
 	if (ret == -1)
 		return -1;
 
@@ -4956,6 +4952,7 @@ static int repoll_start_monitor(struct repoll_info *ri)
 int repoll_create(int flags)
 {
 	struct repoll_info *ri;
+	pthread_condattr_t cond_attr;
 	int pipefd[2];
 	int ret;
 
@@ -4973,7 +4970,10 @@ int repoll_create(int flags)
 	ri->epfd = pipefd[0];
 	ri->epfd_peer = pipefd[1];
 	pthread_mutex_init(&ri->lock, NULL);
-	pthread_cond_init(&ri->monitor_wake, NULL);
+	pthread_condattr_init(&cond_attr);
+	pthread_condattr_setclock(&cond_attr, CLOCK_MONOTONIC);
+	pthread_cond_init(&ri->monitor_wake, &cond_attr);
+	pthread_condattr_destroy(&cond_attr);
 
 	if (repoll_setup_cmd_pipe(ri))
 		goto fail_comm;
@@ -5048,22 +5048,34 @@ static int repoll_grow_fds(struct repoll_info *ri)
 	return 0;
 }
 
+static void repoll_wake_monitor_locked(struct repoll_info *ri)
+{
+	if (atomic_load(&ri->monitor_state) == REPOLL_MONITOR_SLEEPING &&
+	    atomic_load(&ri->monitor_lifecycle) ==
+		    REPOLL_MONITOR_LIFECYCLE_ACTIVE) {
+		atomic_store(&ri->monitor_state, REPOLL_MONITOR_RUNNING);
+		pthread_cond_signal(&ri->monitor_wake);
+	}
+}
+
 static void repoll_send_reload(struct repoll_info *ri)
 {
 	int cmd = REPOLL_CMD_REFRESH_FDS;
 	int size;
-	int state;
+	uint32_t pending;
 
-	if (atomic_load(&ri->monitor_state) == REPOLL_MONITOR_SLEEPING)
+	if (atomic_load(&ri->monitor_lifecycle) !=
+	    REPOLL_MONITOR_LIFECYCLE_ACTIVE)
+		return;
+
+	ri->reload_gen++;
+	repoll_wake_monitor_locked(ri);
+	pending = ri->reload_gen - ri->reload_ack;
+	if (pending > 1)
 		return;
 
 	size = write(ri->cmd_pipe[1], &cmd, sizeof(cmd));
 	(void)size;
-	state = REPOLL_MONITOR_RELOADED;
-	while (atomic_load(&ri->monitor_state) != REPOLL_MONITOR_SLEEPING &&
-	       !atomic_compare_exchange_weak(&ri->monitor_state, &state,
-					     REPOLL_MONITOR_RUNNING))
-		;
 }
 
 static int repoll_ctl_add(struct repoll_info *ri, int fd,
@@ -5183,7 +5195,8 @@ int repoll_ctl(int epfd, int op, int fd, struct epoll_event *event)
 		ret = EINVAL;
 	}
 
-	repoll_send_reload(ri);
+	if (!ret)
+		repoll_send_reload(ri);
 	pthread_mutex_unlock(&ri->lock);
 	return ret;
 }
@@ -5203,14 +5216,22 @@ static uint32_t poll_to_epoll_events(uint32_t poll_revents)
 	return epoll_events;
 }
 
-static void repoll_wake_monitor(struct repoll_info *ri)
+static int repoll_timeout_to_abs_ts(int timeout, struct timespec *abs_timeout)
 {
-	pthread_mutex_lock(&ri->lock);
-	if (atomic_load(&ri->monitor_state) == REPOLL_MONITOR_SLEEPING) {
-		atomic_store(&ri->monitor_state, REPOLL_MONITOR_RUNNING);
-		pthread_cond_signal(&ri->monitor_wake);
+	struct timespec now;
+	long timeout_nsec;
+
+	if (clock_gettime(CLOCK_MONOTONIC, &now))
+		return -1;
+
+	abs_timeout->tv_sec = now.tv_sec + timeout / 1000;
+	timeout_nsec = (timeout % 1000) * 1000000L;
+	abs_timeout->tv_nsec = now.tv_nsec + timeout_nsec;
+	if (abs_timeout->tv_nsec >= 1000000000L) {
+		abs_timeout->tv_sec++;
+		abs_timeout->tv_nsec -= 1000000000L;
 	}
-	pthread_mutex_unlock(&ri->lock);
+	return 0;
 }
 
 static int repoll_collect_events(struct repoll_info *ri,
@@ -5242,8 +5263,11 @@ int repoll_wait(int epfd, struct epoll_event *events, int maxevents,
 		int timeout)
 {
 	struct repoll_info *ri;
-	struct pollfd *local_fds;
+	struct timespec abs_timeout;
+	uint32_t seen_reload;
+	uint32_t seen_event;
 	int nfds, ret;
+	int wait_ret;
 
 	if (epfd < 0)
 		return EBADF;
@@ -5252,31 +5276,53 @@ int repoll_wait(int epfd, struct epoll_event *events, int maxevents,
 	if (!ri)
 		return EINVAL;
 
-	pthread_mutex_lock(&ri->lock);
-	nfds = ri->slot_count - 1;
-	if (nfds <= 0) {
-		pthread_mutex_unlock(&ri->lock);
-		return 0;
-	}
-	local_fds = malloc(sizeof(*local_fds) * nfds);
-	if (!local_fds) {
-		pthread_mutex_unlock(&ri->lock);
-		return ENOMEM;
-	}
-	memcpy(local_fds, ri->fds + 1, sizeof(*local_fds) * nfds);
-	pthread_mutex_unlock(&ri->lock);
+	if (timeout > 0 && repoll_timeout_to_abs_ts(timeout, &abs_timeout))
+		return errno ? errno : EINVAL;
 
-	ret = rpoll(local_fds, nfds, timeout);
-
-	if (ret > 0) {
+	do {
+		wait_ret = 0;
 		pthread_mutex_lock(&ri->lock);
-		ret = repoll_collect_events(ri, local_fds, nfds, events,
-					    maxevents);
-		pthread_mutex_unlock(&ri->lock);
-	} else if (ret == 0) {
-		repoll_wake_monitor(ri);
-	}
+		nfds = ri->slot_count - 1;
+		if (nfds <= 0) {
+			pthread_mutex_unlock(&ri->lock);
+			return 0;
+		}
 
-	free(local_fds);
-	return ret;
+		ret = rpoll(ri->fds + 1, nfds, 0);
+		if (ret > 0) {
+			ret = repoll_collect_events(ri, ri->fds + 1, nfds, events,
+						    maxevents);
+			pthread_mutex_unlock(&ri->lock);
+			return ret;
+		}
+
+		if (!timeout) {
+			pthread_mutex_unlock(&ri->lock);
+			return 0;
+		}
+
+		seen_reload = ri->reload_ack;
+		seen_event = ri->event_gen;
+		repoll_wake_monitor_locked(ri);
+		while (ri->reload_ack == seen_reload && ri->event_gen == seen_event &&
+		       atomic_load(&ri->monitor_lifecycle) ==
+			       REPOLL_MONITOR_LIFECYCLE_ACTIVE) {
+			if (timeout < 0) {
+				wait_ret = pthread_cond_wait(&ri->monitor_wake,
+						       &ri->lock);
+			} else {
+				wait_ret = pthread_cond_timedwait(&ri->monitor_wake,
+						&ri->lock, &abs_timeout);
+			}
+
+			if (wait_ret)
+				break;
+		}
+		pthread_mutex_unlock(&ri->lock);
+
+		if (wait_ret == ETIMEDOUT)
+			return 0;
+		if (wait_ret)
+			return wait_ret;
+	} while (1);
 }
