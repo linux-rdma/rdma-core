@@ -105,6 +105,14 @@ struct efa_cq {
 	struct efa_sub_cq sub_cq_arr[];
 };
 
+struct efa_comp_cntr {
+	struct ibv_comp_cntr ibv_comp_cntr;
+	uint64_t comp_val __attribute__((aligned(8)));
+	uint64_t err_val __attribute__((aligned(8)));
+	uint64_t *comp_ptr;
+	uint64_t *err_ptr;
+};
+
 struct efa_wq {
 	uint64_t *wrid;
 	/* wrid_idx_pool: Pool of free indexes in the wrid array, used to select the
@@ -228,6 +236,11 @@ static inline struct efa_cq *to_efa_cq_ex(struct ibv_cq_ex *ibvcqx)
 static inline struct efa_cq *efadv_cq_to_efa_cq(struct efadv_cq *efadv_cq)
 {
 	return container_of(efadv_cq, struct efa_cq, dv_cq);
+}
+
+static inline struct efa_comp_cntr *to_efa_comp_cntr(struct ibv_comp_cntr *ibvcc)
+{
+	return container_of(ibvcc, struct efa_comp_cntr, ibv_comp_cntr);
 }
 
 static inline struct efa_qp *to_efa_qp(struct ibv_qp *ibvqp)
