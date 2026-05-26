@@ -669,6 +669,47 @@ LATEST_SYMVER_FUNC(ibv_ack_cq_events, 1_1, "IBVERBS_1.1",
 	pthread_mutex_unlock(&cq->mutex);
 }
 
+struct ibv_comp_cntr *ibv_create_comp_cntr(struct ibv_context *context,
+					   struct ibv_comp_cntr_init_attr *cc_attr)
+{
+	return get_ops(context)->create_comp_cntr(context, cc_attr);
+}
+
+int ibv_destroy_comp_cntr(struct ibv_comp_cntr *comp_cntr)
+{
+	return get_ops(comp_cntr->context)->destroy_comp_cntr(comp_cntr);
+}
+
+int ibv_set_comp_cntr(struct ibv_comp_cntr *comp_cntr, uint64_t value)
+{
+	return get_ops(comp_cntr->context)->set_comp_cntr(comp_cntr, value);
+}
+
+int ibv_set_err_comp_cntr(struct ibv_comp_cntr *comp_cntr, uint64_t value)
+{
+	return get_ops(comp_cntr->context)->set_err_comp_cntr(comp_cntr, value);
+}
+
+int ibv_inc_comp_cntr(struct ibv_comp_cntr *comp_cntr, uint64_t amount)
+{
+	return get_ops(comp_cntr->context)->inc_comp_cntr(comp_cntr, amount);
+}
+
+int ibv_inc_err_comp_cntr(struct ibv_comp_cntr *comp_cntr, uint64_t amount)
+{
+	return get_ops(comp_cntr->context)->inc_err_comp_cntr(comp_cntr, amount);
+}
+
+int ibv_read_comp_cntr(struct ibv_comp_cntr *comp_cntr, uint64_t *value)
+{
+	return get_ops(comp_cntr->context)->read_comp_cntr(comp_cntr, value);
+}
+
+int ibv_read_err_comp_cntr(struct ibv_comp_cntr *comp_cntr, uint64_t *value)
+{
+	return get_ops(comp_cntr->context)->read_err_comp_cntr(comp_cntr, value);
+}
+
 LATEST_SYMVER_FUNC(ibv_create_srq, 1_1, "IBVERBS_1.1",
 		   struct ibv_srq *,
 		   struct ibv_pd *pd,
@@ -794,6 +835,12 @@ LATEST_SYMVER_FUNC(ibv_modify_qp, 1_1, "IBVERBS_1.1",
 		qp->state = attr->qp_state;
 
 	return 0;
+}
+
+int ibv_qp_attach_comp_cntr(struct ibv_qp *qp, struct ibv_comp_cntr *comp_cntr,
+			    struct ibv_qp_attach_comp_cntr_attr *attr)
+{
+	return get_ops(qp->context)->qp_attach_comp_cntr(qp, comp_cntr, attr);
 }
 
 LATEST_SYMVER_FUNC(ibv_destroy_qp, 1_1, "IBVERBS_1.1",

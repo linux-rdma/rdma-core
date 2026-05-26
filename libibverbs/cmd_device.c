@@ -694,6 +694,10 @@ int ibv_cmd_query_device_any(struct ibv_context *context,
 		else
 			attr->phys_port_cnt_ex = attr->orig_attr.phys_port_cnt;
 	}
+
+	if (CAN_COPY(max_comp_cntr, max_comp_cntr))
+		attr->max_comp_cntr = resp->max_comp_cntr;
+
 #undef CAN_COPY
 
 	return 0;

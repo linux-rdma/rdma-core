@@ -177,6 +177,19 @@ IBVERBS_1.16 {
 		ibv_query_port_speed;
 } IBVERBS_1.15;
 
+IBVERBS_1.17 {
+	global:
+		ibv_create_comp_cntr;
+		ibv_destroy_comp_cntr;
+		ibv_inc_comp_cntr;
+		ibv_inc_err_comp_cntr;
+		ibv_qp_attach_comp_cntr;
+		ibv_read_comp_cntr;
+		ibv_read_err_comp_cntr;
+		ibv_set_comp_cntr;
+		ibv_set_err_comp_cntr;
+} IBVERBS_1.16;
+
 /* If any symbols in this stanza change ABI then the entire staza gets a new symbol
    version. See the top level CMakeLists.txt for this setting. */
 
@@ -195,6 +208,7 @@ IBVERBS_PRIVATE_@IBVERBS_PABI_VERSION@ {
 		ibv_cmd_attach_mcast;
 		ibv_cmd_close_xrcd;
 		ibv_cmd_create_ah;
+		ibv_cmd_create_comp_cntr;
 		ibv_cmd_create_counters;
 		ibv_cmd_create_cq;
 		ibv_cmd_create_cq_ex;
@@ -212,6 +226,7 @@ IBVERBS_PRIVATE_@IBVERBS_PABI_VERSION@ {
 		ibv_cmd_dealloc_pd;
 		ibv_cmd_dereg_mr;
 		ibv_cmd_destroy_ah;
+		ibv_cmd_destroy_comp_cntr;
 		ibv_cmd_destroy_counters;
 		ibv_cmd_destroy_cq;
 		ibv_cmd_destroy_flow;
@@ -225,6 +240,8 @@ IBVERBS_PRIVATE_@IBVERBS_PABI_VERSION@ {
 		ibv_cmd_free_dm;
 		ibv_cmd_free_dmah;
 		ibv_cmd_get_context;
+		ibv_cmd_inc_comp_cntr;
+		ibv_cmd_inc_err_comp_cntr;
 		ibv_cmd_modify_cq;
 		ibv_cmd_modify_flow_action_esp;
 		ibv_cmd_modify_qp;
@@ -237,6 +254,7 @@ IBVERBS_PRIVATE_@IBVERBS_PABI_VERSION@ {
 		ibv_cmd_post_recv;
 		ibv_cmd_post_send;
 		ibv_cmd_post_srq_recv;
+		ibv_cmd_qp_attach_comp_cntr;
 		ibv_cmd_query_context;
 		ibv_cmd_query_device_any;
 		ibv_cmd_query_mr;
@@ -244,7 +262,9 @@ IBVERBS_PRIVATE_@IBVERBS_PABI_VERSION@ {
 		ibv_cmd_query_port_speed;
 		ibv_cmd_query_qp;
 		ibv_cmd_query_srq;
+		ibv_cmd_read_comp_cntr;
 		ibv_cmd_read_counters;
+		ibv_cmd_read_err_comp_cntr;
 		ibv_cmd_reg_dm_mr;
 		ibv_cmd_reg_dmabuf_mr;
 		ibv_cmd_reg_mr;
@@ -252,6 +272,8 @@ IBVERBS_PRIVATE_@IBVERBS_PABI_VERSION@ {
 		ibv_cmd_req_notify_cq;
 		ibv_cmd_rereg_mr;
 		ibv_cmd_resize_cq;
+		ibv_cmd_set_comp_cntr;
+		ibv_cmd_set_err_comp_cntr;
 		ibv_query_gid_type;
 		ibv_read_ibdev_sysfs_file;
 		ibv_wr_opcode_str;
