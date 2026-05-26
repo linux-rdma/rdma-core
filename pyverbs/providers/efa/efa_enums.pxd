@@ -11,6 +11,8 @@ cdef extern from 'infiniband/efadv.h':
         EFADV_DEVICE_ATTR_CAPS_CQ_WITH_SGID
         EFADV_DEVICE_ATTR_CAPS_RDMA_WRITE
         EFADV_DEVICE_ATTR_CAPS_UNSOLICITED_WRITE_RECV
+        EFADV_DEVICE_ATTR_CAPS_CQ_WITH_EXT_MEM_DMABUF
+        EFADV_DEVICE_ATTR_CAPS_COMP_CNTR
 
     cpdef enum:
         EFADV_QP_DRIVER_TYPE_SRD
@@ -36,3 +38,11 @@ cdef extern from 'infiniband/efadv.h':
 
     cpdef enum:
         EFADV_SQ_DEPTH_ATTR_INLINE_WRITE
+
+    cpdef enum:
+        EFADV_MEMORY_LOCATION_VA
+        EFADV_MEMORY_LOCATION_DMABUF
+
+    cpdef enum:
+        EFADV_COMP_CNTR_INIT_WITH_COMP_EXTERNAL_MEM
+        EFADV_COMP_CNTR_INIT_WITH_ERR_EXTERNAL_MEM

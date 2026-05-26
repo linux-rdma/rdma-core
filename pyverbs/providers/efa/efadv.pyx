@@ -6,12 +6,15 @@ cimport pyverbs.providers.efa.libefa as dv
 
 from pyverbs.addr cimport GID
 from pyverbs.base import PyverbsRDMAErrno, PyverbsRDMAError
+from pyverbs.comp_cntr cimport CompCntr, CompCntrInitAttr
 from pyverbs.cq cimport CQEX, CqInitAttrEx
 from pyverbs.libibverbs_enums import ibv_qp_attr_mask
 cimport pyverbs.libibverbs as v
 from pyverbs.pd cimport PD
 from pyverbs.qp cimport QP, QPEx, QPInitAttr, QPInitAttrEx
 from pyverbs.mr cimport MR
+from libc.string cimport memset
+from libc.stdint cimport uintptr_t, uint8_t
 
 
 def dev_cap_to_str(flags):
@@ -291,6 +294,50 @@ cdef class EfaCQ(CQEX):
         Check if current work completion is unsolicited.
         """
         return dv.efadv_wc_is_unsolicited(self.dv_cq)
+
+
+cdef class EfaCompCntrInitAttr(PyverbsObject):
+    """Represents efadv_comp_cntr_init_attr struct."""
+
+    def __init__(self):
+        super().__init__()
+        memset(&self.attr, 0, sizeof(self.attr))
+
+    @property
+    def flags(self):
+        return self.attr.flags
+
+    @flags.setter
+    def flags(self, val):
+        self.attr.flags = val
+
+    def set_comp_ext_mem_va(self, uintptr_t ptr):
+        self.attr.flags |= dve.EFADV_COMP_CNTR_INIT_WITH_COMP_EXTERNAL_MEM
+        self.attr.comp_cntr_ext_mem.type = dve.EFADV_MEMORY_LOCATION_VA
+        self.attr.comp_cntr_ext_mem.ptr = <uint8_t *>ptr
+
+    def set_err_ext_mem_va(self, uintptr_t ptr):
+        self.attr.flags |= dve.EFADV_COMP_CNTR_INIT_WITH_ERR_EXTERNAL_MEM
+        self.attr.err_cntr_ext_mem.type = dve.EFADV_MEMORY_LOCATION_VA
+        self.attr.err_cntr_ext_mem.ptr = <uint8_t *>ptr
+
+
+cdef class EfaCompCntr(CompCntr):
+    """
+    Initializes an EFA Completion Counter with EFA-specific options.
+    :param ctx: Context object
+    :param attr: CompCntrInitAttr object
+    :param efa_attr: EfaCompCntrInitAttr object
+    :return: An initialized EfaCompCntr
+    """
+    def __init__(self, Context ctx not None, CompCntrInitAttr attr not None,
+                 EfaCompCntrInitAttr efa_attr=None):
+        if efa_attr is None:
+            efa_attr = EfaCompCntrInitAttr()
+        self.comp_cntr = dv.efadv_create_comp_cntr(ctx.context, &attr.attr, &efa_attr.attr, sizeof(efa_attr.attr))
+        if self.comp_cntr == NULL:
+            raise PyverbsRDMAErrno('Failed to create EFA comp_cntr')
+        self.ctx = ctx
 
 
 cdef class EfaDVMRAttr(PyverbsObject):

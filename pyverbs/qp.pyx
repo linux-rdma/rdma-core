@@ -21,6 +21,7 @@ from pyverbs.addr cimport GlobalRoute
 from pyverbs.device cimport Context
 from cpython.ref cimport PyObject
 from pyverbs.cq cimport CQ, CQEX
+from pyverbs.comp_cntr cimport CompCntr, QPAttachCompCntrAttr
 cimport pyverbs.libibverbs as v
 from pyverbs.xrcd cimport XRCD
 from pyverbs.srq cimport SRQ
@@ -1168,6 +1169,18 @@ cdef class QP(PyverbsCM):
         rc = v.ibv_modify_qp(self.qp, &qp_attr.attr, comp_mask)
         if rc != 0:
             raise PyverbsRDMAError('Failed to modify QP', rc)
+
+    def attach_comp_cntr(self, CompCntr comp_cntr not None,
+                         QPAttachCompCntrAttr attr not None):
+        """
+        Attach a completion counter to this QP.
+        :param comp_cntr: The completion counter to attach
+        :param attr: Attach attributes including op_mask
+        """
+        rc = v.ibv_qp_attach_comp_cntr(self.qp, comp_cntr.comp_cntr,
+                                        &attr.attr)
+        if rc != 0:
+            raise PyverbsRDMAError('Failed to attach comp cntr to QP', rc)
 
     def post_recv(self, RecvWR wr not None, RecvWR bad_wr=None):
         """
