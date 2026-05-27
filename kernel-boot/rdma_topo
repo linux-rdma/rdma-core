@@ -18,6 +18,7 @@ import tempfile
 
 from abc import ABC, abstractmethod
 from base64 import b64encode, b64decode
+from enum import Enum
 from typing import *
 from zlib import compress, decompress
 
@@ -41,10 +42,43 @@ PCI_VPD_LRDT_RO   = 0x90  # VPD-R (Read-Only)
 
 
 class CommandError(Exception):
-    pass
+    class Level(Enum):
+        ERROR = "E"
+        WARNING = "W"
+
+    def __init__(self, reason: str, level: Level = Level.ERROR):
+        self.reason = reason
+        self.level = level
+        super().__init__(f"{level.value}: {reason}")
+
+    def __str__(self):
+        return f"{self.level.value}: {self.reason}"
 
 
-TOPO_NOT_SUPPORTED = CommandError("No supported topology detected")
+class TopoNotSupportedError(CommandError):
+    def __init__(self, reason: str = ""):
+        details = ""
+        if len(reason) > 0:
+            details = f": {reason}"
+        super().__init__(f"No supported topology detected{details}",
+                         CommandError.Level.ERROR)
+
+
+class TopoUnexpectedError(CommandError):
+    def __init__(self, reason: str = ""):
+        details = ""
+        if len(reason) > 0:
+            details = f": {reason}"
+        super().__init__(
+            (f"Unexpected topology structure{details}. Are you running on a "
+             "production system? If yes, please report this issue."),
+            CommandError.Level.ERROR,
+        )
+
+
+class DumpParsingError(CommandError):
+    def __init__(self, reason: str):
+        super().__init__(f"Malformed dump: {reason}", CommandError.Level.ERROR)
 
 
 def yesno(b: bool) -> str:
@@ -146,7 +180,7 @@ class SysfsDevice(object):
                 try:
                     obj.data[k] = decompress(b64decode(obj.data[k]))
                 except Exception as e:
-                    raise ValueError(f"Invalid encoded value for key '{k}': {e}")
+                    raise ValueError(f"Invalid encoded value for key '{k}': {e}") from e
 
         return obj
 
@@ -599,23 +633,23 @@ class NVCX_Inline_Complex(NVCX_Complex):
             for pdev in dsp.iterdownstream():
                 if pdev.device_type == "cx_nic":
                     if self.cx_pf_dsp is not None:
-                        raise ValueError(
-                            f"Multiple CX NIC DSPs under the same shared switch not supported"
+                        raise TopoNotSupportedError(
+                            f"Multiple CX NIC DSPs under the same shared switch"
                         )
                     self.cx_pf_dsp = dsp
                     break
                 if pdev.device_type == "nvgpu":
                     if self.nvgpu_dsp is not None:
-                        raise ValueError(
-                            f"Multiple GPU DSPs under the same shared switch not supported"
+                        raise TopoNotSupportedError(
+                            f"Multiple GPU DSPs under the same shared switch"
                         )
                     self.nvgpu_dsp = dsp
                     break
 
         if not self.cx_pf_dsp:
-            raise ValueError(f"CX NIC DSP not found in the topology")
+            raise TopoUnexpectedError(f"CX NIC DSP not found in the topology")
         if not self.nvgpu_dsp:
-            raise ValueError(f"GPU DSP not found in the topology")
+            raise TopoUnexpectedError(f"GPU DSP not found in the topology")
 
     @property
     def primary_nic(self) -> PCIDevice:
@@ -623,13 +657,13 @@ class NVCX_Inline_Complex(NVCX_Complex):
 
     def compute_acs(self, virt: Optional[bool]) -> Dict[PCIDevice, str]:
         if not self.cx_pf_dsp.has_acs:
-            raise CommandError(f"CX NIC DSP {self.cx_pf_dsp.bdf} lacks ACS")
+            raise TopoUnexpectedError(f"CX NIC DSP {self.cx_pf_dsp.bdf} lacks ACS")
         if not self.nvgpu_dsp.has_acs:
-            raise CommandError(f"GPU DSP {self.nvgpu_dsp.bdf} lacks ACS")
+            raise TopoUnexpectedError(f"GPU DSP {self.nvgpu_dsp.bdf} lacks ACS")
         if not self.root_port.has_acs:
-            raise CommandError(f"Root port {self.root_port.bdf} lacks ACS")
+            raise TopoUnexpectedError(f"Root port {self.root_port.bdf} lacks ACS")
         if virt is None:
-            raise CommandError("Unexpected: Could not determine virt mode")
+            raise TopoUnexpectedError("Could not determine virt mode")
 
         if virt:
             return {
@@ -772,6 +806,9 @@ def check_parent(pdev: PCIDevice, parent_type: str):
 
 class PCITopo(object):
     """Load the PCI topology from sysfs and organize it"""
+    class TopoType(Enum):
+        INLINE = "Inline"
+        DMA = "DMA-based"
 
     def __init__(
         self,
@@ -785,36 +822,36 @@ class PCITopo(object):
             sysfs_devices = [SysfsDevice(fn) for fn in os.listdir(DEVDIR)]
         self.devices = self.__load_devices(sysfs_devices)
         self.nvcxs: List[NVCX_Complex] = []
-        self.has_cx_dma = any(
-            pdev.device_type == "cx_dma" for pdev in self.devices.values()
-        )
-        self.has_gpu_and_nic = False
+        self.type = self.__detect_topo_type()
 
-        if self.has_cx_dma and virt is not None:
+        if self.type == self.TopoType.DMA and virt is not None:
             raise CommandError(
-                "--virt / --no-virt is not supported on DMA-based topologies"
+                f"--virt / --no-virt is not supported on {self.type.value} topologies"
             )
         self.virt = virt
         self._autodetect_virt = autodetect_virt
 
-        if not self.has_cx_dma:
-            found = {
-                "cx_switch": False,
-                "nvgpu": False,
-                "cx_nic": False,
-            }
-            for pdev in self.devices.values():
-                if pdev.device_type not in found.keys():
-                    continue
-                found[pdev.device_type] = True
-            self.has_gpu_and_nic = all(found.values())
-
-            if not self.has_gpu_and_nic:
-                return
-
         for pdev in self.devices.values():
             pdev.finish_loading()
         self.__build_topo()
+
+    def __detect_topo_type(self) -> TopoType:
+        if any(pdev.device_type == "cx_dma" for pdev in self.devices.values()):
+            return self.TopoType.DMA
+
+        found = {
+            "cx_switch": False,
+            "nvgpu": False,
+            "cx_nic": False,
+        }
+        for pdev in self.devices.values():
+            if pdev.device_type not in found.keys():
+                continue
+            found[pdev.device_type] = True
+        if all(found.values()):
+            return self.TopoType.INLINE
+
+        raise TopoNotSupportedError()
 
     def __parse_dump(self, filename: str) -> List[SysfsDevice]:
         res: List[SysfsDevice] = []
@@ -837,7 +874,7 @@ class PCITopo(object):
                     raise ValueError(f"Item {i}/{num_items}: {e}") from e
             return res
         except (json.JSONDecodeError, ValueError) as e:
-            raise CommandError(f"Invalid sysfs dump file: {e}")
+            raise DumpParsingError(str(e))
         except (FileNotFoundError, PermissionError) as e:
             raise CommandError(f"Failed to read sysfs dump file: {e}")
 
@@ -860,22 +897,21 @@ class PCITopo(object):
         """
         assert cx_dma.device_type == "cx_dma"
         if not cx_dma.vpd_v3:
-            raise ValueError(f"CX DMA function {cx_dma} does not have a VPD V3 UUID")
+            raise TopoUnexpectedError(f"CX DMA function {cx_dma} does not have a VPD V3 UUID")
 
         # The DMA and PF are matched using the UUID from the VPD
         cx_pfs = self.vpd_v3s.get(cx_dma.vpd_v3)
         if cx_pfs is None:
-            raise ValueError(
+            raise TopoUnexpectedError(
                 f"CX DMA function {cx_dma} does not have a matching PF, V3 UUID matching failed"
             )
-            return None
 
         # Path from the DMA to the root port
         cx_dma_dsp = check_parent(cx_dma, "cx_switch")
         cx_usp = check_parent(cx_dma_dsp, "cx_switch")
         grace_rp = check_parent(cx_usp, "grace_rp")
         if not grace_rp:
-            raise ValueError(
+            raise TopoUnexpectedError(
                 f"CX DMA function {cx_dma} has an unrecognized upstream path"
             )
 
@@ -884,13 +920,13 @@ class PCITopo(object):
             pdev for pdev in grace_rp.iterdownstream() if pdev.device_type == "nvgpu"
         ]
         if len(nvgpus) != 1:
-            raise ValueError(f"CX DMA function {cx_dma} does not have a nearby GPU")
+            raise TopoUnexpectedError(f"CX DMA function {cx_dma} does not have a nearby GPU")
         nvgpu = nvgpus[0]
         nvgpu_dsp2 = check_parent(nvgpu, "cx_switch")
         nvgpu_usp2 = check_parent(nvgpu_dsp2, "cx_switch")
         nvgpu_dsp1 = check_parent(nvgpu_usp2, "cx_switch")
         if cx_usp != check_parent(nvgpu_dsp1, "cx_switch"):
-            raise ValueError(
+            raise TopoNotSupportedError(
                 f"CX DMA function {cx_dma} has an unrecognized upstream path from the GPU"
             )
 
@@ -906,7 +942,7 @@ class PCITopo(object):
         }
         topodevs = set(grace_rp.iterdownstream())
         if alldevs != topodevs:
-            raise ValueError(
+            raise TopoUnexpectedError(
                 f"CX DMA function {cx_dma} has unexpected PCI devices in the topology"
             )
 
@@ -925,14 +961,16 @@ class PCITopo(object):
         nvgpu_dsp1 = check_parent(nvgpu_usp2, "cx_switch")
         shared_usp1 = check_parent(nvgpu_dsp1, "cx_switch")
         if not shared_usp1:
-            raise ValueError(f"GPU {nvgpu} has an unrecognized upstream path")
+            raise TopoNotSupportedError(
+                f"GPU {nvgpu.bdf} has an unrecognized upstream path"
+            )
 
         for pdev in shared_usp1.iterupstream_path():
             if pdev.device_type == "generic_rp":
                 root_port = pdev
                 break
         else:
-            raise ValueError(
+            raise TopoUnexpectedError(
                 f"Could not find root port for shared USP {shared_usp1.bdf}"
             )
 
@@ -941,7 +979,7 @@ class PCITopo(object):
                 cx_nic = pdev
                 break
         else:
-            raise ValueError(f"GPU {nvgpu} does not have a nearby CX NIC")
+            raise TopoUnexpectedError(f"GPU {nvgpu} does not have a nearby CX NIC")
 
         return NVCX_Inline_Complex(root_port, shared_usp1, cx_nic, nvgpu)
 
@@ -949,8 +987,9 @@ class PCITopo(object):
         """Auto-detect if virtualization will be used on this system"""
         first = self.nvcxs[0].primary_nic.has_ats
         if not all(nvcx.primary_nic.has_ats == first for nvcx in self.nvcxs):
-            raise CommandError(
-                "Could not auto-detect virtualization: CX NICs have different ATS settings"
+            raise TopoNotSupportedError(
+                "Could not auto-detect virtualization. CX NICs have different"
+                " ATS settings. Try explicitly setting --virt or --no-virt."
             )
 
         return first
@@ -968,27 +1007,27 @@ class PCITopo(object):
             if pdev.vpd_v3:
                 self.vpd_v3s[pdev.vpd_v3].add(pdev)
 
-        if self.has_cx_dma:
+        if self.type == self.TopoType.DMA:
             for pdev in self.devices.values():
                 if pdev.device_type == "cx_dma":
                     nvcx = self.__get_nvcx_complex(pdev)
                     self.nvcxs.append(nvcx)
-        elif self.has_gpu_and_nic:
+        elif self.type == self.TopoType.INLINE:
             for pdev in self.devices.values():
                 if pdev.device_type == "nvgpu":
                     nvcx = self.__get_nvcx_inline_complex(pdev)
                     self.nvcxs.append(nvcx)
 
-        if self.has_gpu_and_nic and len(self.nvcxs) > 0:
+        if len(self.nvcxs) == 0:
+            raise TopoNotSupportedError(
+                f"No supported complex found for {self.type.value} topology"
+            )
+
+        if self.type == self.TopoType.INLINE:
             if self.virt is None and self._autodetect_virt:
                 self.virt = self.__auto_detect_virt()
 
         self.nvcxs.sort(key=lambda x: x.primary_nic.bdf)
-
-    @property
-    def supported(self) -> bool:
-        """True if the system has a topology that is supported by the rdma_topo tool"""
-        return (self.has_cx_dma or self.has_gpu_and_nic) and len(self.nvcxs) > 0
 
     def compute_acs(self):
         """Return a dictionary of PCI devices and the ACS mask the device should
@@ -1013,7 +1052,9 @@ class PCITopo(object):
                 and pdev.has_acs
             ):
                 acs[pdev] = (
-                    KERNEL_ACS_ISOLATED if self.has_cx_dma or self.virt else "xx000x0"
+                    KERNEL_ACS_ISOLATED
+                    if self.type == self.TopoType.DMA or self.virt
+                    else "xx000x0"
                 )
         return acs
 
@@ -1073,8 +1114,6 @@ def cmd_topology(args):
     """List the ConnectX NICs in the system with the corresponding NIC
     function, associated GPU, and, optionally, DMA Direct function."""
     topo = PCITopo(args.sysfs_dump, virt=None, autodetect_virt=False)
-    if not topo.supported:
-        raise TOPO_NOT_SUPPORTED
 
     if args.json:
         return topo_json(topo)
@@ -1132,15 +1171,18 @@ def cmd_write_grub_acs(args):
     If the system does not have any need of ACS flags the dropin file will be
     removed. This command is intended for Debian style systems with a
     /etc/default/grub.d and update-grub command."""
-    topo = PCITopo(None, args.virt)
-    if not topo.supported:
+    try:
+        topo = PCITopo(None, args.virt)
+    except TopoNotSupportedError as e:
         if args.dry_run:
-            raise TOPO_NOT_SUPPORTED
+            raise
         if os.path.exists(args.output):
-            print(
-                f"W: Found ACS drop-in file {args.output} but the system does not have a supported topology. Deleting file."
-            )
             os.unlink(args.output)
+            raise CommandError(
+                (f"Found ACS drop-in file {args.output} but the system does "
+                 "not have a supported topology. File deleted."),
+                CommandError.Level.WARNING,
+            )
         return
 
     acs = topo.compute_acs()
@@ -1200,8 +1242,6 @@ def cmd_setpci_acs(args):
     failures, use with caution!
     """
     topo = PCITopo(None, args.virt)
-    if not topo.supported:
-        raise TOPO_NOT_SUPPORTED
     acs = topo.compute_acs()
     cmds: List[List[str]] = []
     for pdev, acs in sorted(acs.items(), key=lambda x: x[0].bdf):
@@ -1242,11 +1282,9 @@ def cmd_check(args):
     """Check that the running kernel and PCI environment are setup correctly for
     GPU Direct with ConnectX DMA Direct PCI functions."""
     topo = PCITopo(args.sysfs_dump, args.virt)
-    if not topo.supported:
-        raise TOPO_NOT_SUPPORTED
-    if topo.has_cx_dma:
+    if topo.type == PCITopo.TopoType.DMA:
         check_ok("All ConnectX DMA functions have correct PCI topology")
-    elif topo.has_gpu_and_nic:
+    elif topo.type == PCITopo.TopoType.INLINE:
         check_ok("All NIC/GPU complexes have correct PCI topology")
 
     fatal = False
@@ -1352,8 +1390,8 @@ operation, this tool helps users generate ACS settings for the local system.
     try:
         args.func(args)
     except CommandError as e:
-        print(f"E: {e}")
-        sys.exit(100)
+        print(e)
+        sys.exit(100 if e.level == CommandError.Level.ERROR else 0)
 
 
 main()
