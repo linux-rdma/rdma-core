@@ -203,7 +203,6 @@ RDMA core development libraries and headers.
 %package -n     libibverbs
 Summary:        Library & drivers for direct userspace use of InfiniBand/iWARP/RoCE hardware
 Group:          System/Libraries
-Requires:       %{name}%{?_isa} = %{version}-%{release}
 Obsoletes:      libcxgb4-rdmav2 < %{version}-%{release}
 Obsoletes:      libefa-rdmav2 < %{version}-%{release}
 Obsoletes:      libhfi1verbs-rdmav2 < %{version}-%{release}
