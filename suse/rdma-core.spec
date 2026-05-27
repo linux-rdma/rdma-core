@@ -529,38 +529,17 @@ for service in rdma rdma-ndd ibacm iwpmd srp_daemon; do ln -sf %{_sbindir}/servi
 rm -rf %{buildroot}/%{_initddir}/
 rm -rf %{buildroot}/%{_sbindir}/srp_daemon.sh
 
-%post -n %verbs_lname -p /sbin/ldconfig
-%postun -n %verbs_lname -p /sbin/ldconfig
-
-%post -n %efa_lname -p /sbin/ldconfig
-%postun -n %efa_lname -p /sbin/ldconfig
-
-%post -n %hns_lname -p /sbin/ldconfig
-%postun -n %hns_lname -p /sbin/ldconfig
-
-%post -n %ionic_lname -p /sbin/ldconfig
-%postun -n %ionic_lname -p /sbin/ldconfig
-
-%post -n %mana_lname -p /sbin/ldconfig
-%postun -n %mana_lname -p /sbin/ldconfig
-
-%post -n %mlx4_lname -p /sbin/ldconfig
-%postun -n %mlx4_lname -p /sbin/ldconfig
-
-%post -n %mlx5_lname -p /sbin/ldconfig
-%postun -n %mlx5_lname -p /sbin/ldconfig
-
-%post -n %umad_lname -p /sbin/ldconfig
-%postun -n %umad_lname -p /sbin/ldconfig
-
-%post -n %rdmacm_lname -p /sbin/ldconfig
-%postun -n %rdmacm_lname -p /sbin/ldconfig
-
-%post -n libibnetdisc%{ibnetdisc_major} -p /sbin/ldconfig
-%postun -n libibnetdisc%{ibnetdisc_major} -p /sbin/ldconfig
-
-%post -n libibmad%{mad_major} -p /sbin/ldconfig
-%postun -n libibmad%{mad_major} -p /sbin/ldconfig
+%ldconfig_scriptlets -n %verbs_lname
+%ldconfig_scriptlets -n %efa_lname
+%ldconfig_scriptlets -n %hns_lname
+%ldconfig_scriptlets -n %ionic_lname
+%ldconfig_scriptlets -n %mana_lname
+%ldconfig_scriptlets -n %mlx4_lname
+%ldconfig_scriptlets -n %mlx5_lname
+%ldconfig_scriptlets -n %umad_lname
+%ldconfig_scriptlets -n %rdmacm_lname
+%ldconfig_scriptlets -n libibnetdisc%{ibnetdisc_major}
+%ldconfig_scriptlets -n libibmad%{mad_major}
 
 %pre
 # Avoid restoring outdated stuff in posttrans
