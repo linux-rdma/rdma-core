@@ -2741,6 +2741,17 @@ static struct ibv_qp *create_qp(struct ibv_context *context,
 		}
 	}
 
+	/* The adversarial poll_cq does not read inline CQE data */
+	if (ctx->flags & MLX5_CTX_FLAGS_ADVERSARIAL_DP) {
+		if (mlx5_create_flags & MLX5_QP_FLAG_ALLOW_SCATTER_CQE) {
+			mlx5_dbg(fp, MLX5_DBG_QP,
+				 "Scatter to CQE is not supported in adversarial mode\n");
+			errno = EOPNOTSUPP;
+			goto err;
+		}
+		mlx5_create_flags &= ~MLX5_QP_FLAG_SCATTER_CQE;
+	}
+
 	cmd.flags = mlx5_create_flags;
 	qp->wq_sig = qp_sig_enabled();
 	if (qp->wq_sig && (ctx->flags & MLX5_CTX_FLAGS_ADVERSARIAL_DP)) {
