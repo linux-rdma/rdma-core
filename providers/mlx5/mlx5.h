@@ -269,6 +269,8 @@ enum mlx5_ctx_flags {
 	MLX5_CTX_FLAGS_REAL_TIME_TS_SUPPORTED = 1 << 4,
 	MLX5_CTX_FLAGS_MKEY_UPDATE_TAG_SUPPORTED = 1 << 5,
 	MLX5_CTX_FLAGS_CC_DMA_BOUNCE = 1 << 6,
+	/* Adversarial data path, set from IB_UVERBS_CORE_SUPPORT_ADVERSARIAL */
+	MLX5_CTX_FLAGS_ADVERSARIAL_DP = 1 << 7,
 };
 
 struct mlx5_entropy_caps {
@@ -1223,6 +1225,7 @@ int mlx5_modify_cq(struct ibv_cq *cq, struct ibv_modify_cq_attr *attr);
 int mlx5_destroy_cq(struct ibv_cq *cq);
 int mlx5_poll_cq(struct ibv_cq *cq, int ne, struct ibv_wc *wc);
 int mlx5_poll_cq_v1(struct ibv_cq *cq, int ne, struct ibv_wc *wc);
+int mlx5_adversarial_poll_cq(struct ibv_cq *cq, int ne, struct ibv_wc *wc);
 int mlx5_arm_cq(struct ibv_cq *cq, int solicited);
 void mlx5_cq_event(struct ibv_cq *cq);
 void __mlx5_cq_clean(struct mlx5_cq *cq, uint32_t qpn, struct mlx5_srq *srq);

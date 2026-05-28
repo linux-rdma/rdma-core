@@ -188,6 +188,10 @@ static const struct verbs_context_ops mlx5_ctx_cqev1_ops = {
 	.poll_cq = mlx5_poll_cq_v1,
 };
 
+static const struct verbs_context_ops mlx5_ctx_adversarial_ops = {
+	.poll_cq = mlx5_adversarial_poll_cq,
+};
+
 static int read_number_from_line(const char *line, int *value)
 {
 	const char *ptr;
@@ -2577,6 +2581,10 @@ bf_done:
 
 	mlx5_read_env(ibdev, context);
 
+	if (verbs_get_device(ibdev)->core_support &
+	    IB_UVERBS_CORE_SUPPORT_ADVERSARIAL)
+		context->flags |= MLX5_CTX_FLAGS_ADVERSARIAL_DP;
+
 	mlx5_spinlock_init(&context->hugetlb_lock, !mlx5_single_threaded);
 	list_head_init(&context->hugetlb_list);
 
@@ -2587,6 +2595,10 @@ bf_done:
 		else
 			goto err_free;
 	}
+	/* Must come last to override the default poll_cq */
+	if (context->flags & MLX5_CTX_FLAGS_ADVERSARIAL_DP)
+		verbs_set_ops(v_ctx, &mlx5_ctx_adversarial_ops);
+
 	context->dv_ctx_ops = &mlx5_dv_ctx_ops;
 
 	mlx5_query_device_ctx(context);
