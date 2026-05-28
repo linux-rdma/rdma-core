@@ -1226,6 +1226,10 @@ int mlx5_destroy_cq(struct ibv_cq *cq);
 int mlx5_poll_cq(struct ibv_cq *cq, int ne, struct ibv_wc *wc);
 int mlx5_poll_cq_v1(struct ibv_cq *cq, int ne, struct ibv_wc *wc);
 int mlx5_adversarial_poll_cq(struct ibv_cq *cq, int ne, struct ibv_wc *wc);
+int mlx5_adversarial_start_poll(struct ibv_cq_ex *ibcq,
+				struct ibv_poll_cq_attr *attr);
+int mlx5_adversarial_next_poll(struct ibv_cq_ex *ibcq);
+void mlx5_adversarial_end_poll(struct ibv_cq_ex *ibcq);
 int mlx5_arm_cq(struct ibv_cq *cq, int solicited);
 void mlx5_cq_event(struct ibv_cq *cq);
 void __mlx5_cq_clean(struct mlx5_cq *cq, uint32_t qpn, struct mlx5_srq *srq);

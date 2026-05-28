@@ -1648,7 +1648,17 @@ int mlx5_cq_fill_pfns(struct mlx5_cq *cq,
 		      const struct ibv_cq_init_attr_ex *cq_attr,
 		      struct mlx5_context *mctx)
 {
-	const struct op *poll_ops = &ops[((cq->stall_enable && cq->stall_adaptive_enable) ? ADAPTIVE : 0) |
+	const struct op *poll_ops;
+
+	/* The extended poll API bypasses the adversarial checks */
+	if (mctx->flags & MLX5_CTX_FLAGS_ADVERSARIAL_DP) {
+		cq->verbs_cq.cq_ex.start_poll = mlx5_adversarial_start_poll;
+		cq->verbs_cq.cq_ex.next_poll = mlx5_adversarial_next_poll;
+		cq->verbs_cq.cq_ex.end_poll = mlx5_adversarial_end_poll;
+		return 0;
+	}
+
+	poll_ops = &ops[((cq->stall_enable && cq->stall_adaptive_enable) ? ADAPTIVE : 0) |
 					 (mctx->cqe_version ? V1 : 0) |
 					 (cq->flags & MLX5_CQ_FLAGS_SINGLE_THREADED ?
 						      SINGLE_THREADED : 0) |

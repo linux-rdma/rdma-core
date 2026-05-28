@@ -213,3 +213,18 @@ int mlx5_adversarial_poll_cq(struct ibv_cq *ibcq, int ne, struct ibv_wc *wc)
 
 	return err ? -1 : npolled;
 }
+
+int mlx5_adversarial_start_poll(struct ibv_cq_ex *ibcq,
+				struct ibv_poll_cq_attr *attr)
+{
+	return EOPNOTSUPP;
+}
+
+int mlx5_adversarial_next_poll(struct ibv_cq_ex *ibcq)
+{
+	return EOPNOTSUPP;
+}
+
+void mlx5_adversarial_end_poll(struct ibv_cq_ex *ibcq)
+{
+}
