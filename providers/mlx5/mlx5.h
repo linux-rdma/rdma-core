@@ -611,6 +611,10 @@ struct mlx5_wq {
 	int				offset;
 	void			       *qend;
 	uint32_t			*wr_data;
+	/* Adversarial OOO_DP RQ: per-slot posted flag. A byte per slot, as
+	 * post_recv and poll_cq update it under different locks.
+	 */
+	uint8_t			       *in_flight;
 };
 
 struct mlx5_devx_uar {

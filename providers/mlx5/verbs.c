@@ -2136,6 +2136,18 @@ static int mlx5_alloc_qp_buf(struct ibv_context *context,
 			err = -1;
 			goto ex_wrid;
 		}
+
+		/* OOO_DP receives complete out of order, so track each slot */
+		if ((to_mctx(context)->flags & MLX5_CTX_FLAGS_ADVERSARIAL_DP) &&
+		    (qp->flags & MLX5_QP_FLAGS_OOO_DP)) {
+			qp->rq.in_flight = calloc(qp->rq.wqe_cnt,
+						  sizeof(*qp->rq.in_flight));
+			if (!qp->rq.in_flight) {
+				errno = ENOMEM;
+				err = -1;
+				goto ex_wrid;
+			}
+		}
 	}
 
 	/* compatibility support */
@@ -2199,6 +2211,9 @@ static int mlx5_alloc_qp_buf(struct ibv_context *context,
 rq_buf:
 	mlx5_free_actual_buf(to_mctx(context), &qp->buf);
 ex_wrid:
+	if (qp->rq.in_flight)
+		free(qp->rq.in_flight);
+
 	if (qp->rq.wrid)
 		free(qp->rq.wrid);
 
@@ -2219,6 +2234,9 @@ static void mlx5_free_qp_buf(struct mlx5_context *ctx, struct mlx5_qp *qp)
 
 	if (qp->sq_buf.ibv_buf.addr)
 		mlx5_free_actual_buf(ctx, &qp->sq_buf);
+
+	if (qp->rq.in_flight)
+		free(qp->rq.in_flight);
 
 	if (qp->rq.wrid)
 		free(qp->rq.wrid);

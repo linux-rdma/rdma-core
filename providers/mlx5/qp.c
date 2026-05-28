@@ -182,6 +182,10 @@ void mlx5_init_qp_indices(struct mlx5_qp *qp)
 	qp->rq.head	 = 0;
 	qp->rq.tail	 = 0;
 	qp->sq.cur_post  = 0;
+
+	if (qp->rq.in_flight)
+		memset(qp->rq.in_flight, 0,
+		       qp->rq.wqe_cnt * sizeof(*qp->rq.in_flight));
 }
 
 static int mlx5_wq_overflow(struct mlx5_wq *wq, int nreq, struct mlx5_cq *cq)
