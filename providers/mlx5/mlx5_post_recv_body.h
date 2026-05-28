@@ -44,9 +44,12 @@ int _mlx5_post_recv_body(struct ibv_qp *ibqp, struct ibv_recv_wr *wr,
 
 #ifdef ADVERSARIAL_POST_RECV
 		/* The device may leave an old slot in flight past an rq.head
-		 * wrap; refuse rather than overwrite its WQE and wr_id.
+		 * wrap; refuse rather than overwrite its WQE and wr_id. The
+		 * acquire pairs with the release in adv_rq_commit().
 		 */
-		if (qp->rq.in_flight && unlikely(qp->rq.in_flight[ind])) {
+		if (qp->rq.in_flight &&
+		    unlikely(__atomic_load_n(&qp->rq.in_flight[ind],
+					     __ATOMIC_ACQUIRE))) {
 			err = ENOMEM;
 			*bad_wr = wr;
 			goto out;
