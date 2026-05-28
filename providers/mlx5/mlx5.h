@@ -1037,6 +1037,28 @@ static inline struct mlx5_cq *to_mcq(struct ibv_cq *ibcq)
 	return container_of(ibcq, struct mlx5_cq, verbs_cq.cq);
 }
 
+static inline void *mlx5_get_cqe(struct mlx5_cq *cq, int n)
+{
+	return cq->active_buf->ibv_buf.addr + n * cq->cqe_sz;
+}
+
+static inline void *mlx5_get_sw_cqe(struct mlx5_cq *cq, int n)
+{
+	void *cqe = mlx5_get_cqe(cq, n & cq->verbs_cq.cq.cqe);
+	struct mlx5_cqe64 *cqe64;
+
+	cqe64 = (cq->cqe_sz == 64) ? cqe : cqe + 64;
+
+	if (likely(mlx5dv_get_cqe_opcode(cqe64) != MLX5_CQE_INVALID) &&
+	    !((cqe64->op_own & MLX5_CQE_OWNER_MASK) ^ !!(n & (cq->verbs_cq.cq.cqe + 1)))) {
+		return cqe;
+	} else {
+		return NULL;
+	}
+}
+
+enum ibv_wc_status mlx5_handle_error_cqe(uint8_t syndrome);
+
 static inline struct mlx5_srq *to_msrq(struct ibv_srq *ibsrq)
 {
 	struct verbs_srq *vsrq = (struct verbs_srq *)ibsrq;
