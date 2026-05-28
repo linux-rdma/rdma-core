@@ -2703,6 +2703,13 @@ static struct ibv_qp *create_qp(struct ibv_context *context,
 			mlx5_create_flags &= ~MLX5_QP_FLAG_SCATTER_CQE;
 		}
 
+		if (ctx->flags & MLX5_CTX_FLAGS_ADVERSARIAL_DP) {
+			errno = EOPNOTSUPP;
+			mlx5_dbg(fp, MLX5_DBG_QP,
+				 "Extended WR API is not supported in adversarial mode\n");
+			goto err;
+		}
+
 		ret = mlx5_qp_fill_wr_pfns(qp, attr, mlx5_qp_attr);
 		if (ret) {
 			errno = ret;
