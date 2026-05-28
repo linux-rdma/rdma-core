@@ -228,3 +228,13 @@ int mlx5_adversarial_next_poll(struct ibv_cq_ex *ibcq)
 void mlx5_adversarial_end_poll(struct ibv_cq_ex *ibcq)
 {
 }
+
+#define ADVERSARIAL_POST_RECV
+#include "mlx5_post_recv_body.h"
+#undef ADVERSARIAL_POST_RECV
+
+int mlx5_adversarial_post_recv(struct ibv_qp *ibqp, struct ibv_recv_wr *wr,
+			       struct ibv_recv_wr **bad_wr)
+{
+	return _mlx5_post_recv_body(ibqp, wr, bad_wr);
+}

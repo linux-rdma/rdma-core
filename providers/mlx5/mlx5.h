@@ -1065,6 +1065,19 @@ static inline void *mlx5_get_sw_cqe(struct mlx5_cq *cq, int n)
 
 enum ibv_wc_status mlx5_handle_error_cqe(uint8_t syndrome);
 
+static inline void *mlx5_get_recv_wqe(struct mlx5_qp *qp, int n)
+{
+	return qp->buf.ibv_buf.addr + qp->rq.offset + (n << qp->rq.wqe_shift);
+}
+
+static inline void mlx5_set_data_ptr_seg(struct mlx5_wqe_data_seg *dseg,
+					 struct ibv_sge *sg, int offset)
+{
+	dseg->byte_count = htobe32(sg->length - offset);
+	dseg->lkey       = htobe32(sg->lkey);
+	dseg->addr       = htobe64(sg->addr + offset);
+}
+
 static inline struct mlx5_srq *to_msrq(struct ibv_srq *ibsrq)
 {
 	struct verbs_srq *vsrq = (struct verbs_srq *)ibsrq;
@@ -1234,6 +1247,8 @@ int mlx5_adversarial_start_poll(struct ibv_cq_ex *ibcq,
 				struct ibv_poll_cq_attr *attr);
 int mlx5_adversarial_next_poll(struct ibv_cq_ex *ibcq);
 void mlx5_adversarial_end_poll(struct ibv_cq_ex *ibcq);
+int mlx5_adversarial_post_recv(struct ibv_qp *ibqp, struct ibv_recv_wr *wr,
+			       struct ibv_recv_wr **bad_wr);
 int mlx5_arm_cq(struct ibv_cq *cq, int solicited);
 void mlx5_cq_event(struct ibv_cq *cq);
 void __mlx5_cq_clean(struct mlx5_cq *cq, uint32_t qpn, struct mlx5_srq *srq);
@@ -1453,6 +1468,22 @@ static inline int mlx5_spinlock_init_pd(struct mlx5_spinlock *lock, struct ibv_p
 		thread_safe = mlx5_single_threaded;
 
 	return mlx5_spinlock_init(lock, !thread_safe);
+}
+
+static inline int mlx5_wq_overflow(struct mlx5_wq *wq, int nreq,
+				   struct mlx5_cq *cq)
+{
+	unsigned cur;
+
+	cur = wq->head - wq->tail;
+	if (cur + nreq < wq->max_post)
+		return 0;
+
+	mlx5_spin_lock(&cq->lock);
+	cur = wq->head - wq->tail;
+	mlx5_spin_unlock(&cq->lock);
+
+	return cur + nreq >= wq->max_post;
 }
 
 static inline int mlx5_spinlock_destroy(struct mlx5_spinlock *lock)

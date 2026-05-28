@@ -62,11 +62,6 @@ static const uint32_t mlx5_ib_opcode[] = {
 	[IBV_WR_DRIVER1]		= MLX5_OPCODE_UMR,
 };
 
-static void *get_recv_wqe(struct mlx5_qp *qp, int n)
-{
-	return qp->buf.ibv_buf.addr + qp->rq.offset + (n << qp->rq.wqe_shift);
-}
-
 static void *get_wq_recv_wqe(struct mlx5_rwq *rwq, int n)
 {
 	return rwq->pbuff  + (n << rwq->rq.wqe_shift);
@@ -108,7 +103,7 @@ int mlx5_copy_to_recv_wqe(struct mlx5_qp *qp, int idx, void *buf, int size)
 	struct mlx5_wqe_data_seg *scat;
 	int max = 1 << (qp->rq.wqe_shift - 4);
 
-	scat = get_recv_wqe(qp, idx);
+	scat = mlx5_get_recv_wqe(qp, idx);
 	if (unlikely(qp->wq_sig))
 		++scat;
 
@@ -188,21 +183,6 @@ void mlx5_init_qp_indices(struct mlx5_qp *qp)
 		       qp->rq.wqe_cnt * sizeof(*qp->rq.in_flight));
 }
 
-static int mlx5_wq_overflow(struct mlx5_wq *wq, int nreq, struct mlx5_cq *cq)
-{
-	unsigned cur;
-
-	cur = wq->head - wq->tail;
-	if (cur + nreq < wq->max_post)
-		return 0;
-
-	mlx5_spin_lock(&cq->lock);
-	cur = wq->head - wq->tail;
-	mlx5_spin_unlock(&cq->lock);
-
-	return cur + nreq >= wq->max_post;
-}
-
 static inline void set_raddr_seg(struct mlx5_wqe_raddr_seg *rseg,
 				 uint64_t remote_addr, uint32_t rkey)
 {
@@ -272,14 +252,6 @@ static void set_datagram_seg(struct mlx5_wqe_datagram_seg *dseg,
 {
 	_set_datagram_seg(dseg, &to_mah(wr->wr.ud.ah)->av, wr->wr.ud.remote_qpn,
 			  wr->wr.ud.remote_qkey);
-}
-
-static void set_data_ptr_seg(struct mlx5_wqe_data_seg *dseg, struct ibv_sge *sg,
-			     int offset)
-{
-	dseg->byte_count = htobe32(sg->length - offset);
-	dseg->lkey       = htobe32(sg->lkey);
-	dseg->addr       = htobe64(sg->addr + offset);
 }
 
 static void set_data_ptr_seg_atomic(struct mlx5_wqe_data_seg *dseg,
@@ -1132,8 +1104,8 @@ static inline int _mlx5_post_send(struct ibv_qp *ibqp, struct ibv_send_wr *wr,
 							}
 							max_tso -= wr->sg_list[i].length;
 						}
-						set_data_ptr_seg(dpseg, wr->sg_list + i,
-								 sg_copy_ptr.offset);
+						mlx5_set_data_ptr_seg(dpseg, wr->sg_list + i,
+								      sg_copy_ptr.offset);
 					}
 					sg_copy_ptr.offset = 0;
 					++dpseg;
@@ -3818,7 +3790,7 @@ int mlx5_post_wq_recv(struct ibv_wq *ibwq, struct ibv_recv_wr *wr,
 		for (i = 0, j = 0; i < wr->num_sge; ++i) {
 			if (unlikely(!wr->sg_list[i].length))
 				continue;
-			set_data_ptr_seg(scat + j++, wr->sg_list + i, 0);
+			mlx5_set_data_ptr_seg(scat + j++, wr->sg_list + i, 0);
 		}
 
 		if (j < rwq->rq.max_gs) {
@@ -3852,89 +3824,12 @@ out:
 	return err;
 }
 
+#include "mlx5_post_recv_body.h"
+
 int mlx5_post_recv(struct ibv_qp *ibqp, struct ibv_recv_wr *wr,
 		   struct ibv_recv_wr **bad_wr)
 {
-	struct mlx5_qp *qp = to_mqp(ibqp);
-	struct mlx5_wqe_data_seg *scat;
-	int err = 0;
-	int nreq;
-	int ind;
-	int i, j;
-	struct mlx5_rwqe_sig *sig;
-
-	mlx5_spin_lock(&qp->rq.lock);
-
-	ind = qp->rq.head & (qp->rq.wqe_cnt - 1);
-
-	for (nreq = 0; wr; ++nreq, wr = wr->next) {
-		if (unlikely(mlx5_wq_overflow(&qp->rq, nreq,
-					      to_mcq(qp->ibv_qp->recv_cq)))) {
-			err = ENOMEM;
-			*bad_wr = wr;
-			goto out;
-		}
-
-		if (unlikely(wr->num_sge > qp->rq.qp_state_max_gs)) {
-			err = EINVAL;
-			*bad_wr = wr;
-			goto out;
-		}
-
-		scat = get_recv_wqe(qp, ind);
-		sig = (struct mlx5_rwqe_sig *)scat;
-		if (unlikely(qp->wq_sig)) {
-			memset(sig, 0, 1 << qp->rq.wqe_shift);
-			++scat;
-		}
-
-		for (i = 0, j = 0; i < wr->num_sge; ++i) {
-			if (unlikely(!wr->sg_list[i].length))
-				continue;
-			set_data_ptr_seg(scat + j++, wr->sg_list + i, 0);
-		}
-
-		if (j < qp->rq.max_gs) {
-			scat[j].byte_count = 0;
-			scat[j].lkey       = htobe32(MLX5_INVALID_LKEY);
-			scat[j].addr       = 0;
-		}
-
-		if (unlikely(qp->wq_sig))
-			set_sig_seg(qp, sig, (wr->num_sge + 1) << 4,
-				    qp->rq.head & 0xffff);
-
-		qp->rq.wrid[ind] = wr->wr_id;
-
-		ind = (ind + 1) & (qp->rq.wqe_cnt - 1);
-	}
-
-out:
-	if (likely(nreq)) {
-		qp->rq.head += nreq;
-
-		/*
-		 * Make sure that descriptors are written before
-		 * doorbell record.
-		 */
-		udma_to_device_barrier();
-
-		/*
-		 * For Raw Packet QP, avoid updating the doorbell record
-		 * as long as the QP isn't in RTR state, to avoid receiving
-		 * packets in illegal states.
-		 * This is only for Raw Packet QPs since they are represented
-		 * differently in the hardware.
-		 */
-		if (likely(!((ibqp->qp_type == IBV_QPT_RAW_PACKET ||
-			      qp->flags & MLX5_QP_FLAGS_USE_UNDERLAY) &&
-			     ibqp->state < IBV_QPS_RTR)))
-			qp->db[MLX5_RCV_DBR] = htobe32(qp->rq.head & 0xffff);
-	}
-
-	mlx5_spin_unlock(&qp->rq.lock);
-
-	return err;
+	return _mlx5_post_recv_body(ibqp, wr, bad_wr);
 }
 
 static void mlx5_tm_add_op(struct mlx5_srq *srq, struct mlx5_tag_entry *tag,
@@ -4044,7 +3939,7 @@ int mlx5_post_srq_ops(struct ibv_srq *ibsrq, struct ibv_ops_wr *wr,
 
 			/* message is allowed to be empty */
 			if (wr->tm.add.num_sge && wr->tm.add.sg_list->length) {
-				set_data_ptr_seg(seg, wr->tm.add.sg_list, 0);
+				mlx5_set_data_ptr_seg(seg, wr->tm.add.sg_list, 0);
 				tag->ptr = (void *)(uintptr_t)wr->tm.add.sg_list->addr;
 				tag->size = wr->tm.add.sg_list->length;
 			} else {
