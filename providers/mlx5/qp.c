@@ -3710,6 +3710,12 @@ int mlx5_bind_mw(struct ibv_qp *qp, struct ibv_mw *mw,
 	struct ibv_send_wr *bad_wr = NULL;
 	int ret;
 
+	/* Posts directly, bypassing the adversarial post_send */
+	if (to_mctx(qp->context)->flags & MLX5_CTX_FLAGS_ADVERSARIAL_DP) {
+		errno = EOPNOTSUPP;
+		return errno;
+	}
+
 	if (bind_info->mw_access_flags & IBV_ACCESS_ZERO_BASED) {
 		errno = EINVAL;
 		return errno;
