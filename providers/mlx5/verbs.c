@@ -2530,6 +2530,15 @@ static struct ibv_qp *create_qp(struct ibv_context *context,
 		return NULL;
 	}
 
+	/* Adversarial mode supports only RC QPs with their own RQ */
+	if (ctx->flags & MLX5_CTX_FLAGS_ADVERSARIAL_DP &&
+	    (attr->qp_type != IBV_QPT_RC || attr->srq)) {
+		mlx5_dbg(fp, MLX5_DBG_QP,
+			 "Only RC QPs without SRQ are supported in adversarial mode\n");
+		errno = EOPNOTSUPP;
+		return NULL;
+	}
+
 	qp = calloc(1, sizeof(*qp));
 	if (!qp) {
 		mlx5_dbg(fp, MLX5_DBG_QP, "\n");
