@@ -1345,6 +1345,12 @@ int mlx5_resize_cq(struct ibv_cq *ibcq, int cqe)
 	struct mlx5_context *mctx = to_mctx(ibcq->context);
 	int err;
 
+	/* The adversarial poll_cq does not handle the RESIZE_CQ CQE */
+	if (mctx->flags & MLX5_CTX_FLAGS_ADVERSARIAL_DP) {
+		errno = EOPNOTSUPP;
+		return errno;
+	}
+
 	if (cqe < 0) {
 		errno = EINVAL;
 		return errno;
