@@ -4582,6 +4582,14 @@ static struct ibv_wq *create_wq(struct ibv_context *context,
 	if (attr->wq_type != IBV_WQT_RQ)
 		return NULL;
 
+	/* The adversarial poll_cq resolves only QP completions */
+	if (ctx->flags & MLX5_CTX_FLAGS_ADVERSARIAL_DP) {
+		mlx5_dbg(fp, MLX5_DBG_QP,
+			 "WQ is not supported in adversarial mode\n");
+		errno = EOPNOTSUPP;
+		return NULL;
+	}
+
 	memset(&cmd, 0, sizeof(cmd));
 	memset(&resp, 0, sizeof(resp));
 
