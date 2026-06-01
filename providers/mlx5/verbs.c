@@ -3460,8 +3460,6 @@ static int modify_dct(struct ibv_qp *qp, struct ibv_qp_attr *attr,
 		ret = mlx5_store_qp(context, qp->qp_num, mqp);
 		if (!ret)
 			mqp->rsc.rsn = qp->qp_num;
-		else
-			errno = ENOMEM;
 		pthread_mutex_unlock(&context->qp_table_mutex);
 		return ret ? errno : 0;
 	}

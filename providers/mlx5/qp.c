@@ -3507,11 +3507,19 @@ int mlx5_store_qp(struct mlx5_context *ctx, uint32_t qpn, struct mlx5_qp *qp)
 {
 	int tind = qpn >> MLX5_QP_TABLE_SHIFT;
 
+	/* The qpn comes from the device; the table covers only 24 bits */
+	if (tind >= MLX5_QP_TABLE_SIZE) {
+		errno = EINVAL;
+		return -1;
+	}
+
 	if (!ctx->qp_table[tind].refcnt) {
 		ctx->qp_table[tind].table = calloc(MLX5_QP_TABLE_MASK + 1,
 						   sizeof(struct mlx5_qp *));
-		if (!ctx->qp_table[tind].table)
+		if (!ctx->qp_table[tind].table) {
+			errno = ENOMEM;
 			return -1;
+		}
 	}
 
 	++ctx->qp_table[tind].refcnt;
