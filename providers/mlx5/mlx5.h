@@ -321,10 +321,10 @@ struct mlx5_dma_mmo_caps {
 struct mlx5_context {
 	struct verbs_context		ibv_ctx;
 	int				max_num_qps;
-	int				bf_reg_size;
+	uint32_t			bf_reg_size;
 	int				tot_uuars;
 	int				low_lat_uuars;
-	int				num_uars_per_page;
+	uint32_t			num_uars_per_page;
 	int				bf_regs_per_page;
 	int				num_bf_regs;
 	int				prefer_bf;
@@ -385,7 +385,6 @@ struct mlx5_context {
 	const struct ib_uverbs_clock_info *clock_info_page;
 	struct mlx5_ib_tso_caps		cached_tso_caps;
 	int				cmds_supp_uhw;
-	uint32_t			uar_size;
 	uint64_t			vendor_cap_flags; /* Use enum mlx5_vendor_cap_flags */
 	struct mlx5dv_cqe_comp_caps	cqe_comp_caps;
 	struct mlx5dv_ctx_allocators	extern_alloc;

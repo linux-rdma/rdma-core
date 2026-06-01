@@ -2332,19 +2332,34 @@ static struct mlx5_dv_context_ops mlx5_dv_ctx_ops = {
 	.init_obj = _mlx5dv_init_obj,
 };
 
-static void adjust_uar_info(struct mlx5_device *mdev,
-			    struct mlx5_context *context,
-			    struct mlx5_ib_alloc_ucontext_resp *resp)
+static int adjust_uar_info(struct mlx5_device *mdev,
+			   struct mlx5_context *context,
+			   struct mlx5_ib_alloc_ucontext_resp *resp)
 {
+	unsigned int max_uars = mdev->page_size / MLX5_ADAPTER_PAGE_SIZE;
+
 	if (!resp->log_uar_size && !resp->num_uars_per_page) {
 		/* old kernel */
-		context->uar_size = mdev->page_size;
 		context->num_uars_per_page = 1;
-		return;
+		return 0;
 	}
 
-	context->uar_size = 1 << resp->log_uar_size;
 	context->num_uars_per_page = resp->num_uars_per_page;
+
+	/* Used as a divisor and as a UAR count; 0 means 1 */
+	if (!context->num_uars_per_page)
+		context->num_uars_per_page = 1;
+
+	/* At most page_size / MLX5_ADAPTER_PAGE_SIZE UARs fit a system page */
+	if (context->num_uars_per_page > max_uars) {
+		mlx5_err(context->dbg_fp, PFX
+			 "device-reported num_uars_per_page %u exceeds the per-page maximum %u; refusing context\n",
+			 context->num_uars_per_page, max_uars);
+		errno = EINVAL;
+		return -1;
+	}
+
+	return 0;
 }
 
 bool mlx5dv_is_supported(struct ibv_device *device)
@@ -2444,6 +2459,15 @@ static int mlx5_set_context(struct mlx5_context *context,
 
 	context->max_num_qps = resp->qp_tab_size;
 	context->bf_reg_size = resp->bf_reg_size;
+	/* All BF registers of a UAR must fit after MLX5_BF_OFFSET */
+	if (context->bf_reg_size >
+	    (MLX5_ADAPTER_PAGE_SIZE - MLX5_BF_OFFSET) / NUM_BFREGS_PER_UAR) {
+		mlx5_err(context->dbg_fp, PFX
+			 "device-reported bf_reg_size %u exceeds the maximum; refusing context\n",
+			 context->bf_reg_size);
+		errno = EINVAL;
+		return -1;
+	}
 	context->cache_line_size = resp->cache_line_size;
 	context->max_sq_desc_sz = resp->max_sq_desc_sz;
 	context->max_rq_desc_sz = resp->max_rq_desc_sz;
@@ -2479,7 +2503,8 @@ static int mlx5_set_context(struct mlx5_context *context,
 	}
 
 	context->cqe_version = resp->cqe_version;
-	adjust_uar_info(mdev, context, resp);
+	if (adjust_uar_info(mdev, context, resp))
+		return -1;
 
 	context->cmds_supp_uhw = resp->cmds_supp_uhw;
 	context->vendor_cap_flags = 0;
