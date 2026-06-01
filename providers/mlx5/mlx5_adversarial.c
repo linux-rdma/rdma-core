@@ -173,25 +173,64 @@ static inline void adv_sq_commit_any(struct mlx5_qp *qp, uint16_t idx,
 	qp->sq.tail = qp->sq.wqe_head[idx] + 1;
 }
 
-/* Resolve the CQE to its QP, checking type and qpn */
-static inline struct mlx5_qp *
-adv_lookup_qp(struct mlx5_context *mctx, uint32_t qpn, uint32_t srqn_uidx)
+/*
+ * Each CQ in adversarial mode keeps a qpn -> QP table of the QPs bound to
+ * it, updated under the CQ locks at QP create and destroy. The poll holds
+ * the CQ lock, so a QP it finds cannot be freed meanwhile, and a forged
+ * qpn of a QP bound to another CQ is not found.
+ */
+int mlx5_adv_cq_reg_init(struct mlx5_cq *cq)
 {
-	struct mlx5_resource *rsc;
-	struct mlx5_qp *qp;
+	unsigned int i;
 
-	rsc = mctx->cqe_version ? mlx5_find_uidx(mctx, srqn_uidx) :
-				  (struct mlx5_resource *)mlx5_find_qp(mctx, qpn);
-	if (unlikely(!rsc))
-		return NULL;
-	if (unlikely(rsc->type != MLX5_RSC_TYPE_QP))
-		return NULL;
-	if (unlikely(rsc->rsn != (mctx->cqe_version ? srqn_uidx : qpn)))
-		return NULL;
-	qp = rsc_to_mqp(rsc);
-	if (unlikely(qp->verbs_qp.qp.qp_num != qpn))
-		return NULL;
-	return qp;
+	cq->adv_qp_reg = calloc(MLX5_ADV_CQ_REG_BUCKETS,
+				sizeof(*cq->adv_qp_reg));
+	if (!cq->adv_qp_reg) {
+		errno = ENOMEM;
+		return -1;
+	}
+	for (i = 0; i < MLX5_ADV_CQ_REG_BUCKETS; i++)
+		list_head_init(&cq->adv_qp_reg[i]);
+	return 0;
+}
+
+void mlx5_adv_cq_reg_cleanup(struct mlx5_cq *cq)
+{
+	free(cq->adv_qp_reg);
+	cq->adv_qp_reg = NULL;
+}
+
+/* Caller holds cq->lock */
+void mlx5_adv_cq_reg_add(struct mlx5_cq *cq, struct mlx5_adv_qp_reg_ent *ent,
+			 uint32_t key, struct mlx5_qp *qp)
+{
+	ent->key = key;
+	ent->qp = qp;
+	list_add(&cq->adv_qp_reg[key & (MLX5_ADV_CQ_REG_BUCKETS - 1)],
+		 &ent->node);
+}
+
+/* Caller holds cq->lock; a never-registered entry has qp == NULL */
+void mlx5_adv_cq_reg_del(struct mlx5_adv_qp_reg_ent *ent)
+{
+	if (!ent->qp)
+		return;
+	list_del(&ent->node);
+	ent->qp = NULL;
+}
+
+/* Resolve a qpn to a QP bound to this CQ; caller holds cq->lock */
+static inline struct mlx5_qp *
+mlx5_adv_cq_reg_lookup(struct mlx5_cq *cq, uint32_t key)
+{
+	struct mlx5_adv_qp_reg_ent *ent;
+
+	list_for_each(&cq->adv_qp_reg[key & (MLX5_ADV_CQ_REG_BUCKETS - 1)],
+		      ent, node) {
+		if (ent->key == key)
+			return ent->qp;
+	}
+	return NULL;
 }
 
 /*
@@ -211,11 +250,9 @@ static bool adv_nic_violation(struct mlx5_cq *cq, const char *reason)
 static bool adv_parse_cqe(struct mlx5_cq *cq, struct mlx5_cqe64 *cqe64,
 			  struct ibv_wc *wc)
 {
-	struct mlx5_context *mctx = to_mctx(cq->verbs_cq.cq.context);
 	struct mlx5_qp *qp;
 	uint32_t sop_drop_qpn;
 	uint32_t qpn;
-	uint32_t srqn_uidx;
 	uint16_t wqe_counter;
 	uint16_t idx;
 	uint8_t opcode;
@@ -224,12 +261,11 @@ static bool adv_parse_cqe(struct mlx5_cq *cq, struct mlx5_cqe64 *cqe64,
 	opcode		= cqe64->op_own >> 4;
 	sop_drop_qpn	= be32toh(cqe64->sop_drop_qpn);
 	qpn		= sop_drop_qpn & 0xffffff;
-	srqn_uidx	= be32toh(cqe64->srqn_uidx) & 0xffffff;
 	wqe_counter	= be16toh(cqe64->wqe_counter);
 
-	qp = adv_lookup_qp(mctx, qpn, srqn_uidx);
+	qp = mlx5_adv_cq_reg_lookup(cq, qpn);
 	if (unlikely(!qp))
-		return adv_nic_violation(cq, "QP lookup / qpn mismatch");
+		return adv_nic_violation(cq, "QP lookup (qpn names no QP on this CQ)");
 
 	wc->wc_flags = 0;
 	wc->qp_num = qpn;

@@ -1180,6 +1180,10 @@ static struct ibv_cq_ex *create_cq(struct ibv_context *context,
 	if (mlx5_spinlock_init(&cq->lock, !mlx5_single_threaded))
 		goto err;
 
+	if ((to_mctx(context)->flags & MLX5_CTX_FLAGS_ADVERSARIAL_DP) &&
+	    mlx5_adv_cq_reg_init(cq))
+		goto err_spl;
+
 	ncqe = align_queue_size(cq_attr->cqe + 1);
 	if ((ncqe > (1 << 24)) || (ncqe < (cq_attr->cqe + 1))) {
 		mlx5_dbg(fp, MLX5_DBG_CQ, "ncqe %d\n", ncqe);
@@ -1316,6 +1320,7 @@ err_buf:
 	mlx5_free_cq_buf(to_mctx(context), &cq->buf_a);
 
 err_spl:
+	mlx5_adv_cq_reg_cleanup(cq);
 	mlx5_spinlock_destroy(&cq->lock);
 
 err:
@@ -1472,6 +1477,7 @@ int mlx5_destroy_cq(struct ibv_cq *cq)
 	mlx5_free_cq_buf(to_mctx(cq->context), mcq->active_buf);
 	if (mcq->parent_domain)
 		atomic_fetch_sub(&to_mparent_domain(mcq->parent_domain)->mpd.refcount, 1);
+	mlx5_adv_cq_reg_cleanup(mcq);
 	free(mcq);
 
 	return 0;
@@ -2617,6 +2623,9 @@ static int is_qpt_ooo_sup(struct mlx5_context *ctx,
 	}
 }
 
+static void mlx5_lock_cqs(struct ibv_qp *qp);
+static void mlx5_unlock_cqs(struct ibv_qp *qp);
+
 static struct ibv_qp *create_qp(struct ibv_context *context,
 				struct ibv_qp_init_attr_ex *attr,
 				struct mlx5dv_qp_init_attr *mlx5_qp_attr)
@@ -3020,6 +3029,17 @@ static struct ibv_qp *create_qp(struct ibv_context *context,
 	resp_drv = ((attr->comp_mask & MLX5_CREATE_QP_EX2_COMP_MASK) ||
 		    need_buf_umem) ?
 			&resp_ex.drv_payload : &resp.drv_payload;
+
+	/* The registry key must fit the 24-bit qpn reported in CQEs */
+	if ((ctx->flags & MLX5_CTX_FLAGS_ADVERSARIAL_DP) &&
+	    ibqp->qp_num > 0xffffff) {
+		mlx5_dbg(fp, MLX5_DBG_QP,
+			 "device-returned qp_num %u exceeds the 24-bit QPN space\n",
+			 ibqp->qp_num);
+		errno = EINVAL;
+		goto err_destroy;
+	}
+
 	if (!ctx->cqe_version) {
 		if (qp->sq.wqe_cnt || qp->rq.wqe_cnt) {
 			ret = mlx5_store_qp(ctx, ibqp->qp_num, qp);
@@ -3070,6 +3090,23 @@ static struct ibv_qp *create_qp(struct ibv_context *context,
 		qp->verbs_qp.comp_mask |= VERBS_QP_EX;
 
 	set_qp_operational_state(qp, IBV_QPS_RESET);
+
+	/* Register the QP in its CQs under their locks, once if both are
+	 * the same CQ, so the adversarial poll_cq can resolve its CQEs.
+	 */
+	if (ctx->flags & MLX5_CTX_FLAGS_ADVERSARIAL_DP) {
+		struct mlx5_cq *scq = to_mcq(ibqp->send_cq);
+		struct mlx5_cq *rcq = to_mcq(ibqp->recv_cq);
+
+		mlx5_lock_cqs(ibqp);
+		if (scq)
+			mlx5_adv_cq_reg_add(scq, &qp->adv_scq_ent,
+					    ibqp->qp_num, qp);
+		if (rcq && rcq != scq)
+			mlx5_adv_cq_reg_add(rcq, &qp->adv_rcq_ent,
+					    ibqp->qp_num, qp);
+		mlx5_unlock_cqs(ibqp);
+	}
 
 	return ibqp;
 
@@ -3187,6 +3224,12 @@ int mlx5_destroy_qp(struct ibv_qp *ibqp)
 			ibqp->srq ? to_msrq(ibqp->srq) : NULL);
 	if (ibqp->send_cq != ibqp->recv_cq)
 		__mlx5_cq_clean(to_mcq(ibqp->send_cq), qp->rsc.rsn, NULL);
+
+	/* Unregister under the CQ locks, before the QP is freed */
+	if (ctx->flags & MLX5_CTX_FLAGS_ADVERSARIAL_DP) {
+		mlx5_adv_cq_reg_del(&qp->adv_scq_ent);
+		mlx5_adv_cq_reg_del(&qp->adv_rcq_ent);
+	}
 
 	if (!ctx->cqe_version) {
 		if (qp->dc_type == MLX5DV_DCTYPE_DCT) {

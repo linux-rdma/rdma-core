@@ -495,6 +495,19 @@ enum {
 	MLX5_CQ_FLAGS_RAW_WQE = 1 << 7,
 };
 
+struct mlx5_qp;
+
+/* Adversarial mode: per-CQ qpn -> QP table, see mlx5_adversarial.c */
+enum {
+	MLX5_ADV_CQ_REG_BUCKETS = 256, /* power of two */
+};
+
+struct mlx5_adv_qp_reg_ent {
+	struct list_node	node;
+	uint32_t		key; /* qpn */
+	struct mlx5_qp	       *qp; /* NULL => entry not registered */
+};
+
 struct mlx5_cq {
 	struct verbs_cq			verbs_cq;
 	struct mlx5_buf			buf_a;
@@ -524,6 +537,8 @@ struct mlx5_cq {
 	int				cached_opcode;
 	struct mlx5dv_clock_info	last_clock_info;
 	struct ibv_pd			*parent_domain;
+	/* Adversarial mode QP registry, protected by lock */
+	struct list_head	       *adv_qp_reg;
 };
 
 struct mlx5_tag_entry {
@@ -744,6 +759,12 @@ struct mlx5_qp {
 	uint32_t			get_ece;
 
 	uint8_t				need_mmo_enable:1;
+
+	/* Adversarial mode: entries in the send_cq and recv_cq registries,
+	 * only adv_scq_ent is used when both are the same CQ.
+	 */
+	struct mlx5_adv_qp_reg_ent	adv_scq_ent;
+	struct mlx5_adv_qp_reg_ent	adv_rcq_ent;
 };
 
 struct mlx5_ah {
@@ -1262,6 +1283,12 @@ int mlx5_adversarial_post_recv(struct ibv_qp *ibqp, struct ibv_recv_wr *wr,
 			       struct ibv_recv_wr **bad_wr);
 int mlx5_adversarial_post_send(struct ibv_qp *ibqp, struct ibv_send_wr *wr,
 			       struct ibv_send_wr **bad_wr);
+/* reg_add() and reg_del() require the CQ lock */
+int mlx5_adv_cq_reg_init(struct mlx5_cq *cq);
+void mlx5_adv_cq_reg_cleanup(struct mlx5_cq *cq);
+void mlx5_adv_cq_reg_add(struct mlx5_cq *cq, struct mlx5_adv_qp_reg_ent *ent,
+			 uint32_t key, struct mlx5_qp *qp);
+void mlx5_adv_cq_reg_del(struct mlx5_adv_qp_reg_ent *ent);
 int mlx5_arm_cq(struct ibv_cq *cq, int solicited);
 void mlx5_cq_event(struct ibv_cq *cq);
 void __mlx5_cq_clean(struct mlx5_cq *cq, uint32_t qpn, struct mlx5_srq *srq);
