@@ -1,0 +1,84 @@
+.\" -*- nroff -*-
+.\" Licensed under the OpenIB.org BSD license (FreeBSD Variant) - See COPYING.md
+.\"
+.TH IBV_ALLOC_BUF 3 2026-05-29 libibverbs "Libibverbs Programmer's Manual"
+.SH "NAME"
+ibv_alloc_buf, ibv_free_buf, ibv_reg_buf_mr \- allocate provider-aware buffers and register them as memory regions
+.SH "SYNOPSIS"
+.nf
+.B #include <infiniband/verbs.h>
+.sp
+.BI "void *ibv_alloc_buf(struct ibv_pd " "*pd" ", size_t " "size" ,
+.BI "                    struct ibv_buf " "**buf" );
+.sp
+.BI "void ibv_free_buf(struct ibv_buf " "*buf" );
+.sp
+.BI "struct ibv_mr *ibv_reg_buf_mr(struct ibv_pd " "*pd" ,
+.BI "                              struct ibv_buf " "*buf" ", void " "*addr" ,
+.BI "                              size_t " "length" ", int " "access" );
+.fi
+.SH "DESCRIPTION"
+.B ibv_alloc_buf()
+allocates a buffer using the allocation method selected by the provider for
+the protection domain
+.I pd\fR.
+On success it returns the mapped address and stores an opaque buffer handle in
+.I buf\fR.
+The handle is used by
+.B ibv_free_buf()
+and
+.B ibv_reg_buf_mr()
+and must not be interpreted by applications.
+.PP
+.B ibv_free_buf()
+releases a buffer handle returned by
+.B ibv_alloc_buf()\fR.
+The protection domain used for allocation must remain valid until the
+buffer is freed.
+.PP
+.B ibv_reg_buf_mr()
+registers a memory region for a buffer returned by
+.B ibv_alloc_buf()\fR.
+The
+.I pd
+argument must be the same protection domain that was used to allocate
+the buffer.
+If a different protection domain is supplied,
+.B ibv_reg_buf_mr()
+fails with
+.B EINVAL\fR.
+For ordinary memory it behaves like
+.B ibv_reg_mr()\fR.
+For provider allocations backed by a DMA-buf, it registers the corresponding
+DMA-buf range using the metadata stored in the opaque
+.I buf
+handle.
+.PP
+.I addr
+and
+.I length
+may describe a subrange of the allocated buffer. The subrange must be within
+the buffer returned by
+.B ibv_alloc_buf()\fR.
+The
+.I access
+argument uses the same access flags as
+.B ibv_reg_mr()\fR.
+.SH "RETURN VALUE"
+.B ibv_alloc_buf()
+returns the mapped buffer address on success, or NULL if the request fails.
+.PP
+.B ibv_reg_buf_mr()
+returns a pointer to the registered MR on success, or NULL if the request fails.
+.PP
+.B ibv_free_buf()
+does not return a value.
+.SH "NOTES"
+Applications running in a CoCo guest that need unprotected/shared memory should
+first create a parent domain with
+.B IBV_PARENT_DOMAIN_INIT_ATTR_ALLOW_CC_UNPROTECTED_ALLOC\fR,
+then allocate and register buffers through these helpers.
+.SH "SEE ALSO"
+.BR ibv_alloc_parent_domain (3),
+.BR ibv_reg_mr (3),
+.BR ibv_reg_dmabuf_mr (3)
