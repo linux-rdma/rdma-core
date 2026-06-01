@@ -2548,6 +2548,20 @@ static int mlx5_set_context(struct mlx5_context *context,
 			return EINVAL;
 		}
 		context->tot_uuars = resp->tot_bfregs;
+
+		/* tot_bfregs comes from the device; num_sys_page_map indexes
+		 * uar[] and gross_uuars sizes bfs[].
+		 */
+		num_sys_page_map = context->tot_uuars /
+			(context->num_uars_per_page * MLX5_NUM_NON_FP_BFREGS_PER_UAR);
+		if (num_sys_page_map < 1 || num_sys_page_map > MLX5_MAX_UARS) {
+			mlx5_err(context->dbg_fp, PFX
+				 "device-relayed tot_bfregs %u yields num_sys_page_map %d out of range [1, %d]; refusing context\n",
+				 resp->tot_bfregs, num_sys_page_map, MLX5_MAX_UARS);
+			errno = EINVAL;
+			goto err_free;
+		}
+
 		gross_uuars = context->tot_uuars / MLX5_NUM_NON_FP_BFREGS_PER_UAR * NUM_BFREGS_PER_UAR;
 		context->bfs = calloc(gross_uuars, sizeof(*context->bfs));
 		if (!context->bfs) {
@@ -2563,7 +2577,6 @@ static int mlx5_set_context(struct mlx5_context *context,
 
 	context->max_num_legacy_dyn_uar_sys_page = context->num_dyn_bfregs /
 			(context->num_uars_per_page * MLX5_NUM_NON_FP_BFREGS_PER_UAR);
-	num_sys_page_map = context->tot_uuars / (context->num_uars_per_page * MLX5_NUM_NON_FP_BFREGS_PER_UAR);
 	for (i = 0; i < num_sys_page_map; ++i) {
 		if (mlx5_mmap(&context->uar[i], i, cmd_fd, page_size,
 			      context->shut_up_bf ? MLX5_UAR_TYPE_NC :
