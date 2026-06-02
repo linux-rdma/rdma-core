@@ -2909,7 +2909,7 @@ static void efa_send_wr_set_addr(struct ibv_qp_ex *ibvqpx,
 	rdma_tracepoint(rdma_core_efa, post_send, qp->dev->name, ibvqpx->wr_id,
 			EFA_GET(&md->ctrl1, EFA_IO_TX_META_DESC_OP_TYPE),
 			ibvqpx->qp_base.qp_num, remote_qpn, ah->efa_ah,
-			efa_wqe_get_data_length(qp->sq));
+			efa_wqe_get_data_length(&qp->sq));
 }
 
 static void efa_send_wr_start(struct ibv_qp_ex *ibvqpx)
