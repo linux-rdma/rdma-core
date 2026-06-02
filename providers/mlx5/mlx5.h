@@ -368,6 +368,7 @@ struct mlx5_context {
 	int				stall_adaptive_enable;
 	int				stall_cycles;
 	struct mlx5_bf		       *bfs;
+	uint32_t			num_bfs; /* initialized bfs[] entries */
 	FILE			       *dbg_fp;
 	char				hostname[HOST_NAME_MAX + 1];
 	struct mlx5_spinlock            hugetlb_lock;

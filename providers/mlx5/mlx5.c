@@ -2592,6 +2592,20 @@ static int mlx5_set_context(struct mlx5_context *context,
 		}
 	}
 
+	/* Entries initialized above; a truncated num_sys_page_map leaves
+	 * the rest of bfs[] with a NULL reg.
+	 */
+	{
+		uint64_t n = (uint64_t)num_sys_page_map *
+			     context->num_uars_per_page * NUM_BFREGS_PER_UAR;
+
+		if (n > UINT32_MAX) {
+			errno = EINVAL;
+			goto err_free_bf;
+		}
+		context->num_bfs = n;
+	}
+
 bf_done:
 
 	context->hca_core_clock = NULL;

@@ -3030,6 +3030,15 @@ static struct ibv_qp *create_qp(struct ibv_context *context,
 		    need_buf_umem) ?
 			&resp_ex.drv_payload : &resp.drv_payload;
 
+	/* Without dynamic UAR, map_uuar() indexes bfs[] by bfreg_index */
+	if (!bf && resp_drv->bfreg_index >= ctx->num_bfs) {
+		mlx5_dbg(fp, MLX5_DBG_QP,
+			 "device-returned bfreg_index %u out of range (num_bfs %u)\n",
+			 resp_drv->bfreg_index, ctx->num_bfs);
+		errno = EINVAL;
+		goto err_destroy;
+	}
+
 	/* The registry key must fit the 24-bit qpn reported in CQEs */
 	if ((ctx->flags & MLX5_CTX_FLAGS_ADVERSARIAL_DP) &&
 	    ibqp->qp_num > 0xffffff) {
