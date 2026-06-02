@@ -3760,10 +3760,19 @@ int mlx5_get_srq_num(struct ibv_srq *srq, uint32_t *srq_num)
 struct ibv_qp *mlx5_open_qp(struct ibv_context *context,
 			    struct ibv_qp_open_attr *attr)
 {
+	struct mlx5_context *ctx = to_mctx(context);
 	struct ibv_open_qp cmd;
 	struct ib_uverbs_create_qp_resp resp;
 	struct mlx5_qp *qp;
 	int ret;
+
+	/* Opens an XRC target QP, bypassing the RC-only check in create_qp() */
+	if (ctx->flags & MLX5_CTX_FLAGS_ADVERSARIAL_DP) {
+		mlx5_dbg(ctx->dbg_fp, MLX5_DBG_QP,
+			 "ibv_open_qp is not supported in adversarial mode\n");
+		errno = EOPNOTSUPP;
+		return NULL;
+	}
 
 	qp = calloc(1, sizeof(*qp));
 	if (!qp)
