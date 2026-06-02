@@ -1185,6 +1185,13 @@ static struct ibv_cq_ex *create_cq(struct ibv_context *context,
 
 	if (mlx5cq_attr) {
 		if (mlx5cq_attr->comp_mask & MLX5DV_CQ_INIT_ATTR_MASK_COMPRESSED_CQE) {
+			/* The adversarial poll_cq does not expand mini CQEs */
+			if (mctx->flags & MLX5_CTX_FLAGS_ADVERSARIAL_DP) {
+				mlx5_dbg(fp, MLX5_DBG_CQ,
+					 "CQE compression is not supported in adversarial mode\n");
+				errno = EOPNOTSUPP;
+				goto err_db;
+			}
 			if (mctx->cqe_comp_caps.max_num &&
 			    (mlx5cq_attr->cqe_comp_res_format &
 			     mctx->cqe_comp_caps.supported_format)) {
