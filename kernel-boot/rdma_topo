@@ -277,6 +277,7 @@ pci_device_types = {
     PCI_VDEVICE("NVIDIA", 0x22B8): "grace_rp",  # NVIDIA Grace PCI Root Port Bridge
     PCI_VDEVICE("MELLANOX", 0x1021): "cx_nic",  # ConnectX-7
     PCI_VDEVICE("MELLANOX", 0x1023): "cx_nic",  # ConnectX-8
+    PCI_VDEVICE("MELLANOX", 0x1025): "cx_nic",  # ConnectX-9
     PCI_VDEVICE("MELLANOX", 0xA2DC): "bf3_nic",  # BlueField-3
     PCI_VDEVICE("MELLANOX", 0x2100): "cx_dma",  # ConnectX-8 DMA Controller
     PCI_VDEVICE("MELLANOX", 0x197B): "bf3_switch",  # USP/DSP of a BF3 switch
