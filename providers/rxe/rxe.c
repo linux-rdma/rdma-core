@@ -1104,6 +1104,7 @@ static void wr_set_inline_data_list(struct ibv_qp_ex *ibqp, size_t num_buf,
 
 		memcpy(data, buf_list->addr, length);
 
+		tot_length += length;
 		buf_list++;
 		data += length;
 	}
