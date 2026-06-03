@@ -1458,7 +1458,7 @@ static int rxe_destroy_qp(struct ibv_qp *ibqp)
 
 /* basic sanity checks for send work request */
 static int validate_send_wr(struct rxe_qp *qp, struct ibv_send_wr *ibwr,
-			    unsigned int length)
+			    uint64_t length)
 {
 	struct rxe_wq *sq = &qp->sq;
 	enum ibv_wr_opcode opcode = ibwr->opcode;
@@ -1597,7 +1597,7 @@ static int post_one_send(struct rxe_qp *qp, struct rxe_wq *sq,
 {
 	int err;
 	struct rxe_send_wqe *wqe;
-	unsigned int length = 0;
+	uint64_t length = 0;
 	int i;
 
 	for (i = 0; i < ibwr->num_sge; i++)
