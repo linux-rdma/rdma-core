@@ -2250,7 +2250,7 @@ static int _mlx5dv_get_clock_info(struct ibv_context *ctx_in,
 				  struct mlx5dv_clock_info *clock_info)
 {
 	struct mlx5_context *ctx = to_mctx(ctx_in);
-	const struct mlx5_ib_clock_info *ci;
+	const struct ib_uverbs_clock_info *ci;
 	uint32_t retry, tmp_sig;
 	atomic_uint32_t *sig;
 
