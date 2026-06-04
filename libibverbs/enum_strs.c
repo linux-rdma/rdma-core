@@ -153,7 +153,8 @@ const char *ibv_wr_opcode_str(enum ibv_wr_opcode opcode)
 		[IBV_WR_ATOMIC_WRITE]		= "atomic-write"
 	};
 
-	if (opcode < IBV_WR_RDMA_WRITE || opcode > IBV_WR_ATOMIC_WRITE)
+	if (opcode < IBV_WR_RDMA_WRITE || opcode > IBV_WR_ATOMIC_WRITE ||
+	    !wr_opcode_str[opcode])
 		return "unknown";
 
 	return wr_opcode_str[opcode];
