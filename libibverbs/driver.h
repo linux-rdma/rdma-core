@@ -108,6 +108,8 @@ enum create_cq_cmd_flags {
 	CREATE_CQ_CMD_FLAGS_TS_IGNORED_EX = 1 << 0,
 	CREATE_CQ_CMD_FLAGS_WITH_MEM_VA = 1 << 1,
 	CREATE_CQ_CMD_FLAGS_WITH_MEM_DMABUF = 1 << 2,
+	CREATE_CQ_CMD_FLAGS_WITH_BUF_UMEM_VA = 1 << 3,
+	CREATE_CQ_CMD_FLAGS_WITH_BUF_UMEM_DMABUF = 1 << 4,
 };
 
 /* Must change the PRIVATE IBVERBS_PRIVATE_ symbol if this is changed */
