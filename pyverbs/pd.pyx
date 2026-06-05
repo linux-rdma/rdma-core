@@ -219,25 +219,33 @@ cdef class ParentDomainContext(PyverbsObject):
 
 
 cdef class ParentDomainInitAttr(PyverbsObject):
-    def __init__(self, PD pd not None, ParentDomainContext pd_context=None):
+    def __init__(self, PD pd not None, ParentDomainContext pd_context=None,
+                 comp_mask=0):
         """
         Represents ibv_parent_domain_init_attr C struct
         :param pd: PD to initialize the ParentDomain with
         :param pd_context: ParentDomainContext object including the alloc and
                           free Python callbacks
+        :param comp_mask: Bit-mask of optional fields/flags.
+                          The ALLOCATORS and PD_CONTEXT bits are set
+                          automatically when pd_context is provided.
         """
         super().__init__()
         self.pd = pd
         self.init_attr.pd = <v.ibv_pd*>pd.pd
+        pd_context_bits = v.IBV_PARENT_DOMAIN_INIT_ATTR_ALLOCATORS | \
+                          v.IBV_PARENT_DOMAIN_INIT_ATTR_PD_CONTEXT
+        if pd_context is None and (comp_mask & pd_context_bits):
+            raise PyverbsUserError('comp_mask bits ALLOCATORS/PD_CONTEXT require '
+                                   'pd_context to be provided')
+        self.init_attr.comp_mask = comp_mask
         if pd_context:
             self.init_attr.alloc = pd_alloc
             self.init_attr.free = pd_free
             self.init_attr.pd_context = <void*>pd_context
-            # The only way to use Python callbacks is to pass the (Python)
-            # functions through pd_context. Hence, we must set PD_CONTEXT
-            # in the comp mask.
-            self.init_attr.comp_mask = v.IBV_PARENT_DOMAIN_INIT_ATTR_PD_CONTEXT | \
-                                       v.IBV_PARENT_DOMAIN_INIT_ATTR_ALLOCATORS
+            # Python callbacks can only be passed through pd_context, so enable
+            # both pd_context-backed bits in the comp mask.
+            self.init_attr.comp_mask |= pd_context_bits
 
     @property
     def comp_mask(self):
