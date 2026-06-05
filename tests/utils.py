@@ -1264,7 +1264,7 @@ def prepare_validate_data(client=None, server=None):
 
 
 def rdma_traffic(client, server, iters, gid_idx, port, new_send=False,
-                 send_op=None, force_page_faults=False):
+                 send_op=None, force_page_faults=False, is_cq_ex=False):
     """
     Runs basic RDMA traffic between two sides. No receive WQEs are posted. For
     RDMA send with immediate, use traffic().
@@ -1277,6 +1277,7 @@ def rdma_traffic(client, server, iters, gid_idx, port, new_send=False,
     :param send_op: The send_wr opcode.
     :param force_page_faults: If True, use madvise to hint that we don't need the MR's buffer to
                               force page faults (useful for ODP testing).
+    :param is_cq_ex: If True, use poll_cq_ex() rather than poll_cq()
     :return:
     """
     # Using the new post send API, we need the SGE, not the SendWR
@@ -1287,6 +1288,7 @@ def rdma_traffic(client, server, iters, gid_idx, port, new_send=False,
     else:
         ah_client = None
         ah_server = None
+    poll = poll_cq_ex if is_cq_ex else poll_cq
     send_element_idx = 1 if new_send else 0
     same_side_check =  send_op in [ibv_wr_opcode.IBV_WR_RDMA_READ,
                                    ibv_wr_opcode.IBV_WR_ATOMIC_CMP_AND_SWP,
@@ -1298,7 +1300,7 @@ def rdma_traffic(client, server, iters, gid_idx, port, new_send=False,
         prepare_validate_data(client=client, server=server)
         c_send_wr = get_send_elements(client, False, send_op)[send_element_idx]
         send(client, c_send_wr, send_op, new_send, ah=ah_client)
-        poll_cq(client.cq)
+        poll(client.cq)
         if same_side_check:
             msg_received = client.mem_read(client.msg_size)
         else:
@@ -1308,7 +1310,7 @@ def rdma_traffic(client, server, iters, gid_idx, port, new_send=False,
         s_send_wr = get_send_elements(server, True, send_op)[send_element_idx]
         prepare_validate_data(client=client, server=server)
         send(server, s_send_wr, send_op, new_send, ah=ah_server)
-        poll_cq(server.cq)
+        poll(server.cq)
         if same_side_check:
             msg_received = server.mem_read(client.msg_size)
         else:
@@ -1319,7 +1321,7 @@ def rdma_traffic(client, server, iters, gid_idx, port, new_send=False,
 
 def atomic_traffic(client, server, iters, gid_idx, port, new_send=False,
                    send_op=None, receiver_val=1, sender_val=2, swap=0,
-                   client_wr=1, server_wr=1, **kwargs):
+                   client_wr=1, server_wr=1, is_cq_ex=False, **kwargs):
     """
     Runs atomic traffic between two sides.
     :param client: Client side, clients base class is BaseTraffic
@@ -1333,6 +1335,7 @@ def atomic_traffic(client, server, iters, gid_idx, port, new_send=False,
     :param sender_val: The requested value on the sender SendWR.
     :param client_wr: Number of WR the client will post before polling all of them
     :param server_wr: Number of WR the server will post before polling all of them
+    :param is_cq_ex: If True, use poll_cq_ex() rather than poll_cq()
     :param kwargs: General arguments (shared with other traffic functions).
     """
     send_element_idx = 1 if new_send else 0
@@ -1342,6 +1345,7 @@ def atomic_traffic(client, server, iters, gid_idx, port, new_send=False,
     else:
         ah_client = None
         ah_server = None
+    poll = poll_cq_ex if is_cq_ex else poll_cq
 
     for _ in range(iters):
         client.mr.write(int.to_bytes(sender_val, 1, byteorder='big') * 8, 8)
@@ -1355,7 +1359,7 @@ def atomic_traffic(client, server, iters, gid_idx, port, new_send=False,
                 c_send_wr.set_qp_type_xrc(server.srq.get_srq_num())
             send(client, c_send_wr, send_op, new_send, ah=ah_client,
                  cmp_add=sender_val, swap=swap)
-        poll_cq(client.cq, count=client_wr)
+        poll(client.cq, count=client_wr)
         validate_atomic(send_op, server, client,
                         receiver_val=receiver_val + sender_val * (client_wr - 1),
                         send_cmp_add=sender_val, send_swp=swap)
@@ -1370,7 +1374,7 @@ def atomic_traffic(client, server, iters, gid_idx, port, new_send=False,
                 s_send_wr.set_qp_type_xrc(client.srq.get_srq_num())
             send(server, s_send_wr, send_op, new_send, ah=ah_server,
                  cmp_add=sender_val, swap=swap)
-        poll_cq(server.cq, count=server_wr)
+        poll(server.cq, count=server_wr)
         validate_atomic(send_op, client, server,
                         receiver_val=receiver_val + sender_val * (server_wr - 1),
                         send_cmp_add=sender_val, send_swp=swap)
