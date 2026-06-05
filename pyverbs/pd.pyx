@@ -15,7 +15,7 @@ from pyverbs.base cimport close_weakrefs
 from pyverbs.wr cimport copy_sg_array
 from pyverbs.device cimport Context
 from pyverbs.cmid cimport CMID
-from .mr cimport MR, MW, DMMR
+from .mr cimport MR, MW, DMMR, Buf
 from pyverbs.srq cimport SRQ
 from pyverbs.addr cimport AH
 from pyverbs.cq cimport CQEX
@@ -63,6 +63,7 @@ cdef class PD(PyverbsCM):
             self.logger.debug('Created PD')
         self.srqs = weakref.WeakSet()
         self.mrs = weakref.WeakSet()
+        self.bufs = weakref.WeakSet()
         self.mws = weakref.WeakSet()
         self.ahs = weakref.WeakSet()
         self.qps = weakref.WeakSet()
@@ -113,7 +114,8 @@ cdef class PD(PyverbsCM):
             if self.logger:
                 self.logger.debug('Closing PD')
             close_weakrefs([self.deks, self.mkeys, self.parent_domains, self.qps,
-                            self.wqs, self.ahs, self.mws, self.mrs, self.srqs])
+                            self.wqs, self.ahs, self.mws, self.bufs, self.mrs,
+                            self.srqs])
             if not self._is_imported:
                 rc = v.ibv_dealloc_pd(self.pd)
                 if rc != 0:
@@ -124,6 +126,8 @@ cdef class PD(PyverbsCM):
     cdef add_ref(self, obj):
         if isinstance(obj, MR) or isinstance(obj, DMMR):
             self.mrs.add(obj)
+        elif isinstance(obj, Buf):
+            self.bufs.add(obj)
         elif isinstance(obj, MW):
             self.mws.add(obj)
         elif isinstance(obj, AH):

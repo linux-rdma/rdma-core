@@ -16,6 +16,7 @@ cdef class PD(PyverbsCM):
     cdef remove_ref(self, obj)
     cdef object srqs
     cdef object mrs
+    cdef object bufs
     cdef object mws
     cdef object ahs
     cdef object qps
