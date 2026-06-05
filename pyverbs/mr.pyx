@@ -623,18 +623,21 @@ cdef class MREx(MR):
     This class provides more flexibility in memory registration compared to the basic MR class.
     """
     def __init__(self, PD pd not None, length=0, access=0, address=None,
-                 iova=None, fd=None, fd_offset=0, dmah=None, implicit=False, **kwargs):
+                 iova=None, fd=None, fd_offset=0, dmah=None, implicit=False,
+                 Buf buf=None, **kwargs):
         """
         Register a memory region using the extended API ibv_reg_mr_ex.
         :param pd: A PD object
         :param length: Length (in bytes) of MR's buffer
         :param access: Access flags, see ibv_access_flags enum
-        :param address: Memory address to register (Optional)
+        :param address: Memory address to register; defaults to the start of
+                        buf when buf is given (Optional)
         :param iova: IOVA address to register (Optional)
         :param fd: File descriptor for dma-buf based registration (Optional)
         :param fd_offset: Offset in the dma-buf (Optional)
         :param dmah: DMA handle for registration (Optional)
         :param implicit: If True, register implicit MR
+        :param buf: A Buf object to register the MR on (Optional).
         :param kwargs: Additional arguments
         :return: The newly created MREx on success
         """
@@ -645,8 +648,14 @@ cdef class MREx(MR):
         self.is_user_addr = False
         self.mmap_length = 0
 
+        if buf is not None:
+            self.is_user_addr = True
+            if address is None:
+                self.buf = buf.addr
+            else:
+                self.buf = <void*><uintptr_t>address
         # Handle memory allocation if no address is provided
-        if not address and length > 0 and fd is None:
+        elif not address and length > 0 and fd is None:
             self._allocate_buffer(<size_t>length, self.is_huge, &mmap_len)
             if self.buf == NULL:
                 raise PyverbsError(f'Failed to allocate MR buffer of size {length}')
@@ -667,6 +676,9 @@ cdef class MREx(MR):
                 in_.addr = self.buf
 
         in_.access = access
+        if buf is not None:
+            in_.comp_mask |= e.IBV_REG_MR_MASK_BUF
+            in_.buf = buf.bufh
         if iova is not None:
             in_.comp_mask |= e.IBV_REG_MR_MASK_IOVA
             in_.iova = iova
@@ -687,6 +699,9 @@ cdef class MREx(MR):
 
         self.pd = pd
         pd.add_ref(self)
+        if buf is not None:
+            self.backing_buf = buf
+            buf.add_ref(self)
         if dmah is not None:
             (<DMAHandle>dmah).add_ref(self)
         self.dmah = dmah
@@ -707,3 +722,100 @@ cdef class MREx(MR):
         if self.mr != NULL:
             super(MREx, self).close()
             self.dmah = None
+
+cdef class Buf(PyverbsCM):
+    """
+    Represents an ibv_buf buffer allocated through a PD.
+    The device provider selects the backing memory for the given PD.
+    """
+    def __init__(self, PD pd not None, size):
+        """
+        Allocate a buffer of the given size from the provider associated with
+        the given protection domain (or parent domain).
+        :param pd: A PD/ParentDomain object used for the allocation
+        :param size: Size (in bytes) of the buffer to allocate
+        :return: The newly created Buf on success
+        """
+        super().__init__()
+        self.mrs = weakref.WeakSet()
+        self.addr = v.ibv_alloc_buf(pd.pd, size, &self.bufh)
+        if self.addr == NULL:
+            raise PyverbsRDMAErrno(f'Failed to allocate ibv_buf of size {size}')
+        self.size = size
+        self.pd = pd
+        pd.add_ref(self)
+        self.logger.debug(f'Allocated ibv_buf of size {size}')
+
+    def __dealloc__(self):
+        self.close()
+
+    cpdef close(self):
+        """
+        Frees the underlying buffer using ibv_free_buf().
+        :return: None
+        """
+        if self.bufh != NULL:
+            if self.logger:
+                self.logger.debug('Closing Buf')
+            close_weakrefs([self.mrs])
+            v.ibv_free_buf(self.bufh)
+            self.bufh = NULL
+            self.addr = NULL
+            self.pd = None
+
+    cdef add_ref(self, obj):
+        if isinstance(obj, (BufMR, MREx)):
+            self.mrs.add(obj)
+        else:
+            raise PyverbsError('Unrecognized object type')
+
+    @property
+    def addr(self):
+        return <uintptr_t>self.addr
+
+    @property
+    def size(self):
+        return self.size
+
+    def __str__(self):
+        print_format = '{:22}: {:<20}\n'
+        return 'Buf:\n' + \
+               print_format.format('addr', <uintptr_t>self.addr) + \
+               print_format.format('size', self.size)
+
+
+cdef class BufMR(MR):
+    """
+    BufMR represents a memory region registered for a Buf via ibv_reg_buf_mr().
+    Unlike MR, the backing memory is owned by the Buf, so closing a BufMR only
+    deregisters the MR and never frees the buffer. The IBV_REG_MR_MASK_BUF path
+    of ibv_reg_mr_ex() is exercised through the MREx class instead.
+    """
+    def __init__(self, PD pd not None, Buf buf not None, length=0, access=0,
+                 offset=0):
+        """
+        Register a memory region for (a subrange of) the given Buf.
+        :param pd: The same PD/ParentDomain used to allocate the Buf
+        :param buf: A Buf object allocated with ibv_alloc_buf()
+        :param length: Length (in bytes) to register
+        :param access: Access flags, see ibv_access_flags enum
+        :param offset: Byte offset within the Buf to start the registration
+        :return: The newly created BufMR on success
+        """
+        self.logger = logging.getLogger(self.__class__.__name__)
+        cdef void *addr = <void*>(<uintptr_t>buf.addr + <uintptr_t>offset)
+        self.mr = v.ibv_reg_buf_mr(pd.pd, buf.bufh, addr, length, access)
+        if self.mr == NULL:
+            raise PyverbsRDMAErrno(f'Failed to register a buf MR. length: '
+                                   f'{length}, access flags: {access}')
+        self.buf = addr
+        super().__init__(pd, length, access)
+        self.is_user_addr = True
+        self.is_huge = False
+        self.mmap_length = 0
+        self.pd = pd
+        self.backing_buf = buf
+        pd.add_ref(self)
+        buf.add_ref(self)
+        self.logger.debug(f'Registered buf ibv_mr. Length: {length}, access '
+                          f'flags {access}')
