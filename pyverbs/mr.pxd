@@ -24,6 +24,18 @@ cdef class MR(PyverbsCM):
 
 cdef class MREx(MR):
     cdef object dmah
+    cdef object backing_buf
+
+cdef class Buf(PyverbsCM):
+    cdef v.ibv_buf *bufh
+    cdef void *addr
+    cdef size_t size
+    cdef object pd
+    cdef object mrs
+    cdef add_ref(self, obj)
+
+cdef class BufMR(MR):
+    cdef object backing_buf
 
 cdef class MWBindInfo(PyverbsCM):
     cdef v.ibv_mw_bind_info info

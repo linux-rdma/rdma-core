@@ -522,6 +522,7 @@ cdef extern from '<infiniband/verbs.h>':
         IBV_REG_MR_MASK_FD
         IBV_REG_MR_MASK_FD_OFFSET
         IBV_REG_MR_MASK_DMAH
+        IBV_REG_MR_MASK_BUF
 
 
 cdef extern from "<infiniband/verbs_api.h>":
