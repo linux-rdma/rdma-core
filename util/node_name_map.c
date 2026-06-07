@@ -62,6 +62,7 @@ static int map_name(void *cxt, uint64_t guid, char *p)
 {
 	cl_qmap_t *map = cxt;
 	name_map_item_t *item;
+	cl_map_item_t *inserted;
 
 	p = strtok(p, "\"#");
 	if (!p)
@@ -72,7 +73,16 @@ static int map_name(void *cxt, uint64_t guid, char *p)
 		return -1;
 	item->guid = guid;
 	item->name = strdup(p);
-	cl_qmap_insert(map, item->guid, (cl_map_item_t *) item);
+	if (!item->name) {
+		free(item);
+		return -1;
+	}
+
+	inserted = cl_qmap_insert(map, item->guid, (cl_map_item_t *)item);
+	if (inserted != (cl_map_item_t *)item) {
+		free(item->name);
+		free(item);
+	}
 	return 0;
 }
 
