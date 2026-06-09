@@ -151,6 +151,7 @@ enum ibv_fork_status {
  */
 #define IBV_DEVICE_RAW_SCATTER_FCS (1ULL << 34)
 #define IBV_DEVICE_PCI_WRITE_END_PADDING (1ULL << 36)
+#define IBV_DEVICE_CC_DMA_BOUNCE (1ULL << 41)
 
 enum ibv_atomic_cap {
 	IBV_ATOMIC_NONE,
@@ -635,6 +636,8 @@ struct ibv_mw_bind_info {
 struct ibv_dmah {
 	struct ibv_context *context;
 };
+
+struct ibv_buf;
 
 struct ibv_pd {
 	struct ibv_context     *context;
@@ -2115,6 +2118,7 @@ struct ibv_cq_init_attr_ex {
 enum ibv_parent_domain_init_attr_mask {
 	IBV_PARENT_DOMAIN_INIT_ATTR_ALLOCATORS = 1 << 0,
 	IBV_PARENT_DOMAIN_INIT_ATTR_PD_CONTEXT = 1 << 1,
+	IBV_PARENT_DOMAIN_INIT_ATTR_ALLOW_CC_UNPROTECTED_ALLOC = 1 << 2,
 };
 
 #define IBV_ALLOCATOR_USE_DEFAULT ((void *)-1)
@@ -2183,6 +2187,9 @@ struct ibv_values_ex {
 
 struct verbs_context {
 	/*  "grows up" - new fields go here */
+	void (*free_buf)(struct ibv_buf *buf);
+	void *(*alloc_buf)(struct ibv_pd *pd, size_t size,
+			   struct ibv_buf **buf);
 	int (*dm_export_dmabuf_fd)(struct ibv_dm *dm);
 	struct ibv_mr *(*reg_mr_ex)(struct ibv_pd *pd,
 				    struct ibv_mr_init_attr *mr_init_attr);
@@ -3194,6 +3201,43 @@ ibv_alloc_parent_domain(struct ibv_context *context,
 
 	return vctx->alloc_parent_domain(context, attr);
 }
+
+/**
+ * ibv_alloc_buf - Allocate a buffer using provider-configured allocation method
+ * @pd: Protection domain or parent domain
+ * @size: Buffer size in bytes
+ * @buf: On success, set to a handle for ibv_free_buf()
+ *
+ * The returned address is at least page aligned, so it can be registered
+ * with ibv_reg_buf_mr() regardless of how the buffer is backed.
+ *
+ * Returns the usable buffer address on success, or NULL on failure with
+ * errno set.
+ */
+void *ibv_alloc_buf(struct ibv_pd *pd, size_t size, struct ibv_buf **buf);
+
+/**
+ * ibv_free_buf - Free a buffer allocated with ibv_alloc_buf
+ * @buf: Handle from ibv_alloc_buf()
+ */
+void ibv_free_buf(struct ibv_buf *buf);
+
+/**
+ * ibv_reg_buf_mr - Register an MR for a buffer from ibv_alloc_buf
+ * @pd: Protection domain
+ * @buf: Handle from ibv_alloc_buf()
+ * @addr: Start address to register; the buffer base returned by
+ *        ibv_alloc_buf() or an address within that buffer
+ * @length: Length in bytes; @addr + @length must stay within the buffer
+ * @access: Access flags (IBV_ACCESS_*)
+ *
+ * The returned MR uses pointer-based addressing like ibv_reg_mr(): its base
+ * (mr->addr) is @addr regardless of how the buffer is backed.
+ *
+ * Returns the registered MR on success, or NULL on failure with errno set.
+ */
+struct ibv_mr *ibv_reg_buf_mr(struct ibv_pd *pd, struct ibv_buf *buf,
+			      void *addr, size_t length, int access);
 
 /**
  * ibv_alloc_dmah - Allocate a dma handle

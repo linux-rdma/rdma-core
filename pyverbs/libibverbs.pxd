@@ -83,6 +83,9 @@ cdef extern from 'infiniband/verbs.h':
         unsigned int    lkey
         unsigned int    rkey
 
+    cdef struct ibv_buf:
+        pass
+
     cdef struct ibv_query_device_ex_input:
         unsigned int    comp_mask
 
@@ -685,6 +688,10 @@ cdef extern from 'infiniband/verbs.h':
     ibv_mr *ibv_reg_mr(ibv_pd *pd, void *addr, size_t length, int access)
     ibv_mr *ibv_reg_dmabuf_mr(ibv_pd *pd, uint64_t offset, size_t length,
                               uint64_t iova, int fd, int access)
+    void *ibv_alloc_buf(ibv_pd *pd, size_t size, ibv_buf **buf)
+    void ibv_free_buf(ibv_buf *buf)
+    ibv_mr *ibv_reg_buf_mr(ibv_pd *pd, ibv_buf *buf, void *addr,
+                           size_t length, int access)
     int ibv_rereg_mr(ibv_mr *mr, int flags, ibv_pd *pd, void *addr,
                      size_t length, int access)
     int ibv_dereg_mr(ibv_mr *mr)

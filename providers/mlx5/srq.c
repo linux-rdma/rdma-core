@@ -42,7 +42,7 @@
 
 static void *get_wqe(struct mlx5_srq *srq, int n)
 {
-	return srq->buf.buf + (n << srq->wqe_shift);
+	return srq->buf.ibv_buf.addr + (n << srq->wqe_shift);
 }
 
 static inline void set_next_tail(struct mlx5_srq *srq, int next_tail)
@@ -389,7 +389,8 @@ int mlx5_alloc_srq_buf(struct ibv_context *context, struct mlx5_srq *srq,
 	mlx5_get_alloc_type(ctx, pd, MLX5_SRQ_PREFIX, &alloc_type,
 			    MLX5_ALLOC_TYPE_ANON);
 
-	if (alloc_type == MLX5_ALLOC_TYPE_CUSTOM) {
+	if (alloc_type == MLX5_ALLOC_TYPE_CUSTOM ||
+	    alloc_type == MLX5_ALLOC_TYPE_DMABUF) {
 		srq->buf.mparent_domain = to_mparent_domain(pd);
 		srq->buf.req_alignment = to_mdev(context->device)->page_size;
 		srq->buf.resource_type = MLX5DV_RES_TYPE_SRQ;
@@ -399,11 +400,11 @@ int mlx5_alloc_srq_buf(struct ibv_context *context, struct mlx5_srq *srq,
 				    &srq->buf, buf_size,
 				    to_mdev(context->device)->page_size,
 				    alloc_type,
-				    MLX5_SRQ_PREFIX))
+				    MLX5_SRQ_PREFIX, pd))
 		return -1;
 
 	if (srq->buf.type != MLX5_ALLOC_TYPE_CUSTOM)
-		memset(srq->buf.buf, 0, buf_size);
+		memset(srq->buf.ibv_buf.addr, 0, buf_size);
 
 	srq->head = 0;
 	srq->tail = align_queue_size(orig_max_wr + 1) - 1;

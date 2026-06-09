@@ -62,12 +62,13 @@ static int prefetch_mr;
 static int use_ts;
 static int validate_buf;
 static int use_dm;
+static int allow_cc_unprotected;
 static int use_new_send;
 
 struct pingpong_context {
 	struct ibv_context	*context;
 	struct ibv_comp_channel *channel;
-	struct ibv_pd		*pd;
+	struct ibv_pd		*pd; /* PD or parent domain (if using CC unprotected alloc) */
 	struct ibv_mr		*mr;
 	struct ibv_dm		*dm;
 	union {
@@ -83,11 +84,13 @@ struct pingpong_context {
 	int			 pending;
 	struct ibv_port_attr     portinfo;
 	uint64_t		 completion_timestamp_mask;
+	struct ibv_buf		*ibv_buf;
+	struct ibv_pd		*base_pd;
 };
 
 static struct ibv_cq *pp_cq(struct pingpong_context *ctx)
 {
-	return use_ts ? ibv_cq_ex_to_cq(ctx->cq_s.cq_ex) :
+	return (use_ts || allow_cc_unprotected) ? ibv_cq_ex_to_cq(ctx->cq_s.cq_ex) :
 		ctx->cq_s.cq;
 }
 
@@ -344,20 +347,11 @@ static struct pingpong_context *pp_init_ctx(struct ibv_device *ib_dev, int size,
 	ctx->send_flags = IBV_SEND_SIGNALED;
 	ctx->rx_depth   = rx_depth;
 
-	ctx->buf = memalign(page_size, size);
-	if (!ctx->buf) {
-		fprintf(stderr, "Couldn't allocate work buf.\n");
-		goto clean_ctx;
-	}
-
-	/* FIXME memset(ctx->buf, 0, size); */
-	memset(ctx->buf, 0x7b, size);
-
 	ctx->context = ibv_open_device(ib_dev);
 	if (!ctx->context) {
 		fprintf(stderr, "Couldn't get context for %s\n",
 			ibv_get_device_name(ib_dev));
-		goto clean_buffer;
+		goto clean_ctx;
 	}
 
 	if (use_event) {
@@ -369,10 +363,31 @@ static struct pingpong_context *pp_init_ctx(struct ibv_device *ib_dev, int size,
 	} else
 		ctx->channel = NULL;
 
-	ctx->pd = ibv_alloc_pd(ctx->context);
-	if (!ctx->pd) {
-		fprintf(stderr, "Couldn't allocate PD\n");
-		goto clean_comp_channel;
+	if (allow_cc_unprotected) {
+		struct ibv_parent_domain_init_attr parent_attr = {};
+
+		ctx->base_pd = ibv_alloc_pd(ctx->context);
+		if (!ctx->base_pd) {
+			fprintf(stderr, "Couldn't allocate base PD\n");
+			goto clean_comp_channel;
+		}
+
+		parent_attr.pd = ctx->base_pd;
+		parent_attr.comp_mask =
+			IBV_PARENT_DOMAIN_INIT_ATTR_ALLOW_CC_UNPROTECTED_ALLOC;
+
+		ctx->pd = ibv_alloc_parent_domain(ctx->context, &parent_attr);
+		if (!ctx->pd) {
+			fprintf(stderr, "Couldn't allocate parent domain\n");
+			ibv_dealloc_pd(ctx->base_pd);
+			goto clean_comp_channel;
+		}
+	} else {
+		ctx->pd = ibv_alloc_pd(ctx->context);
+		if (!ctx->pd) {
+			fprintf(stderr, "Couldn't allocate PD\n");
+			goto clean_comp_channel;
+		}
 	}
 
 	if (use_odp || use_ts || use_dm) {
@@ -431,17 +446,28 @@ static struct pingpong_context *pp_init_ctx(struct ibv_device *ib_dev, int size,
 		}
 	}
 
+	ctx->buf = ibv_alloc_buf(ctx->pd, size, &ctx->ibv_buf);
+	if (!ctx->buf) {
+		fprintf(stderr, "Couldn't allocate work buf.\n");
+		goto clean_dm;
+	}
+
+	/* FIXME memset(ctx->buf, 0, size); */
+	memset(ctx->buf, 0x7b, size);
+
 	if (implicit_odp) {
 		ctx->mr = ibv_reg_mr(ctx->pd, NULL, SIZE_MAX, access_flags);
+	} else if (use_dm) {
+		ctx->mr = ibv_reg_dm_mr(ctx->pd, ctx->dm, 0,
+					size, access_flags);
 	} else {
-		ctx->mr = use_dm ? ibv_reg_dm_mr(ctx->pd, ctx->dm, 0,
-						 size, access_flags) :
-			ibv_reg_mr(ctx->pd, ctx->buf, size, access_flags);
+		ctx->mr = ibv_reg_buf_mr(ctx->pd, ctx->ibv_buf, ctx->buf, size,
+					 access_flags);
 	}
 
 	if (!ctx->mr) {
 		fprintf(stderr, "Couldn't register MR\n");
-		goto clean_dm;
+		goto clean_buffer;
 	}
 
 	if (prefetch_mr) {
@@ -460,14 +486,22 @@ static struct pingpong_context *pp_init_ctx(struct ibv_device *ib_dev, int size,
 			fprintf(stderr, "Couldn't prefetch MR(%d). Continue anyway\n", ret);
 	}
 
-	if (use_ts) {
+	if (use_ts || allow_cc_unprotected) {
 		struct ibv_cq_init_attr_ex attr_ex = {
 			.cqe = rx_depth + 1,
 			.cq_context = NULL,
 			.channel = ctx->channel,
 			.comp_vector = 0,
-			.wc_flags = IBV_WC_EX_WITH_COMPLETION_TIMESTAMP
 		};
+
+		if (use_ts)
+			attr_ex.wc_flags = IBV_WC_EX_WITH_COMPLETION_TIMESTAMP;
+
+		if (allow_cc_unprotected) {
+			/* CQ buffers must be allocated from the same parent domain. */
+			attr_ex.comp_mask |= IBV_CQ_INIT_ATTR_MASK_PD;
+			attr_ex.parent_domain = ctx->pd;
+		}
 
 		ctx->cq_s.cq_ex = ibv_create_cq_ex(ctx->context, &attr_ex);
 	} else {
@@ -557,12 +591,18 @@ clean_cq:
 clean_mr:
 	ibv_dereg_mr(ctx->mr);
 
+clean_buffer:
+	ibv_free_buf(ctx->ibv_buf);
+
 clean_dm:
 	if (ctx->dm)
 		ibv_free_dm(ctx->dm);
 
 clean_pd:
-	ibv_dealloc_pd(ctx->pd);
+	if (ibv_dealloc_pd(ctx->pd))
+		fprintf(stderr, "Couldn't deallocate PD\n");
+	else if (ctx->base_pd)
+		ibv_dealloc_pd(ctx->base_pd);
 
 clean_comp_channel:
 	if (ctx->channel)
@@ -570,9 +610,6 @@ clean_comp_channel:
 
 clean_device:
 	ibv_close_device(ctx->context);
-
-clean_buffer:
-	free(ctx->buf);
 
 clean_ctx:
 	free(ctx);
@@ -597,6 +634,8 @@ static int pp_close_ctx(struct pingpong_context *ctx)
 		return 1;
 	}
 
+	ibv_free_buf(ctx->ibv_buf);
+
 	if (ctx->dm) {
 		if (ibv_free_dm(ctx->dm)) {
 			fprintf(stderr, "Couldn't free DM\n");
@@ -607,6 +646,13 @@ static int pp_close_ctx(struct pingpong_context *ctx)
 	if (ibv_dealloc_pd(ctx->pd)) {
 		fprintf(stderr, "Couldn't deallocate PD\n");
 		return 1;
+	}
+
+	if (ctx->base_pd) {
+		if (ibv_dealloc_pd(ctx->base_pd)) {
+			fprintf(stderr, "Couldn't deallocate base PD\n");
+			return 1;
+		}
 	}
 
 	if (ctx->channel) {
@@ -621,7 +667,6 @@ static int pp_close_ctx(struct pingpong_context *ctx)
 		return 1;
 	}
 
-	free(ctx->buf);
 	free(ctx);
 
 	return 0;
@@ -787,6 +832,8 @@ static void usage(const char *argv0)
 	printf("  -c, --chk	            validate received buffer\n");
 	printf("  -j, --dm	            use device memory\n");
 	printf("  -N, --new_send            use new post send WR API\n");
+	printf("  -U, --allow-cc-unprotected  allow allocation of unprotected/shared\n"
+	       "                            memory on CoCo guests\n");
 }
 
 int main(int argc, char *argv[])
@@ -837,10 +884,11 @@ int main(int argc, char *argv[])
 			{ .name = "chk",      .has_arg = 0, .val = 'c' },
 			{ .name = "dm",       .has_arg = 0, .val = 'j' },
 			{ .name = "new_send", .has_arg = 0, .val = 'N' },
+			{ .name = "allow-cc-unprotected", .has_arg = 0, .val = 'U' },
 			{}
 		};
 
-		c = getopt_long(argc, argv, "p:d:i:s:m:r:n:l:eg:oOPtcjN",
+		c = getopt_long(argc, argv, "p:d:i:s:m:r:n:l:eg:oOPtcjNU",
 				long_options, NULL);
 
 		if (c == -1)
@@ -924,6 +972,10 @@ int main(int argc, char *argv[])
 			use_new_send = 1;
 			break;
 
+		case 'U':
+			allow_cc_unprotected = 1;
+			break;
+
 		default:
 			usage(argv[0]);
 			return 1;
@@ -939,6 +991,16 @@ int main(int argc, char *argv[])
 
 	if (use_odp && use_dm) {
 		fprintf(stderr, "DM memory region can't be on demand\n");
+		return 1;
+	}
+
+	if (allow_cc_unprotected && use_odp) {
+		fprintf(stderr, "CoCo unprotected memory cannot be used with ODP\n");
+		return 1;
+	}
+
+	if (allow_cc_unprotected && use_dm) {
+		fprintf(stderr, "CoCo unprotected memory cannot be used with device memory\n");
 		return 1;
 	}
 

@@ -435,6 +435,85 @@ struct ibv_mr *ibv_reg_dmabuf_mr(struct ibv_pd *pd, uint64_t offset,
 	return mr;
 }
 
+void *ibv_alloc_buf(struct ibv_pd *pd, size_t size, struct ibv_buf **buf)
+{
+	struct verbs_context *vctx;
+
+	vctx = verbs_get_ctx_op(pd->context, alloc_buf);
+	if (!vctx) {
+		errno = EOPNOTSUPP;
+		return NULL;
+	}
+
+	return vctx->alloc_buf(pd, size, buf);
+}
+
+struct ibv_mr *ibv_reg_buf_mr(struct ibv_pd *pd, struct ibv_buf *buf,
+			      void *addr, size_t length, int access)
+{
+	uintptr_t base = (uintptr_t)buf->addr;
+	uintptr_t iova = (uintptr_t)addr;
+	size_t off;
+
+	if (pd != buf->pd) {
+		errno = EINVAL;
+		return NULL;
+	}
+
+	/* The registered range must lie within the allocated buffer. */
+	if (iova < base) {
+		errno = EINVAL;
+		return NULL;
+	}
+	off = iova - base;
+	if (length > buf->size || off > buf->size - length) {
+		errno = EINVAL;
+		return NULL;
+	}
+
+	if (buf->comp_mask & IBV_BUF_DMABUF) {
+		size_t page_mask = sysconf(_SC_PAGESIZE) - 1;
+		struct ibv_mr *mr;
+
+		/*
+		 * ibv_reg_dmabuf_mr() requires the iova and the dma-buf
+		 * offset to share the same page offset, which only holds
+		 * when the buffer base is page aligned.
+		 */
+		if ((iova & page_mask) != (off & page_mask)) {
+			errno = EINVAL;
+			return NULL;
+		}
+
+		mr = ibv_reg_dmabuf_mr(pd, off, length, iova,
+				       buf->dmabuf.fd, access);
+		if (!mr)
+			return NULL;
+
+		/*
+		 * ibv_reg_dmabuf_mr() reports the dma-buf offset in
+		 * mr->addr. Expose the mapped address instead so the MR
+		 * uses the same pointer-based addressing as ibv_reg_mr()
+		 * and reflects the iova used for remote access.
+		 */
+		mr->addr = addr;
+		return mr;
+	}
+
+	return ibv_reg_mr(pd, addr, length, access);
+}
+
+void ibv_free_buf(struct ibv_buf *buf)
+{
+	struct verbs_context *vctx;
+
+	vctx = verbs_get_ctx_op(buf->pd->context, free_buf);
+	if (!vctx)
+		return;
+
+	vctx->free_buf(buf);
+}
+
 /* Note: mr_init_attr may be modified during this call */
 struct ibv_mr *ibv_reg_mr_ex(struct ibv_pd *pd, struct ibv_mr_init_attr *mr_init_attr)
 {

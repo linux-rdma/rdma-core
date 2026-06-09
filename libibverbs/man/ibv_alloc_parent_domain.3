@@ -45,6 +45,7 @@ enum ibv_parent_domain_init_attr_mask {
 .in +8
 IBV_PARENT_DOMAIN_INIT_ATTR_ALLOCATORS = 1 << 0,
 IBV_PARENT_DOMAIN_INIT_ATTR_PD_CONTEXT = 1 << 1,
+IBV_PARENT_DOMAIN_INIT_ATTR_ALLOW_CC_UNPROTECTED_ALLOC = 1 << 2,
 .in -8
 };
 
@@ -77,6 +78,17 @@ An optional thread domain that the parent domain uses.
 .PP
 .B comp_mask
 Bit-mask of optional fields in the ibv_parent_domain_init_attr struct.
+.PP
+.B IBV_PARENT_DOMAIN_INIT_ATTR_ALLOW_CC_UNPROTECTED_ALLOC
+When set, allows a provider to allocate unprotected/shared memory for
+provider-managed buffers when running in a Confidential Computing (CoCo)
+guest on a device that reports
+.B IBV_DEVICE_CC_DMA_BOUNCE\fR.
+If the device does not report this flag, providers may continue to use
+plain memory. Applications opt in and then allocate memory through
+.B ibv_alloc_buf()
+and registers it with
+.B ibv_reg_buf_mr()\fR.
 .PP
 .B alloc
 Custom memory allocation function for this parent domain. Provider

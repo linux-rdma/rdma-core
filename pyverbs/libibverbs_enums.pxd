@@ -481,10 +481,12 @@ cdef extern from '<infiniband/verbs.h>':
 
     cdef unsigned long long IBV_DEVICE_RAW_SCATTER_FCS
     cdef unsigned long long IBV_DEVICE_PCI_WRITE_END_PADDING
+    cdef unsigned long long IBV_DEVICE_CC_DMA_BOUNCE
 
     cpdef enum ibv_parent_domain_init_attr_mask:
         IBV_PARENT_DOMAIN_INIT_ATTR_ALLOCATORS
         IBV_PARENT_DOMAIN_INIT_ATTR_PD_CONTEXT
+        IBV_PARENT_DOMAIN_INIT_ATTR_ALLOW_CC_UNPROTECTED_ALLOC
 
     cdef void *IBV_ALLOCATOR_USE_DEFAULT
 

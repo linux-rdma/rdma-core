@@ -177,6 +177,13 @@ IBVERBS_1.16 {
 		ibv_query_port_speed;
 } IBVERBS_1.15;
 
+IBVERBS_1.17 {
+	global:
+		ibv_alloc_buf;
+		ibv_free_buf;
+		ibv_reg_buf_mr;
+} IBVERBS_1.16;
+
 /* If any symbols in this stanza change ABI then the entire staza gets a new symbol
    version. See the top level CMakeLists.txt for this setting. */
 
@@ -184,6 +191,11 @@ IBVERBS_PRIVATE_@IBVERBS_PABI_VERSION@ {
 	global:
 		/* These historical symbols are now private to libibverbs */
 		__ioctl_final_num_attrs;
+		ibv_dmabuf_heap_alloc;
+		ibv_dmabuf_heap_cc_shared_init;
+		ibv_dmabuf_heap_destroy;
+		ibv_dmabuf_heap_free;
+		ibv_dmabuf_heap_init;
 		__verbs_log;
 		_verbs_init_and_alloc_context;
 		execute_ioctl;
@@ -203,6 +215,7 @@ IBVERBS_PRIVATE_@IBVERBS_PABI_VERSION@ {
 		ibv_cmd_create_flow_action_esp;
 		ibv_cmd_create_qp;
 		ibv_cmd_create_qp_ex2;
+		ibv_cmd_create_qp_ex3;
 		ibv_cmd_create_qp_ex;
 		ibv_cmd_create_rwq_ind_table;
 		ibv_cmd_create_srq;

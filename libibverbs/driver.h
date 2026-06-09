@@ -44,10 +44,41 @@
 #include <config.h>
 #include <stdbool.h>
 #include <rdma/rdma_user_ioctl_cmds.h>
+#include <rdma/ib_user_ioctl_verbs.h>
 #include <infiniband/cmd_ioctl.h>
 #include <sys/types.h>
 
 struct verbs_device;
+
+enum {
+	IBV_BUF_DMABUF = 1 << 0,
+};
+
+struct ibv_buf {
+	struct ibv_pd *pd;
+	void *addr;
+	size_t size;
+	uint32_t comp_mask;
+	struct {
+		int fd;
+	} dmabuf;
+};
+
+static inline void ibv_buf_init(struct ibv_buf *buf, struct ibv_pd *pd,
+				void *addr, size_t size)
+{
+	buf->pd = pd;
+	buf->addr = addr;
+	buf->size = size;
+}
+
+static inline void ibv_buf_init_dmabuf(struct ibv_buf *buf, struct ibv_pd *pd,
+				       void *addr, size_t size, int fd)
+{
+	ibv_buf_init(buf, pd, addr, size);
+	buf->comp_mask = IBV_BUF_DMABUF;
+	buf->dmabuf.fd = fd;
+}
 
 enum {
 	VERBS_LOG_LEVEL_NONE,
@@ -340,6 +371,8 @@ struct verbs_context_ops {
 			 uint32_t flags,
 			 struct ibv_sge *sg_list,
 			 uint32_t num_sges);
+	void *(*alloc_buf)(struct ibv_pd *pd, size_t size,
+			   struct ibv_buf **buf);
 	struct ibv_dm *(*alloc_dm)(struct ibv_context *context,
 				   struct ibv_alloc_dm_attr *attr);
 	struct ibv_dmah *(*alloc_dmah)(struct ibv_context *context,
@@ -408,6 +441,7 @@ struct verbs_context_ops {
 	int (*detach_mcast)(struct ibv_qp *qp, const union ibv_gid *gid,
 			    uint16_t lid);
 	int (*dm_export_dmabuf_fd)(struct ibv_dm *dm);
+	void (*free_buf)(struct ibv_buf *buf);
 	void (*free_context)(struct ibv_context *context);
 	int (*free_dm)(struct ibv_dm *dm);
 	int (*get_srq_num)(struct ibv_srq *srq, uint32_t *srq_num);
@@ -671,6 +705,14 @@ int ibv_cmd_create_qp_ex2(struct ibv_context *context,
 			  size_t cmd_size,
 			  struct ib_uverbs_ex_create_qp_resp *resp,
 			  size_t resp_size);
+int ibv_cmd_create_qp_ex3(struct ibv_context *context,
+			  struct verbs_qp *qp,
+			  struct ibv_qp_init_attr_ex *qp_attr,
+			  struct ibv_create_qp_ex *cmd,
+			  size_t cmd_size,
+			  struct ib_uverbs_ex_create_qp_resp *resp,
+			  size_t resp_size,
+			  struct ibv_command_buffer *driver);
 int ibv_cmd_open_qp(struct ibv_context *context,
 		    struct verbs_qp *qp,  int vqp_sz,
 		    struct ibv_qp_open_attr *attr,
@@ -801,6 +843,24 @@ static inline void ibv_initialize_parent_domain(struct ibv_pd *parent_domain,
 {
 	parent_domain->context = contained_pd->context;
 	parent_domain->handle = contained_pd->handle;
+}
+
+static inline void
+fill_attr_in_buf_umem(struct ibv_command_buffer *cmdb, uint16_t attr_id,
+		      struct ib_uverbs_buffer_desc *storage,
+		      struct ibv_buf *buf, void *addr, size_t length)
+{
+	if (!buf || !(buf->comp_mask & IBV_BUF_DMABUF))
+		return;
+
+	*storage = (struct ib_uverbs_buffer_desc){
+		.type	= IB_UVERBS_BUFFER_TYPE_DMABUF,
+		.fd	= buf->dmabuf.fd,
+		.addr	= addr ? (uintptr_t)addr - (uintptr_t)buf->addr : 0,
+		.length	= length ? length : buf->size,
+	};
+	fill_attr_in_ptr(cmdb, attr_id, storage);
+	cmdb->fallback_ioctl_only = 1;
 }
 
 #endif /* INFINIBAND_DRIVER_H */

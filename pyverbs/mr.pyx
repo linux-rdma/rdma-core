@@ -707,3 +707,139 @@ cdef class MREx(MR):
         if self.mr != NULL:
             super(MREx, self).close()
             self.dmah = None
+
+
+cdef class Buf(PyverbsCM):
+    """
+    Buf represents a provider-aware buffer allocated via ibv_alloc_buf().
+    The provider selects the backing memory (e.g. plain memory, or a shared
+    DMA-buf when running in a Confidential Computing guest that opted in via a
+    parent domain with ALLOW_CC_UNPROTECTED_ALLOC). The buffer is registered as
+    a memory region using BufMR and released with ibv_free_buf() on close().
+    """
+    def __init__(self, PD pd not None, size):
+        """
+        Allocate a buffer of the given size from the provider associated with
+        the given protection domain (or parent domain).
+        :param pd: A PD/ParentDomain object used for the allocation
+        :param size: Size (in bytes) of the buffer to allocate
+        :return: The newly created Buf on success
+        """
+        super().__init__()
+        self.mrs = weakref.WeakSet()
+        self.addr = v.ibv_alloc_buf(pd.pd, size, &self.bufh)
+        if self.addr == NULL:
+            raise PyverbsRDMAErrno(f'Failed to allocate ibv_buf of size {size}')
+        self.size = size
+        self.pd = pd
+        pd.add_ref(self)
+        self.logger.debug(f'Allocated ibv_buf of size {size}')
+
+    def __dealloc__(self):
+        self.close()
+
+    cpdef close(self):
+        """
+        Frees the underlying buffer using ibv_free_buf(). Any MRs registered
+        over this buffer are deregistered first. The owning PD must still be
+        valid, which is guaranteed by closing the PD's buffers before its own
+        C object is destroyed.
+        :return: None
+        """
+        if self.bufh != NULL:
+            if self.logger:
+                self.logger.debug('Closing Buf')
+            close_weakrefs([self.mrs])
+            v.ibv_free_buf(self.bufh)
+            self.bufh = NULL
+            self.addr = NULL
+            self.pd = None
+
+    cdef add_ref(self, obj):
+        if isinstance(obj, BufMR):
+            self.mrs.add(obj)
+        else:
+            raise PyverbsError('Unrecognized object type')
+
+    @property
+    def buf(self):
+        return <uintptr_t>self.addr
+
+    @property
+    def size(self):
+        return self.size
+
+    def __str__(self):
+        print_format = '{:22}: {:<20}\n'
+        return 'Buf:\n' + \
+               print_format.format('addr', <uintptr_t>self.addr) + \
+               print_format.format('size', self.size)
+
+
+cdef class BufMR(MR):
+    """
+    BufMR represents a memory region registered for a Buf using
+    ibv_reg_buf_mr(). Unlike MR, the backing memory is owned by the Buf, so
+    closing a BufMR only deregisters the MR and never frees the buffer.
+    """
+    def __init__(self, PD pd not None, Buf buf not None, length=0, access=0,
+                 offset=0):
+        """
+        Register a memory region for (a subrange of) the given Buf.
+        :param pd: The same PD/ParentDomain used to allocate the Buf
+        :param buf: A Buf object allocated with ibv_alloc_buf()
+        :param length: Length (in bytes) to register
+        :param access: Access flags, see ibv_access_flags enum
+        :param offset: Byte offset within the Buf to start the registration
+        :return: The newly created BufMR on success
+        """
+        self.logger = logging.getLogger(self.__class__.__name__)
+        cdef void *addr = <void*>(<uintptr_t>buf.buf + <uintptr_t>offset)
+        self.mr = v.ibv_reg_buf_mr(pd.pd, buf.bufh, addr, length, access)
+        if self.mr == NULL:
+            raise PyverbsRDMAErrno(f'Failed to register a buf MR. length: '
+                                   f'{length}, access flags: {access}')
+        self.buf = addr
+        # MR.__init__ returns early since self.mr is already set, so the base
+        # buffer-ownership fields are left at their defaults. Set them
+        # explicitly to mark this MR as not owning its memory (the Buf does),
+        # so no inherited path can ever free the provider-owned buffer.
+        super().__init__(pd, length, access)
+        self.is_user_addr = True
+        self.is_huge = False
+        self.mmap_length = 0
+        self.pd = pd
+        self.cocobuf = buf
+        pd.add_ref(self)
+        buf.add_ref(self)
+        self.logger.debug(f'Registered buf ibv_mr. Length: {length}, access '
+                          f'flags {access}')
+
+    def rereg(self, flags, PD pd=None, addr=0, length=0, access=0):
+        """
+        Re-registration is not supported for a buffer MR. The backing memory is
+        owned by the Buf (allocated via ibv_alloc_buf()), so the inherited
+        translation-change path would free or alias provider-owned memory.
+        """
+        raise PyverbsUserError('rereg is not supported for a buffer MR; its '
+                               'memory is owned by the Buf')
+
+    def __dealloc__(self):
+        self.close()
+
+    cpdef close(self):
+        """
+        Deregisters the MR. The backing buffer is owned by the Buf and is freed
+        separately by ibv_free_buf().
+        :return: None
+        """
+        if self.mr != NULL:
+            if self.logger:
+                self.logger.debug('Closing buf MR')
+            rc = v.ibv_dereg_mr(self.mr)
+            if rc != 0:
+                raise PyverbsRDMAError('Failed to dereg buf MR', rc)
+            self.mr = NULL
+            self.pd = None
+            self.buf = NULL
+            self.cocobuf = None

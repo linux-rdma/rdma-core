@@ -88,7 +88,7 @@ set(PACKAGE_VERSION "64.0")
 # When this is changed the values in these files need changing too:
 #   debian/control
 #   debian/libibverbs1.symbols
-set(IBVERBS_PABI_VERSION "59")
+set(IBVERBS_PABI_VERSION "64")
 set(IBVERBS_PROVIDER_SUFFIX "-rdmav${IBVERBS_PABI_VERSION}.so")
 
 #-------------------------
@@ -498,6 +498,8 @@ if (NOT HAVE_SPARSE)
   CHECK_INCLUDE_FILE("stdatomic.h" HAVE_STDATOMIC)
   RDMA_DoFixup("${HAVE_STDATOMIC}" "stdatomic.h")
 endif()
+
+CHECK_INCLUDE_FILE("linux/dma-heap.h" HAVE_LINUX_DMA_HEAP_H)
 
 RDMA_Check_SSE(HAVE_TARGET_SSE)
 RDMA_Check_LS64(HAVE_LS64)
