@@ -1,5 +1,6 @@
 publish_internal_headers(""
   ibdiag_common.h
+  ibdiag_dr.h
   ibdiag_sa.h
   )
 
@@ -10,6 +11,7 @@ install(FILES
 
 add_library(ibdiags_tools STATIC
   ibdiag_common.c
+  ibdiag_dr.c
   ibdiag_sa.c
   )
 
