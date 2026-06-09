@@ -486,6 +486,7 @@ cdef extern from '<infiniband/verbs.h>':
     cpdef enum ibv_parent_domain_init_attr_mask:
         IBV_PARENT_DOMAIN_INIT_ATTR_ALLOCATORS
         IBV_PARENT_DOMAIN_INIT_ATTR_PD_CONTEXT
+        IBV_PARENT_DOMAIN_INIT_ATTR_ALLOW_CC_UNPROTECTED_ALLOC
 
     cdef void *IBV_ALLOCATOR_USE_DEFAULT
 
