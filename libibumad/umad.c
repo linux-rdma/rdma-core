@@ -1482,13 +1482,22 @@ int umad_get_smi_gsi_pairs(struct umad_ca_pair cas[], size_t max)
 	ca_names_t *legacy_ca_names = malloc(sizeof(ca_names_t));
 	if (!legacy_ca_names)
 		return -1;
-	struct port_guid_port_count counts[UMAD_MAX_PORTS] = {};
-	struct guid_ca_pairs_mapping mapping[UMAD_MAX_PORTS] = {};
+	struct port_guid_port_count *counts = calloc(UMAD_MAX_PORTS, sizeof(struct port_guid_port_count));
+	struct guid_ca_pairs_mapping *mapping = calloc(UMAD_MAX_PORTS, sizeof(struct guid_ca_pairs_mapping));
+
+	if (!counts || !mapping) {
+		free(counts);
+		free(mapping);
+		free(legacy_ca_names);
+		return -1;
+	}
 
 	memset(cas, 0, sizeof(struct umad_ca_pair) * max);
 	int cas_found = umad_get_cas_names(legacy_ca_names->_ca_names_arr, UMAD_MAX_DEVICES);
 
 	if (cas_found < 0) {
+		free(counts);
+		free(mapping);
 		free(legacy_ca_names);
 		return 0;
 	}
@@ -1532,6 +1541,8 @@ int umad_get_smi_gsi_pairs(struct umad_ca_pair cas[], size_t max)
 				break;
 			} else {
 				umad_release_ca(&curr_ca);
+				free(counts);
+				free(mapping);
 				free(legacy_ca_names);
 				return -1;
 			}
@@ -1540,6 +1551,8 @@ int umad_get_smi_gsi_pairs(struct umad_ca_pair cas[], size_t max)
 		umad_release_ca(&curr_ca);
 	}
 
+	free(counts);
+	free(mapping);
 	free(legacy_ca_names);
 	return added_devices;
 }
@@ -1625,18 +1638,23 @@ int umad_get_smi_gsi_pair_by_ca_name(const char *name, uint8_t portnum, struct u
 	bool is_gsi		= false;
 
 	umad_ca_t ca;
-	struct umad_ca_pair cas_pair[UMAD_MAX_PORTS] = {};
+	struct umad_ca_pair *cas_pair;
 
 	if (!ca_pair)
 		return -1;
 
-	memset(cas_pair, 0, sizeof(cas_pair));
+	cas_pair = calloc(UMAD_MAX_PORTS, sizeof(struct umad_ca_pair));
+	if (!cas_pair)
+		return -1;
+
 	memset(ca_pair, 0, sizeof(*ca_pair));
 
 	num_cas = umad_get_smi_gsi_pairs(cas_pair, UMAD_MAX_PORTS);
 
-	if (num_cas <= 0)
+	if (num_cas <= 0) {
+		free(cas_pair);
 		return num_cas;
+	}
 
 	for (i = 0; i < (size_t)num_cas; ++i) {
 		if (enforce_smi && !cas_pair[i].smi_name[0])
@@ -1678,9 +1696,11 @@ int umad_get_smi_gsi_pair_by_ca_name(const char *name, uint8_t portnum, struct u
 
 	if (rc) {
 		errno = ENODEV;
+		free(cas_pair);
 		return -errno;
 	}
 
+	free(cas_pair);
 	return rc;
 }
 

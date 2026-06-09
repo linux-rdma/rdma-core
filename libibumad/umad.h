@@ -116,7 +116,7 @@ typedef struct ib_user_mad {
 #define SYS_IB_MAD_PORT		"port"
 #define SYS_IB_MAD_DEV		"ibdev"
 
-#define UMAD_MAX_PORTS		64
+#define UMAD_MAX_PORTS		192
 
 #define SYS_CA_PORTS_DIR	"ports"
 
