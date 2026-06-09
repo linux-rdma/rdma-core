@@ -7,4 +7,8 @@ rdma_man_pages(
   bnxt_re_dv_umem_dereg.3.md
   bnxt_re_dv_create_cq.3.md
   bnxt_re_dv_destroy_cq.3.md
+  bnxt_re_dv_create_qp.3.md
+  bnxt_re_dv_destroy_qp.3.md
+  bnxt_re_dv_modify_qp.3.md
+  bnxt_re_dv_query_qp.3.md
 )

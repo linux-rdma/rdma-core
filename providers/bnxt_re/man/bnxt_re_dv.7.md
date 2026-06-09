@@ -47,7 +47,17 @@ The following Direct Verbs are supported:
 
 Applications may register one large buffer with **bnxt_re_dv_umem_reg**(3) and
 pass different offsets (aligned to the device page size) and lengths when
-creating individual CQs.
+creating individual CQs or QP rings.
+
+**Queue pairs**
+
+- **bnxt_re_dv_create_qp**(3) creates a QP whose SQ and RQ rings are backed by
+  memory described by prior **bnxt_re_dv_umem_reg**(3) handles and offsets. An
+  optional doorbell region from **bnxt_re_dv_alloc_db_region**(3) may be
+  supplied; if omitted the context default is used.
+- **bnxt_re_dv_destroy_qp**(3) destroys such a QP.
+- **bnxt_re_dv_modify_qp**(3) drives QP state transitions.
+- **bnxt_re_dv_query_qp**(3) queries the current attributes of a DV QP.
 
 # SEE ALSO
 
@@ -58,7 +68,11 @@ creating individual CQs.
 **bnxt_re_dv_umem_reg**(3),
 **bnxt_re_dv_umem_dereg**(3),
 **bnxt_re_dv_create_cq**(3),
-**bnxt_re_dv_destroy_cq**(3)
+**bnxt_re_dv_destroy_cq**(3),
+**bnxt_re_dv_create_qp**(3),
+**bnxt_re_dv_destroy_qp**(3),
+**bnxt_re_dv_modify_qp**(3),
+**bnxt_re_dv_query_qp**(3)
 
 # AUTHORS
 
