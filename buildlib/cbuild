@@ -404,7 +404,7 @@ class ZypperEnvironment(Environment):
         return res;
 
 class leap(ZypperEnvironment):
-    docker_parent = "opensuse/leap:15.0";
+    docker_parent = "opensuse/leap:16.0";
     specfile = "suse/rdma-core.spec";
     pkgs = {
         'cmake',
@@ -426,7 +426,7 @@ class leap(ZypperEnvironment):
     };
     rpmbuild_options = [ "--without=curlmini" ];
     to_azp = True;
-    name = "opensuse-15.0";
+    name = "opensuse-16.0";
     aliases = {"leap"};
 
 class tumbleweed(ZypperEnvironment):
