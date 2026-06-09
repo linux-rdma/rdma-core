@@ -48,6 +48,7 @@
 #include <infiniband/ibnetdisc.h>
 
 #include "ibdiag_common.h"
+#include "ibdiag_dr.h"
 
 #define DIFF_FLAG_PORT_CONNECTION  0x01
 #define DIFF_FLAG_PORT_STATE       0x02
@@ -686,6 +687,22 @@ int main(int argc, char **argv)
 			     IB_DEST_GUID, NULL, ibmad_ports->gsi.port)) < 0)
 			IBWARN("Failed to resolve %s; attempting full scan\n",
 			       node_label.guid_str);
+		else {
+			/* The GUID was resolved to a LID via the SA.  Build a
+			 * direct route to that LID so the partial scan starts
+			 * from a DR-addressed portid instead of relying on LID
+			 * routing.
+			 */
+			ib_portid_t dr_portid = { 0 };
+
+			if (build_dr_path_to_lid(ibmad_port, ibd_timeout,
+						 &dr_portid, port_id.lid, 0,
+						 NULL, NULL, 0) < 0)
+				IBWARN("DR path to lid %d (%s) failed; using resolved portid",
+				       port_id.lid, node_label.guid_str);
+			else
+				port_id = dr_portid;
+		}
 	}
 
 	if (!all && dr_path) {
