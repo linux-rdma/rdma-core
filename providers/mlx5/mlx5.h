@@ -377,7 +377,7 @@ struct mlx5_context {
 		uint64_t                mask;
 	} core_clock;
 	void			       *hca_core_clock;
-	const struct mlx5_ib_clock_info *clock_info_page;
+	const struct ib_uverbs_clock_info *clock_info_page;
 	struct mlx5_ib_tso_caps		cached_tso_caps;
 	int				cmds_supp_uhw;
 	uint32_t			uar_size;
