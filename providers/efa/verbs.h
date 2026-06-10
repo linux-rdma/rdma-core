@@ -1,6 +1,6 @@
 /* SPDX-License-Identifier: GPL-2.0 OR BSD-2-Clause */
 /*
- * Copyright 2019-2025 Amazon.com, Inc. or its affiliates. All rights reserved.
+ * Copyright 2019-2026 Amazon.com, Inc. or its affiliates. All rights reserved.
  */
 
 #ifndef __EFA_VERBS_H__
@@ -34,12 +34,24 @@ int efa_poll_cq(struct ibv_cq *ibvcq, int nwc, struct ibv_wc *wc);
 int efa_arm_cq(struct ibv_cq *ibvcq, int solicited_only);
 void efa_cq_event(struct ibv_cq *ibvcq);
 
+struct ibv_comp_cntr *efa_create_comp_cntr(struct ibv_context *ibvctx,
+					   struct ibv_comp_cntr_init_attr *attr);
+int efa_destroy_comp_cntr(struct ibv_comp_cntr *ibvcc);
+int efa_set_comp_cntr(struct ibv_comp_cntr *ibvcc, uint64_t value);
+int efa_set_err_comp_cntr(struct ibv_comp_cntr *ibvcc, uint64_t value);
+int efa_inc_comp_cntr(struct ibv_comp_cntr *ibvcc, uint64_t amount);
+int efa_inc_err_comp_cntr(struct ibv_comp_cntr *ibvcc, uint64_t amount);
+int efa_read_comp_cntr(struct ibv_comp_cntr *ibvcc, uint64_t *value);
+int efa_read_err_comp_cntr(struct ibv_comp_cntr *ibvcc, uint64_t *value);
+
 struct ibv_qp *efa_create_qp(struct ibv_pd *ibvpd,
 			     struct ibv_qp_init_attr *attr);
 struct ibv_qp *efa_create_qp_ex(struct ibv_context *ibvctx,
 				struct ibv_qp_init_attr_ex *attr_ex);
 int efa_modify_qp(struct ibv_qp *ibvqp, struct ibv_qp_attr *attr,
 		  int ibv_qp_attr_mask);
+int efa_qp_attach_comp_cntr(struct ibv_qp *qp, struct ibv_comp_cntr *comp_cntr,
+			    struct ibv_qp_attach_comp_cntr_attr *attr);
 int efa_query_qp(struct ibv_qp *ibvqp, struct ibv_qp_attr *attr, int attr_mask,
 		 struct ibv_qp_init_attr *init_attr);
 int efa_query_qp_data_in_order(struct ibv_qp *ibvqp, enum ibv_wr_opcode op,

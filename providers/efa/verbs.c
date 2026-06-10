@@ -192,6 +192,9 @@ int efadv_query_device(struct ibv_context *ibvctx,
 
 		if (EFA_DEV_CAP(ctx, CQ_WITH_EXT_MEM))
 			attr->device_caps |= EFADV_DEVICE_ATTR_CAPS_CQ_WITH_EXT_MEM_DMABUF;
+
+		if (EFA_DEV_CAP(ctx, COMP_CNTR))
+			attr->device_caps |= EFADV_DEVICE_ATTR_CAPS_COMP_CNTR;
 	}
 
 	if (vext_field_avail(typeof(*attr), max_rdma_size, inlen)) {
@@ -1398,6 +1401,183 @@ int efa_destroy_cq(struct ibv_cq *ibvcq)
 	return 0;
 }
 
+static void efa_fill_buffer_desc_va(struct efa_uverbs_buffer_desc *desc, uint64_t addr,
+				    uint64_t length)
+{
+	desc->type = EFA_UVERBS_BUFFER_TYPE_VA;
+	desc->addr = addr;
+	desc->length = length;
+}
+
+static void efa_fill_buffer_desc_dmabuf(struct efa_uverbs_buffer_desc *desc, int32_t fd,
+					uint64_t offset, uint64_t length)
+{
+	desc->type = EFA_UVERBS_BUFFER_TYPE_DMABUF;
+	desc->fd = fd;
+	desc->addr = offset;
+	desc->length = length;
+}
+
+static void efa_fill_buffer_desc_from_mem_loc(struct efa_uverbs_buffer_desc *desc,
+					      struct efadv_memory_location *mem, uint64_t length)
+{
+	if (mem->type == EFADV_MEMORY_LOCATION_DMABUF)
+		efa_fill_buffer_desc_dmabuf(desc, mem->dmabuf.fd, mem->dmabuf.offset, length);
+	else
+		efa_fill_buffer_desc_va(desc, (uintptr_t)mem->ptr, length);
+}
+
+static inline bool efa_comp_cntr_mem_type_supported(uint32_t mem_type)
+{
+	return mem_type == EFADV_MEMORY_LOCATION_VA || mem_type == EFADV_MEMORY_LOCATION_DMABUF;
+}
+
+static struct ibv_comp_cntr *efa_create_comp_cntr_impl(struct ibv_context *ibvctx,
+						       struct ibv_comp_cntr_init_attr *attr,
+						       struct efadv_comp_cntr_init_attr *efa_attr)
+{
+	uint32_t supported_efa_flags = EFADV_COMP_CNTR_INIT_WITH_COMP_EXTERNAL_MEM |
+				       EFADV_COMP_CNTR_INIT_WITH_ERR_EXTERNAL_MEM;
+	DECLARE_COMMAND_BUFFER_LINK(cmdb, UVERBS_OBJECT_COMP_CNTR,
+				    UVERBS_METHOD_COMP_CNTR_CREATE, 2, NULL);
+	struct efa_uverbs_buffer_desc comp_desc = {};
+	struct efa_uverbs_buffer_desc err_desc = {};
+	struct efa_comp_cntr *cc;
+	int err;
+
+	if (attr->comp_mask || attr->flags ||
+	    attr->type != IBV_COMP_CNTR_TYPE_WRS ||
+	    efa_attr->comp_mask ||
+	    !check_comp_mask(efa_attr->flags, supported_efa_flags) ||
+	    !efa_comp_cntr_mem_type_supported(efa_attr->comp_cntr_ext_mem.type) ||
+	    !efa_comp_cntr_mem_type_supported(efa_attr->err_cntr_ext_mem.type)) {
+		verbs_err(verbs_get_ctx(ibvctx), "Unsupported type or flag\n");
+		errno = EOPNOTSUPP;
+		return NULL;
+	}
+
+	cc = calloc(1, sizeof(*cc));
+	if (!cc) {
+		errno = ENOMEM;
+		return NULL;
+	}
+
+	if (efa_attr->flags & EFADV_COMP_CNTR_INIT_WITH_COMP_EXTERNAL_MEM) {
+		efa_fill_buffer_desc_from_mem_loc(&comp_desc, &efa_attr->comp_cntr_ext_mem,
+						  sizeof(uint64_t));
+		cc->comp_ptr = (uint64_t *)efa_attr->comp_cntr_ext_mem.ptr;
+	} else {
+		efa_fill_buffer_desc_va(&comp_desc, (uintptr_t)&cc->comp_val, sizeof(uint64_t));
+		cc->comp_ptr = &cc->comp_val;
+	}
+
+	fill_attr_in_ptr(cmdb, EFA_IB_ATTR_CREATE_COMP_CNTR_COMP_BUFFER, &comp_desc);
+
+	if (efa_attr->flags & EFADV_COMP_CNTR_INIT_WITH_ERR_EXTERNAL_MEM) {
+		efa_fill_buffer_desc_from_mem_loc(&err_desc, &efa_attr->err_cntr_ext_mem,
+						  sizeof(uint64_t));
+		cc->err_ptr = (uint64_t *)efa_attr->err_cntr_ext_mem.ptr;
+	} else {
+		efa_fill_buffer_desc_va(&err_desc, (uintptr_t)&cc->err_val, sizeof(uint64_t));
+		cc->err_ptr = &cc->err_val;
+	}
+
+	fill_attr_in_ptr(cmdb, EFA_IB_ATTR_CREATE_COMP_CNTR_ERR_BUFFER, &err_desc);
+
+	err = ibv_cmd_create_comp_cntr(ibvctx, &cc->ibv_comp_cntr, cmdb);
+	if (err) {
+		free(cc);
+		errno = err;
+		return NULL;
+	}
+
+	return &cc->ibv_comp_cntr;
+}
+
+struct ibv_comp_cntr *efa_create_comp_cntr(struct ibv_context *ibvctx,
+					   struct ibv_comp_cntr_init_attr *attr)
+{
+	struct efadv_comp_cntr_init_attr efa_attr = {};
+
+	return efa_create_comp_cntr_impl(ibvctx, attr, &efa_attr);
+}
+
+struct ibv_comp_cntr *efadv_create_comp_cntr(struct ibv_context *ibvctx,
+					     struct ibv_comp_cntr_init_attr *attr,
+					     struct efadv_comp_cntr_init_attr *efa_attr,
+					     uint32_t inlen)
+{
+	if (!is_efa_dev(ibvctx->device)) {
+		verbs_err(verbs_get_ctx(ibvctx), "Not an EFA device\n");
+		errno = EOPNOTSUPP;
+		return NULL;
+	}
+
+	if (!vext_field_avail(struct efadv_comp_cntr_init_attr, err_cntr_ext_mem, inlen) ||
+	    (inlen > sizeof(*efa_attr) && !is_ext_cleared(efa_attr, inlen))) {
+		verbs_err(verbs_get_ctx(ibvctx), "Compatibility issues\n");
+		errno = EINVAL;
+		return NULL;
+	}
+
+	return efa_create_comp_cntr_impl(ibvctx, attr, efa_attr);
+}
+
+int efa_destroy_comp_cntr(struct ibv_comp_cntr *ibvcc)
+{
+	struct efa_comp_cntr *cc = to_efa_comp_cntr(ibvcc);
+	int err;
+
+	err = ibv_cmd_destroy_comp_cntr(ibvcc);
+	if (err)
+		return err;
+
+	free(cc);
+	return 0;
+}
+
+int efa_set_comp_cntr(struct ibv_comp_cntr *ibvcc, uint64_t value)
+{
+	return ibv_cmd_set_comp_cntr(ibvcc, value);
+}
+
+int efa_set_err_comp_cntr(struct ibv_comp_cntr *ibvcc, uint64_t value)
+{
+	return ibv_cmd_set_err_comp_cntr(ibvcc, value);
+}
+
+int efa_inc_comp_cntr(struct ibv_comp_cntr *ibvcc, uint64_t amount)
+{
+	return ibv_cmd_inc_comp_cntr(ibvcc, amount);
+}
+
+int efa_inc_err_comp_cntr(struct ibv_comp_cntr *ibvcc, uint64_t amount)
+{
+	return ibv_cmd_inc_err_comp_cntr(ibvcc, amount);
+}
+
+int efa_read_comp_cntr(struct ibv_comp_cntr *ibvcc, uint64_t *value)
+{
+	struct efa_comp_cntr *cc = to_efa_comp_cntr(ibvcc);
+
+	if (!cc->comp_ptr)
+		return EOPNOTSUPP;
+
+	*value = *cc->comp_ptr;
+	return 0;
+}
+
+int efa_read_err_comp_cntr(struct ibv_comp_cntr *ibvcc, uint64_t *value)
+{
+	struct efa_comp_cntr *cc = to_efa_comp_cntr(ibvcc);
+
+	if (!cc->err_ptr)
+		return EOPNOTSUPP;
+
+	*value = *cc->err_ptr;
+	return 0;
+}
+
 static void efa_wq_terminate(struct efa_wq *wq, int pgsz)
 {
 	void *db_aligned;
@@ -2137,6 +2317,12 @@ int efa_modify_qp(struct ibv_qp *ibvqp, struct ibv_qp_attr *attr,
 	}
 
 	return 0;
+}
+
+int efa_qp_attach_comp_cntr(struct ibv_qp *qp, struct ibv_comp_cntr *comp_cntr,
+			    struct ibv_qp_attach_comp_cntr_attr *attr)
+{
+	return ibv_cmd_qp_attach_comp_cntr(qp, comp_cntr, attr);
 }
 
 int efa_query_qp(struct ibv_qp *ibvqp, struct ibv_qp_attr *attr,

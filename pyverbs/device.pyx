@@ -743,6 +743,9 @@ cdef class DeviceAttrEx(PyverbsObject):
     @property
     def phys_port_cnt_ex(self):
         return self.dev_attr.phys_port_cnt_ex
+    @property
+    def max_comp_cntr(self):
+        return self.dev_attr.max_comp_cntr
 
 
 cdef class AllocDmAttr(PyverbsObject):

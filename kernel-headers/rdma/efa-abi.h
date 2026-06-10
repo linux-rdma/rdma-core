@@ -133,6 +133,7 @@ enum {
 	EFA_QUERY_DEVICE_CAPS_RDMA_WRITE = 1 << 5,
 	EFA_QUERY_DEVICE_CAPS_UNSOLICITED_WRITE_RECV = 1 << 6,
 	EFA_QUERY_DEVICE_CAPS_CQ_WITH_EXT_MEM = 1 << 7,
+	EFA_QUERY_DEVICE_CAPS_COMP_CNTR = 1 << 8,
 };
 
 struct efa_ibv_ex_query_device_resp {
@@ -161,6 +162,24 @@ enum efa_query_mr_attrs {
 
 enum efa_mr_methods {
 	EFA_IB_METHOD_MR_QUERY = (1U << UVERBS_ID_NS_SHIFT),
+};
+
+enum efa_uverbs_buffer_type {
+	EFA_UVERBS_BUFFER_TYPE_DMABUF = 0,
+	EFA_UVERBS_BUFFER_TYPE_VA = 1,
+};
+
+struct efa_uverbs_buffer_desc {
+	__s32 fd;
+	__u32 type;
+	__u32 reserved[2];
+	__aligned_u64 addr;
+	__aligned_u64 length;
+};
+
+enum efa_comp_cntr_create_attrs {
+	EFA_IB_ATTR_CREATE_COMP_CNTR_COMP_BUFFER = (1U << UVERBS_ID_NS_SHIFT),
+	EFA_IB_ATTR_CREATE_COMP_CNTR_ERR_BUFFER,
 };
 
 #endif /* EFA_ABI_USER_H */

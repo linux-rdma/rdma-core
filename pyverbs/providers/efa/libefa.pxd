@@ -86,3 +86,20 @@ cdef extern from 'infiniband/efadv.h':
                                uint32_t inlen)
     int efadv_get_max_rq_depth(v.ibv_context *ibvctx, efadv_rq_depth_attr *attr,
                                uint32_t inlen);
+
+    cdef struct efadv_memory_location:
+        uint8_t *ptr
+        uint8_t type
+        uint8_t reserved[7]
+
+    cdef struct efadv_comp_cntr_init_attr:
+        uint64_t comp_mask
+        uint32_t flags
+        uint32_t reserved
+        efadv_memory_location comp_cntr_ext_mem
+        efadv_memory_location err_cntr_ext_mem
+
+    v.ibv_comp_cntr *efadv_create_comp_cntr(v.ibv_context *ibvctx,
+                                            v.ibv_comp_cntr_init_attr *attr,
+                                            efadv_comp_cntr_init_attr *efa_attr,
+                                            uint32_t inlen)

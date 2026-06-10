@@ -521,6 +521,14 @@ cdef extern from '<infiniband/verbs.h>':
         IBV_REG_MR_MASK_FD_OFFSET
         IBV_REG_MR_MASK_DMAH
 
+    cpdef enum ibv_qp_attach_comp_cntr_op:
+        IBV_QP_ATTACH_COMP_CNTR_OP_SEND
+        IBV_QP_ATTACH_COMP_CNTR_OP_RECV
+        IBV_QP_ATTACH_COMP_CNTR_OP_RDMA_READ
+        IBV_QP_ATTACH_COMP_CNTR_OP_REMOTE_RDMA_READ
+        IBV_QP_ATTACH_COMP_CNTR_OP_RDMA_WRITE
+        IBV_QP_ATTACH_COMP_CNTR_OP_REMOTE_RDMA_WRITE
+
 
 cdef extern from "<infiniband/verbs_api.h>":
     cdef unsigned long long IBV_ADVISE_MR_ADVICE_PREFETCH

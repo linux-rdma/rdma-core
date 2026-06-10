@@ -364,6 +364,8 @@ struct verbs_context_ops {
 	void (*cq_event)(struct ibv_cq *cq);
 	struct ibv_ah *(*create_ah)(struct ibv_pd *pd,
 				    struct ibv_ah_attr *attr);
+	struct ibv_comp_cntr *(*create_comp_cntr)(struct ibv_context *context,
+						  struct ibv_comp_cntr_init_attr *attr);
 	struct ibv_counters *(*create_counters)(struct ibv_context *context,
 						struct ibv_counters_init_attr *init_attr);
 	struct ibv_cq *(*create_cq)(struct ibv_context *context, int cqe,
@@ -397,6 +399,7 @@ struct verbs_context_ops {
 	int (*dealloc_td)(struct ibv_td *td);
 	int (*dereg_mr)(struct verbs_mr *vmr);
 	int (*destroy_ah)(struct ibv_ah *ah);
+	int (*destroy_comp_cntr)(struct ibv_comp_cntr *comp_cntr);
 	int (*destroy_counters)(struct ibv_counters *counters);
 	int (*destroy_cq)(struct ibv_cq *cq);
 	int (*destroy_flow)(struct ibv_flow *flow);
@@ -417,6 +420,9 @@ struct verbs_context_ops {
 				    uint32_t mr_handle);
 	struct ibv_pd *(*import_pd)(struct ibv_context *context,
 				    uint32_t pd_handle);
+	int (*inc_comp_cntr)(struct ibv_comp_cntr *comp_cntr, uint64_t amount);
+	int (*inc_err_comp_cntr)(struct ibv_comp_cntr *comp_cntr,
+				 uint64_t amount);
 	int (*modify_cq)(struct ibv_cq *cq, struct ibv_modify_cq_attr *attr);
 	int (*modify_flow_action_esp)(struct ibv_flow_action *action,
 				      struct ibv_flow_action_esp_attr *attr);
@@ -441,6 +447,9 @@ struct verbs_context_ops {
 			    struct ibv_ops_wr **bad_op);
 	int (*post_srq_recv)(struct ibv_srq *srq, struct ibv_recv_wr *recv_wr,
 			     struct ibv_recv_wr **bad_recv_wr);
+	int (*qp_attach_comp_cntr)(struct ibv_qp *qp,
+				   struct ibv_comp_cntr *comp_cntr,
+				   struct ibv_qp_attach_comp_cntr_attr *attr);
 	int (*query_device_ex)(struct ibv_context *context,
 			       const struct ibv_query_device_ex_input *input,
 			       struct ibv_device_attr_ex *attr,
@@ -457,10 +466,13 @@ struct verbs_context_ops {
 	int (*query_rt_values)(struct ibv_context *context,
 			       struct ibv_values_ex *values);
 	int (*query_srq)(struct ibv_srq *srq, struct ibv_srq_attr *srq_attr);
+	int (*read_comp_cntr)(struct ibv_comp_cntr *comp_cntr, uint64_t *value);
 	int (*read_counters)(struct ibv_counters *counters,
 			     uint64_t *counters_value,
 			     uint32_t ncounters,
 			     uint32_t flags);
+	int (*read_err_comp_cntr)(struct ibv_comp_cntr *comp_cntr,
+				  uint64_t *value);
 	struct ibv_mr *(*reg_dm_mr)(struct ibv_pd *pd, struct ibv_dm *dm,
 				    uint64_t dm_offset, size_t length,
 				    unsigned int access);
@@ -475,7 +487,10 @@ struct verbs_context_ops {
 	int (*rereg_mr)(struct verbs_mr *vmr, int flags, struct ibv_pd *pd,
 			void *addr, size_t length, int access);
 	int (*resize_cq)(struct ibv_cq *cq, int cqe);
+	int (*set_comp_cntr)(struct ibv_comp_cntr *comp_cntr, uint64_t value);
 	int (*set_ece)(struct ibv_qp *qp, struct ibv_ece *ece);
+	int (*set_err_comp_cntr)(struct ibv_comp_cntr *comp_cntr,
+				 uint64_t value);
 	void (*unimport_dm)(struct ibv_dm *dm);
 	void (*unimport_mr)(struct ibv_mr *mr);
 	void (*unimport_pd)(struct ibv_pd *pd);
@@ -748,6 +763,21 @@ int ibv_cmd_export_dmabuf_fd(struct ibv_context *ctx, off_t pg_off);
 int ibv_cmd_alloc_dmah(struct ibv_context *ctx, struct verbs_dmah *st,
 		       struct ibv_dmah_init_attr *attr);
 int ibv_cmd_free_dmah(struct verbs_dmah *dmah);
+
+int ibv_cmd_create_comp_cntr(struct ibv_context *context,
+			     struct ibv_comp_cntr *comp_cntr,
+			     struct ibv_command_buffer *link);
+int ibv_cmd_destroy_comp_cntr(struct ibv_comp_cntr *comp_cntr);
+int ibv_cmd_set_comp_cntr(struct ibv_comp_cntr *comp_cntr, uint64_t value);
+int ibv_cmd_set_err_comp_cntr(struct ibv_comp_cntr *comp_cntr, uint64_t value);
+int ibv_cmd_inc_comp_cntr(struct ibv_comp_cntr *comp_cntr, uint64_t amount);
+int ibv_cmd_inc_err_comp_cntr(struct ibv_comp_cntr *comp_cntr, uint64_t amount);
+int ibv_cmd_read_comp_cntr(struct ibv_comp_cntr *comp_cntr, uint64_t *value);
+int ibv_cmd_read_err_comp_cntr(struct ibv_comp_cntr *comp_cntr, uint64_t *value);
+int ibv_cmd_qp_attach_comp_cntr(struct ibv_qp *qp,
+				struct ibv_comp_cntr *comp_cntr,
+				struct ibv_qp_attach_comp_cntr_attr *attr);
+
 int ibv_cmd_reg_dm_mr(struct ibv_pd *pd, struct verbs_dm *dm,
 		      uint64_t offset, size_t length,
 		      unsigned int access, struct verbs_mr *vmr,

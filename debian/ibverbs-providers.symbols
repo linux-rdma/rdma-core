@@ -200,6 +200,7 @@ libefa.so.1 ibverbs-providers #MINVER#
  efadv_get_max_sq_depth@EFA_1.5 63
  efadv_get_max_rq_depth@EFA_1.5 63
  efadv_qp_from_ibv_qp_ex@EFA_1.6 64
+ efadv_create_comp_cntr@EFA_1.6 64
 libhns.so.1 ibverbs-providers #MINVER#
 * Build-Depends-Package: libibverbs-dev
  HNS_1.0@HNS_1.0 51

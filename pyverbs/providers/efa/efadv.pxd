@@ -7,6 +7,7 @@ cimport pyverbs.providers.efa.libefa as dv
 
 from pyverbs.addr cimport AH
 from pyverbs.base cimport PyverbsObject
+from pyverbs.comp_cntr cimport CompCntr
 from pyverbs.cq cimport CQEX
 from pyverbs.device cimport Context
 from pyverbs.qp cimport QP, QPEx
@@ -46,6 +47,14 @@ cdef class EfaCQ(CQEX):
 
 cdef class EfaDVCQInitAttr(PyverbsObject):
     cdef dv.efadv_cq_init_attr cq_init_attr
+
+
+cdef class EfaCompCntrInitAttr(PyverbsObject):
+    cdef dv.efadv_comp_cntr_init_attr attr
+
+
+cdef class EfaCompCntr(CompCntr):
+    pass
 
 
 cdef class EfaDVMRAttr(PyverbsObject):
