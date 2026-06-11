@@ -35,6 +35,7 @@
 
 #include <sys/types.h>
 #include <sys/socket.h>
+#include <sys/epoll.h>
 #include <sys/stat.h>
 #include <sys/mman.h>
 #include <sys/sendfile.h>
@@ -1345,4 +1346,26 @@ int __fxstat(int ver, int socket, struct stat *buf)
 		ret = real.fxstat(ver, fd, buf);
 	}
 	return ret;
+}
+
+int epoll_create1(int flags)
+{
+	return repoll_create(flags);
+}
+
+int epoll_create(int size)
+{
+	return epoll_create1(0);
+}
+
+int epoll_ctl(int epfd, int op, int fd, struct epoll_event *event)
+{
+	int internal_fd = fd_getd(fd);
+
+	return repoll_ctl(epfd, op, internal_fd, event);
+}
+
+int epoll_wait(int epfd, struct epoll_event *events, int maxevents, int timeout)
+{
+	return repoll_wait(epfd, events, maxevents, timeout);
 }

@@ -11,7 +11,7 @@ publish_headers(infiniband
 
 rdma_library(rdmacm librdmacm.map
   # See Documentation/versioning.md
-  1 1.4.${PACKAGE_VERSION}
+  1 1.5.${PACKAGE_VERSION}
   acm.c
   addrinfo.c
   cma.c

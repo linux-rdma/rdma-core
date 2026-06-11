@@ -80,11 +80,11 @@ typedef _Atomic(uintmax_t) atomic_uintmax_t;
 		__typeof__((object)->__val) __v = (object)->__val;             \
 		bool __r;                                                      \
 		if (__v == *(expected)) {                                      \
-			r = true;                                              \
+			__r = true;                                            \
 			(object)->__val = (desired);                           \
 		} else {                                                       \
-			r = false;                                             \
-			*(expected) = __val;                                   \
+			__r = false;                                           \
+			*(expected) = __v;                                     \
 		}                                                              \
 		__r;                                                           \
 	})
