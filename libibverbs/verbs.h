@@ -690,6 +690,7 @@ enum ibv_mr_init_attr_mask {
 	IBV_REG_MR_MASK_FD = 1 << 2,
 	IBV_REG_MR_MASK_FD_OFFSET = 1 << 3,
 	IBV_REG_MR_MASK_DMAH = 1 << 4,
+	IBV_REG_MR_MASK_BUF = 1 << 5,
 };
 
 struct ibv_mr_init_attr {
@@ -701,6 +702,7 @@ struct ibv_mr_init_attr {
 	int fd;
 	uint64_t fd_offset;
 	struct ibv_dmah *dmah;
+	struct ibv_buf *buf; /* Handle from ibv_alloc_buf(), addr must be set */
 };
 
 enum ibv_mw_type {
