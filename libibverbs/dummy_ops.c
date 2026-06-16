@@ -508,8 +508,49 @@ static struct ibv_mr *reg_mr(struct ibv_pd *pd, void *addr, size_t length,
 static struct ibv_mr *reg_mr_ex(struct ibv_pd *pd,
 				struct ibv_mr_init_attr *mr_init_attr)
 {
-	errno = EOPNOTSUPP;
-	return NULL;
+	const struct verbs_context_ops *ops = get_ops(pd->context);
+	uint64_t comp_mask = mr_init_attr->comp_mask;
+	uint64_t supported_mask = IBV_REG_MR_MASK_IOVA |
+				  IBV_REG_MR_MASK_ADDR |
+				  IBV_REG_MR_MASK_FD |
+				  IBV_REG_MR_MASK_FD_OFFSET;
+
+	/*
+	 * The provider has no reg_mr_ex op, so translate the request into one
+	 * of the legacy registration ops. Fork handling and the common mr
+	 * fields are taken care of by ibv_reg_mr_ex(). Anything the legacy ops
+	 * cannot express (e.g. a dma handle) is rejected.
+	 */
+	if (!check_comp_mask(comp_mask, supported_mask)) {
+		errno = EOPNOTSUPP;
+		return NULL;
+	}
+
+	if (comp_mask & IBV_REG_MR_MASK_FD) {
+		if ((comp_mask & IBV_REG_MR_MASK_ADDR) ||
+		    !(comp_mask & IBV_REG_MR_MASK_FD_OFFSET) ||
+		    !(comp_mask & IBV_REG_MR_MASK_IOVA)) {
+			errno = EINVAL;
+			return NULL;
+		}
+
+		return ops->reg_dmabuf_mr(pd, mr_init_attr->fd_offset,
+					  mr_init_attr->length,
+					  mr_init_attr->iova, mr_init_attr->fd,
+					  mr_init_attr->access);
+	}
+
+	if (!(comp_mask & IBV_REG_MR_MASK_ADDR) ||
+	    (comp_mask & IBV_REG_MR_MASK_FD_OFFSET)) {
+		errno = EINVAL;
+		return NULL;
+	}
+
+	return ops->reg_mr(pd, mr_init_attr->addr, mr_init_attr->length,
+			   (comp_mask & IBV_REG_MR_MASK_IOVA) ?
+				   mr_init_attr->iova :
+				   (uintptr_t)mr_init_attr->addr,
+			   mr_init_attr->access);
 }
 
 static struct ibv_mr *reg_dmabuf_mr(struct ibv_pd *pd, uint64_t offset,
