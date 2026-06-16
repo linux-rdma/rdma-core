@@ -1677,8 +1677,8 @@ static struct ibv_qp *ionic_create_qp_ex(struct ibv_context *ibctx,
 {
 	struct ionic_ctx *ctx = to_ionic_ctx(ibctx);
 	struct ionic_pd *pd = to_ionic_pd(ex->pd);
-	struct uionic_qp_resp resp;
-	struct uionic_qp req;
+	struct uionic_qp_resp resp = {};
+	struct uionic_qp req = {};
 	struct ionic_qp *qp;
 	struct ionic_cq *cq;
 	int rc;
@@ -2869,7 +2869,7 @@ static struct ibv_ah *ionic_create_ah(struct ibv_pd *ibpd,
 				      struct ibv_ah_attr *attr)
 {
 	struct ibv_pd *root_ibpd = to_ionic_root_ibpd(ibpd);
-	struct uionic_ah_resp resp;
+	struct uionic_ah_resp resp = {};
 	struct ionic_ah *ah;
 	int rc;
 
