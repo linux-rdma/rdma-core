@@ -43,7 +43,7 @@ int hns_roce_alloc_buf(struct hns_roce_buf *buf, unsigned int size,
 
 	buf->length = align(size, page_size);
 	buf->buf = mmap(NULL, buf->length, PROT_READ | PROT_WRITE,
-			MAP_PRIVATE | MAP_ANONYMOUS, -1, 0);
+			MAP_PRIVATE | MAP_ANONYMOUS | MAP_POPULATE, -1, 0);
 	if (buf->buf == MAP_FAILED)
 		return errno;
 
