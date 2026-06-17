@@ -200,6 +200,7 @@ static struct verbs_context *bnxt_re_alloc_context(struct ibv_device *vdev,
 
 	req.comp_mask |= BNXT_RE_COMP_MASK_REQ_UCNTX_POW2_SUPPORT;
 	req.comp_mask |= BNXT_RE_COMP_MASK_REQ_UCNTX_VAR_WQE_SUPPORT;
+	req.comp_mask |= BNXT_RE_COMP_MASK_REQ_UCNTX_TOGGLE_MEM_UOBJ_SUPPORT;
 	if (ibv_cmd_get_context(&cntx->ibvctx, &req.ibv_cmd, sizeof(req),
 				NULL, &resp.ibv_resp, sizeof(resp)))
 		goto failed;
@@ -231,7 +232,8 @@ static struct verbs_context *bnxt_re_alloc_context(struct ibv_device *vdev,
 		cntx->comp_mask |= BNXT_RE_COMP_MASK_UCNTX_MSN_TABLE_ENABLED;
 	if (resp.comp_mask & BNXT_RE_UCNTX_CMASK_QP_RATE_LIMIT_ENABLED)
 		cntx->comp_mask |= BNXT_RE_COMP_MASK_UCNTX_RATE_LIMIT_ENABLED;
-
+	if (resp.comp_mask & BNXT_RE_UCNTX_CMASK_TOGGLE_MEM_UOBJ_SUPPORT)
+		cntx->comp_mask |= BNXT_RE_COMP_MASK_UCNTX_TOGGLE_MEM_UOBJ_SUPPORT;
 	/* mmap shared page. */
 	cntx->shpg = mmap(NULL, rdev->pg_size, PROT_READ | PROT_WRITE,
 			  MAP_SHARED, cmd_fd, 0);

@@ -319,6 +319,7 @@ int bnxt_re_alloc_page(struct ibv_context *ibvctx,
 int bnxt_re_notify_drv(struct ibv_context *ibvctx);
 int bnxt_re_get_toggle_mem(struct ibv_context *ibvctx,
 			   struct bnxt_re_mmap_info *minfo,
+			   uint32_t obj_handle,
 			   uint32_t *page_handle);
 
 /* pointer conversion functions*/
@@ -637,4 +638,6 @@ static inline void bnxt_re_sub_sec_busy_wait(uint32_t nsec)
 
 #define BNXT_RE_MSN_TBL_EN(a) ((a)->comp_mask & BNXT_RE_COMP_MASK_UCNTX_MSN_TABLE_ENABLED)
 #define BNXT_RE_RATE_LIMIT_EN(a) ((a)->comp_mask & BNXT_RE_COMP_MASK_UCNTX_RATE_LIMIT_ENABLED)
+#define BNXT_RE_TOGGLE_MEM_UOBJ_EN(a) \
+	((a)->comp_mask & BNXT_RE_COMP_MASK_UCNTX_TOGGLE_MEM_UOBJ_SUPPORT)
 #endif
