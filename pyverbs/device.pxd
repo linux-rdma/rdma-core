@@ -29,6 +29,8 @@ cdef class Context(PyverbsCM):
     cdef object crypto_logins
     cdef object event_channels
     cdef object dmahs
+    cdef object devx_umems
+    cdef object devx_objs
 
 cdef class DeviceAttr(PyverbsObject):
     cdef v.ibv_device_attr dev_attr

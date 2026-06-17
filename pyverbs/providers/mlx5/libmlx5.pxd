@@ -97,8 +97,13 @@ cdef extern from 'infiniband/mlx5dv.h':
     cdef struct mlx5dv_var:
         uint32_t    page_id
         uint32_t    length
-        long        mmap_off
+        off_t       mmap_off
         uint64_t    comp_mask
+
+    cdef struct mlx5dv_export_sizes:
+        uint32_t var_attrs_size
+        uint32_t devx_umem_attrs_size
+        uint32_t devx_obj_attrs_size
 
     cdef struct mlx5dv_pp:
         uint16_t index
@@ -454,6 +459,10 @@ cdef extern from 'infiniband/mlx5dv.h':
     void mlx5dv_wr_raw_wqe(mlx5dv_qp_ex *mqp_ex, const void *wqe)
     mlx5dv_var *mlx5dv_alloc_var(v.ibv_context *context, uint32_t flags)
     void mlx5dv_free_var(mlx5dv_var *dv_var)
+    int mlx5dv_var_export(mlx5dv_var *dv_var, void *data)
+    mlx5dv_var *mlx5dv_var_import(v.ibv_context *context, void *data)
+    void mlx5dv_var_unimport(mlx5dv_var *dv_var)
+    void mlx5dv_get_export_sizes(mlx5dv_export_sizes *sizes)
     mlx5dv_pp *mlx5dv_pp_alloc(v.ibv_context *context, size_t pp_context_sz,
                                const void *pp_context, uint32_t flags)
     void mlx5dv_pp_free(mlx5dv_pp *pp)
@@ -576,6 +585,9 @@ cdef extern from 'infiniband/mlx5dv.h':
     mlx5dv_devx_umem *mlx5dv_devx_umem_reg_ex(v.ibv_context *ctx,
                                               mlx5dv_devx_umem_in *umem_in)
     int mlx5dv_devx_umem_dereg(mlx5dv_devx_umem *umem)
+    int mlx5dv_devx_umem_export(mlx5dv_devx_umem *umem, void *data)
+    mlx5dv_devx_umem *mlx5dv_devx_umem_import(v.ibv_context *context, void *data)
+    void mlx5dv_devx_umem_unimport(mlx5dv_devx_umem *umem)
     int mlx5dv_devx_query_eqn(v.ibv_context *context, uint32_t vector, uint32_t *eqn)
     mlx5dv_devx_obj *mlx5dv_devx_obj_create(v.ibv_context *context, const void *_in,
                                             size_t inlen, void *out, size_t outlen)
@@ -591,6 +603,9 @@ cdef extern from 'infiniband/mlx5dv.h':
     int mlx5dv_devx_obj_modify(mlx5dv_devx_obj *obj, const void *in_,
                                size_t inlen, void *out, size_t outlen)
     int mlx5dv_devx_obj_destroy(mlx5dv_devx_obj *obj)
+    int mlx5dv_devx_obj_export(mlx5dv_devx_obj *obj, void *data)
+    mlx5dv_devx_obj *mlx5dv_devx_obj_import(v.ibv_context *context, void *data)
+    void mlx5dv_devx_obj_unimport(mlx5dv_devx_obj *obj)
     int mlx5dv_init_obj(mlx5dv_obj *obj, uint64_t obj_type)
     mlx5dv_devx_msi_vector *mlx5dv_devx_alloc_msi_vector(v.ibv_context *ibctx)
     int mlx5dv_devx_free_msi_vector(mlx5dv_devx_msi_vector *msi)

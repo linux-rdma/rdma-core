@@ -2,38 +2,80 @@
 # Copyright (c) 2019 Mellanox Technologies, Inc. All rights reserved. See COPYING file
 
 """
-Test module for Mlx5 VAR allocation.
+Test module for Mlx5 VAR allocation and export/import.
 """
 
-from pyverbs.pyverbs_error import PyverbsRDMAError
-from pyverbs.providers.mlx5.mlx5dv import Mlx5VAR
-from tests.mlx5_base import Mlx5RDMATestCase
-from tests.base import BaseResources
-import unittest
-import errno
 import mmap
+from pyverbs.providers.mlx5.mlx5dv import Mlx5VAR
+from pyverbs.providers.mlx5.mlx5_enums import MLX5DV_VAR_ALLOC_FLAG_TLP_
+from tests.utils import skip_unsupported
+from tests.mlx5_base import Mlx5PyverbsAPITestCase
 
 
-class Mlx5VarRes(BaseResources):
-    def __init__(self, dev_name, ib_port=None, gid_index=None):
-        super().__init__(dev_name, ib_port, gid_index)
-        try:
-            self.var = Mlx5VAR(self.ctx)
-        except PyverbsRDMAError as ex:
-            if ex.error_code == errno.EOPNOTSUPP or ex.error_code == errno.EPROTONOSUPPORT:
-                raise unittest.SkipTest('VAR allocation is not supported')
+@skip_unsupported
+def alloc_var(ctx, flags=0):
+    """
+    Allocate VAR with given flags.
+    :param ctx: Device context
+    :param flags: VAR allocation flags (default: 0)
+    :return: Mlx5VAR object
+    """
+    return Mlx5VAR(ctx, flags=flags)
 
 
-class Mlx5VarTestCase(Mlx5RDMATestCase):
+class Mlx5VarTestCase(Mlx5PyverbsAPITestCase):
     def setUp(self):
         super().setUp()
-        self.var_res = Mlx5VarRes(self.dev_name)
+        self.var = alloc_var(self.ctx)
+
+    def tearDown(self):
+        """Ensure VAR is always freed, even if test fails."""
+        if hasattr(self, 'var') and self.var:
+            self.var.close()
+        super().tearDown()
 
     def test_var_map_unmap(self):
-        var_map = mmap.mmap(fileno=self.var_res.ctx.cmd_fd,
-                            length=self.var_res.var.length,
-                            offset=self.var_res.var.mmap_off)
+        var_map = mmap.mmap(fileno=self.ctx.cmd_fd,
+                            length=self.var.length,
+                            offset=self.var.mmap_off)
         # There is no munmap method in mmap Python module, but by closing the
         # mmap instance the memory is unmapped.
         var_map.close()
-        self.var_res.var.close()
+
+
+class Mlx5TlpVarTestCase(Mlx5PyverbsAPITestCase):
+    """
+    Test cases for TLP VAR allocation and import functionality.
+    """
+    def setUp(self):
+        super().setUp()
+        self.var = alloc_var(self.ctx, flags=MLX5DV_VAR_ALLOC_FLAG_TLP_)
+
+    def tearDown(self):
+        """Ensure TLP VAR is always freed, even if test fails."""
+        if hasattr(self, 'var') and self.var:
+            self.var.close()
+        super().tearDown()
+
+    @skip_unsupported
+    def test_tlp_var_alloc_and_mmap(self):
+        """
+        Create TLP VAR and mmap it.
+        """
+        var_map = mmap.mmap(fileno=self.ctx.cmd_fd,
+                            length=self.var.length,
+                            offset=self.var.mmap_off)
+        var_map.close()
+
+    @skip_unsupported
+    def test_tlp_var_import(self):
+        """
+        Export and import TLP VAR in the same process and mmap the imported VAR.
+        """
+        data = self.var.export()
+        imported_var = Mlx5VAR.import_var(self.ctx, data)
+        var_map = mmap.mmap(fileno=self.ctx.cmd_fd,
+                            length=imported_var.length,
+                            offset=imported_var.mmap_off)
+        var_map.close()
+        imported_var.close()
