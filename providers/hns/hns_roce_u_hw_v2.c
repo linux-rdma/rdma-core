@@ -85,8 +85,10 @@ static inline void set_data_seg_v2(struct hns_roce_v2_wqe_data_seg *dseg,
 	dseg->len = htole32(sg->length);
 }
 
-static void set_extend_atomic_seg(struct hns_roce_qp *qp, unsigned int sge_cnt,
-				  struct hns_roce_sge_info *sge_info, void *buf)
+static inline void set_extend_atomic_seg(struct hns_roce_qp *qp,
+					 unsigned int sge_cnt,
+					 struct hns_roce_sge_info *sge_info,
+					 void *buf)
 {
 	unsigned int sge_mask = qp->ex_sge.sge_cnt - 1;
 	unsigned int i;
