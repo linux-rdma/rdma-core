@@ -105,6 +105,12 @@ int mad_respond_via(void *umad, ib_portid_t * portid, uint32_t rstatus,
 		rport.qp = ntohl(mad_addr->qpn);
 		rport.qkey = ntohl(mad_addr->qkey);
 		rport.sl = mad_addr->sl;
+		/*
+		 * The received pkey_index is resolved against our local P_Key
+		 * table, so echoing it sends the reply on the same partition
+		 * the request arrived on.
+		 */
+		rport.pkey_idx = umad_get_pkey(umad);
 
 		portid = &rport;
 	}
