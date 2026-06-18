@@ -107,7 +107,9 @@ OPTIONS
 **--numb_path** Number of paths (PathRecord)
 
 **--pkey** P_Key (PathRecord, MCMemberRecord). If non-numeric value (like 'x')
-        is specified then saquery will prompt for a value
+        is specified then saquery will prompt for a value. Note this is the
+        P_Key *value* queried for, not the P_Key table index of the request
+        MAD itself (see **--pkey-idx**).
 
 **--qos_class** QoS Class (PathRecord)
 
@@ -164,6 +166,7 @@ Port Selection flags
 
 .. include:: common/opt_C.rst
 .. include:: common/opt_P.rst
+.. include:: common/opt_pkey_idx.rst
 .. include:: common/sec_portselection.rst
 
 

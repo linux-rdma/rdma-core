@@ -58,6 +58,7 @@ extern uint64_t ibd_mkey;
 extern uint64_t ibd_sakey;
 extern int show_keys;
 extern char *ibd_nd_format;
+extern int ibd_pkey_idx;
 
 /*========================================================*/
 /*                External interface                      */

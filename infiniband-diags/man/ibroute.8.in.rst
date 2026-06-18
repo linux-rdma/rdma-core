@@ -50,6 +50,7 @@ Port Selection flags
 
 .. include:: common/opt_C.rst
 .. include:: common/opt_P.rst
+.. include:: common/opt_pkey_idx.rst
 .. include:: common/sec_portselection.rst
 
 Debugging flags
