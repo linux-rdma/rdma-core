@@ -86,9 +86,15 @@ struct ionic_ctx {
 	FILE			*dbg_file;
 };
 
+struct ionic_td {
+	struct ibv_td		ibtd;
+	atomic_int		refcount;
+};
+
 struct ionic_pd {
 	struct ibv_pd		ibpd;
 	struct ibv_pd		*root_ibpd;
+	struct ionic_td		*td;
 
 	uint8_t			udma_mask;
 	uint8_t			sq_cmb;
@@ -244,6 +250,16 @@ static inline struct ionic_ctx *to_ionic_ctx(struct ibv_context *ibctx)
 static inline struct ionic_pd *to_ionic_pd(struct ibv_pd *ibpd)
 {
 	return container_of(ibpd, struct ionic_pd, ibpd);
+}
+
+static inline struct ionic_td *to_ionic_td(struct ibv_td *ibtd)
+{
+	return container_of(ibtd, struct ionic_td, ibtd);
+}
+
+static inline bool ionic_pd_lockfree(struct ibv_pd *ibpd)
+{
+	return to_ionic_pd(ibpd)->td;
 }
 
 static inline struct ibv_pd *ionic_root_ibpd(struct ionic_pd *pd)
