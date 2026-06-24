@@ -2454,7 +2454,7 @@ int efa_post_send(struct ibv_qp *ibvqp, struct ibv_send_wr *wr,
 	uint32_t curbatch = 0;
 	uint8_t *inline_data;
 	struct efa_ah *ah;
-	int err = 0;
+	int i, err = 0;
 
 	switch (sq->wqe_size) {
 	case EFA_IO_TX_DESC_SIZE_64:
@@ -2486,7 +2486,9 @@ int efa_post_send(struct ibv_qp *ibvqp, struct ibv_send_wr *wr,
 			goto ring_db;
 		}
 
-		memset(wqe_buf, 0, sq->wqe_size);
+		for (i = 0; i < sq->wqe_size / sizeof(uint64_t); i++)
+			((uint64_t *)wqe_buf)[i] = 0;
+
 		ah = to_efa_ah(wr->wr.ud.ah);
 
 		if (wr->send_flags & IBV_SEND_INLINE) {
@@ -2546,7 +2548,7 @@ ring_db:
 static void *efa_send_wr_alloc(struct efa_qp *qp, struct ibv_qp_ex *ibvqpx)
 {
 	struct efa_sq *sq = &qp->sq;
-	int err;
+	int err, i;
 
 	if (unlikely(qp->wr_session_err))
 		return NULL;
@@ -2558,7 +2560,8 @@ static void *efa_send_wr_alloc(struct efa_qp *qp, struct ibv_qp_ex *ibvqpx)
 	}
 
 	sq->curr_tx_wqe.buff = sq->local_queue + sq->num_wqe_pending * sq->wqe_size;
-	memset(sq->curr_tx_wqe.buff, 0, sq->wqe_size);
+	for (i = 0; i < sq->wqe_size / sizeof(uint64_t); i++)
+		((uint64_t *)sq->curr_tx_wqe.buff)[i] = 0;
 
 	return sq->curr_tx_wqe.buff;
 }
