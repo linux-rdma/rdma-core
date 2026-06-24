@@ -496,13 +496,29 @@ static int _fill_port(ibnd_fabric_cache_t * fabric_cache, ibnd_node_t * node,
 	ibnd_port_cache_t *port_cache;
 
 	if (!(port_cache = _find_port(fabric_cache, port_cache_key))) {
-		IBND_DEBUG("Cache invalid: cannot find port\n");
-		return -1;
+		IBND_DEBUG("Cache incomplete: cannot find port 0x%016" PRIx64
+			   ":%u\n", port_cache_key->guid,
+			   (unsigned int) port_cache_key->portnum);
+		return 0;
 	}
 
 	if (port_cache->port_stored_to_fabric) {
 		IBND_DEBUG("Cache invalid: duplicate port discovered\n");
 		return -1;
+	}
+
+	/* node->ports was allocated for node->numports + 1 entries; a cached
+	 * portnum outside that range (corrupt/incompatible cache) would index
+	 * out of bounds, so treat it as an incomplete record and skip it.
+	 */
+	if (port_cache->port->portnum < 0 ||
+	    port_cache->port->portnum > node->numports) {
+		IBND_DEBUG("Cache incomplete: port 0x%016" PRIx64
+			   " portnum %d out of range for node 0x%016" PRIx64
+			   " (numports %d)\n",
+			   port_cache->port->guid, port_cache->port->portnum,
+			   node->guid, node->numports);
+		return 0;
 	}
 
 	node->ports[port_cache->port->portnum] = port_cache->port;
@@ -587,6 +603,21 @@ static int _rebuild_ports(ibnd_fabric_cache_t * fabric_cache)
 
 		port_cache_next = port_cache->next;
 
+		/* Skip port records that no node claimed during
+		 * _rebuild_nodes().  _destroy_ibnd_fabric_cache() frees such
+		 * records, so they must not be linked into the fabric (LID
+		 * hash or another port's remoteport) or we would leave
+		 * dangling pointers behind.
+		 */
+		if (!port_cache->port_stored_to_fabric) {
+			IBND_DEBUG("Cache incomplete: unreferenced port record "
+				   "0x%016" PRIx64 ":%d, skipping\n",
+				   port_cache->port->guid,
+				   port_cache->port->portnum);
+			port_cache = port_cache_next;
+			continue;
+		}
+
 		port = port_cache->port;
 
 		if (!(node_cache =
@@ -598,17 +629,22 @@ static int _rebuild_ports(ibnd_fabric_cache_t * fabric_cache)
 		port->node = node_cache->node;
 
 		if (port_cache->remoteport_flag) {
-			if (!(remoteport_cache = _find_port(fabric_cache,
-							    &port_cache->remoteport_cache_key)))
-			{
-				IBND_DEBUG
-				    ("Cache invalid: cannot find remote port\n");
-				return -1;
+			remoteport_cache =
+			    _find_port(fabric_cache,
+				       &port_cache->remoteport_cache_key);
+			if (remoteport_cache &&
+			    remoteport_cache->port_stored_to_fabric) {
+				port->remoteport = remoteport_cache->port;
+			} else {
+				IBND_DEBUG("Cache incomplete: cannot find remote port "
+					   "0x%016" PRIx64 ":%u\n",
+					   port_cache->remoteport_cache_key.guid,
+					   (unsigned int) port_cache->remoteport_cache_key.portnum);
+				port->remoteport = NULL;
 			}
-
-			port->remoteport = remoteport_cache->port;
-		} else
+		} else {
 			port->remoteport = NULL;
+		}
 
 		add_to_portlid_hash(port, fabric_cache->f_int);
 		port_cache = port_cache_next;
@@ -803,7 +839,89 @@ static int _cache_header_counts(int fd, unsigned int node_count,
 	return 0;
 }
 
-static int _cache_node(int fd, ibnd_node_t * node)
+/* Shell ports may remain in node->ports[] after discovery timeouts, but only
+ * ports present in portstbl have cache records.  Sorted set of those ports so
+ * references to shell ports can be dropped while caching.
+ */
+typedef struct {
+	ibnd_port_t **ports;
+	size_t count;
+} port_set_t;
+
+/* Cacheable ports must be reachable from their owning node so references can
+ * be resolved on load.
+ */
+static int _port_cacheable(ibnd_port_t *port)
+{
+	return port && port->node && port->node->ports &&
+	       port->portnum >= 0 && port->portnum <= port->node->numports &&
+	       port->node->ports[port->portnum] == port;
+}
+
+static int _port_ptr_cmp(const void *a, const void *b)
+{
+	uintptr_t pa = (uintptr_t) *(ibnd_port_t * const *) a;
+	uintptr_t pb = (uintptr_t) *(ibnd_port_t * const *) b;
+
+	if (pa < pb)
+		return -1;
+	if (pa > pb)
+		return 1;
+	return 0;
+}
+
+static int _port_set_build(port_set_t *set, ibnd_fabric_t *fabric)
+{
+	size_t count = 0;
+	ibnd_port_t *port;
+	int i;
+
+	set->ports = NULL;
+	set->count = 0;
+
+	for (i = 0; i < HTSZ; i++)
+		for (port = fabric->portstbl[i]; port; port = port->htnext)
+			if (_port_cacheable(port))
+				count++;
+
+	if (!count)
+		return 0;
+
+	set->ports = malloc(count * sizeof(*set->ports));
+	if (!set->ports) {
+		IBND_DEBUG("OOM: port set\n");
+		return -1;
+	}
+
+	for (i = 0; i < HTSZ; i++)
+		for (port = fabric->portstbl[i]; port; port = port->htnext)
+			if (_port_cacheable(port))
+				set->ports[set->count++] = port;
+
+	qsort(set->ports, set->count, sizeof(*set->ports), _port_ptr_cmp);
+	return 0;
+}
+
+static void _port_set_destroy(port_set_t *set)
+{
+	free(set->ports);
+	set->ports = NULL;
+	set->count = 0;
+}
+
+/* Pointer-identity test: a shell port may share a guid with a real port, so
+ * ibnd_find_port_guid() is not enough.
+ */
+static int _port_set_contains(const port_set_t *set, ibnd_port_t *port)
+{
+	if (!port || !set->count)
+		return 0;
+
+	return bsearch(&port, set->ports, set->count, sizeof(*set->ports),
+		       _port_ptr_cmp) != NULL;
+}
+
+static int _cache_node(int fd, const port_set_t *set, ibnd_node_t *node)
 {
 	uint8_t buf[IBND_FABRIC_CACHE_BUFLEN];
 	size_t offset = 0;
@@ -828,14 +946,24 @@ static int _cache_node(int fd, ibnd_node_t * node)
 	ports_stored_offset = offset;
 	offset += sizeof(uint8_t);
 
-	for (i = 0; i <= node->numports; i++) {
-		if (node->ports[i]) {
-			offset += _marshall64(buf + offset,
-					      node->ports[i]->guid);
-			offset += _marshall8(buf + offset,
-					     (uint8_t) node->ports[i]->portnum);
-			ports_stored_count++;
+	/* Emit even a node with no ports array (with zero ports) so that
+	 * fabric->from_node, whose guid is already in the header, stays
+	 * loadable.
+	 */
+	if (node->ports) {
+		for (i = 0; i <= node->numports; i++) {
+			if (node->ports[i] &&
+			    _port_set_contains(set, node->ports[i])) {
+				offset += _marshall64(buf + offset,
+						      node->ports[i]->guid);
+				offset += _marshall8(buf + offset,
+						     (uint8_t) node->ports[i]->portnum);
+				ports_stored_count++;
+			}
 		}
+	} else {
+		IBND_DEBUG("Cache incomplete: node 0x%016" PRIx64
+			   " has no ports array\n", node->guid);
 	}
 
 	/* go back and store number of port keys stored */
@@ -844,13 +972,24 @@ static int _cache_node(int fd, ibnd_node_t * node)
 	if (ibnd_write(fd, buf, offset) < 0)
 		return -1;
 
-	return 0;
+	return 1;
 }
 
-static int _cache_port(int fd, ibnd_port_t * port)
+/* Returns 1 if written, 0 if skipped, -1 on error. */
+static int _cache_port(int fd, const port_set_t *set, ibnd_port_t *port)
 {
 	uint8_t buf[IBND_FABRIC_CACHE_BUFLEN];
 	size_t offset = 0;
+
+	/* Same predicate port_set is filtered by, so written references and
+	 * written records stay in lock-step.
+	 */
+	if (!_port_cacheable(port)) {
+		IBND_DEBUG("Cache incomplete: port 0x%016" PRIx64
+			   ":%d not reachable from its node, skipping\n",
+			   port->guid, port->portnum);
+		return 0;
+	}
 
 	offset += _marshall64(buf + offset, port->guid);
 	offset += _marshall8(buf + offset, (uint8_t) port->portnum);
@@ -859,10 +998,12 @@ static int _cache_port(int fd, ibnd_port_t * port)
 	offset += _marshall8(buf + offset, port->lmc);
 	offset += _marshall_buf(buf + offset, port->info, IB_SMP_DATA_SIZE);
 	offset += _marshall64(buf + offset, port->node->guid);
-	if (port->remoteport) {
+	if (port->remoteport &&
+	    _port_set_contains(set, port->remoteport)) {
 		offset += _marshall8(buf + offset, 1);
 		offset += _marshall64(buf + offset, port->remoteport->guid);
-		offset += _marshall8(buf + offset, (uint8_t) port->remoteport->portnum);
+		offset += _marshall8(buf + offset,
+				     (uint8_t) port->remoteport->portnum);
 	} else {
 		offset += _marshall8(buf + offset, 0);
 		offset += _marshall64(buf + offset, 0);
@@ -872,7 +1013,7 @@ static int _cache_port(int fd, ibnd_port_t * port)
 	if (ibnd_write(fd, buf, offset) < 0)
 		return -1;
 
-	return 0;
+	return 1;
 }
 
 int ibnd_cache_fabric(ibnd_fabric_t * fabric, const char *file,
@@ -885,8 +1026,10 @@ int ibnd_cache_fabric(ibnd_fabric_t * fabric, const char *file,
 	ibnd_port_t *port = NULL;
 	ibnd_port_t *port_next = NULL;
 	unsigned int port_count = 0;
+	port_set_t port_set = { NULL, 0 };
 	int fd;
 	int i;
+	int rc;
 
 	if (!fabric) {
 		IBND_DEBUG("fabric parameter NULL\n");
@@ -895,6 +1038,11 @@ int ibnd_cache_fabric(ibnd_fabric_t * fabric, const char *file,
 
 	if (!file) {
 		IBND_DEBUG("file parameter NULL\n");
+		return -1;
+	}
+
+	if (!fabric->from_node) {
+		IBND_DEBUG("cannot cache fabric: missing from node\n");
 		return -1;
 	}
 
@@ -922,14 +1070,19 @@ int ibnd_cache_fabric(ibnd_fabric_t * fabric, const char *file,
 	if (_cache_header_info(fd, fabric) < 0)
 		goto cleanup;
 
+	if (_port_set_build(&port_set, fabric) < 0)
+		goto cleanup;
+
 	node = fabric->nodes;
 	while (node) {
 		node_next = node->next;
 
-		if (_cache_node(fd, node) < 0)
+		rc = _cache_node(fd, &port_set, node);
+		if (rc < 0)
 			goto cleanup;
+		if (rc)
+			node_count++;
 
-		node_count++;
 		node = node_next;
 	}
 
@@ -938,10 +1091,12 @@ int ibnd_cache_fabric(ibnd_fabric_t * fabric, const char *file,
 		while (port) {
 			port_next = port->htnext;
 
-			if (_cache_port(fd, port) < 0)
+			rc = _cache_port(fd, &port_set, port);
+			if (rc < 0)
 				goto cleanup;
+			if (rc)
+				port_count++;
 
-			port_count++;
 			port = port_next;
 		}
 	}
@@ -949,14 +1104,21 @@ int ibnd_cache_fabric(ibnd_fabric_t * fabric, const char *file,
 	if (_cache_header_counts(fd, node_count, port_count) < 0)
 		goto cleanup;
 
+	IBND_DEBUG("cached fabric: %u nodes, %u ports\n",
+		   node_count, port_count);
+
+	_port_set_destroy(&port_set);
+
 	if (close(fd) < 0) {
 		IBND_DEBUG("close: %s\n", strerror(errno));
-		goto cleanup;
+		unlink(file);
+		return -1;
 	}
 
 	return 0;
 
 cleanup:
+	_port_set_destroy(&port_set);
 	unlink(file);
 	close(fd);
 	return -1;
