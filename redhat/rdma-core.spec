@@ -468,6 +468,7 @@ fi
 %{_mandir}/man3/efadv*
 %{_mandir}/man3/hnsdv*
 %{_mandir}/man3/ibv_*
+%{_mandir}/man3/ionic_dv*
 %{_mandir}/man3/rdma*
 %{_mandir}/man3/umad*
 %{_mandir}/man3/*_to_ibv_rate.*
@@ -477,6 +478,7 @@ fi
 %{_mandir}/man3/mlx4dv*
 %{_mandir}/man7/efadv*
 %{_mandir}/man7/hnsdv*
+%{_mandir}/man7/ionicdv*
 %{_mandir}/man7/manadv*
 %{_mandir}/man7/mlx5dv*
 %{_mandir}/man7/mlx4dv*

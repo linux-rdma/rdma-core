@@ -684,11 +684,13 @@ done
 %if 0%{?dma_coherent}
 %{_mandir}/man3/efadv*
 %{_mandir}/man3/hnsdv*
+%{_mandir}/man3/ionic_dv*
 %{_mandir}/man3/manadv*
 %{_mandir}/man3/mlx5dv*
 %{_mandir}/man3/mlx4dv*
 %{_mandir}/man7/efadv*
 %{_mandir}/man7/hnsdv*
+%{_mandir}/man7/ionicdv*
 %{_mandir}/man7/manadv*
 %{_mandir}/man7/mlx5dv*
 %{_mandir}/man7/mlx4dv*
