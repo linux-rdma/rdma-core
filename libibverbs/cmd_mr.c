@@ -160,8 +160,8 @@ int ibv_cmd_reg_dmabuf_mr(struct ibv_pd *pd, uint64_t offset, size_t length,
 int ibv_cmd_reg_mr_ex(struct ibv_pd *pd, struct verbs_mr *vmr,
 		      struct ibv_mr_init_attr *mr_init_attr)
 {
-	DECLARE_COMMAND_BUFFER(cmdb, UVERBS_OBJECT_MR,
-			       UVERBS_METHOD_REG_MR, 11);
+	DECLARE_FBCMD_BUFFER(cmdb, UVERBS_OBJECT_MR,
+			     UVERBS_METHOD_REG_MR, 11, NULL);
 	bool fd_based = (mr_init_attr->comp_mask & IBV_REG_MR_MASK_FD);
 	struct ib_uverbs_attr *handle;
 	uint64_t length = mr_init_attr->length;
@@ -222,9 +222,43 @@ int ibv_cmd_reg_mr_ex(struct ibv_pd *pd, struct verbs_mr *vmr,
 		fill_attr_in_obj(cmdb, UVERBS_ATTR_REG_MR_DMA_HANDLE,
 				 verbs_get_dmah(mr_init_attr->dmah)->handle);
 
-	ret = execute_ioctl(pd->context, cmdb);
-	if (ret)
-		return errno;
+	switch (execute_ioctl_fallback(pd->context, reg_mr_ex, cmdb, &ret)) {
+	case SUCCESS:
+		break;
+
+	case TRY_WRITE:
+	case TRY_WRITE_EX: {
+		/*
+		 * The kernel has no REG_MR ioctl method.  Only an address-based
+		 * request maps to the legacy write-ABI REG_MR command; a
+		 * dma-buf (fd) or DMA-handle request has no write-ABI
+		 * equivalent (and such a kernel could not service it anyway).
+		 * This mirrors ibv_cmd_reg_mr()'s write path so an ordinary
+		 * buffer registered via ibv_reg_mr_ex() -- e.g. through
+		 * ibv_reg_buf_mr() -- keeps working on a write-ABI-only kernel.
+		 */
+		struct ib_uverbs_reg_mr_resp wresp;
+		struct ibv_reg_mr req;
+		uint64_t hca_va;
+
+		if (fd_based ||
+		    (mr_init_attr->comp_mask & IBV_REG_MR_MASK_DMAH)) {
+			errno = EOPNOTSUPP;
+			return EOPNOTSUPP;
+		}
+
+		hca_va = (mr_init_attr->comp_mask & IBV_REG_MR_MASK_IOVA) ?
+				 mr_init_attr->iova :
+				 (uintptr_t)mr_init_attr->addr;
+
+		return ibv_cmd_reg_mr(pd, mr_init_attr->addr, length, hca_va,
+				      mr_init_attr->access, vmr, &req,
+				      sizeof(req), &wresp, sizeof(wresp));
+	}
+
+	default:
+		return ret;
+	}
 
 	vmr->ibv_mr.handle = read_attr_obj(UVERBS_ATTR_REG_MR_HANDLE,
 					   handle);
