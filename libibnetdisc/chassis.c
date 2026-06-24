@@ -773,7 +773,8 @@ static int fill_voltaire_chassis_record(ibnd_node_t * node)
 		/* find the remote node */
 		for (p = 1; p <= node->numports; p++) {
 			port = node->ports[p];
-			if (port && is_spine(port->remoteport->node))
+			if (port && port->remoteport &&
+			    is_spine(port->remoteport->node))
 				get_router_slot(node, port->remoteport);
 		}
 	else if (is_spine(node)) {
