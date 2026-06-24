@@ -17,7 +17,7 @@ from pyverbs.libibverbs_enums import ibv_access_flags, ibv_wr_opcode
 import tests.utils as u
 
 try:
-    from cuda import cuda
+    cuda, _, _ = cu.import_cuda()
     cu.CUDA_FOUND = True
 except ImportError:
     cu.CUDA_FOUND = False
