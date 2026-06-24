@@ -165,7 +165,7 @@ struct ibv_cq *mana_create_cq(struct ibv_context *context, int cqe,
 
 	cmd_drv = &cmd.drv_payload;
 	cmd_drv->buf_addr = (uintptr_t)cq->buf;
-	cmd_drv->flags = flags;
+	cmd_drv->comp_mask = flags;
 	resp.cqid = UINT32_MAX;
 
 	ret = ibv_cmd_create_cq(context, cq->cqe, channel, comp_vector,

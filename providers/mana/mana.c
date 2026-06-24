@@ -20,7 +20,7 @@
 
 #include "mana.h"
 
-DECLARE_DRV_CMD(mana_alloc_ucontext, IB_USER_VERBS_CMD_GET_CONTEXT, empty,
+DECLARE_DRV_CMD(mana_alloc_ucontext, IB_USER_VERBS_CMD_GET_CONTEXT, mana_ib_uctx_req,
 		empty);
 
 DECLARE_DRV_CMD(mana_alloc_pd, IB_USER_VERBS_CMD_ALLOC_PD, empty, empty);
@@ -453,14 +453,14 @@ static struct verbs_context *mana_alloc_context(struct ibv_device *ibdev,
 	int ret, i;
 	struct mana_context *context;
 	struct mana_alloc_ucontext_resp resp;
-	struct ibv_get_context cmd;
+	struct mana_alloc_ucontext cmd = {};
 
 	context = verbs_init_and_alloc_context(ibdev, cmd_fd, context, ibv_ctx,
 					       RDMA_DRIVER_MANA);
 	if (!context)
 		return NULL;
 
-	ret = ibv_cmd_get_context(&context->ibv_ctx, &cmd, sizeof(cmd),
+	ret = ibv_cmd_get_context(&context->ibv_ctx, &cmd.ibv_cmd, sizeof(cmd),
 				  NULL, &resp.ibv_resp, sizeof(resp));
 	if (ret) {
 		verbs_err(&context->ibv_ctx, "Failed to get ucontext\n");
