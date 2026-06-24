@@ -235,6 +235,7 @@ int ibv_cmd_reg_mr_ex(struct ibv_pd *pd, struct verbs_mr *vmr,
 		vmr->mr_type = IBV_MR_TYPE_DMABUF_MR;
 	else
 		vmr->mr_type = IBV_MR_TYPE_MR;
+	vmr->access = mr_init_attr->access;
 
 	return 0;
 }
