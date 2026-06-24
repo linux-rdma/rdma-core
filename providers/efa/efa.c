@@ -23,6 +23,7 @@ static const struct verbs_match_ent efa_table[] = {
 	VERBS_PCI_MATCH(PCI_VENDOR_ID_AMAZON, 0xefa1, NULL),
 	VERBS_PCI_MATCH(PCI_VENDOR_ID_AMAZON, 0xefa2, NULL),
 	VERBS_PCI_MATCH(PCI_VENDOR_ID_AMAZON, 0xefa3, NULL),
+	VERBS_PCI_MATCH(PCI_VENDOR_ID_AMAZON, 0xefa4, NULL),
 	{}
 };
 
