@@ -32,6 +32,7 @@ rdma_rst_common(
   opt_o-outstanding_smps.rst
   opt_ports-file.rst
   opt_P.rst
+  opt_pkey_idx.rst
   opt_s.rst
   opt_t.rst
   opt_verbose.rst

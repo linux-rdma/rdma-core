@@ -78,6 +78,12 @@ static int server_respond(void *umad, int size)
 	rport.qp = ntohl(mad_addr->qpn);
 	rport.qkey = ntohl(mad_addr->qkey);
 	rport.sl = mad_addr->sl;
+	/*
+	 * The received pkey_index is resolved against our local P_Key table,
+	 * so echoing it sends the reply on the same partition the request
+	 * arrived on.
+	 */
+	rport.pkey_idx = umad_get_pkey(umad);
 	if (!rport.qkey && rport.qp == 1)
 		rport.qkey = IB_DEFAULT_QP1_QKEY;
 

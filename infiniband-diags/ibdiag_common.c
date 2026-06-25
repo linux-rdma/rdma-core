@@ -52,6 +52,7 @@
 #include <config.h>
 #include <getopt.h>
 #include <limits.h>
+#include <stdint.h>
 #include <sys/stat.h>
 #include <stdarg.h>
 
@@ -74,6 +75,7 @@ uint64_t ibd_mkey;
 uint64_t ibd_sakey = 0;
 int show_keys = 0;
 char *ibd_nd_format = NULL;
+int ibd_pkey_idx;
 
 static const char *prog_name;
 static const char *prog_args;
@@ -287,6 +289,16 @@ static int process_opt(int ch)
 			}
                 }
                 break;
+	case 'Y':
+		errno = 0;
+		val = strtol(optarg, &endp, 0);
+		if (errno || endp == optarg || *endp != '\0' || val < 0 ||
+		    val > UINT16_MAX)
+			IBEXIT("Invalid P_Key index \"%s\".  Requires an integer"
+				" in the range [0, %u].", optarg,
+				(unsigned int)UINT16_MAX);
+		ibd_pkey_idx = (int)val;
+		break;
 	default:
 		return -1;
 	}
@@ -305,6 +317,8 @@ static const struct ibdiag_opt common_opts[] = {
 	{"sm_port", 's', 1, "<lid>", "SM port lid"},
 	{"show_keys", 'K', 0, NULL, "display security keys in output"},
 	{"m_key", 'y', 1, "<key>", "M_Key to use in request"},
+	{"pkey-idx", 'Y', 1, "<idx>",
+	 "P_Key table index for outgoing SA/GMP MADs (default 0)"},
 	{"errors", 'e', 0, NULL, "show send and receive errors"},
 	{"verbose", 'v', 0, NULL, "increase verbosity level"},
 	{"debug", 'd', 0, NULL, "raise debug level"},
@@ -408,6 +422,15 @@ int ibdiag_process_opts(int argc, char *const argv[], void *cxt,
 		} else if (process_opt(ch))
 			ibdiag_show_usage();
 	}
+
+	/*
+	 * Apply the P_Key index to an SM port id resolved during parsing, so
+	 * the result does not depend on whether --pkey-idx was given before or
+	 * after --sm_port.  Other destinations are resolved after this returns
+	 * and pick up ibd_pkey_idx through resolve_portid_str().
+	 */
+	if (ibd_sm_id)
+		ibd_sm_id->pkey_idx = ibd_pkey_idx;
 
 	return 0;
 }
@@ -589,6 +612,7 @@ int resolve_sm_portid(char *ca_name, uint8_t portnum, ib_portid_t *sm_id)
 	memset(sm_id, 0, sizeof(*sm_id));
 	sm_id->lid = port.sm_lid;
 	sm_id->sl = port.sm_sl;
+	sm_id->pkey_idx = ibd_pkey_idx;
 
 	umad_release_port(&port);
 
@@ -616,6 +640,7 @@ int resolve_self(char *ca_name, uint8_t ca_port, ib_portid_t *portid,
 		memset(portid, 0, sizeof(*portid));
 		portid->lid = port.base_lid;
 		portid->sl = port.sm_sl;
+		portid->pkey_idx = ibd_pkey_idx;
 	}
 	if (portnum)
 		*portnum = port.portnum;
@@ -700,6 +725,7 @@ int resolve_portid_str(char *ca_name, uint8_t ca_port, ib_portid_t * portid,
 	int selfport = 0;
 
 	memset(portid, 0, sizeof *portid);
+	portid->pkey_idx = ibd_pkey_idx;
 
 	switch (dest_type) {
 	case IB_DEST_LID:
