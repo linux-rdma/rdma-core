@@ -42,8 +42,9 @@ static int ibv_icmd_create_cq(struct ibv_context *context, int cqe,
 {
 	DECLARE_FBCMD_BUFFER(cmdb, UVERBS_OBJECT_CQ, UVERBS_METHOD_CQ_CREATE, 11, link);
 	struct verbs_ex_private *priv = get_priv(context);
-	struct ib_uverbs_attr *handle;
+	struct ib_uverbs_buffer_desc buf_desc = {};
 	struct ib_uverbs_attr *async_fd_attr;
+	struct ib_uverbs_attr *handle;
 	bool prov_atts_expected;
 	uint32_t resp_cqe;
 	int ret;
@@ -51,9 +52,15 @@ static int ibv_icmd_create_cq(struct ibv_context *context, int cqe,
 	cq->context = context;
 
 	prov_atts_expected = cmd_flags & (CREATE_CQ_CMD_FLAGS_WITH_MEM_VA |
-					  CREATE_CQ_CMD_FLAGS_WITH_MEM_DMABUF);
+					  CREATE_CQ_CMD_FLAGS_WITH_MEM_DMABUF |
+					  CREATE_CQ_CMD_FLAGS_WITH_BUF_UMEM_VA |
+					  CREATE_CQ_CMD_FLAGS_WITH_BUF_UMEM_DMABUF);
 
 	if (prov_atts_expected && !prov_attr)
+		return EINVAL;
+
+	/* Only one buffer-passing mode may be requested at a time */
+	if (prov_atts_expected & (prov_atts_expected - 1))
 		return EINVAL;
 
 	handle = fill_attr_out_obj(cmdb, UVERBS_ATTR_CREATE_CQ_HANDLE);
@@ -84,6 +91,22 @@ static int ibv_icmd_create_cq(struct ibv_context *context, int cqe,
 				    prov_attr->buffer.dmabuf.offset);
 		fill_attr_in_uint64(cmdb, UVERBS_ATTR_CREATE_CQ_BUFFER_LENGTH,
 				    prov_attr->buffer.length);
+		fallback_require_ioctl(cmdb);
+	} else if (cmd_flags & CREATE_CQ_CMD_FLAGS_WITH_BUF_UMEM_VA) {
+		buf_desc.type   = IB_UVERBS_BUFFER_TYPE_VA,
+		buf_desc.fd     = -1,
+		buf_desc.addr   = (uintptr_t)prov_attr->buffer.ptr,
+		buf_desc.length = prov_attr->buffer.length,
+
+		fill_attr_in_ptr(cmdb, UVERBS_ATTR_CREATE_CQ_BUF_UMEM, &buf_desc);
+		fallback_require_ioctl(cmdb);
+	} else if (cmd_flags & CREATE_CQ_CMD_FLAGS_WITH_BUF_UMEM_DMABUF) {
+		buf_desc.type   = IB_UVERBS_BUFFER_TYPE_DMABUF,
+		buf_desc.fd     = prov_attr->buffer.dmabuf.fd,
+		buf_desc.addr   = prov_attr->buffer.dmabuf.offset,
+		buf_desc.length = prov_attr->buffer.length,
+
+		fill_attr_in_ptr(cmdb, UVERBS_ATTR_CREATE_CQ_BUF_UMEM, &buf_desc);
 		fallback_require_ioctl(cmdb);
 	}
 

@@ -104,10 +104,42 @@ enum verbs_xrcd_mask {
 	VERBS_XRCD_RESERVED	= 1 << 1
 };
 
+enum create_qp_cmd_flags {
+	CREATE_QP_CMD_FLAGS_WITH_SQ_BUF_UMEM_VA = 1 << 0,
+	CREATE_QP_CMD_FLAGS_WITH_SQ_BUF_UMEM_DMABUF = 1 << 1,
+	CREATE_QP_CMD_FLAGS_WITH_RQ_BUF_UMEM_VA = 1 << 2,
+	CREATE_QP_CMD_FLAGS_WITH_RQ_BUF_UMEM_DMABUF = 1 << 3,
+};
+
+struct verbs_create_qp_prov_attr {
+	struct {
+		uint64_t length;
+		union {
+			uint8_t *ptr;
+			struct {
+				uint64_t offset;
+				int fd;
+			} dmabuf;
+		};
+	} sq;
+	struct {
+		uint64_t length;
+		union {
+			uint8_t *ptr;
+			struct {
+				uint64_t offset;
+				int fd;
+			} dmabuf;
+		};
+	} rq;
+};
+
 enum create_cq_cmd_flags {
 	CREATE_CQ_CMD_FLAGS_TS_IGNORED_EX = 1 << 0,
 	CREATE_CQ_CMD_FLAGS_WITH_MEM_VA = 1 << 1,
 	CREATE_CQ_CMD_FLAGS_WITH_MEM_DMABUF = 1 << 2,
+	CREATE_CQ_CMD_FLAGS_WITH_BUF_UMEM_VA = 1 << 3,
+	CREATE_CQ_CMD_FLAGS_WITH_BUF_UMEM_DMABUF = 1 << 4,
 };
 
 /* Must change the PRIVATE IBVERBS_PRIVATE_ symbol if this is changed */
@@ -671,6 +703,14 @@ int ibv_cmd_create_qp_ex2(struct ibv_context *context,
 			  size_t cmd_size,
 			  struct ib_uverbs_ex_create_qp_resp *resp,
 			  size_t resp_size);
+int ibv_cmd_create_qp_ex3(struct ibv_context *context,
+			  struct verbs_qp *qp,
+			  struct ibv_qp_init_attr_ex *attr_ex,
+			  struct ibv_create_qp_ex *cmd, size_t cmd_size,
+			  struct ib_uverbs_ex_create_qp_resp *resp, size_t resp_size,
+			  struct verbs_create_qp_prov_attr *prov_attr,
+			  uint32_t cmd_flags,
+			  struct ibv_command_buffer *driver);
 int ibv_cmd_open_qp(struct ibv_context *context,
 		    struct verbs_qp *qp,  int vqp_sz,
 		    struct ibv_qp_open_attr *attr,

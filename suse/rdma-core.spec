@@ -46,6 +46,8 @@ Group:          Productivity/Networking/Other
 %define ibnetdisc_major 5
 %define mad_major       5
 
+%define  bnxt_re_so_major 1
+%define  bnxt_re_lname libbnxt_re%{bnxt_re_so_major}
 %define  efa_lname    libefa%{efa_so_major}
 %define  hns_lname    libhns%{hns_so_major}
 %define  ionic_lname  libionic%{ionic_so_major}
@@ -163,6 +165,7 @@ Requires:       %{rdmacm_lname} = %{version}-%{release}
 Requires:       %{umad_lname} = %{version}-%{release}
 Requires:       %{verbs_lname} = %{version}-%{release}
 %if 0%{?dma_coherent}
+Requires:       %{bnxt_re_lname} = %{version}-%{release}
 Requires:       %{efa_lname} = %{version}-%{release}
 Requires:       %{hns_lname} = %{version}-%{release}
 Requires:       %{ionic_lname} = %{version}-%{release}
@@ -216,6 +219,7 @@ Obsoletes:      libmthca-rdmav2 < %{version}-%{release}
 Obsoletes:      libocrdma-rdmav2 < %{version}-%{release}
 Obsoletes:      librxe-rdmav2 < %{version}-%{release}
 %if 0%{?dma_coherent}
+Requires:       %{bnxt_re_lname} = %{version}-%{release}
 Requires:       %{efa_lname} = %{version}-%{release}
 Requires:       %{hns_lname} = %{version}-%{release}
 Requires:       %{ionic_lname} = %{version}-%{release}
@@ -259,6 +263,13 @@ Requires:       libibverbs = %{version}
 
 %description -n %verbs_lname
 This package contains the ibverbs runtime library.
+
+%package -n %bnxt_re_lname
+Summary:        BNXT_RE runtime library
+Group:          System/Libraries
+
+%description -n %bnxt_re_lname
+This package contains the bnxt_re runtime library.
 
 %package -n %efa_lname
 Summary:        EFA runtime library
@@ -530,6 +541,7 @@ rm -rf %{buildroot}/%{_initddir}/
 rm -rf %{buildroot}/%{_sbindir}/srp_daemon.sh
 
 %ldconfig_scriptlets -n %verbs_lname
+%ldconfig_scriptlets -n %bnxt_re_lname
 %ldconfig_scriptlets -n %efa_lname
 %ldconfig_scriptlets -n %hns_lname
 %ldconfig_scriptlets -n %ionic_lname
@@ -682,12 +694,14 @@ done
 %{_mandir}/man3/*_to_ibv_rate.*
 %{_mandir}/man7/rdma_cm.*
 %if 0%{?dma_coherent}
+%{_mandir}/man3/bnxt_re_dv*
 %{_mandir}/man3/efadv*
 %{_mandir}/man3/hnsdv*
 %{_mandir}/man3/ionic_dv*
 %{_mandir}/man3/manadv*
 %{_mandir}/man3/mlx5dv*
 %{_mandir}/man3/mlx4dv*
+%{_mandir}/man7/bnxt_re_dv*
 %{_mandir}/man7/efadv*
 %{_mandir}/man7/hnsdv*
 %{_mandir}/man7/ionicdv*
@@ -717,6 +731,9 @@ done
 %{_libdir}/libibverbs*.so.*
 
 %if 0%{?dma_coherent}
+%files -n %bnxt_re_lname
+%{_libdir}/libbnxt_re*.so.*
+
 %files -n %efa_lname
 %{_libdir}/libefa*.so.*
 
