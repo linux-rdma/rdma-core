@@ -717,11 +717,6 @@ cdef class MREx(MR):
                print_format.format('buf', <uintptr_t>self.buf) + \
                print_format.format('handle', self.handle)
 
-    cpdef close(self):
-        """Close MREx and release its association with DMAHandle."""
-        if self.mr != NULL:
-            super(MREx, self).close()
-            self.dmah = None
 
 cdef class Buf(PyverbsCM):
     """
