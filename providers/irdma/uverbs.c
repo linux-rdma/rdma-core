@@ -923,7 +923,9 @@ static void irdma_process_cqe(struct ibv_wc *entry, struct irdma_cq_poll_info *c
 
 	if (ib_qp->qp_type == IBV_QPT_UD) {
 		entry->src_qp = cur_cqe->ud_src_qpn;
-		entry->wc_flags |= IBV_WC_GRH;
+		entry->wc_flags |= (IBV_WC_GRH | IBV_WC_WITH_NETWORK_HDR_TYPE);
+		if (!cur_cqe->ipv4)
+			entry->wc_flags |= IBV_WC_NETWORK_HDR_IPV6;
 	} else {
 		entry->src_qp = cur_cqe->qp_id;
 	}

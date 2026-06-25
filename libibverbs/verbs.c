@@ -1009,7 +1009,10 @@ int ibv_init_ah_from_wc(struct ibv_context *context, uint8_t port_num,
 
 	if (wc->wc_flags & IBV_WC_GRH) {
 		ah_attr->is_global = 1;
-		version = get_grh_header_version(grh);
+		if (wc->wc_flags & IBV_WC_WITH_NETWORK_HDR_TYPE)
+			version = (wc->wc_flags & IBV_WC_NETWORK_HDR_IPV6) ? 6 : 4;
+		else
+			version = get_grh_header_version(grh);
 
 		if (version == 4)
 			ret = set_ah_attr_by_ipv4(context, ah_attr,
