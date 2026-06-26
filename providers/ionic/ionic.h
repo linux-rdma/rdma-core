@@ -22,6 +22,7 @@
 #include "ionic_memory.h"
 #include "ionic_queue.h"
 #include "ionic_table.h"
+#include "ionic_dv.h"
 
 #include <stdio.h>
 #include <inttypes.h>
@@ -45,6 +46,13 @@
 #define IONIC_PD_TAG_CQ	(IONIC_PD_TAG | 1)
 #define IONIC_PD_TAG_SQ	(IONIC_PD_TAG | 2)
 #define IONIC_PD_TAG_RQ	(IONIC_PD_TAG | 3)
+#define IONIC_PD_TAG_RCQ (IONIC_PD_TAG | 4)
+
+#define IONIC_SET_UDATA(ctx, req, field, val)			\
+	do {							\
+		if ((ctx)->robust_udata)			\
+			(req)->field = (val);			\
+	} while (0)
 
 enum {
 	IONIC_CQ_SUPPORTED_WC_FLAGS =
@@ -55,6 +63,18 @@ enum {
 	    IBV_WC_EX_WITH_SLID           |
 	    IBV_WC_EX_WITH_SL             |
 	    IBV_WC_EX_WITH_DLID_PATH_BITS
+};
+
+enum {
+	IONIC_DV_QP_SUPPORTED_COMP_MASK =
+		IONIC_DV_QP_INIT_ATTR_MASK_FLAGS,
+
+	IONIC_DV_QP_SUPPORTED_EXT_FLAGS =
+		IONIC_DV_CREATE_QP_TYPE_RCCL		|
+		IONIC_DV_CREATE_QP_RCCL_DATA		|
+		IONIC_DV_CREATE_QP_RCCL_RDFENCE		|
+		IONIC_DV_CREATE_QP_RCCL_RX_OFFLOAD	|
+		IONIC_DV_CREATE_QP_RCCL_RCQ,
 };
 
 struct ionic_ctx {
@@ -76,6 +96,8 @@ struct ionic_ctx {
 	uint8_t			expdb_mask;
 	bool			sq_expdb;
 	bool			rq_expdb;
+	bool			robust_udata;
+	uint8_t			rcq_sign_bit;
 
 	void			*dbpage_page;
 	uint64_t		*dbpage;
@@ -153,6 +175,16 @@ struct ionic_sq_meta {
 struct ionic_rq_meta {
 	struct ionic_rq_meta	*next;
 	uint64_t		wrid;
+	struct {
+		uint64_t	timestamp;
+		uint32_t	seq;
+		uint32_t	imm_rkey;
+		uint32_t	sts_len;
+		uint8_t		valid:1;
+		uint8_t		ready:1;
+		uint8_t		error:1;
+		uint8_t		op;
+	} rcqe;
 };
 
 struct ionic_rq {
@@ -208,6 +240,7 @@ struct ionic_qp {
 	struct ionic_sq		sq;
 	struct ionic_rq		rq;
 	bool			sig_all;
+	bool			rcq;
 };
 
 struct ionic_ah {
@@ -323,5 +356,9 @@ static inline void ionic_dbg_xdump(struct ionic_ctx *ctx, const char *str,
 
 /* ionic_verbs.h */
 void ionic_verbs_set_ops(struct ionic_ctx *ctx);
+
+struct ibv_qp *ionic_create_qp_ex_common(struct ibv_context *ibctx,
+					 struct ibv_qp_init_attr_ex *ex,
+					 struct ionic_dv_qp_init_attr_ex *ionic_ex);
 
 #endif /* IONIC_H */
