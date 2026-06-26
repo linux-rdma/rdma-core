@@ -161,6 +161,91 @@ int irdma_ufree_pd(struct ibv_pd *pd)
 }
 
 /**
+ * irdma_ualloc_buf - allocate a provider aware buffer
+ * @pd: protection domain
+ * @size: requested buffer size
+ * @buf: returns the abstract buffer handle
+ */
+void *irdma_ualloc_buf(struct ibv_pd *pd, size_t size, struct ibv_buf **buf)
+{
+	struct irdma_upd *iwupd = container_of(pd, struct irdma_upd, ibv_pd);
+	struct ibv_dmabuf_heap *dmabuf_heap = NULL;
+	struct irdma_buf *ibuf;
+	int dmabuf_fd = -1;
+	void *addr;
+	int ret;
+
+	if (iwupd->is_parent_domain) {
+		struct irdma_parent_domain *iparent = container_of(iwupd, struct irdma_parent_domain, ipd);
+		dmabuf_heap = iparent->dmabuf_heap;
+	}
+	
+	ibuf = calloc(1, sizeof(*ibuf));
+	if (!ibuf)
+		return NULL;
+
+	size = roundup(size, IRDMA_HW_PAGE_SIZE);
+
+	/* CC DMA Bounce buffer path */
+	if (dmabuf_heap) {
+		addr = ibv_dmabuf_heap_alloc(dmabuf_heap, size, &dmabuf_fd);
+		if (!addr)
+			goto err_free_ibuf;
+
+		if (ibv_dontfork_range(addr, size)) {
+			ibv_dmabuf_heap_free(addr, size, dmabuf_fd);
+			goto err_free_ibuf;
+		}
+
+		ibuf->is_dmabuf = true;
+		ibv_buf_init_dmabuf(&ibuf->ibv_buf, pd, addr, size, dmabuf_fd);
+	} else {
+		ret = posix_memalign(&addr, IRDMA_HW_PAGE_SIZE, size);
+		if (ret) {
+			errno = ret;
+			goto err_free_ibuf;
+		}
+
+		if (ibv_dontfork_range(addr, size)) {
+			free(addr);
+			goto err_free_ibuf;
+		}
+
+		memset(addr, 0, size);
+		ibuf->is_dmabuf = false;
+		ibv_ubuf_init(&ibuf->ibv_buf, pd, addr, size);
+	}
+	
+	ibuf->buf = addr;
+	ibuf->length = size;
+	*buf = &ibuf->ibv_buf;
+	
+	return addr;
+
+err_free_ibuf:
+	free(ibuf);
+	return NULL;
+}
+
+/**
+ * irdma_ufree_buf - free a provider aware buffer
+ * @buf: abstract buffer handle
+ */
+void irdma_ufree_buf(struct ibv_buf *buf)
+{
+	struct irdma_buf *ibuf = container_of(buf, struct irdma_buf, ibv_buf);
+	
+	ibv_dontfork_range(ibuf->buf, ibuf->length);
+	
+	if (ibuf->is_dmabuf)
+		ibv_dmabuf_heap_free(ibuf->buf, ibuf->length, buf->dmabuf_fd);
+	else
+		free(ibuf->buf);
+	
+	free(ibuf);
+}
+
+/**
  * irdma_ureg_mr - register user memory region
  * @pd: pd for the mr
  * @addr: user address of the memory region

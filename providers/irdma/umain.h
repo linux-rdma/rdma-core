@@ -54,6 +54,13 @@ struct irdma_parent_domain {
 	struct ibv_dmabuf_heap *dmabuf_heap;
 }
 
+struct irdma_buf {
+	struct ibv_buf ibv_buf;
+	void *buf;
+	size_t length;
+	bool is_dmabuf;
+}
+
 struct irdma_uvcontext {
 	struct verbs_context ibv_ctx;
 	struct irdma_upd *iwupd;
@@ -133,6 +140,8 @@ struct ibv_pd *irdma_ualloc_pd(struct ibv_context *context);
 struct ibv_pd *irdma_ualloc_parent_domain(struct ibv_context *context,
 					  struct ibv_parent_domain_init_attr *attr);
 int irdma_ufree_pd(struct ibv_pd *pd);
+void *irdma_ualloc_buf(struct ibv_pd *pd, size_t size, struct ibv_buf **buf);
+void irdma_ufree_buf(struct ibv_buf *buf);
 struct ibv_mr *irdma_ureg_mr(struct ibv_pd *pd, void *addr, size_t length,
 			     uint64_t hca_va, int access);
 struct ibv_mr *irdma_ureg_mr_dmabuf(struct ibv_pd *pd, uint64_t offset,
