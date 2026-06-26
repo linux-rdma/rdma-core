@@ -54,6 +54,10 @@ struct irdma_parent_domain {
 	struct ibv_dmabuf_heap *dmabuf_heap;
 };
 
+struct irdma_buf {
+	struct ibv_buf ibv_buf;
+};
+
 struct irdma_uvcontext {
 	struct verbs_context ibv_ctx;
 	struct irdma_upd *iwupd;
@@ -78,6 +82,7 @@ struct irdma_usrq {
 	struct verbs_mr vmr;
 	pthread_spinlock_t lock;
 	struct irdma_srq_uk srq;
+	struct irdma_buf srq_buf;
 	size_t buf_size;
 };
 
@@ -85,6 +90,8 @@ struct irdma_ucq {
 	struct verbs_cq verbs_cq;
 	struct verbs_mr vmr;
 	struct verbs_mr vmr_shadow_area;
+	struct irdma_buf cq_buf;
+	struct irdma_buf shadow_buf;
 	pthread_spinlock_t lock;
 	size_t buf_size;
 	bool is_armed;
@@ -105,6 +112,7 @@ struct irdma_uqp {
 	struct irdma_ucq *send_cq;
 	struct irdma_ucq *recv_cq;
 	struct verbs_mr vmr;
+	struct irdma_buf sq_buf;
 	size_t buf_size;
 	uint32_t irdma_drv_opt;
 	pthread_spinlock_t lock;
@@ -133,6 +141,8 @@ struct ibv_pd *irdma_ualloc_pd(struct ibv_context *context);
 struct ibv_pd *irdma_ualloc_parent_domain(struct ibv_context *context,
 					  struct ibv_parent_domain_init_attr *attr);
 int irdma_ufree_pd(struct ibv_pd *pd);
+void *irdma_ualloc_buf(struct ibv_pd *pd, size_t size, struct ibv_buf **buf);
+void irdma_ufree_buf(struct ibv_buf *buf);
 struct ibv_mr *irdma_ureg_mr(struct ibv_pd *pd, void *addr, size_t length,
 			     uint64_t hca_va, int access);
 struct ibv_mr *irdma_ureg_mr_dmabuf(struct ibv_pd *pd, uint64_t offset,

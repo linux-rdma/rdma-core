@@ -30,6 +30,66 @@ static inline void print_fw_ver(uint64_t fw_ver, char *str, size_t len)
 	snprintf(str, len, "%d.%d", major, minor);
 }
 
+static int __irdma_alloc_buf(struct ibv_pd *pd, size_t size, size_t alignment,
+			     struct irdma_buf *ibuf)
+{
+	struct ibv_dmabuf_heap *heap = NULL;
+	int dmabuf_fd = -1;
+	int ret;
+	size_t alloc_len;
+	void *addr;
+
+	if (pd) {
+		struct irdma_upd *iwupd = container_of(pd, struct irdma_upd, ibv_pd);
+		if (iwupd->is_parent_domain) {
+			struct irdma_parent_domain *iparent = container_of(iwupd, struct irdma_parent_domain, base_pd);
+			heap = iparent->dmabuf_heap;
+		}
+	}
+
+	alloc_len = roundup(size, alignment);
+
+	if (heap) {
+		addr = ibv_dmabuf_heap_alloc(heap, alloc_len, &dmabuf_fd);
+		if (!addr)
+			return ENOMEM;
+
+		if (ibv_dontfork_range(addr, alloc_len)) {
+			ibv_dmabuf_heap_free(addr, alloc_len, dmabuf_fd);
+			return ENOMEM;
+		}
+
+		ibv_buf_init_dmabuf(&ibuf->ibv_buf, pd, addr, alloc_len, dmabuf_fd);
+	} else {
+		ret = posix_memalign(&addr, alignment, alloc_len);
+		if (ret)
+			return ret;
+
+		if (ibv_dontfork_range(addr, alloc_len)) {
+			free(addr);
+			return ENOMEM;
+		}
+
+		memset(addr, 0, alloc_len);
+		ibv_buf_init(&ibuf->ibv_buf, pd, addr, alloc_len);
+	}
+
+	return 0;
+}
+
+static void __irdma_free_buf(struct irdma_buf *ibuf)
+{
+	if (!ibuf->ibv_buf.addr)
+		return;
+
+	ibv_dofork_range(ibuf->ibv_buf.addr, ibuf->ibv_buf.size);
+
+	if (ibuf->ibv_buf.dmabuf_fd != -1)
+		ibv_dmabuf_heap_free(ibuf->ibv_buf.addr, ibuf->ibv_buf.size, ibuf->ibv_buf.dmabuf_fd);
+	else
+		free(ibuf->ibv_buf.addr);
+}
+
 /**
  * irdma_uquery_device_ex - query device attributes including extended properties
  * @context: user context for the device
@@ -160,6 +220,42 @@ int irdma_ufree_pd(struct ibv_pd *pd)
 	free(iwupd);
 
 	return 0;
+}
+
+/**
+ * irdma_ualloc_buf - allocate a provider aware user buffer
+ * @pd: protection domain
+ * @size: requested buffer size
+ * @buf: returns the abstract buffer handle
+ */
+void *irdma_ualloc_buf(struct ibv_pd *pd, size_t size, struct ibv_buf **buf)
+{
+	struct irdma_buf *ibuf;
+
+	ibuf = calloc(1, sizeof(*ibuf));
+	if (!ibuf)
+		return NULL;
+
+	if (__irdma_alloc_buf(pd, size, IRDMA_HW_PAGE_SIZE, ibuf)) {
+		free(ibuf);
+		return NULL;
+	}
+
+	*buf = &ibuf->ibv_buf;
+
+	return ibuf->ibv_buf.addr;
+}
+
+/**
+ * irdma_ufree_buf - free a provider aware user buffer
+ * @buf: abstract buffer handle
+ */
+void irdma_ufree_buf(struct ibv_buf *buf)
+{
+	struct irdma_buf *ibuf = container_of(buf, struct irdma_buf, ibv_buf);
+
+	__irdma_free_buf(ibuf);
+	free(ibuf);
 }
 
 /**
