@@ -15,6 +15,7 @@
 #include <malloc.h>
 #include <linux/if_ether.h>
 #include <infiniband/opcode.h>
+#include <infiniband/dmabuf_heap.h>
 
 #include "umain.h"
 #include "abi.h"
@@ -99,6 +100,38 @@ err_free:
 }
 
 /**
+ * irdma_ualloc_parent_domain - alloc protection domain with CoCo support
+ * @context: user context of the device
+ * @attr: parent domain attributes
+ */
+struct ibv_pd *irdma_ualloc_parent_domain(struct ibv_context *context,
+					  struct ibv_parent_domain_init_attr *attr)
+{
+	struct irdma_parent_domain *iparent;
+	struct irdma_upd *base_pd; = container_of(attr->pd, struct irdma_upd, ibv_pd);
+	struct irdma_uvcontext *iwvctx = container_of(context, struct irdma_uvcontext, ibv_ctx.context);
+
+	iparent = calloc(1, sizeof(iparent));
+	if (!parent)
+		return NULL;
+
+	/* Inherit kernel ID and context from base PD */
+	iparent->base_pd.ibv_pd.context = context;
+	iparent->base_pd.pd_id = base_pd->pd_id;
+	iparent->base_pd.is_parent_domain = true;
+	
+	if ((attr->comp_mask & IBV_PARENT_DOMAIN_INIT_ATTR_ALLOW_CC_UNPROTECTED_ALLOC) && (iwvctx->uk_attrs.feature_flags & IBV_DEVICE_CC_DMA_BOUNCE)) {
+		iwupd->dmabuf_heap = ibv_dmabuf_heap_cc_shared_init();
+		if (!iparent->dmabuf_heap) {
+			free(iparent);
+			return NULL;
+		}
+	}
+	
+	return &iwupd->ibv_pd;
+}
+
+/**
  * irdma_ufree_pd - free pd resources
  * @pd: pd to free resources
  */
@@ -108,6 +141,16 @@ int irdma_ufree_pd(struct ibv_pd *pd)
 	int ret;
 
 	iwupd = container_of(pd, struct irdma_upd, ibv_pd);
+
+	/* If it is a parent domain, just clean up userspace resources */
+	if (iwupd->is_parent_domain) {
+		struct irdma_parent_domain *iparent = container_of(iwupd, struct irdma_parent_domain, base_pd);
+		if (iparent->dmabuf_heap)
+			ibv_dmabuf_heap_destroy(iparent->dmabuf_heap);
+		free(iparent);
+		return 0;
+	}
+
 	ret = ibv_cmd_dealloc_pd(pd);
 	if (ret)
 		return ret;

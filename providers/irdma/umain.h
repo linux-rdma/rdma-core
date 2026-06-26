@@ -46,7 +46,13 @@ struct irdma_upd {
 	void *arm_cq_page;
 	void *arm_cq;
 	uint32_t pd_id;
+	bool is_parent_domain;
 };
+
+struct irdma_parent_domain {
+	struct irdma_upd base_pd;
+	struct ibv_dmabuf_heap *dmabuf_heap;
+}
 
 struct irdma_uvcontext {
 	struct verbs_context ibv_ctx;
@@ -124,6 +130,8 @@ int irdma_uquery_device_ex(struct ibv_context *context,
 int irdma_uquery_port(struct ibv_context *context, uint8_t port,
 		      struct ibv_port_attr *attr);
 struct ibv_pd *irdma_ualloc_pd(struct ibv_context *context);
+struct ibv_pd *irdma_ualloc_parent_domain(struct ibv_context *context,
+					  struct ibv_parent_domain_init_attr *attr);
 int irdma_ufree_pd(struct ibv_pd *pd);
 struct ibv_mr *irdma_ureg_mr(struct ibv_pd *pd, void *addr, size_t length,
 			     uint64_t hca_va, int access);
@@ -179,4 +187,8 @@ void irdma_async_event(struct ibv_context *context,
 void irdma_set_hw_attrs(struct irdma_hw_attrs *attrs);
 void *irdma_mmap(int fd, off_t offset);
 void irdma_munmap(void *map);
+static inline struct to_iparent_domain(struct ibv_pd *pd)
+{
+	return container_of(pd, struct irdma_parent_domain, base_pd);
+}
 #endif /* IRDMA_UMAIN_H */
