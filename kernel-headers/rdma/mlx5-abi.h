@@ -472,6 +472,9 @@ struct mlx5_ib_modify_wq {
 	__u32	reserved;
 };
 
+/*
+ * deprecated, see struct ib_uverbs_clock_info from ib_user_verbs.h
+ */
 struct mlx5_ib_clock_info {
 	__u32 sign;
 	__u32 resv;
