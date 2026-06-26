@@ -25,9 +25,9 @@ enum mana_ib_create_cq_flags {
 
 struct mana_ib_create_cq {
 	__aligned_u64 buf_addr;
-	__u16	flags;
-	__u16	reserved0;
-	__u32	reserved1;
+	__u16   comp_mask;
+	__u16   reserved0;
+	__u32   reserved1;
 };
 
 struct mana_ib_create_cq_resp {
@@ -66,6 +66,14 @@ struct mana_ib_create_wq {
 /* RX Hash function flags */
 enum mana_ib_rx_hash_function_flags {
 	MANA_IB_RX_HASH_FUNC_TOEPLITZ = 1 << 0,
+};
+
+struct mana_ib_uctx_req {
+	__aligned_u64 client_caps1;
+	__aligned_u64 client_caps2;
+	__aligned_u64 client_caps3;
+	__aligned_u64 client_caps4;
+	__aligned_u64 comp_mask;
 };
 
 struct mana_ib_create_qp_rss {
