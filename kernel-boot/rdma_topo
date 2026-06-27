@@ -196,13 +196,16 @@ class SysfsDevice(object):
         return res
 
 
-def parse_vpd(vpd: Optional[bytes]) -> Tuple[Optional[str], Optional[str]]:
-    """Parse VPD name and V3 UUID"""
+def parse_vpd(
+    vpd: Optional[bytes],
+) -> Tuple[Optional[str], Optional[str], Optional[str]]:
+    """Parse VPD name, V3 UUID, and serial number (SN)"""
     if vpd is None:
-        return None, None
+        return None, None, None
 
     name = None
     v3 = None
+    sn = None
 
     def items(data: bytes) -> Generator[Tuple[int, bytes]]:
         while len(data) > 0:
@@ -241,10 +244,12 @@ def parse_vpd(vpd: Optional[bytes]) -> Tuple[Optional[str], Optional[str]]:
                 for keyword, value in keywords(item):
                     if keyword == "V3":
                         v3 = value.decode("ascii")
+                    elif keyword == "SN":
+                        sn = value.decode("ascii")
     except UnicodeDecodeError:
         pass
 
-    return (v3, name)
+    return (v3, name, sn)
 
 
 def parse_ext_cap(config: bytes, cap_id: int) -> Optional[bytes]:
@@ -359,6 +364,7 @@ class PCIDevice(object):
     device_type = ""
     vpd_v3: Optional[str] = None
     vpd_name: Optional[str] = None
+    vpd_sn: Optional[str] = None
     parent: PCIDevice = None
 
     def __init__(self, bdf: PCIBDF, sysfs_device: SysfsDevice):
@@ -385,7 +391,7 @@ class PCIDevice(object):
     def finish_loading(self):
         """Do more expensive parsing operations"""
         if self.device_type == "cx_nic" or self.device_type == "cx_dma":
-            self.vpd_v3, self.vpd_name = parse_vpd(self.sysfs_device.vpd)
+            self.vpd_v3, self.vpd_name, self.vpd_sn = parse_vpd(self.sysfs_device.vpd)
         if "switch" in self.device_type or self.device_type.endswith("_rp"):
             self.has_acs = self.get_acs_ctrl() is not None
         if self.device_type == "cx_nic":
