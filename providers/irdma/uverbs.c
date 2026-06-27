@@ -30,6 +30,66 @@ static inline void print_fw_ver(uint64_t fw_ver, char *str, size_t len)
 	snprintf(str, len, "%d.%d", major, minor);
 }
 
+static int __irdma_alloc_buf(struct ibv_pd *pd, size_t size, size_t alignment,
+			     struct irdma_buf *ibuf)
+{
+	struct ibv_dmabuf_heap *heap = NULL;
+	int dmabuf_fd = -1;
+	int ret;
+	
+	if (pd) {
+		struct irdma_upd *iwupd = container_of(pd, struct irdma_upd, ibv_pd);
+		if (iwupd->is_parent_domain) {
+			struct irdma_parent_domain *iparent = container_of(iwupd, struct irdma_parent_domain, base_pd);
+			heap = iparent->dmabuf_heap;
+		}
+	}
+
+	ibuf->length = roundup(size, alignment);
+
+	if (heap) {
+		ibuf->buf = ibv_dmabuf_heap_alloc(heap, ibuf->length, &dmabuf_fd);
+		if (!ibuf->buf)
+			return ENOMEM;
+
+		if (ibv_dontfork_range(ibuf->buf, ibuf->length)) {
+			ibv_dmabuf_heap_free(ibuf->buf, ibuf->length, dmabuf_fd);
+			return ENOMEM;
+		}
+
+		ibuf->is_dmabuf = true;
+		ibv_buf_init_dmabuf(&ibuf->ibv_buf, pd, ibuf->buf, ibuf->length, dmabuf_fd);
+	} else {
+		ret = posix_memalign(&ibuf->buf, alignment, ibuf->length);
+		if (ret)
+			return ret;
+
+		if (ibv_dontfork_range(ibuf->buf, ibuf->length)) {
+			free(ibuf->buf);
+			return ENOMEM;
+		}
+
+		memset(ibuf->buf, 0, ibuf->length);
+		ibuf->is_dmabuf = false;
+		ibv_buf_init(&ibuf->ibv_buf, pd, ibuf->buf, ibuf->length);
+	}
+
+	return 0;
+}
+
+static void __irdma_free_buf(struct irdma_buf *ibuf)
+{
+	if (!ibuf->buf)
+		return;
+
+	ibv_dofork_range(ibuf->buf, ibuf->length);
+	
+	if (ibuf->is_dmabuf)
+		ibv_dmabuf_heap_free(ibuf->buf, ibuf->length, ibuf->ibv_buf.dmabuf_fd);
+	else
+		free(ibuf->buf);
+}
+
 /**
  * irdma_uquery_device_ex - query device attributes including extended properties
  * @context: user context for the device
@@ -108,10 +168,10 @@ struct ibv_pd *irdma_ualloc_parent_domain(struct ibv_context *context,
 					  struct ibv_parent_domain_init_attr *attr)
 {
 	struct irdma_parent_domain *iparent;
-	struct irdma_upd *base_pd; = container_of(attr->pd, struct irdma_upd, ibv_pd);
+	struct irdma_upd *base_pd = container_of(attr->pd, struct irdma_upd, ibv_pd);
 	struct irdma_uvcontext *iwvctx = container_of(context, struct irdma_uvcontext, ibv_ctx.context);
 
-	iparent = calloc(1, sizeof(iparent));
+	iparent = calloc(1, sizeof(*iparent));
 	if (!parent)
 		return NULL;
 
@@ -161,70 +221,28 @@ int irdma_ufree_pd(struct ibv_pd *pd)
 }
 
 /**
- * irdma_ualloc_buf - allocate a provider aware buffer
+ * irdma_ualloc_buf - Allocate a provider aware user buffer
  * @pd: protection domain
  * @size: requested buffer size
  * @buf: returns the abstract buffer handle
  */
 void *irdma_ualloc_buf(struct ibv_pd *pd, size_t size, struct ibv_buf **buf)
 {
-	struct irdma_upd *iwupd = container_of(pd, struct irdma_upd, ibv_pd);
-	struct ibv_dmabuf_heap *dmabuf_heap = NULL;
 	struct irdma_buf *ibuf;
-	int dmabuf_fd = -1;
-	void *addr;
-	int ret;
 
-	if (iwupd->is_parent_domain) {
-		struct irdma_parent_domain *iparent = container_of(iwupd, struct irdma_parent_domain, ipd);
-		dmabuf_heap = iparent->dmabuf_heap;
-	}
-	
+	/* The user app owns this struct, so we must heap-allocate it */	
 	ibuf = calloc(1, sizeof(*ibuf));
 	if (!ibuf)
 		return NULL;
 
-	size = roundup(size, IRDMA_HW_PAGE_SIZE);
-
-	/* CC DMA Bounce buffer path */
-	if (dmabuf_heap) {
-		addr = ibv_dmabuf_heap_alloc(dmabuf_heap, size, &dmabuf_fd);
-		if (!addr)
-			goto err_free_ibuf;
-
-		if (ibv_dontfork_range(addr, size)) {
-			ibv_dmabuf_heap_free(addr, size, dmabuf_fd);
-			goto err_free_ibuf;
-		}
-
-		ibuf->is_dmabuf = true;
-		ibv_buf_init_dmabuf(&ibuf->ibv_buf, pd, addr, size, dmabuf_fd);
-	} else {
-		ret = posix_memalign(&addr, IRDMA_HW_PAGE_SIZE, size);
-		if (ret) {
-			errno = ret;
-			goto err_free_ibuf;
-		}
-
-		if (ibv_dontfork_range(addr, size)) {
-			free(addr);
-			goto err_free_ibuf;
-		}
-
-		memset(addr, 0, size);
-		ibuf->is_dmabuf = false;
-		ibv_ubuf_init(&ibuf->ibv_buf, pd, addr, size);
+	if (__irdma_alloc_buf(pd, size, IRDMA_HW_PAGE_SIZE, ibuf)) {
+		free(ibuf);
+		return NULL;
 	}
 	
-	ibuf->buf = addr;
-	ibuf->length = size;
 	*buf = &ibuf->ibv_buf;
 	
 	return addr;
-
-err_free_ibuf:
-	free(ibuf);
-	return NULL;
 }
 
 /**
@@ -235,13 +253,7 @@ void irdma_ufree_buf(struct ibv_buf *buf)
 {
 	struct irdma_buf *ibuf = container_of(buf, struct irdma_buf, ibv_buf);
 	
-	ibv_dontfork_range(ibuf->buf, ibuf->length);
-	
-	if (ibuf->is_dmabuf)
-		ibv_dmabuf_heap_free(ibuf->buf, ibuf->length, buf->dmabuf_fd);
-	else
-		free(ibuf->buf);
-	
+	__irdma_free_buf(ibuf);
 	free(ibuf);
 }
 

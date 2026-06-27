@@ -85,6 +85,7 @@ struct irdma_usrq {
 	struct verbs_mr vmr;
 	pthread_spinlock_t lock;
 	struct irdma_srq_uk srq;
+	struct irdma_buf srq_buf;
 	size_t buf_size;
 };
 
@@ -92,6 +93,8 @@ struct irdma_ucq {
 	struct verbs_cq verbs_cq;
 	struct verbs_mr vmr;
 	struct verbs_mr vmr_shadow_area;
+	struct irdma_buf cq_buf;
+	struct irdma_buf shadow_buf;
 	pthread_spinlock_t lock;
 	size_t buf_size;
 	bool is_armed;
@@ -112,6 +115,7 @@ struct irdma_uqp {
 	struct irdma_ucq *send_cq;
 	struct irdma_ucq *recv_cq;
 	struct verbs_mr vmr;
+	struct irdma_buf sq_buf;
 	size_t buf_size;
 	uint32_t irdma_drv_opt;
 	pthread_spinlock_t lock;
