@@ -73,11 +73,19 @@ struct irdma_resize_cq_req {
 struct irdma_create_cq_req {
 	__aligned_u64 user_cq_buf;
 	__aligned_u64 user_shadow_area;
+	__s32 cq_dmabuf_fd;
+	__s32 shadow_dmabuf_fd;
+	__u8 is_cq_dmabuf;
+	__u8 is_shadow_dmabuf;
+	__u8 rsvd[6];
 };
 
 struct irdma_create_srq_req {
 	__aligned_u64 user_srq_buf;
 	__aligned_u64 user_shadow_area;
+	__s32 srq_dmabuf_fd;
+	__u8 is_srq_dmabuf;
+	__u8 rsvd[3];
 };
 
 struct irdma_create_srq_resp {
@@ -88,6 +96,9 @@ struct irdma_create_srq_resp {
 struct irdma_create_qp_req {
 	__aligned_u64 user_wqe_bufs;
 	__aligned_u64 user_compl_ctx;
+	__s32 sq_dmabuf_fd;
+	__u8 is_sq_dmabuf;
+	__u8 rsvd[3];
 };
 
 struct irdma_mem_reg_req {
