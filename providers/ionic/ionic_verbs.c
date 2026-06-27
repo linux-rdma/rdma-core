@@ -1780,7 +1780,7 @@ static struct ibv_qp *ionic_create_qp_ex(struct ibv_context *ibctx,
 				   &req.ibv_cmd,
 				   sizeof(req),
 				   &resp.ibv_resp,
-				   sizeof(resp));
+				   sizeof(resp), NULL);
 	if (rc)
 		goto err_cmd;
 

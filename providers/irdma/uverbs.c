@@ -15,6 +15,7 @@
 #include <malloc.h>
 #include <linux/if_ether.h>
 #include <infiniband/opcode.h>
+#include <infiniband/dmabuf_heap.h>
 
 #include "umain.h"
 #include "abi.h"
@@ -27,6 +28,66 @@ static inline void print_fw_ver(uint64_t fw_ver, char *str, size_t len)
 	minor = fw_ver & 0xffff;
 
 	snprintf(str, len, "%d.%d", major, minor);
+}
+
+static int __irdma_alloc_buf(struct ibv_pd *pd, size_t size, size_t alignment,
+			     struct irdma_buf *ibuf)
+{
+	struct ibv_dmabuf_heap *heap = NULL;
+	int dmabuf_fd = -1;
+	int ret;
+	
+	if (pd) {
+		struct irdma_upd *iwupd = container_of(pd, struct irdma_upd, ibv_pd);
+		if (iwupd->is_parent_domain) {
+			struct irdma_parent_domain *iparent = container_of(iwupd, struct irdma_parent_domain, base_pd);
+			heap = iparent->dmabuf_heap;
+		}
+	}
+
+	ibuf->length = roundup(size, alignment);
+
+	if (heap) {
+		ibuf->buf = ibv_dmabuf_heap_alloc(heap, ibuf->length, &dmabuf_fd);
+		if (!ibuf->buf)
+			return ENOMEM;
+
+		if (ibv_dontfork_range(ibuf->buf, ibuf->length)) {
+			ibv_dmabuf_heap_free(ibuf->buf, ibuf->length, dmabuf_fd);
+			return ENOMEM;
+		}
+
+		ibuf->is_dmabuf = true;
+		ibv_buf_init_dmabuf(&ibuf->ibv_buf, pd, ibuf->buf, ibuf->length, dmabuf_fd);
+	} else {
+		ret = posix_memalign(&ibuf->buf, alignment, ibuf->length);
+		if (ret)
+			return ret;
+
+		if (ibv_dontfork_range(ibuf->buf, ibuf->length)) {
+			free(ibuf->buf);
+			return ENOMEM;
+		}
+
+		memset(ibuf->buf, 0, ibuf->length);
+		ibuf->is_dmabuf = false;
+		ibv_buf_init(&ibuf->ibv_buf, pd, ibuf->buf, ibuf->length);
+	}
+
+	return 0;
+}
+
+static void __irdma_free_buf(struct irdma_buf *ibuf)
+{
+	if (!ibuf->buf)
+		return;
+
+	ibv_dofork_range(ibuf->buf, ibuf->length);
+	
+	if (ibuf->is_dmabuf)
+		ibv_dmabuf_heap_free(ibuf->buf, ibuf->length, ibuf->ibv_buf.dmabuf_fd);
+	else
+		free(ibuf->buf);
 }
 
 /**
@@ -99,6 +160,38 @@ err_free:
 }
 
 /**
+ * irdma_ualloc_parent_domain - alloc protection domain with CoCo support
+ * @context: user context of the device
+ * @attr: parent domain attributes
+ */
+struct ibv_pd *irdma_ualloc_parent_domain(struct ibv_context *context,
+					  struct ibv_parent_domain_init_attr *attr)
+{
+	struct irdma_parent_domain *iparent;
+	struct irdma_upd *base_pd = container_of(attr->pd, struct irdma_upd, ibv_pd);
+	struct irdma_uvcontext *iwvctx = container_of(context, struct irdma_uvcontext, ibv_ctx.context);
+
+	iparent = calloc(1, sizeof(*iparent));
+	if (!parent)
+		return NULL;
+
+	/* Inherit kernel ID and context from base PD */
+	iparent->base_pd.ibv_pd.context = context;
+	iparent->base_pd.pd_id = base_pd->pd_id;
+	iparent->base_pd.is_parent_domain = true;
+	
+	if ((attr->comp_mask & IBV_PARENT_DOMAIN_INIT_ATTR_ALLOW_CC_UNPROTECTED_ALLOC) && (iwvctx->uk_attrs.feature_flags & IBV_DEVICE_CC_DMA_BOUNCE)) {
+		iwupd->dmabuf_heap = ibv_dmabuf_heap_cc_shared_init();
+		if (!iparent->dmabuf_heap) {
+			free(iparent);
+			return NULL;
+		}
+	}
+	
+	return &iwupd->ibv_pd;
+}
+
+/**
  * irdma_ufree_pd - free pd resources
  * @pd: pd to free resources
  */
@@ -108,6 +201,16 @@ int irdma_ufree_pd(struct ibv_pd *pd)
 	int ret;
 
 	iwupd = container_of(pd, struct irdma_upd, ibv_pd);
+
+	/* If it is a parent domain, just clean up userspace resources */
+	if (iwupd->is_parent_domain) {
+		struct irdma_parent_domain *iparent = container_of(iwupd, struct irdma_parent_domain, base_pd);
+		if (iparent->dmabuf_heap)
+			ibv_dmabuf_heap_destroy(iparent->dmabuf_heap);
+		free(iparent);
+		return 0;
+	}
+
 	ret = ibv_cmd_dealloc_pd(pd);
 	if (ret)
 		return ret;
@@ -115,6 +218,43 @@ int irdma_ufree_pd(struct ibv_pd *pd)
 	free(iwupd);
 
 	return 0;
+}
+
+/**
+ * irdma_ualloc_buf - Allocate a provider aware user buffer
+ * @pd: protection domain
+ * @size: requested buffer size
+ * @buf: returns the abstract buffer handle
+ */
+void *irdma_ualloc_buf(struct ibv_pd *pd, size_t size, struct ibv_buf **buf)
+{
+	struct irdma_buf *ibuf;
+
+	/* The user app owns this struct, so we must heap-allocate it */	
+	ibuf = calloc(1, sizeof(*ibuf));
+	if (!ibuf)
+		return NULL;
+
+	if (__irdma_alloc_buf(pd, size, IRDMA_HW_PAGE_SIZE, ibuf)) {
+		free(ibuf);
+		return NULL;
+	}
+	
+	*buf = &ibuf->ibv_buf;
+	
+	return addr;
+}
+
+/**
+ * irdma_ufree_buf - free a provider aware buffer
+ * @buf: abstract buffer handle
+ */
+void irdma_ufree_buf(struct ibv_buf *buf)
+{
+	struct irdma_buf *ibuf = container_of(buf, struct irdma_buf, ibv_buf);
+	
+	__irdma_free_buf(ibuf);
+	free(ibuf);
 }
 
 /**
@@ -365,8 +505,9 @@ int irdma_udestroy_srq(struct ibv_srq *ibsrq)
 	if (ret)
 		return ret;
 
-	ibv_cmd_dereg_mr(&iwusrq->vmr);
-	irdma_free_hw_buf(iwusrq->srq.srq_base, iwusrq->buf_size);
+	if (!iwusrq->srq_buf.is_dmabuf)
+		ibv_cmd_dereg_mr(&iwusrq->vmr);
+	__irdma_free_buf(&iwusrq->srq_buf);
 	free(iwusrq);
 	return 0;
 err:
@@ -428,30 +569,32 @@ struct ibv_srq *irdma_ucreate_srq(struct ibv_pd *pd,
 	size = roundup(depth * IRDMA_QP_WQE_MIN_SIZE, IRDMA_HW_PAGE_SIZE);
 	total_size = size + IRDMA_DB_SHADOW_AREA_SIZE;
 	iwusrq->buf_size = total_size;
-	info.srq = irdma_calloc_hw_buf(total_size);
-
-	if (!info.srq) {
-		ret = ENOMEM;
-		goto err_sges;
-	}
-
-	memset(info.srq, 0, total_size);
-	reg_mr_cmd.reg_type = IRDMA_MEMREG_TYPE_SRQ;
-	reg_mr_cmd.rq_pages = size >> IRDMA_HW_PAGE_SHIFT;
-
-	ret = ibv_cmd_reg_mr(pd, info.srq, total_size,
-			     (uintptr_t)info.srq, IBV_ACCESS_LOCAL_WRITE,
-			     &iwusrq->vmr, &reg_mr_cmd.ibv_cmd,
-			     sizeof(reg_mr_cmd), &reg_mr_resp,
-			     sizeof(reg_mr_resp));
+	ret = __irdma_alloc_buf(pd, total_size, IRDMA_HW_PAGE_SIZE, &iwusrq->srq_buf);
 	if (ret)
-		goto err_cmd_reg;
+		goto err_sges;
+	info.srq = iwusrq->srq_buf.buf;
 
-	iwusrq->vmr.ibv_mr.pd = pd;
+	if (!iwusrq->srq_buf.is_dmabuf) {
+		reg_mr_cmd.reg_type = IRDMA_MEMREG_TYPE_SRQ;
+		reg_mr_cmd.rq_pages = size >> IRDMA_HW_PAGE_SHIFT;
+
+		ret = ibv_cmd_reg_mr(pd, info.srq, total_size,
+				     (uintptr_t)info.srq, IBV_ACCESS_LOCAL_WRITE,
+				     &iwusrq->vmr, &reg_mr_cmd.ibv_cmd,
+				     sizeof(reg_mr_cmd), &reg_mr_resp,
+				     sizeof(reg_mr_resp));
+		if (ret)
+			goto err_cmd_reg;
+
+		iwusrq->vmr.ibv_mr.pd = pd;
+	}
 	info.shadow_area = (__le64 *)((__u8 *)info.srq + size);
 
 	cmd.user_srq_buf = (__u64)((uintptr_t)info.srq);
 	cmd.user_shadow_area = (__u64)((uintptr_t)info.shadow_area);
+	cmd.is_srq_dmabuf = iwusrq->srq_buf.is_dmabuf;
+	cmd.srq_dmabuf_fd = iwusrq->srq_buf.ibv_buf.dmabuf_fd;
+	
 	ret = ibv_cmd_create_srq(pd, &iwusrq->v_srq.srq, initattr, &cmd.ibv_cmd,
 				 sizeof(cmd), &resp.ibv_resp, sizeof(resp));
 	if (ret)
@@ -525,6 +668,8 @@ static struct ibv_cq_ex *ucreate_cq(struct ibv_context *context,
 				    struct ibv_cq_init_attr_ex *attr_ex,
 				    bool ext_cq)
 {
+	struct ibv_pd *pd = (attr_ex->comp_mask & IBV_CQ_INIT_ATTR_MASK_PD) ? attr_ex->parent_domain : NULL;
+
 	struct irdma_cq_uk_init_info info = {};
 	struct irdma_ureg_mr reg_mr_cmd = {};
 	struct irdma_ucreate_cq_ex cmd = {};
@@ -581,46 +726,56 @@ static struct ibv_cq_ex *ucreate_cq(struct ibv_context *context,
 		total_size = (cq_pages << IRDMA_HW_PAGE_SHIFT) + IRDMA_DB_SHADOW_AREA_SIZE;
 
 	iwucq->buf_size = total_size;
-	info.cq_base = irdma_calloc_hw_buf(total_size);
-	if (!info.cq_base)
-		goto err_cq_base;
-
-	reg_mr_cmd.reg_type = IRDMA_MEMREG_TYPE_CQ;
-	reg_mr_cmd.cq_pages = cq_pages;
-
-	ret = ibv_cmd_reg_mr(&iwvctx->iwupd->ibv_pd, info.cq_base,
-			     total_size, (uintptr_t)info.cq_base,
-			     IBV_ACCESS_LOCAL_WRITE, &iwucq->vmr,
-			     &reg_mr_cmd.ibv_cmd, sizeof(reg_mr_cmd),
-			     &reg_mr_resp, sizeof(reg_mr_resp));
+	ret = __irdma_alloc_buf(pd, total_size, IRDMA_HW_PAGE_SIZE, &iwucq->cq_buf);
 	if (ret) {
 		errno = ret;
-		goto err_dereg_mr;
+		goto err_cq_base;
 	}
+	info.cq_base = iwucq->cq_buf.buf;
 
-	iwucq->vmr.ibv_mr.pd = &iwvctx->iwupd->ibv_pd;
+	if (!iwucq->cq_buf.is_dmabuf) {
+		reg_mr_cmd.reg_type = IRDMA_MEMREG_TYPE_CQ;
+		reg_mr_cmd.cq_pages = cq_pages;
 
-	if (uk_attrs->feature_flags & IRDMA_FEATURE_CQ_RESIZE) {
-		info.shadow_area = irdma_calloc_hw_buf(IRDMA_DB_SHADOW_AREA_SIZE);
-		if (!info.shadow_area)
-			goto err_dereg_mr;
-
-		reg_mr_shadow_cmd.reg_type = IRDMA_MEMREG_TYPE_CQ;
-		reg_mr_shadow_cmd.cq_pages = 1;
-
-		ret = ibv_cmd_reg_mr(&iwvctx->iwupd->ibv_pd, info.shadow_area,
-				     IRDMA_DB_SHADOW_AREA_SIZE, (uintptr_t)info.shadow_area,
-				     IBV_ACCESS_LOCAL_WRITE, &iwucq->vmr_shadow_area,
-				     &reg_mr_shadow_cmd.ibv_cmd, sizeof(reg_mr_shadow_cmd),
-				     &reg_mr_shadow_resp, sizeof(reg_mr_shadow_resp));
+		ret = ibv_cmd_reg_mr(&iwvctx->iwupd->ibv_pd, info.cq_base,
+				     total_size, (uintptr_t)info.cq_base,
+				     IBV_ACCESS_LOCAL_WRITE, &iwucq->vmr,
+				     &reg_mr_cmd.ibv_cmd, sizeof(reg_mr_cmd),
+				     &reg_mr_resp, sizeof(reg_mr_resp));
 		if (ret) {
 			errno = ret;
-			goto err_dereg_shadow;
+			goto err_dereg_mr;
 		}
 
-		iwucq->vmr_shadow_area.ibv_mr.pd = &iwvctx->iwupd->ibv_pd;
+		iwucq->vmr.ibv_mr.pd = &iwvctx->iwupd->ibv_pd;
+	}
 
+	if (uk_attrs->feature_flags & IRDMA_FEATURE_CQ_RESIZE) {
+		ret = __irdma_alloc_buf(pd, IRDMA_DB_SHADOW_AREA_SIZE, IRDMA_HW_PAGE_SIZE, &iwucq->shadow_buf);
+		if (ret) {
+			errno = ret;
+			goto err_dereg_mr
+		}
+		info.shadow_area = iwucq->shadow_buf.buf;
+		
+		if (!iwucq->shadow_buf.is_dmabuf) {
+			reg_mr_shadow_cmd.reg_type = IRDMA_MEMREG_TYPE_CQ;
+			reg_mr_shadow_cmd.cq_pages = 1;
+		
+			ret = ibv_cmd_reg_mr(&iwvctx->iwupd->ibv_pd, info.shadow_area,
+					     IRDMA_DB_SHADOW_AREA_SIZE, (uintptr_t)info.shadow_area,
+					     IBV_ACCESS_LOCAL_WRITE, &iwucq->vmr_shadow_area,
+					     &reg_mr_shadow_cmd.ibv_cmd, sizeof(reg_mr_shadow_cmd),
+					     &reg_mr_shadow_resp, sizeof(reg_mr_shadow_resp));
+			if (ret) {
+				errno = ret;
+				goto err_dereg_shadow;
+			}
+
+			iwucq->vmr_shadow_area.ibv_mr.pd = &iwvctx->iwupd->ibv_pd;
+		}
 	} else {
+		/* If not resizing, the shadow area is appended to the end of the main CQ buffer */
 		info.shadow_area = (__le64 *)((__u8 *)info.cq_base +
 					      (cq_pages << IRDMA_HW_PAGE_SHIFT));
 	}
@@ -629,6 +784,13 @@ static struct ibv_cq_ex *ucreate_cq(struct ibv_context *context,
 	cmd.user_cq_buf = (__u64)((uintptr_t)info.cq_base);
 	cmd.user_shadow_area = (__u64)((uintptr_t)info.shadow_area);
 
+	cmd.is_cq_dmabuf = iwucq->cq_buf.is_dmabuf;
+	cmd.cq_dmabuf_fd = iwucq->cq_buf.ibv_buf.dmabuf_fd;
+	if (uk_attrs->feature_flags & IRDMA_FEATURE_CQ_RESIZE) {
+		cmd.is_shadow_dmabuf = iwucq->shadow_buf.is_dmabuf;
+		cmd.shadow_dmabuf_fd = iwucq->shadow_buf.ibv_buf.dmabuf_fd;
+	}
+	
 	ret = ibv_cmd_create_cq_ex(context, attr_ex, NULL, &iwucq->verbs_cq,
 				   &cmd.ibv_cmd, sizeof(cmd), &resp.ibv_resp,
 				   sizeof(resp), 0);
@@ -748,12 +910,14 @@ int irdma_udestroy_cq(struct ibv_cq *cq)
 	if (ret)
 		goto err;
 
-	ibv_cmd_dereg_mr(&iwucq->vmr);
-	irdma_free_hw_buf(iwucq->cq.cq_base, iwucq->buf_size);
-
+	if (!iwucq->cq_buf.is_dmabuf)
+		ibv_cmd_dereg_mr(&iwucq->vmr);
+	__irdma_free_buf(&iwucq->cq_buf);
+	
 	if (uk_attrs->feature_flags & IRDMA_FEATURE_CQ_RESIZE) {
-		ibv_cmd_dereg_mr(&iwucq->vmr_shadow_area);
-		irdma_free_hw_buf(iwucq->cq.shadow_area, IRDMA_DB_SHADOW_AREA_SIZE);
+		if (!iwucq->shadow_buf.is_dmabuf)
+			ibv_cmd_dereg_mr(&iwucq->vmr_shadow_area);
+		__irdma_free_buf(&iwucq->shadow_buf);
 	}
 	free(iwucq);
 	return 0;
@@ -1420,7 +1584,9 @@ static int irdma_destroy_vmapped_qp(struct irdma_uqp *iwuqp)
 	if (iwuqp->qp.push_wqe)
 		irdma_munmap(iwuqp->qp.push_wqe);
 
-	ibv_cmd_dereg_mr(&iwuqp->vmr);
+	if (!iwucq->sq_buf.is_dmabuf)
+		ibv_cmd_dereg_mr(&iwuqp->vmr);
+	__irdma_free_buf(&iwucq->sq_buf);
 
 	return 0;
 }
@@ -1461,28 +1627,36 @@ static int irdma_vmapped_qp(struct irdma_uqp *iwuqp, struct ibv_pd *pd,
 		if (pgsz > 0)
 			os_pgsz = pgsz;
 	}
-	info->sq = irdma_calloc_hw_buf_sz(totalqpsize, os_pgsz);
-	if (!info->sq)
-		return ENOMEM;
+
+	ret = __irdma_alloc_buf(pd, totalqpsize, os_pgsz, &iwuqp->sq_buf);
+	if (ret)
+		return ret;
+	
 
 	iwuqp->buf_size = totalqpsize;
+	info->sq = iwuqp->sq_buf.buf;
 	info->rq = &info->sq[sqsize / IRDMA_QP_WQE_MIN_SIZE];
 	info->shadow_area = info->rq[rqsize / IRDMA_QP_WQE_MIN_SIZE].elem;
 
-	reg_mr_cmd.reg_type = IRDMA_MEMREG_TYPE_QP;
-	reg_mr_cmd.sq_pages = sqsize >> IRDMA_HW_PAGE_SHIFT;
-	reg_mr_cmd.rq_pages = rqsize >> IRDMA_HW_PAGE_SHIFT;
+	if (!iwuqp->sq_buf.is_dmabuf) {
+		reg_mr_cmd.reg_type = IRDMA_MEMREG_TYPE_QP;
+		reg_mr_cmd.sq_pages = sqsize >> IRDMA_HW_PAGE_SHIFT;
+		reg_mr_cmd.rq_pages = rqsize >> IRDMA_HW_PAGE_SHIFT;
 
-	ret = ibv_cmd_reg_mr(pd, info->sq, totalqpsize,
-			     (uintptr_t)info->sq, IBV_ACCESS_LOCAL_WRITE,
-			     &iwuqp->vmr, &reg_mr_cmd.ibv_cmd,
-			     sizeof(reg_mr_cmd), &reg_mr_resp,
-			     sizeof(reg_mr_resp));
-	if (ret)
-		goto err_dereg_mr;
+		ret = ibv_cmd_reg_mr(pd, info->sq, totalqpsize,
+				     (uintptr_t)info->sq, IBV_ACCESS_LOCAL_WRITE,
+				     &iwuqp->vmr, &reg_mr_cmd.ibv_cmd,
+				     sizeof(reg_mr_cmd), &reg_mr_resp,
+				     sizeof(reg_mr_resp));
+		if (ret)
+			goto err_dereg_mr;
+	}
 
 	cmd.user_wqe_bufs = (__u64)((uintptr_t)info->sq);
 	cmd.user_compl_ctx = (__u64)(uintptr_t)&iwuqp->qp;
+	cmd.is_sq_dmabuf = iwuqp->sq_buf.is_dmabuf;
+	cmd.sq_dmabuf_fd = iwuqp->sq_buf.ibv_buf.dmabuf_fd;
+	
 	ret = ibv_cmd_create_qp(pd, &iwuqp->ibv_qp, attr, &cmd.ibv_cmd,
 				sizeof(cmd), &resp.ibv_resp,
 				sizeof(struct irdma_ucreate_qp_resp));
@@ -1506,9 +1680,10 @@ static int irdma_vmapped_qp(struct irdma_uqp *iwuqp, struct ibv_pd *pd,
 
 	return 0;
 err_qp:
-	ibv_cmd_dereg_mr(&iwuqp->vmr);
+	if (!iwuqp->sq_buf.is_dmabuf)
+		ibv_cmd_dereg_mr(&iwuqp->vmr);
 err_dereg_mr:
-	irdma_free_hw_buf(info->sq, iwuqp->buf_size);
+	__irdma_free_buf(&iwuqp->sq_buf);
 	return ret;
 }
 

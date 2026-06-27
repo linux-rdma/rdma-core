@@ -133,6 +133,8 @@ static const struct verbs_context_ops mlx5_ctx_common_ops = {
 	.alloc_dm = mlx5_alloc_dm,
 	.alloc_parent_domain = mlx5_alloc_parent_domain,
 	.alloc_td = mlx5_alloc_td,
+	.alloc_buf = mlx5_alloc_buf_op,
+	.free_buf = mlx5_free_buf_op,
 	.attach_counters_point_flow = mlx5_attach_counters_point_flow,
 	.close_xrcd = mlx5_close_xrcd,
 	.create_counters = mlx5_create_counters,
@@ -1022,13 +1024,13 @@ static int mlx5dv_get_qp(struct ibv_qp *qp_in,
 
 	if (mqp->sq_buf_size)
 		/* IBV_QPT_RAW_PACKET */
-		qp_out->sq.buf = (void *)((uintptr_t)mqp->sq_buf.buf);
+		qp_out->sq.buf = (void *)((uintptr_t)mqp->sq_buf.ibv_buf.addr);
 	else
-		qp_out->sq.buf = (void *)((uintptr_t)mqp->buf.buf + mqp->sq.offset);
+		qp_out->sq.buf = (void *)((uintptr_t)mqp->buf.ibv_buf.addr + mqp->sq.offset);
 	qp_out->sq.wqe_cnt = mqp->sq.wqe_cnt;
 	qp_out->sq.stride  = 1 << mqp->sq.wqe_shift;
 
-	qp_out->rq.buf     = (void *)((uintptr_t)mqp->buf.buf + mqp->rq.offset);
+	qp_out->rq.buf     = (void *)((uintptr_t)mqp->buf.ibv_buf.addr + mqp->rq.offset);
 	qp_out->rq.wqe_cnt = mqp->rq.wqe_cnt;
 	qp_out->rq.stride  = 1 << mqp->rq.wqe_shift;
 
@@ -1072,7 +1074,7 @@ static int mlx5dv_get_cq(struct ibv_cq *cq_in,
 	cq_out->cqn       = mcq->cqn;
 	cq_out->cqe_cnt   = mcq->verbs_cq.cq.cqe + 1;
 	cq_out->cqe_size  = mcq->cqe_sz;
-	cq_out->buf       = mcq->active_buf->buf;
+	cq_out->buf       = mcq->active_buf->ibv_buf.addr;
 	cq_out->dbrec     = mcq->dbrec;
 	cq_out->cq_uar	  = mctx->cq_uar_reg;
 
@@ -1103,7 +1105,7 @@ static int mlx5dv_get_srq(struct ibv_srq *srq_in,
 
 	msrq = container_of(srq_in, struct mlx5_srq, vsrq.srq);
 
-	srq_out->buf       = msrq->buf.buf;
+	srq_out->buf       = msrq->buf.ibv_buf.addr;
 	srq_out->dbrec     = msrq->db;
 	srq_out->stride    = 1 << msrq->wqe_shift;
 	srq_out->head      = msrq->head;

@@ -1397,7 +1397,7 @@ static struct ibv_qp *rxe_create_qp_ex(struct ibv_context *context,
 
 	ret = ibv_cmd_create_qp_ex2(context, &qp->vqp, attr,
 				    &cmd, cmd_size,
-				    &resp.ibv_resp, resp_size);
+				    &resp.ibv_resp, resp_size, NULL);
 	if (ret)
 		goto err_free;
 

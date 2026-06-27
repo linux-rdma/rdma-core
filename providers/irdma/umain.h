@@ -46,7 +46,20 @@ struct irdma_upd {
 	void *arm_cq_page;
 	void *arm_cq;
 	uint32_t pd_id;
+	bool is_parent_domain;
 };
+
+struct irdma_parent_domain {
+	struct irdma_upd base_pd;
+	struct ibv_dmabuf_heap *dmabuf_heap;
+}
+
+struct irdma_buf {
+	struct ibv_buf ibv_buf;
+	void *buf;
+	size_t length;
+	bool is_dmabuf;
+}
 
 struct irdma_uvcontext {
 	struct verbs_context ibv_ctx;
@@ -72,6 +85,7 @@ struct irdma_usrq {
 	struct verbs_mr vmr;
 	pthread_spinlock_t lock;
 	struct irdma_srq_uk srq;
+	struct irdma_buf srq_buf;
 	size_t buf_size;
 };
 
@@ -79,6 +93,8 @@ struct irdma_ucq {
 	struct verbs_cq verbs_cq;
 	struct verbs_mr vmr;
 	struct verbs_mr vmr_shadow_area;
+	struct irdma_buf cq_buf;
+	struct irdma_buf shadow_buf;
 	pthread_spinlock_t lock;
 	size_t buf_size;
 	bool is_armed;
@@ -99,6 +115,7 @@ struct irdma_uqp {
 	struct irdma_ucq *send_cq;
 	struct irdma_ucq *recv_cq;
 	struct verbs_mr vmr;
+	struct irdma_buf sq_buf;
 	size_t buf_size;
 	uint32_t irdma_drv_opt;
 	pthread_spinlock_t lock;
@@ -124,7 +141,11 @@ int irdma_uquery_device_ex(struct ibv_context *context,
 int irdma_uquery_port(struct ibv_context *context, uint8_t port,
 		      struct ibv_port_attr *attr);
 struct ibv_pd *irdma_ualloc_pd(struct ibv_context *context);
+struct ibv_pd *irdma_ualloc_parent_domain(struct ibv_context *context,
+					  struct ibv_parent_domain_init_attr *attr);
 int irdma_ufree_pd(struct ibv_pd *pd);
+void *irdma_ualloc_buf(struct ibv_pd *pd, size_t size, struct ibv_buf **buf);
+void irdma_ufree_buf(struct ibv_buf *buf);
 struct ibv_mr *irdma_ureg_mr(struct ibv_pd *pd, void *addr, size_t length,
 			     uint64_t hca_va, int access);
 struct ibv_mr *irdma_ureg_mr_dmabuf(struct ibv_pd *pd, uint64_t offset,
@@ -179,4 +200,8 @@ void irdma_async_event(struct ibv_context *context,
 void irdma_set_hw_attrs(struct irdma_hw_attrs *attrs);
 void *irdma_mmap(int fd, off_t offset);
 void irdma_munmap(void *map);
+static inline struct to_iparent_domain(struct ibv_pd *pd)
+{
+	return container_of(pd, struct irdma_parent_domain, base_pd);
+}
 #endif /* IRDMA_UMAIN_H */
