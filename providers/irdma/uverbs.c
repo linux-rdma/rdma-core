@@ -666,6 +666,8 @@ static struct ibv_cq_ex *ucreate_cq(struct ibv_context *context,
 				    struct ibv_cq_init_attr_ex *attr_ex,
 				    bool ext_cq)
 {
+	struct ibv_pd *pd = (attr_ex->comp_mask & IBV_CQ_INIT_ATTR_MASK_PD) ? attr_ex->parent_domain : NULL;
+
 	struct irdma_cq_uk_init_info info = {};
 	struct irdma_ureg_mr reg_mr_cmd = {};
 	struct irdma_ucreate_cq_ex cmd = {};
@@ -722,46 +724,56 @@ static struct ibv_cq_ex *ucreate_cq(struct ibv_context *context,
 		total_size = (cq_pages << IRDMA_HW_PAGE_SHIFT) + IRDMA_DB_SHADOW_AREA_SIZE;
 
 	iwucq->buf_size = total_size;
-	info.cq_base = irdma_calloc_hw_buf(total_size);
-	if (!info.cq_base)
-		goto err_cq_base;
-
-	reg_mr_cmd.reg_type = IRDMA_MEMREG_TYPE_CQ;
-	reg_mr_cmd.cq_pages = cq_pages;
-
-	ret = ibv_cmd_reg_mr(&iwvctx->iwupd->ibv_pd, info.cq_base,
-			     total_size, (uintptr_t)info.cq_base,
-			     IBV_ACCESS_LOCAL_WRITE, &iwucq->vmr,
-			     &reg_mr_cmd.ibv_cmd, sizeof(reg_mr_cmd),
-			     &reg_mr_resp, sizeof(reg_mr_resp));
+	ret = __irdma_alloc_buf(pd, total_size, IRDMA_HW_PAGE_SIZE, &iwucq->cq_buf);
 	if (ret) {
 		errno = ret;
-		goto err_dereg_mr;
+		goto err_cq_base;
 	}
+	info.cq_base = iwucq->cq_buf.ibv_buf.addr;
 
-	iwucq->vmr.ibv_mr.pd = &iwvctx->iwupd->ibv_pd;
+	if (iwucq->cq_buf.ibv_buf.dmabuf_fd == -1) {
+		reg_mr_cmd.reg_type = IRDMA_MEMREG_TYPE_CQ;
+		reg_mr_cmd.cq_pages = cq_pages;
 
-	if (uk_attrs->feature_flags & IRDMA_FEATURE_CQ_RESIZE) {
-		info.shadow_area = irdma_calloc_hw_buf(IRDMA_DB_SHADOW_AREA_SIZE);
-		if (!info.shadow_area)
-			goto err_dereg_mr;
-
-		reg_mr_shadow_cmd.reg_type = IRDMA_MEMREG_TYPE_CQ;
-		reg_mr_shadow_cmd.cq_pages = 1;
-
-		ret = ibv_cmd_reg_mr(&iwvctx->iwupd->ibv_pd, info.shadow_area,
-				     IRDMA_DB_SHADOW_AREA_SIZE, (uintptr_t)info.shadow_area,
-				     IBV_ACCESS_LOCAL_WRITE, &iwucq->vmr_shadow_area,
-				     &reg_mr_shadow_cmd.ibv_cmd, sizeof(reg_mr_shadow_cmd),
-				     &reg_mr_shadow_resp, sizeof(reg_mr_shadow_resp));
+		ret = ibv_cmd_reg_mr(&iwvctx->iwupd->ibv_pd, info.cq_base,
+				     total_size, (uintptr_t)info.cq_base,
+				     IBV_ACCESS_LOCAL_WRITE, &iwucq->vmr,
+				     &reg_mr_cmd.ibv_cmd, sizeof(reg_mr_cmd),
+				     &reg_mr_resp, sizeof(reg_mr_resp));
 		if (ret) {
 			errno = ret;
-			goto err_dereg_shadow;
+			goto err_dereg_mr;
 		}
 
-		iwucq->vmr_shadow_area.ibv_mr.pd = &iwvctx->iwupd->ibv_pd;
+		iwucq->vmr.ibv_mr.pd = &iwvctx->iwupd->ibv_pd;
+	}
 
+	if (uk_attrs->feature_flags & IRDMA_FEATURE_CQ_RESIZE) {
+		ret = __irdma_alloc_buf(pd, IRDMA_DB_SHADOW_AREA_SIZE, IRDMA_HW_PAGE_SIZE, &iwucq->shadow_buf);
+		if (ret) {
+			errno = ret;
+			goto err_dereg_mr
+		}
+		info.shadow_area = iwucq->shadow_buf.ibv_buf.addr;
+
+		if (iwucq->shadow_buf.ibv_buf.dmabuf_fd == -1) {
+			reg_mr_shadow_cmd.reg_type = IRDMA_MEMREG_TYPE_CQ;
+			reg_mr_shadow_cmd.cq_pages = 1;
+
+			ret = ibv_cmd_reg_mr(&iwvctx->iwupd->ibv_pd, info.shadow_area,
+					     IRDMA_DB_SHADOW_AREA_SIZE, (uintptr_t)info.shadow_area,
+					     IBV_ACCESS_LOCAL_WRITE, &iwucq->vmr_shadow_area,
+					     &reg_mr_shadow_cmd.ibv_cmd, sizeof(reg_mr_shadow_cmd),
+					     &reg_mr_shadow_resp, sizeof(reg_mr_shadow_resp));
+			if (ret) {
+				errno = ret;
+				goto err_dereg_shadow;
+			}
+
+			iwucq->vmr_shadow_area.ibv_mr.pd = &iwvctx->iwupd->ibv_pd;
+		}
 	} else {
+		/* If not resizing, the shadow area is appended to the end of the main CQ buffer */
 		info.shadow_area = (__le64 *)((__u8 *)info.cq_base +
 					      (cq_pages << IRDMA_HW_PAGE_SHIFT));
 	}
@@ -889,12 +901,14 @@ int irdma_udestroy_cq(struct ibv_cq *cq)
 	if (ret)
 		goto err;
 
-	ibv_cmd_dereg_mr(&iwucq->vmr);
-	irdma_free_hw_buf(iwucq->cq.cq_base, iwucq->buf_size);
+	if (iwucq->vmr.ibv_mr.context)
+		ibv_cmd_dereg_mr(&iwucq->vmr);
+	__irdma_free_buf(&iwucq->cq_buf);
 
 	if (uk_attrs->feature_flags & IRDMA_FEATURE_CQ_RESIZE) {
-		ibv_cmd_dereg_mr(&iwucq->vmr_shadow_area);
-		irdma_free_hw_buf(iwucq->cq.shadow_area, IRDMA_DB_SHADOW_AREA_SIZE);
+		if (iwucq->vmr_shadow_area.ibv_mr.context)
+			ibv_cmd_dereg_mr(&iwucq->vmr_shadow_area);
+		__irdma_free_buf(&iwucq->shadow_buf);
 	}
 	free(iwucq);
 	return 0;
