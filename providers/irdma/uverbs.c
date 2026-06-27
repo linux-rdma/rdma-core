@@ -506,8 +506,9 @@ int irdma_udestroy_srq(struct ibv_srq *ibsrq)
 	if (ret)
 		return ret;
 
-	ibv_cmd_dereg_mr(&iwusrq->vmr);
-	irdma_free_hw_buf(iwusrq->srq.srq_base, iwusrq->buf_size);
+	if (iwusrq->vmr.ibv_mr.context)
+		ibv_cmd_dereg_mr(&iwusrq->vmr);
+	__irdma_free_buf(&iwusrq->srq_buf);
 	free(iwusrq);
 	return 0;
 err:
@@ -569,26 +570,25 @@ struct ibv_srq *irdma_ucreate_srq(struct ibv_pd *pd,
 	size = roundup(depth * IRDMA_QP_WQE_MIN_SIZE, IRDMA_HW_PAGE_SIZE);
 	total_size = size + IRDMA_DB_SHADOW_AREA_SIZE;
 	iwusrq->buf_size = total_size;
-	info.srq = irdma_calloc_hw_buf(total_size);
-
-	if (!info.srq) {
-		ret = ENOMEM;
-		goto err_sges;
-	}
-
-	memset(info.srq, 0, total_size);
-	reg_mr_cmd.reg_type = IRDMA_MEMREG_TYPE_SRQ;
-	reg_mr_cmd.rq_pages = size >> IRDMA_HW_PAGE_SHIFT;
-
-	ret = ibv_cmd_reg_mr(pd, info.srq, total_size,
-			     (uintptr_t)info.srq, IBV_ACCESS_LOCAL_WRITE,
-			     &iwusrq->vmr, &reg_mr_cmd.ibv_cmd,
-			     sizeof(reg_mr_cmd), &reg_mr_resp,
-			     sizeof(reg_mr_resp));
+	ret = __irdma_alloc_buf(pd, total_size, IRDMA_HW_PAGE_SIZE, &iwusrq->srq_buf);
 	if (ret)
-		goto err_cmd_reg;
+		goto err_sges;
+	info.srq = iwusrq->srq_buf.ibv_buf.addr;
 
-	iwusrq->vmr.ibv_mr.pd = pd;
+	if (iwusrq->srq_buf.ibv_buf.dmabuf_fd == -1) {
+		reg_mr_cmd.reg_type = IRDMA_MEMREG_TYPE_SRQ;
+		reg_mr_cmd.rq_pages = size >> IRDMA_HW_PAGE_SHIFT;
+
+		ret = ibv_cmd_reg_mr(pd, info.srq, total_size,
+				     (uintptr_t)info.srq, IBV_ACCESS_LOCAL_WRITE,
+				     &iwusrq->vmr, &reg_mr_cmd.ibv_cmd,
+				     sizeof(reg_mr_cmd), &reg_mr_resp,
+				     sizeof(reg_mr_resp));
+		if (ret)
+			goto err_cmd_reg;
+
+		iwusrq->vmr.ibv_mr.pd = pd;
+	}
 	info.shadow_area = (__le64 *)((__u8 *)info.srq + size);
 
 	cmd.user_srq_buf = (__u64)((uintptr_t)info.srq);
@@ -614,7 +614,8 @@ struct ibv_srq *irdma_ucreate_srq(struct ibv_pd *pd,
 err_srq_init:
 	ibv_cmd_destroy_srq(&iwusrq->v_srq.srq);
 err_create_srq:
-	ibv_cmd_dereg_mr(&iwusrq->vmr);
+	if (iwusrq->vmr.ibv_mr.context)
+		ibv_cmd_dereg_mr(&iwusrq->vmr);
 err_cmd_reg:
 	irdma_free_hw_buf(info.srq, total_size);
 err_sges:
