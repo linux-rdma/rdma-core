@@ -1581,7 +1581,9 @@ static int irdma_destroy_vmapped_qp(struct irdma_uqp *iwuqp)
 	if (iwuqp->qp.push_wqe)
 		irdma_munmap(iwuqp->qp.push_wqe);
 
-	ibv_cmd_dereg_mr(&iwuqp->vmr);
+	if (!iwucq->sq_buf.is_dmabuf)
+		ibv_cmd_dereg_mr(&iwuqp->vmr);
+	__irdma_free_buf(&iwucq->sq_buf);
 
 	return 0;
 }
@@ -1622,28 +1624,36 @@ static int irdma_vmapped_qp(struct irdma_uqp *iwuqp, struct ibv_pd *pd,
 		if (pgsz > 0)
 			os_pgsz = pgsz;
 	}
-	info->sq = irdma_calloc_hw_buf_sz(totalqpsize, os_pgsz);
-	if (!info->sq)
-		return ENOMEM;
+
+	ret = __irdma_alloc_buf(pd, totalqpsize, os_pgsz, &iwuqp->sq_buf);
+	if (ret)
+		return ret;
+	
 
 	iwuqp->buf_size = totalqpsize;
+	info->sq = iwuqp->sq_buf.buf;
 	info->rq = &info->sq[sqsize / IRDMA_QP_WQE_MIN_SIZE];
 	info->shadow_area = info->rq[rqsize / IRDMA_QP_WQE_MIN_SIZE].elem;
 
-	reg_mr_cmd.reg_type = IRDMA_MEMREG_TYPE_QP;
-	reg_mr_cmd.sq_pages = sqsize >> IRDMA_HW_PAGE_SHIFT;
-	reg_mr_cmd.rq_pages = rqsize >> IRDMA_HW_PAGE_SHIFT;
+	if (!iwuqp->sq_buf.is_dmabuf) {
+		reg_mr_cmd.reg_type = IRDMA_MEMREG_TYPE_QP;
+		reg_mr_cmd.sq_pages = sqsize >> IRDMA_HW_PAGE_SHIFT;
+		reg_mr_cmd.rq_pages = rqsize >> IRDMA_HW_PAGE_SHIFT;
 
-	ret = ibv_cmd_reg_mr(pd, info->sq, totalqpsize,
-			     (uintptr_t)info->sq, IBV_ACCESS_LOCAL_WRITE,
-			     &iwuqp->vmr, &reg_mr_cmd.ibv_cmd,
-			     sizeof(reg_mr_cmd), &reg_mr_resp,
-			     sizeof(reg_mr_resp));
-	if (ret)
-		goto err_dereg_mr;
+		ret = ibv_cmd_reg_mr(pd, info->sq, totalqpsize,
+				     (uintptr_t)info->sq, IBV_ACCESS_LOCAL_WRITE,
+				     &iwuqp->vmr, &reg_mr_cmd.ibv_cmd,
+				     sizeof(reg_mr_cmd), &reg_mr_resp,
+				     sizeof(reg_mr_resp));
+		if (ret)
+			goto err_dereg_mr;
+	}
 
 	cmd.user_wqe_bufs = (__u64)((uintptr_t)info->sq);
 	cmd.user_compl_ctx = (__u64)(uintptr_t)&iwuqp->qp;
+	cmd.is_sq_dmabuf = iwuqp->sq_buf.is_dmabuf;
+	cmd.sq_dmabuf_fd = iwuqp->sq_buf.ibv_buf.dmabuf_fd;
+	
 	ret = ibv_cmd_create_qp(pd, &iwuqp->ibv_qp, attr, &cmd.ibv_cmd,
 				sizeof(cmd), &resp.ibv_resp,
 				sizeof(struct irdma_ucreate_qp_resp));
@@ -1667,9 +1677,10 @@ static int irdma_vmapped_qp(struct irdma_uqp *iwuqp, struct ibv_pd *pd,
 
 	return 0;
 err_qp:
-	ibv_cmd_dereg_mr(&iwuqp->vmr);
+	if (!iwuqp->sq_buf.is_dmabuf)
+		ibv_cmd_dereg_mr(&iwuqp->vmr);
 err_dereg_mr:
-	irdma_free_hw_buf(info->sq, iwuqp->buf_size);
+	__irdma_free_buf(&iwuqp->sq_buf);
 	return ret;
 }
 
