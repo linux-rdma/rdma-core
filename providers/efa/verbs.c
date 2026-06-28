@@ -63,6 +63,12 @@ struct efa_wq_init_attr {
 	uint16_t gen;
 };
 
+int efa_query_port_speed(struct ibv_context *context, uint32_t port,
+			 uint64_t *speed)
+{
+	return ibv_cmd_query_port_speed(context, port, speed);
+}
+
 int efa_query_port(struct ibv_context *ibvctx, uint8_t port,
 		   struct ibv_port_attr *port_attr)
 {

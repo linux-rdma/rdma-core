@@ -1,6 +1,6 @@
 /* SPDX-License-Identifier: GPL-2.0 OR BSD-2-Clause */
 /*
- * Copyright 2019-2025 Amazon.com, Inc. or its affiliates. All rights reserved.
+ * Copyright 2019-2026 Amazon.com, Inc. or its affiliates. All rights reserved.
  */
 
 #ifndef __EFA_VERBS_H__
@@ -12,6 +12,8 @@
 int efa_query_device_ctx(struct efa_context *ctx);
 int efa_query_port(struct ibv_context *uctx, uint8_t port,
 		   struct ibv_port_attr *attr);
+int efa_query_port_speed(struct ibv_context *context, uint32_t port,
+			 uint64_t *speed);
 int efa_query_device_ex(struct ibv_context *context,
 			const struct ibv_query_device_ex_input *input,
 			struct ibv_device_attr_ex *attr, size_t attr_size);
