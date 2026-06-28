@@ -49,6 +49,7 @@ static const struct verbs_context_ops efa_ctx_ops = {
 	.post_send = efa_post_send,
 	.query_device_ex = efa_query_device_ex,
 	.query_port = efa_query_port,
+	.query_port_speed = efa_query_port_speed,
 	.query_qp = efa_query_qp,
 	.query_qp_data_in_order = efa_query_qp_data_in_order,
 	.reg_dmabuf_mr = efa_reg_dmabuf_mr,
