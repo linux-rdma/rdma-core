@@ -244,4 +244,5 @@ libionic.so.1 ibverbs-providers #MINVER#
  ionic_dv_get_ctx@IONIC_1.2 67
  ionic_dv_get_cq@IONIC_1.2 67
  ionic_dv_get_qp@IONIC_1.2 67
+ ionic_dv_create_cq_ex@IONIC_1.2 67
 
