@@ -16,4 +16,5 @@ IONIC_1.1 {
 		ionic_dv_is_ionic_ctx;
 		ionic_dv_is_ionic_pd;
 		ionic_dv_is_ionic_cq;
+		ionic_dv_is_ionic_qp;
 } IONIC_1.0;

@@ -58,6 +58,7 @@ domain before creating queues.
 **ionic_dv_is_ionic_ctx**(3),
 **ionic_dv_is_ionic_pd**(3),
 **ionic_dv_is_ionic_cq**(3),
+**ionic_dv_is_ionic_qp**(3),
 **ionic_dv_ctx_get_udma_count**(3),
 **ionic_dv_ctx_get_udma_mask**(3),
 **ionic_dv_pd_get_udma_mask**(3),
