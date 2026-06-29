@@ -21,4 +21,5 @@ IONIC_1.2 {
 		ionic_dv_cq_get_udma_mask;
 		ionic_dv_qp_get_udma_idx;
 		ionic_dv_pd_set_expdb_mask;
+		ionic_dv_qp_set_gda;
 } IONIC_1.1;

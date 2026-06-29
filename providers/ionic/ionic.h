@@ -250,6 +250,7 @@ struct ionic_rq {
 	uint16_t		cmb_prod;
 	uint8_t			cmb;
 	bool			flush;
+	bool			gda;
 };
 
 struct ionic_sq {
@@ -270,6 +271,7 @@ struct ionic_sq {
 	bool			flush;
 	bool			flush_rcvd;
 	bool			color;
+	bool			gda;
 };
 
 struct ionic_qp {
