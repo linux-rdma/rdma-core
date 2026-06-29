@@ -232,4 +232,5 @@ libionic.so.1 ibverbs-providers #MINVER#
  ionic_dv_pd_set_expdb_mask@IONIC_1.1 65
  ionic_dv_qp_set_gda@IONIC_1.1 65
  ionic_dv_qp_get_send_dbell_data@IONIC_1.1 65
+ ionic_dv_qp_get_recv_dbell_data@IONIC_1.1 65
 
