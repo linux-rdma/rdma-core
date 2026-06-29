@@ -8,6 +8,7 @@ rdma_man_pages(
   ionic_dv_ctx_get_udma_mask.3.md
   ionic_dv_pd_get_udma_mask.3.md
   ionic_dv_pd_set_udma_mask.3.md
+  ionic_dv_cq_get_udma_mask.3.md
   ionic_dv_pd_set_sqcmb.3.md
   ionic_dv_pd_set_rqcmb.3.md
 )
