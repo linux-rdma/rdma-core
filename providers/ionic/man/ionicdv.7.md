@@ -29,6 +29,14 @@ to bypass the libibverbs API.
 The direct include of ionic_dv.h together with linkage to the ionic library
 will allow usage of this new interface.
 
+## Provider Detection
+
+Applications that may run on different RDMA providers can use
+**ionic_dv_is_ionic_ctx**(3), **ionic_dv_is_ionic_pd**(3),
+**ionic_dv_is_ionic_cq**(3), and **ionic_dv_is_ionic_qp**(3)
+to test whether a given verbs object belongs to the ionic provider
+before calling ionic-specific direct verbs.
+
 ## UDMA Pipelines
 
 Ionic devices expose multiple UDMA pipelines. Queues can be assigned to
@@ -47,6 +55,7 @@ domain before creating queues.
 
 # SEE ALSO
 
+**ionic_dv_is_ionic_ctx**(3),
 **ionic_dv_ctx_get_udma_count**(3),
 **ionic_dv_ctx_get_udma_mask**(3),
 **ionic_dv_pd_get_udma_mask**(3),

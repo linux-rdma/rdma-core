@@ -12,6 +12,10 @@
 #ifdef __cplusplus
 extern "C" {
 #endif
+/**
+ * ionic_dv_is_ionic_ctx - Test if context belongs to ionic provider.
+ */
+bool ionic_dv_is_ionic_ctx(struct ibv_context *ibctx);
 
 /**
  * ionic_dv_ctx_get_udma_count - Get number of udma pipelines.

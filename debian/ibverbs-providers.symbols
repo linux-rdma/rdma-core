@@ -220,3 +220,6 @@ libionic.so.1 ibverbs-providers #MINVER#
  ionic_dv_pd_set_udma_mask@IONIC_1.0 59
  ionic_dv_pd_set_sqcmb@IONIC_1.0 59
  ionic_dv_pd_set_rqcmb@IONIC_1.0 59
+ IONIC_1.1@IONIC_1.1 65
+ ionic_dv_is_ionic_ctx@IONIC_1.1 65
+

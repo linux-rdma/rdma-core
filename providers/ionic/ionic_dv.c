@@ -6,6 +6,11 @@
 #include "ionic.h"
 #include "ionic_dv.h"
 
+bool ionic_dv_is_ionic_ctx(struct ibv_context *ibctx)
+{
+	return is_ionic_ctx(ibctx);
+}
+
 uint8_t ionic_dv_ctx_get_udma_count(struct ibv_context *ibctx)
 {
 	if (!is_ionic_ctx(ibctx))
