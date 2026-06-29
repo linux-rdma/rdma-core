@@ -15,3 +15,8 @@ IONIC_1.1 {
 	global:
 		ionic_dv_create_qp_ex;
 } IONIC_1.0;
+
+IONIC_1.2 {
+	global:
+		ionic_dv_cq_get_udma_mask;
+} IONIC_1.1;
