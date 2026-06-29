@@ -126,6 +126,28 @@ int ionic_dv_pd_set_rqcmb(struct ibv_pd *ibpd, bool enable, bool expdb, bool req
  */
 int ionic_dv_qp_set_gda(struct ibv_qp *ibqp, bool enable_send, bool enable_recv);
 
+/**
+ * ionic_dv_qp_get_send_dbell_data - Get send queue doorbell data.
+ *
+ * In GDA mode, when the application calls ibv_post_send() the provider writes WQEs in
+ * the descriptor ring without ringing the doorbell.  The application should query the
+ * doorbell data immediately after posting the work.  The application requests the
+ * GPU to fill the source buffers of the data transfer with the result of computation.
+ * The application requests the GPU to write the doorbell data to the memory mapped
+ * doorbell register immediately when the computation is complete, triggering the data
+ * transfer.
+ *
+ * It is important that the GPU ring the doorbell in sequential order.  If work requests
+ * are posted in batches A, B, and C, with respective doorbell data, the data path must
+ * not write B or C before A, and must not write C before B.  It is ok to skip writing a
+ * doorbell, like writing only C, which will trigger the data transfer for all of the
+ * work up to that point in the sequence.
+ *
+ * @ibqp - Get send doorbell data for this queue pair.
+ * @dbdata - Output parameter for doorbell data.
+ */
+int ionic_dv_qp_get_send_dbell_data(struct ibv_qp *ibqp, uint64_t *dbdata);
+
 #ifdef __cplusplus
 }
 #endif

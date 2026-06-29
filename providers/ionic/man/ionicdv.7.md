@@ -93,6 +93,7 @@ access.
 **ionic_dv_pd_set_sqcmb**(3),
 **ionic_dv_pd_set_rqcmb**(3),
 **ionic_dv_qp_set_gda**(3),
+**ionic_dv_qp_get_send_dbell_data**(3),
 **verbs**(7)
 
 # AUTHORS
