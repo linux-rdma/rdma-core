@@ -124,6 +124,7 @@ struct ionic_pd {
 	struct ionic_td		*td;
 
 	uint8_t			udma_mask;
+	uint8_t			expdb_mask;
 	uint8_t			sq_cmb;
 	uint8_t			rq_cmb;
 

@@ -315,6 +315,7 @@ static struct ibv_pd *ionic_alloc_parent_domain(struct ibv_context *context,
 
 	pd->root_ibpd = root_ibpd;
 	pd->udma_mask = init_pd->udma_mask;
+	pd->expdb_mask = init_pd->expdb_mask;
 	pd->sq_cmb = init_pd->sq_cmb;
 	pd->rq_cmb = init_pd->rq_cmb;
 
@@ -361,6 +362,7 @@ static struct ibv_pd *ionic_alloc_pd(struct ibv_context *ibctx)
 		goto err_cmd;
 
 	pd->udma_mask = ionic_ctx_udma_mask(ctx);
+	pd->expdb_mask = ctx->expdb_mask & IONIC_EXPDB_64;
 
 	pd->sq_cmb = IONIC_CMB_ENABLE;
 	if (ctx->sq_expdb)
@@ -1654,13 +1656,17 @@ static int ionic_req_notify_cq(struct ibv_cq *ibcq, int solicited_only)
 }
 
 static bool ionic_expdb_wqe_size_supported(struct ionic_ctx *ctx,
+					   struct ionic_pd *pd,
 					   uint32_t wqe_size)
 {
+	int mask;
+
+	mask = pd->expdb_mask & ctx->expdb_mask;
 	switch (wqe_size) {
-	case 64: return ctx->expdb_mask & IONIC_EXPDB_64;
-	case 128: return ctx->expdb_mask & IONIC_EXPDB_128;
-	case 256: return ctx->expdb_mask & IONIC_EXPDB_256;
-	case 512: return ctx->expdb_mask & IONIC_EXPDB_512;
+	case 64: return mask & IONIC_EXPDB_64;
+	case 128: return mask & IONIC_EXPDB_128;
+	case 256: return mask & IONIC_EXPDB_256;
+	case 512: return mask & IONIC_EXPDB_512;
 	}
 
 	return false;
@@ -1730,7 +1736,7 @@ static int ionic_qp_sq_init(struct ionic_ctx *ctx, struct ionic_qp *qp, struct i
 		wqe_size = ionic_v1_send_wqe_min_size(max_sge, max_data,
 						      qp->sq.spec, true);
 
-		if (!ionic_expdb_wqe_size_supported(ctx, wqe_size))
+		if (!ionic_expdb_wqe_size_supported(ctx, pd, wqe_size))
 			qp->sq.cmb &= ~IONIC_CMB_EXPDB;
 	}
 
@@ -1804,7 +1810,7 @@ static int ionic_qp_rq_init(struct ionic_ctx *ctx, struct ionic_qp *qp, struct i
 	if (qp->rq.cmb & IONIC_CMB_EXPDB) {
 		wqe_size = ionic_v1_recv_wqe_min_size(max_sge, qp->rq.spec, true);
 
-		if (!ionic_expdb_wqe_size_supported(ctx, wqe_size))
+		if (!ionic_expdb_wqe_size_supported(ctx, pd, wqe_size))
 			qp->rq.cmb &= ~IONIC_CMB_EXPDB;
 	}
 

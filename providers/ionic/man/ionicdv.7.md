@@ -48,6 +48,13 @@ creating queues, use **ionic_dv_cq_get_udma_mask**(3) to query the UDMA
 mask assigned to a completion queue, and **ionic_dv_qp_get_udma_idx**(3)
 to query the UDMA pipeline index assigned to a queue pair.
 
+## Express Doorbell
+
+Express doorbell optimizations can reduce doorbell overhead for certain
+WQE sizes. By default, only 64-byte WQE express doorbell is enabled.
+Use **ionic_dv_pd_set_expdb_mask**(3) to enable express doorbell for
+additional WQE sizes on a protection domain.
+
 ## Controller Memory Bar (CMB)
 
 Send and receive queues can optionally be placed in the controller memory
@@ -68,6 +75,7 @@ domain before creating queues.
 **ionic_dv_pd_set_udma_mask**(3),
 **ionic_dv_cq_get_udma_mask**(3),
 **ionic_dv_qp_get_udma_idx**(3),
+**ionic_dv_pd_set_expdb_mask**(3),
 **ionic_dv_pd_set_sqcmb**(3),
 **ionic_dv_pd_set_rqcmb**(3),
 **verbs**(7)
