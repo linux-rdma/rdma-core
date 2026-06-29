@@ -97,6 +97,7 @@ access.
 **ionic_dv_qp_get_recv_dbell_data**(3),
 **ionic_dv_get_ctx**(3),
 **ionic_dv_get_cq**(3),
+**ionic_dv_get_qp**(3),
 **verbs**(7)
 
 # AUTHORS

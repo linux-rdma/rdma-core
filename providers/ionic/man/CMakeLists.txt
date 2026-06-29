@@ -18,4 +18,5 @@ rdma_man_pages(
   ionic_dv_qp_get_recv_dbell_data.3.md
   ionic_dv_get_ctx.3.md
   ionic_dv_get_cq.3.md
+  ionic_dv_get_qp.3.md
 )
