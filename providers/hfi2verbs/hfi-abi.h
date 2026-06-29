@@ -1,4 +1,4 @@
-/* SPDX-License-Identifier: ((GPL-2.0 WITH Linux-syscall-note) OR BSD-3-Clause) */
+/* SPDX-License-Identifier: GPL-2.0 OR BSD-2-Clause */
 /*
  *
  * This file is provided under a dual BSD/GPLv2 license.  When using or
@@ -6,8 +6,8 @@
  *
  * GPL LICENSE SUMMARY
  *
- * Copyright(c) 2015 Intel Corporation.
- * Copyright 2025 Cornelis Networks
+ * Copyright(c) 2025 Cornelis Networks
+ * Copyright (c) 2026 Cornelis Networks
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of version 2 of the GNU General Public License as
@@ -20,21 +20,22 @@
  *
  * BSD LICENSE
  *
- * Copyright(c) 2015 Intel Corporation.
+ * Copyright(c) 2025 Cornelis Networks
+ * Copyright (c) 2026 Cornelis Networks
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
  * are met:
  *
- *  - Redistributions of source code must retain the above copyright
- *    notice, this list of conditions and the following disclaimer.
- *  - Redistributions in binary form must reproduce the above copyright
- *    notice, this list of conditions and the following disclaimer in
- *    the documentation and/or other materials provided with the
- *    distribution.
- *  - Neither the name of Intel Corporation nor the names of its
- *    contributors may be used to endorse or promote products derived
- *    from this software without specific prior written permission.
+ * * Redistributions of source code must retain the above copyright
+ * notice, this list of conditions and the following disclaimer.
+ * * Redistributions in binary form must reproduce the above copyright
+ * notice, this list of conditions and the following disclaimer in
+ * the documentation and/or other materials provided with the
+ * distribution.
+ * * Neither the name of Intel Corporation nor the names of its
+ * contributors may be used to endorse or promote products derived
+ * from this software without specific prior written permission.
  *
  * THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS
  * "AS IS" AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT
@@ -48,15 +49,44 @@
  * (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
  * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  *
+ * Copyright (c) 2015 Intel Corporation
+ * Copyright (C) 2006-2007 QLogic Corporation, All rights reserved.
+ *
  */
 
-#ifndef _LINUX__HFI1_IOCTL_H
-#define _LINUX__HFI1_IOCTL_H
-#include <linux/types.h>
+#ifndef HFI2_ABI_H
+#define HFI2_ABI_H
 
-#define hfi1_user_info hfi2_user_info
-#define hfi1_ctxt_info hfi2_ctxt_info
+#include <infiniband/kern-abi.h>
 
-#define hfi1_base_info hfi2_base_info
+struct hfi2_get_context_resp {
+	struct ib_uverbs_get_context_resp	ibv_resp;
+	__u32				version;
+};
 
-#endif /* _LINIUX__HFI1_IOCTL_H */
+struct hfi2_create_cq_resp {
+	struct ib_uverbs_create_cq_resp	ibv_resp;
+	__u64				offset;
+};
+
+struct hfi2_resize_cq_resp {
+	struct ib_uverbs_resize_cq_resp	ibv_resp;
+	__u64				offset;
+};
+
+struct hfi2_create_qp_resp {
+	struct ib_uverbs_create_qp_resp	ibv_resp;
+	__u64				offset;
+};
+
+struct hfi2_create_srq_resp {
+	struct ib_uverbs_create_srq_resp	ibv_resp;
+	__u64				offset;
+};
+
+struct hfi2_modify_srq_cmd {
+	struct ibv_modify_srq		ibv_cmd;
+	__u64				offset_addr;
+};
+
+#endif /* HFI2_ABI_H */

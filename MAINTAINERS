@@ -71,6 +71,11 @@ M:	Dennis Dalessandro <dennis.dalessandro@cornelisnetworks.com>
 S:	Supported
 F:	providers/hfi1verbs/
 
+HFI2 USERSPACE PROVIDER (for hf2.ko)
+M:	Dennis Dalessandro <dennis.dalessandro@cornelisnetworks.com>
+S:	Supported
+F:	providers/hfi2verbs/
+
 HNS USERSPACE PROVIDER (for hns-roce-hw-v2.ko)
 M:	Junxian Huang <huangjunxian6@hisilicon.com>
 M:	Chengchang Tang <tangchengchang@huawei.com>
