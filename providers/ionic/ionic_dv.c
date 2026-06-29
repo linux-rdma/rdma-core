@@ -189,3 +189,17 @@ int ionic_dv_qp_get_send_dbell_data(struct ibv_qp *ibqp, uint64_t *dbdata)
 
 	return 0;
 }
+
+int ionic_dv_qp_get_recv_dbell_data(struct ibv_qp *ibqp, uint64_t *dbdata)
+{
+	struct ionic_qp *qp;
+
+	if (!is_ionic_qp(ibqp))
+		return EPERM;
+
+	qp = to_ionic_qp(ibqp);
+
+	*dbdata = ionic_queue_dbell_val(&qp->rq.queue);
+
+	return 0;
+}

@@ -148,6 +148,29 @@ int ionic_dv_qp_set_gda(struct ibv_qp *ibqp, bool enable_send, bool enable_recv)
  */
 int ionic_dv_qp_get_send_dbell_data(struct ibv_qp *ibqp, uint64_t *dbdata);
 
+/**
+ * ionic_dv_qp_get_recv_dbell_data - Get recv queue doorbell data.
+ *
+ * In GDA mode, when the application calls ibv_post_recv() the provider writes WQEs in
+ * the descriptor ring without ringing the doorbell.  After polling recv completions, the
+ * application can immediately re-post the receive buffers without ringing the doorbell.
+ * The application should query the doorbell data immediately after posting the buffers.
+ * The application requests the GPU consume the data from the receive buffers.  The
+ * application requests the GPU to write the doorbell data to the memory mapped doorbell
+ * register immediately after the received data is consumed, making the buffers available
+ * for the next data transfer.
+ *
+ * It is important that the GPU ring the doorbell in sequential order.  If work requests
+ * are posted in batches A, B, and C, with respective doorbell data, the data path must
+ * not write B or C before A, and must not write C before B.  It is ok to skip writing a
+ * doorbell, like writing only C, which will make buffers available up to that point in
+ * the sequence.
+ *
+ * @ibqp - Get recv doorbell data for this queue pair.
+ * @dbdata - Output parameter for doorbell data.
+ */
+int ionic_dv_qp_get_recv_dbell_data(struct ibv_qp *ibqp, uint64_t *dbdata);
+
 #ifdef __cplusplus
 }
 #endif
