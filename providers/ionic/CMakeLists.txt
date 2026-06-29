@@ -9,6 +9,7 @@ rdma_shared_provider(ionic libionic.map
 
 publish_headers(infiniband
 	ionic_dv.h
+	ionic_fw_types.h
 )
 
 rdma_pkg_config("ionic" "libibverbs" "${CMAKE_THREAD_LIBS_INIT}")

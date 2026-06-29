@@ -171,6 +171,30 @@ int ionic_dv_qp_get_send_dbell_data(struct ibv_qp *ibqp, uint64_t *dbdata);
  */
 int ionic_dv_qp_get_recv_dbell_data(struct ibv_qp *ibqp, uint64_t *dbdata);
 
+/** struct ionic_dv_ctx - Context information for gpu-initiated rdma. */
+struct ionic_dv_ctx {
+	void			*db_page;
+	uint64_t		*db_ptr;
+	uint8_t			sq_qtype;
+	uint8_t			rq_qtype;
+	uint8_t			cq_qtype;
+};
+
+/** struct ionic_dv_queue - Queue information for gpu-initiated rdma. */
+struct ionic_dv_queue {
+	void			*ptr;
+	size_t			size;
+	uint64_t		db_val;
+	uint16_t		mask;
+	uint8_t			depth_log2;
+	uint8_t			stride_log2;
+};
+
+/**
+ * ionic_dv_get_ctx - Extract context information for gpu-initiated rdma.
+ */
+int ionic_dv_get_ctx(struct ionic_dv_ctx *dvctx, struct ibv_context *ibctx);
+
 #ifdef __cplusplus
 }
 #endif
