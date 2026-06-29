@@ -26,4 +26,5 @@ IONIC_1.1 {
 		ionic_dv_get_ctx;
 		ionic_dv_get_cq;
 		ionic_dv_get_qp;
+		ionic_dv_create_cq_ex;
 } IONIC_1.0;

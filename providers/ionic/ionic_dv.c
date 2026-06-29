@@ -263,3 +263,15 @@ int ionic_dv_get_qp(struct ionic_dv_qp *dvqp, struct ibv_qp *ibqp)
 
 	return 0;
 }
+
+struct ibv_cq_ex *ionic_dv_create_cq_ex(struct ibv_context *ibctx,
+					struct ibv_cq_init_attr_ex *ex,
+					struct ionic_cq_init_attr_ex *ionic_ex)
+{
+	if (!is_ionic_ctx(ibctx)) {
+		errno = EPERM;
+		return NULL;
+	}
+
+	return ionic_create_cq_ex_common(ibctx, ex, ionic_ex);
+}

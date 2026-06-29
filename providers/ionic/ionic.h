@@ -19,6 +19,7 @@
 
 #include "ionic-abi.h"
 
+#include "ionic_dv.h"
 #include "ionic_memory.h"
 #include "ionic_queue.h"
 #include "ionic_table.h"
@@ -47,14 +48,18 @@
 #define IONIC_PD_TAG_RQ	(IONIC_PD_TAG | 3)
 
 enum {
+	IONIC_CQ_SUPPORTED_COMP_MASK =
+		IBV_CQ_INIT_ATTR_MASK_FLAGS		|
+		IBV_CQ_INIT_ATTR_MASK_PD,
+
 	IONIC_CQ_SUPPORTED_WC_FLAGS =
-	    IBV_WC_EX_WITH_BYTE_LEN       |
-	    IBV_WC_EX_WITH_IMM            |
-	    IBV_WC_EX_WITH_QP_NUM         |
-	    IBV_WC_EX_WITH_SRC_QP         |
-	    IBV_WC_EX_WITH_SLID           |
-	    IBV_WC_EX_WITH_SL             |
-	    IBV_WC_EX_WITH_DLID_PATH_BITS
+	    IBV_WC_STANDARD_FLAGS,
+
+	IONIC_CQ_SUPPORTED_EXT_COMP_MASK =
+		IONIC_CQ_INIT_ATTR_MASK_FLAGS,
+
+	IONIC_CQ_SUPPORTED_EXT_FLAGS =
+		IONIC_CQ_INIT_ATTR_CCQE,
 };
 
 enum {
@@ -357,5 +362,8 @@ static inline void ionic_dbg_xdump(struct ionic_ctx *ctx, const char *str,
 
 /* ionic_verbs.h */
 void ionic_verbs_set_ops(struct ionic_ctx *ctx);
+struct ibv_cq_ex *ionic_create_cq_ex_common(struct ibv_context *ibctx,
+					    struct ibv_cq_init_attr_ex *ex,
+					    struct ionic_cq_init_attr_ex *ionic_ex);
 
 #endif /* IONIC_H */
