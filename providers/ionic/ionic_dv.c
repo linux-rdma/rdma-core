@@ -221,3 +221,30 @@ int ionic_dv_get_ctx(struct ionic_dv_ctx *dvctx, struct ibv_context *ibctx)
 
 	return 0;
 }
+
+static void ionic_dv_get_queue(struct ionic_dv_queue *dvq, struct ionic_queue *q)
+{
+	dvq->ptr = q->ptr;
+	dvq->size = q->size;
+	dvq->db_val = q->dbell;
+	dvq->mask = (uint16_t)q->mask;
+	dvq->depth_log2 = q->depth_log2;
+	dvq->stride_log2 = q->stride_log2;
+}
+
+int ionic_dv_get_cq(struct ionic_dv_cq *dvcq, struct ibv_cq *ibcq, uint8_t udma_idx)
+{
+	struct ionic_vcq *vcq;
+
+	if (!is_ionic_cq(ibcq))
+		return EPERM;
+
+	vcq = to_ionic_vcq(ibcq);
+
+	if (!(vcq->udma_mask & BIT(udma_idx)))
+		return EINVAL;
+
+	ionic_dv_get_queue(&dvcq->q, &vcq->cq[udma_idx].q);
+
+	return 0;
+}

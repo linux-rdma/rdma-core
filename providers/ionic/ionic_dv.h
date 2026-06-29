@@ -190,10 +190,20 @@ struct ionic_dv_queue {
 	uint8_t			stride_log2;
 };
 
+/** struct ionic_dv_cq - CQ information for gpu-initiated rdma. */
+struct ionic_dv_cq {
+	struct ionic_dv_queue	q;
+};
+
 /**
  * ionic_dv_get_ctx - Extract context information for gpu-initiated rdma.
  */
 int ionic_dv_get_ctx(struct ionic_dv_ctx *dvctx, struct ibv_context *ibctx);
+
+/**
+ * ionic_dv_get_cq - Extract cq information for gpu-initiated rdma.
+ */
+int ionic_dv_get_cq(struct ionic_dv_cq *dvcq, struct ibv_cq *ibcq, uint8_t udma_idx);
 
 #ifdef __cplusplus
 }
