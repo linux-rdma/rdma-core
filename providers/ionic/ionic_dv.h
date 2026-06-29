@@ -74,6 +74,16 @@ uint8_t ionic_dv_cq_get_udma_mask(struct ibv_cq *ibcq);
 uint8_t ionic_dv_qp_get_udma_idx(struct ibv_qp *ibqp);
 
 /**
+ * ionic_dv_pd_set_expdb_mask - Specify expdb mask.
+ *
+ * Queues associated with this pd will attempt to have expdb on for WQE sizes
+ * other than default (and supported by the NIC).
+ *
+ * @mask - IONIC_EXPDB_* bitmap
+ */
+int ionic_dv_pd_set_expdb_mask(struct ibv_pd *ibpd, uint8_t mask);
+
+/**
  * ionic_dv_pd_set_sqcmb - Specify send queue preference for controller memory bar.
  *
  * Send queues associated with this pd will use the controller memory bar according to

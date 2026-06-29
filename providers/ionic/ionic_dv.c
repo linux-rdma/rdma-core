@@ -79,6 +79,19 @@ int ionic_dv_pd_set_udma_mask(struct ibv_pd *ibpd, uint8_t udma_mask)
 	return 0;
 }
 
+int ionic_dv_pd_set_expdb_mask(struct ibv_pd *ibpd, uint8_t mask)
+{
+	struct ionic_pd *pd;
+
+	if (!is_ionic_pd(ibpd))
+		return EPERM;
+
+	pd = to_ionic_pd(ibpd);
+	pd->expdb_mask = mask & ((IONIC_EXPDB_512 << 1) - 1);
+
+	return 0;
+}
+
 static uint8_t ionic_dv_cmb_val(bool enable, bool expdb, bool require)
 {
 	uint8_t cmb = 0;
