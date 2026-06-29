@@ -18,6 +18,11 @@ extern "C" {
 bool ionic_dv_is_ionic_ctx(struct ibv_context *ibctx);
 
 /**
+ * ionic_dv_is_ionic_pd - Test if pd belongs to ionic provider.
+ */
+bool ionic_dv_is_ionic_pd(struct ibv_pd *ibpd);
+
+/**
  * ionic_dv_ctx_get_udma_count - Get number of udma pipelines.
  */
 uint8_t ionic_dv_ctx_get_udma_count(struct ibv_context *ibctx);

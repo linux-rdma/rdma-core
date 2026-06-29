@@ -11,6 +11,11 @@ bool ionic_dv_is_ionic_ctx(struct ibv_context *ibctx)
 	return is_ionic_ctx(ibctx);
 }
 
+bool ionic_dv_is_ionic_pd(struct ibv_pd *ibpd)
+{
+	return is_ionic_pd(ibpd);
+}
+
 uint8_t ionic_dv_ctx_get_udma_count(struct ibv_context *ibctx)
 {
 	if (!is_ionic_ctx(ibctx))
