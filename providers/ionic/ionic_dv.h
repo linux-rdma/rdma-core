@@ -195,6 +195,12 @@ struct ionic_dv_cq {
 	struct ionic_dv_queue	q;
 };
 
+/** struct ionic_dv_qp - QP information for gpu-initiated rdma. */
+struct ionic_dv_qp {
+	struct ionic_dv_queue	rq;
+	struct ionic_dv_queue	sq;
+};
+
 /**
  * ionic_dv_get_ctx - Extract context information for gpu-initiated rdma.
  */
@@ -204,6 +210,11 @@ int ionic_dv_get_ctx(struct ionic_dv_ctx *dvctx, struct ibv_context *ibctx);
  * ionic_dv_get_cq - Extract cq information for gpu-initiated rdma.
  */
 int ionic_dv_get_cq(struct ionic_dv_cq *dvcq, struct ibv_cq *ibcq, uint8_t udma_idx);
+
+/**
+ * ionic_dv_get_qp - Extract qp information for gpu-initiated rdma.
+ */
+int ionic_dv_get_qp(struct ionic_dv_qp *dvqp, struct ibv_qp *ibqp);
 
 #ifdef __cplusplus
 }

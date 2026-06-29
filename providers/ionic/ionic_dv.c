@@ -248,3 +248,18 @@ int ionic_dv_get_cq(struct ionic_dv_cq *dvcq, struct ibv_cq *ibcq, uint8_t udma_
 
 	return 0;
 }
+
+int ionic_dv_get_qp(struct ionic_dv_qp *dvqp, struct ibv_qp *ibqp)
+{
+	struct ionic_qp *qp;
+
+	if (!is_ionic_qp(ibqp))
+		return EPERM;
+
+	qp = to_ionic_qp(ibqp);
+
+	ionic_dv_get_queue(&dvqp->rq, &qp->rq.queue);
+	ionic_dv_get_queue(&dvqp->sq, &qp->sq.queue);
+
+	return 0;
+}

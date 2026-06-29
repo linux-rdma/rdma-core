@@ -25,4 +25,5 @@ IONIC_1.1 {
 		ionic_dv_qp_get_recv_dbell_data;
 		ionic_dv_get_ctx;
 		ionic_dv_get_cq;
+		ionic_dv_get_qp;
 } IONIC_1.0;
