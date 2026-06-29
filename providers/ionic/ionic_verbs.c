@@ -1913,7 +1913,7 @@ static int ionic_wr_complete(struct ibv_qp_ex *ibqp_ex)
 
 		if (qp->sq.cmb_ptr) {
 			ionic_post_send_cmb(ctx, qp);
-		} else {
+		} else if (!qp->sq.gda) {
 			udma_to_device_barrier();
 			verbs_debug(&ctx->vctx, "dbell qp %u sq val %" PRIx64,
 				    qp->qpid, ionic_queue_dbell_val(&qp->sq.queue));
@@ -3179,7 +3179,7 @@ out:
 
 		if (qp->sq.cmb_ptr) {
 			ionic_post_send_cmb(ctx, qp);
-		} else {
+		} else if (!qp->sq.gda) {
 			udma_to_device_barrier();
 			verbs_debug(&ctx->vctx, "dbell qp %u sq val %" PRIx64,
 				    qp->qpid, ionic_queue_dbell_val(&qp->sq.queue));
@@ -3316,7 +3316,7 @@ out:
 
 		if (qp->rq.cmb_ptr) {
 			ionic_post_recv_cmb(ctx, qp);
-		} else {
+		} else if (!qp->rq.gda) {
 			udma_to_device_barrier();
 			verbs_debug(&ctx->vctx, "dbell qp %u rq val %" PRIx64,
 				    qp->qpid,
