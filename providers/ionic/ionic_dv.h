@@ -69,6 +69,11 @@ int ionic_dv_pd_set_udma_mask(struct ibv_pd *ibpd, uint8_t udma_mask);
 uint8_t ionic_dv_cq_get_udma_mask(struct ibv_cq *ibcq);
 
 /**
+ * ionic_dv_qp_get_udma_idx - Get udma pipeline id of queue pair.
+ */
+uint8_t ionic_dv_qp_get_udma_idx(struct ibv_qp *ibqp);
+
+/**
  * ionic_dv_pd_set_sqcmb - Specify send queue preference for controller memory bar.
  *
  * Send queues associated with this pd will use the controller memory bar according to

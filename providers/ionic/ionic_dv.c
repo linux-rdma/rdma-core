@@ -58,6 +58,14 @@ uint8_t ionic_dv_cq_get_udma_mask(struct ibv_cq *ibcq)
 	return to_ionic_vcq(ibcq)->udma_mask;
 }
 
+uint8_t ionic_dv_qp_get_udma_idx(struct ibv_qp *ibqp)
+{
+	if (!is_ionic_qp(ibqp))
+		return 0;
+
+	return to_ionic_qp(ibqp)->udma_idx;
+}
+
 int ionic_dv_pd_set_udma_mask(struct ibv_pd *ibpd, uint8_t udma_mask)
 {
 	if (!is_ionic_pd(ibpd))

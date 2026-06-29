@@ -45,7 +45,8 @@ creating queues. Use **ionic_dv_ctx_get_udma_count**(3) and
 **ionic_dv_ctx_get_udma_mask**(3) to query the available pipelines, and
 **ionic_dv_pd_set_udma_mask**(3) to restrict queue placement. After
 creating queues, use **ionic_dv_cq_get_udma_mask**(3) to query the UDMA
-mask assigned to a completion queue.
+mask assigned to a completion queue, and **ionic_dv_qp_get_udma_idx**(3)
+to query the UDMA pipeline index assigned to a queue pair.
 
 ## Controller Memory Bar (CMB)
 
@@ -66,6 +67,7 @@ domain before creating queues.
 **ionic_dv_pd_get_udma_mask**(3),
 **ionic_dv_pd_set_udma_mask**(3),
 **ionic_dv_cq_get_udma_mask**(3),
+**ionic_dv_qp_get_udma_idx**(3),
 **ionic_dv_pd_set_sqcmb**(3),
 **ionic_dv_pd_set_rqcmb**(3),
 **verbs**(7)
