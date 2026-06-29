@@ -107,6 +107,25 @@ int ionic_dv_pd_set_sqcmb(struct ibv_pd *ibpd, bool enable, bool expdb, bool req
  */
 int ionic_dv_pd_set_rqcmb(struct ibv_pd *ibpd, bool enable, bool expdb, bool require);
 
+/**
+ * ionic_dv_qp_set_gda - Enable or disable GPU-Direct Async (GDA) mode.
+ *
+ * In GDA mode, when the application calls ibv_post_send() or ibv_post_recv(), the
+ * provider writes WQEs in the descriptor ring without ringing the doorbell.
+ *
+ * To ring the doorbell, after posting the work the application should query to get the
+ * doorbell data, and later write that data to the memory mapped doorbell register.
+ *
+ * See also: ionic_dv_get_ctx()
+ * See also: ionic_dv_qp_get_send_dbell_data()
+ * See also: ionic_dv_qp_get_recv_dbell_data()
+ *
+ * @ibqp - Set GDA mode for this queue pair.
+ * @enable_send - Enable GDA mode for the send queue.
+ * @enable_recv - Enable GDA mode for the recv queue.
+ */
+int ionic_dv_qp_set_gda(struct ibv_qp *ibqp, bool enable_send, bool enable_recv);
+
 #ifdef __cplusplus
 }
 #endif

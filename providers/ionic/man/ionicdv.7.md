@@ -63,6 +63,20 @@ may also be enabled. Use **ionic_dv_pd_set_sqcmb**(3) and
 **ionic_dv_pd_set_rqcmb**(3) to configure CMB preferences on a protection
 domain before creating queues.
 
+## GPU-Direct Async (GDA)
+
+GPU-Direct Async mode allows GPU-initiated RDMA operations. When GDA is
+enabled on a queue pair, posting work requests writes WQEs without ringing
+the doorbell. The GPU can then ring the doorbell directly by writing
+doorbell data to the memory mapped doorbell register.
+
+Use **ionic_dv_qp_set_gda**(3) to enable GDA mode on a queue pair.
+After posting work, use **ionic_dv_qp_get_send_dbell_data**(3) and
+**ionic_dv_qp_get_recv_dbell_data**(3) to obtain the doorbell data.
+Use **ionic_dv_get_ctx**(3), **ionic_dv_get_cq**(3), and
+**ionic_dv_get_qp**(3) to extract queue information for direct GPU
+access.
+
 # SEE ALSO
 
 **ionic_dv_is_ionic_ctx**(3),
@@ -78,6 +92,7 @@ domain before creating queues.
 **ionic_dv_pd_set_expdb_mask**(3),
 **ionic_dv_pd_set_sqcmb**(3),
 **ionic_dv_pd_set_rqcmb**(3),
+**ionic_dv_qp_set_gda**(3),
 **verbs**(7)
 
 # AUTHORS

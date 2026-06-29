@@ -154,3 +154,24 @@ int ionic_dv_pd_set_rqcmb(struct ibv_pd *ibpd, bool enable, bool expdb, bool req
 
 	return 0;
 }
+
+int ionic_dv_qp_set_gda(struct ibv_qp *ibqp, bool enable_send, bool enable_recv)
+{
+	struct ionic_qp *qp;
+
+	if (!is_ionic_qp(ibqp))
+		return EPERM;
+
+	qp = to_ionic_qp(ibqp);
+
+	if (enable_send && qp->sq.cmb & IONIC_CMB_EXPDB)
+		return EINVAL;
+
+	if (enable_recv && qp->rq.cmb & IONIC_CMB_EXPDB)
+		return EINVAL;
+
+	qp->sq.gda = enable_send;
+	qp->rq.gda = enable_recv;
+
+	return 0;
+}

@@ -13,4 +13,5 @@ rdma_man_pages(
   ionic_dv_pd_set_expdb_mask.3.md
   ionic_dv_pd_set_sqcmb.3.md
   ionic_dv_pd_set_rqcmb.3.md
+  ionic_dv_qp_set_gda.3.md
 )
