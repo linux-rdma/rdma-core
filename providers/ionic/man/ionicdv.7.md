@@ -77,6 +77,12 @@ Use **ionic_dv_get_ctx**(3), **ionic_dv_get_cq**(3), and
 **ionic_dv_get_qp**(3) to extract queue information for direct GPU
 access.
 
+## Extended CQ Creation
+
+Use **ionic_dv_create_cq_ex**(3) to create a completion queue with
+vendor-specific attributes. This extends the standard **ibv_create_cq_ex**
+interface with ionic-specific options such as compact CQE (CCQE) mode.
+
 # SEE ALSO
 
 **ionic_dv_is_ionic_ctx**(3),
@@ -98,6 +104,7 @@ access.
 **ionic_dv_get_ctx**(3),
 **ionic_dv_get_cq**(3),
 **ionic_dv_get_qp**(3),
+**ionic_dv_create_cq_ex**(3),
 **verbs**(7)
 
 # AUTHORS

@@ -216,6 +216,30 @@ int ionic_dv_get_cq(struct ionic_dv_cq *dvcq, struct ibv_cq *ibcq, uint8_t udma_
  */
 int ionic_dv_get_qp(struct ionic_dv_qp *dvqp, struct ibv_qp *ibqp);
 
+enum ionic_cq_init_attr_mask {
+	IONIC_CQ_INIT_ATTR_MASK_FLAGS	= 1 << 0,
+};
+
+enum ionic_cq_init_attr_flags {
+	IONIC_CQ_INIT_ATTR_CCQE	= 1 << 0,
+};
+
+struct ionic_cq_init_attr_ex {
+	uint32_t	    comp_mask;
+	uint32_t	    flags;
+};
+
+/**
+ * ionic_dv_create_cq_ex - Create an IBV CQ with vendor-specific attributes.
+ *
+ * @ibctx - Context CQ will be attached to.
+ * @ex - IBV attributes to create the CQ with.
+ * @ionic_ex - Vendor-specific attributes to create the CQ with.
+ */
+struct ibv_cq_ex *ionic_dv_create_cq_ex(struct ibv_context *ibctx,
+					struct ibv_cq_init_attr_ex *ex,
+					struct ionic_cq_init_attr_ex *ionic_ex);
+
 #ifdef __cplusplus
 }
 #endif

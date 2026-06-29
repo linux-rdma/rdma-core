@@ -19,4 +19,5 @@ rdma_man_pages(
   ionic_dv_get_ctx.3.md
   ionic_dv_get_cq.3.md
   ionic_dv_get_qp.3.md
+  ionic_dv_create_cq_ex.3.md
 )
