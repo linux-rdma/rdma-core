@@ -236,3 +236,5 @@ libionic.so.1 ibverbs-providers #MINVER#
  ionic_dv_create_qp_ex@IONIC_1.1 66
  IONIC_1.2@IONIC_1.2 67
  ionic_dv_cq_get_udma_mask@IONIC_1.2 67
+ ionic_dv_qp_get_udma_idx@IONIC_1.2 67
+
