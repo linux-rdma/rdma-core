@@ -203,3 +203,21 @@ int ionic_dv_qp_get_recv_dbell_data(struct ibv_qp *ibqp, uint64_t *dbdata)
 
 	return 0;
 }
+
+int ionic_dv_get_ctx(struct ionic_dv_ctx *dvctx, struct ibv_context *ibctx)
+{
+	struct ionic_ctx *ctx;
+
+	if (!is_ionic_ctx(ibctx))
+		return EPERM;
+
+	ctx = to_ionic_ctx(ibctx);
+
+	dvctx->db_page = ctx->dbpage_page;
+	dvctx->db_ptr = ctx->dbpage;
+	dvctx->sq_qtype = ctx->sq_qtype;
+	dvctx->rq_qtype = ctx->rq_qtype;
+	dvctx->cq_qtype = ctx->cq_qtype;
+
+	return 0;
+}
