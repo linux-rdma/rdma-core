@@ -223,4 +223,5 @@ libionic.so.1 ibverbs-providers #MINVER#
  IONIC_1.1@IONIC_1.1 65
  ionic_dv_is_ionic_ctx@IONIC_1.1 65
  ionic_dv_is_ionic_pd@IONIC_1.1 65
+ ionic_dv_is_ionic_cq@IONIC_1.1 65
 

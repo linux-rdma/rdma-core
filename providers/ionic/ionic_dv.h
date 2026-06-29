@@ -23,6 +23,11 @@ bool ionic_dv_is_ionic_ctx(struct ibv_context *ibctx);
 bool ionic_dv_is_ionic_pd(struct ibv_pd *ibpd);
 
 /**
+ * ionic_dv_is_ionic_cq - Test if cq belongs to ionic provider.
+ */
+bool ionic_dv_is_ionic_cq(struct ibv_cq *ibcq);
+
+/**
  * ionic_dv_ctx_get_udma_count - Get number of udma pipelines.
  */
 uint8_t ionic_dv_ctx_get_udma_count(struct ibv_context *ibctx);
