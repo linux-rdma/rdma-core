@@ -57,6 +57,7 @@ enum {
 	BNXT_RE_UCNTX_CMASK_POW2_DISABLED = 0x10ULL,
 	BNXT_RE_UCNTX_CMASK_MSN_TABLE_ENABLED = 0x40,
 	BNXT_RE_UCNTX_CMASK_QP_RATE_LIMIT_ENABLED = 0x80ULL,
+	BNXT_RE_UCNTX_CMASK_TOGGLE_MEM_UOBJ_SUPPORT = 0x400000ULL,
 };
 
 enum bnxt_re_wqe_mode {
@@ -68,6 +69,7 @@ enum bnxt_re_wqe_mode {
 enum {
 	BNXT_RE_COMP_MASK_REQ_UCNTX_POW2_SUPPORT = 0x01,
 	BNXT_RE_COMP_MASK_REQ_UCNTX_VAR_WQE_SUPPORT = 0x02,
+	BNXT_RE_COMP_MASK_REQ_UCNTX_TOGGLE_MEM_UOBJ_SUPPORT = 0x20,
 };
 
 struct bnxt_re_uctx_req {
@@ -126,7 +128,7 @@ struct bnxt_re_resize_cq_req {
 };
 
 enum bnxt_re_qp_mask {
-	BNXT_RE_QP_REQ_MASK_VAR_WQE_SQ_SLOTS = 0x1,
+	BNXT_RE_QP_REQ_MASK_FIXED_QUE_ATTR = 0x1,
 };
 
 struct bnxt_re_qp_req {
@@ -135,6 +137,11 @@ struct bnxt_re_qp_req {
 	__aligned_u64 qp_handle;
 	__aligned_u64 comp_mask;
 	__u32 sq_slots;
+	__u32 sq_npsn;
+};
+
+enum bnxt_re_create_qp_attrs {
+	BNXT_RE_CREATE_QP_ATTR_DBR_HANDLE = UVERBS_ID_DRIVER_NS_WITH_UHW,
 };
 
 struct bnxt_re_qp_resp {
@@ -213,6 +220,8 @@ enum bnxt_re_var_toggle_mem_attrs {
 	BNXT_RE_TOGGLE_MEM_MMAP_PAGE,
 	BNXT_RE_TOGGLE_MEM_MMAP_OFFSET,
 	BNXT_RE_TOGGLE_MEM_MMAP_LENGTH,
+	BNXT_RE_TOGGLE_MEM_CQ_HANDLE,
+	BNXT_RE_TOGGLE_MEM_SRQ_HANDLE,
 };
 
 enum bnxt_re_toggle_mem_attrs {
