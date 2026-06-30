@@ -707,6 +707,13 @@ int mlx5_free_pd(struct ibv_pd *pd)
 	return _mlx5_free_pd(pd, false);
 }
 
+/* ODP lets the device drive page faults; refuse it in adversarial mode */
+static bool mlx5_adversarial_refuses_odp(struct ibv_context *context, int access)
+{
+	return (to_mctx(context)->flags & MLX5_CTX_FLAGS_ADVERSARIAL_DP) &&
+	       (access & IBV_ACCESS_ON_DEMAND);
+}
+
 struct ibv_mr *mlx5_reg_mr(struct ibv_pd *pd, void *addr, size_t length,
 			   uint64_t hca_va, int acc)
 {
@@ -715,6 +722,11 @@ struct ibv_mr *mlx5_reg_mr(struct ibv_pd *pd, void *addr, size_t length,
 	int ret;
 	enum ibv_access_flags access = (enum ibv_access_flags)acc;
 	struct ib_uverbs_reg_mr_resp resp;
+
+	if (mlx5_adversarial_refuses_odp(pd->context, acc)) {
+		errno = EOPNOTSUPP;
+		return NULL;
+	}
 
 	mr = calloc(1, sizeof(*mr));
 	if (!mr)
@@ -736,6 +748,11 @@ struct ibv_mr *mlx5_reg_mr_ex(struct ibv_pd *pd, struct ibv_mr_init_attr *mr_ini
 	struct mlx5_mr *mr;
 	int ret;
 
+	if (mlx5_adversarial_refuses_odp(pd->context, mr_init_attr->access)) {
+		errno = EOPNOTSUPP;
+		return NULL;
+	}
+
 	mr = calloc(1, sizeof(*mr));
 	if (!mr)
 		return NULL;
@@ -755,6 +772,11 @@ struct ibv_mr *mlx5_reg_dmabuf_mr(struct ibv_pd *pd, uint64_t offset, size_t len
 {
 	struct mlx5_mr *mr;
 	int ret;
+
+	if (mlx5_adversarial_refuses_odp(pd->context, acc)) {
+		errno = EOPNOTSUPP;
+		return NULL;
+	}
 
 	mr = calloc(1, sizeof(*mr));
 	if (!mr)
@@ -844,6 +866,13 @@ int mlx5_rereg_mr(struct verbs_mr *vmr, int flags, struct ibv_pd *pd,
 	struct ibv_rereg_mr cmd;
 	struct ib_uverbs_rereg_mr_resp resp;
 
+	/* pd is set only when changing the PD, so use the MR's context */
+	if ((flags & IBV_REREG_MR_CHANGE_ACCESS) &&
+	    mlx5_adversarial_refuses_odp(vmr->ibv_mr.context, access)) {
+		errno = EOPNOTSUPP;
+		return errno;
+	}
+
 	return ibv_cmd_rereg_mr(vmr, flags, addr, length, (uintptr_t)addr,
 				access, pd, &cmd, sizeof(cmd), &resp,
 				sizeof(resp));
@@ -871,6 +900,10 @@ int mlx5_advise_mr(struct ibv_pd *pd,
 		   struct ibv_sge *sg_list,
 		   uint32_t num_sge)
 {
+	/* advise_mr applies only to ODP MRs, which are refused */
+	if (to_mctx(pd->context)->flags & MLX5_CTX_FLAGS_ADVERSARIAL_DP)
+		return EOPNOTSUPP;
+
 	return ibv_cmd_advise_mr(pd, advice, flags, sg_list, num_sge);
 }
 
@@ -5320,6 +5353,11 @@ _mlx5dv_reg_dmabuf_mr(struct ibv_pd *pd, uint64_t offset,
 				    NULL);
 	struct mlx5_mr *mr;
 	int ret;
+
+	if (mlx5_adversarial_refuses_odp(pd->context, access)) {
+		errno = EOPNOTSUPP;
+		return NULL;
+	}
 
 	mr = calloc(1, sizeof(*mr));
 	if (!mr)
