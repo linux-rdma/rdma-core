@@ -30,6 +30,8 @@
  * CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
  * SOFTWARE.
  */
+#include <stdlib.h>
+#include <unistd.h>
 #include <infiniband/driver.h>
 #include "ibverbs.h"
 #include <errno.h>
@@ -61,6 +63,36 @@ static struct ibv_mw *alloc_mw(struct ibv_pd *pd, enum ibv_mw_type type)
 {
 	errno = EOPNOTSUPP;
 	return NULL;
+}
+
+static void *alloc_buf(struct ibv_pd *pd, size_t size, struct ibv_buf **buf)
+{
+	struct ibv_buf *ibuf;
+	void *ptr;
+	int ret;
+
+	ibuf = calloc(1, sizeof(*ibuf));
+	if (!ibuf) {
+		errno = ENOMEM;
+		return NULL;
+	}
+
+	ret = posix_memalign(&ptr, sysconf(_SC_PAGESIZE), size);
+	if (ret) {
+		free(ibuf);
+		errno = ret;
+		return NULL;
+	}
+
+	ibv_buf_init(ibuf, pd, ptr, size);
+	*buf = ibuf;
+	return ptr;
+}
+
+static void free_buf(struct ibv_buf *buf)
+{
+	free(buf->addr);
+	free(buf);
 }
 
 static struct ibv_mr *alloc_null_mr(struct ibv_pd *pd)
@@ -476,8 +508,49 @@ static struct ibv_mr *reg_mr(struct ibv_pd *pd, void *addr, size_t length,
 static struct ibv_mr *reg_mr_ex(struct ibv_pd *pd,
 				struct ibv_mr_init_attr *mr_init_attr)
 {
-	errno = EOPNOTSUPP;
-	return NULL;
+	const struct verbs_context_ops *ops = get_ops(pd->context);
+	uint64_t comp_mask = mr_init_attr->comp_mask;
+	uint64_t supported_mask = IBV_REG_MR_MASK_IOVA |
+				  IBV_REG_MR_MASK_ADDR |
+				  IBV_REG_MR_MASK_FD |
+				  IBV_REG_MR_MASK_FD_OFFSET;
+
+	/*
+	 * The provider has no reg_mr_ex op, so translate the request into one
+	 * of the legacy registration ops. Fork handling and the common mr
+	 * fields are taken care of by ibv_reg_mr_ex(). Anything the legacy ops
+	 * cannot express (e.g. a dma handle) is rejected.
+	 */
+	if (!check_comp_mask(comp_mask, supported_mask)) {
+		errno = EOPNOTSUPP;
+		return NULL;
+	}
+
+	if (comp_mask & IBV_REG_MR_MASK_FD) {
+		if ((comp_mask & IBV_REG_MR_MASK_ADDR) ||
+		    !(comp_mask & IBV_REG_MR_MASK_FD_OFFSET) ||
+		    !(comp_mask & IBV_REG_MR_MASK_IOVA)) {
+			errno = EINVAL;
+			return NULL;
+		}
+
+		return ops->reg_dmabuf_mr(pd, mr_init_attr->fd_offset,
+					  mr_init_attr->length,
+					  mr_init_attr->iova, mr_init_attr->fd,
+					  mr_init_attr->access);
+	}
+
+	if (!(comp_mask & IBV_REG_MR_MASK_ADDR) ||
+	    (comp_mask & IBV_REG_MR_MASK_FD_OFFSET)) {
+		errno = EINVAL;
+		return NULL;
+	}
+
+	return ops->reg_mr(pd, mr_init_attr->addr, mr_init_attr->length,
+			   (comp_mask & IBV_REG_MR_MASK_IOVA) ?
+				   mr_init_attr->iova :
+				   (uintptr_t)mr_init_attr->addr,
+			   mr_init_attr->access);
 }
 
 static struct ibv_mr *reg_dmabuf_mr(struct ibv_pd *pd, uint64_t offset,
@@ -535,6 +608,7 @@ static void unimport_pd(struct ibv_pd *pd)
  */
 const struct verbs_context_ops verbs_dummy_ops = {
 	advise_mr,
+	alloc_buf,
 	alloc_dm,
 	alloc_dmah,
 	alloc_mw,
@@ -576,6 +650,7 @@ const struct verbs_context_ops verbs_dummy_ops = {
 	destroy_wq,
 	detach_mcast,
 	dm_export_dmabuf_fd,
+	free_buf,
 	free_context,
 	free_dm,
 	get_srq_num,
@@ -665,6 +740,7 @@ void verbs_set_ops(struct verbs_context *vctx,
 	} while (0)
 
 	SET_OP(vctx, advise_mr);
+	SET_OP(vctx, alloc_buf);
 	SET_OP(vctx, alloc_dm);
 	SET_OP(vctx, alloc_dmah);
 	SET_OP(ctx, alloc_mw);
@@ -706,6 +782,7 @@ void verbs_set_ops(struct verbs_context *vctx,
 	SET_OP(vctx, destroy_wq);
 	SET_PRIV_OP(ctx, detach_mcast);
 	SET_OP(vctx, dm_export_dmabuf_fd);
+	SET_OP(vctx, free_buf);
 	SET_PRIV_OP_IC(ctx, free_context);
 	SET_OP(vctx, free_dm);
 	SET_OP(vctx, get_srq_num);

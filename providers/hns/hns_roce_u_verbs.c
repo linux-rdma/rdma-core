@@ -1449,7 +1449,7 @@ static int qp_exec_create_cmd(struct ibv_qp_init_attr_ex *attr,
 
 	ret = ibv_cmd_create_qp_ex2(&ctx->ibv_ctx.context, &qp->verbs_qp, attr,
 				    &cmd_ex.ibv_cmd, sizeof(cmd_ex),
-				    &resp_ex.ibv_resp, sizeof(resp_ex));
+				    &resp_ex.ibv_resp, sizeof(resp_ex), NULL);
 	if (ret) {
 		verbs_err(&ctx->ibv_ctx,
 			  "failed to exec create qp cmd, ret = %d.\n", ret);

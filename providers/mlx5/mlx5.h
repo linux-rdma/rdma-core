@@ -42,6 +42,7 @@
 #include <limits.h>
 
 #include <infiniband/driver.h>
+#include <infiniband/dmabuf_heap.h>
 #include <util/udma_barrier.h>
 #include <util/cl_qmap.h>
 #include <util/util.h>
@@ -203,6 +204,7 @@ enum mlx5_alloc_type {
 	MLX5_ALLOC_TYPE_PREFER_CONTIG,
 	MLX5_ALLOC_TYPE_EXTERNAL,
 	MLX5_ALLOC_TYPE_CUSTOM,
+	MLX5_ALLOC_TYPE_DMABUF,
 	MLX5_ALLOC_TYPE_ALL
 };
 
@@ -266,6 +268,7 @@ enum mlx5_ctx_flags {
 	MLX5_CTX_FLAGS_SQD2RTS_SUPPORTED = 1 << 3,
 	MLX5_CTX_FLAGS_REAL_TIME_TS_SUPPORTED = 1 << 4,
 	MLX5_CTX_FLAGS_MKEY_UPDATE_TAG_SUPPORTED = 1 << 5,
+	MLX5_CTX_FLAGS_CC_DMA_BOUNCE = 1 << 6,
 };
 
 struct mlx5_entropy_caps {
@@ -437,14 +440,12 @@ struct mlx5_hugetlb_mem {
 };
 
 struct mlx5_buf {
-	void			       *buf;
-	size_t				length;
+	struct ibv_buf			ibv_buf;
 	int                             base;
 	struct mlx5_hugetlb_mem	       *hmem;
 	enum mlx5_alloc_type		type;
 	uint64_t			resource_type;
 	size_t				req_alignment;
-	struct mlx5_parent_domain	*mparent_domain;
 };
 
 struct mlx5_td {
@@ -473,6 +474,7 @@ struct mlx5_parent_domain {
 	void (*free)(struct ibv_pd *pd, void *pd_context, void *ptr,
 		     uint64_t resource_type);
 	void *pd_context;
+	struct ibv_dmabuf_heap *dmabuf_heap;
 };
 
 enum {
@@ -503,6 +505,7 @@ struct mlx5_cq {
 	uint32_t			cqn;
 	uint32_t			cons_index;
 	__be32			       *dbrec;
+	struct ibv_buf		       *dbrec_ibv_buf;
 	bool				custom_db;
 	int				arm_sn;
 	int				cqe_sz;
@@ -693,6 +696,7 @@ struct mlx5_qp {
 	struct mlx5_wq                  sq;
 
 	__be32                         *db;
+	struct ibv_buf		       *dbrec_ibv_buf;
 	bool				custom_db;
 	struct mlx5_wq                  rq;
 	int                             wq_sig;
@@ -1113,16 +1117,18 @@ void mlx5_open_debug_file(FILE **dbg_fp);
 void mlx5_close_debug_file(FILE *dbg_fp);
 void mlx5_set_debug_mask(void);
 
-int mlx5_alloc_buf(struct mlx5_buf *buf, size_t size, int page_size);
+int mlx5_alloc_buf(struct mlx5_buf *buf, size_t size, int page_size,
+		   struct ibv_pd *pd);
 void mlx5_free_buf(struct mlx5_buf *buf);
 int mlx5_alloc_buf_contig(struct mlx5_context *mctx, struct mlx5_buf *buf,
-			  size_t size, int page_size, const char *component);
+			  size_t size, int page_size, const char *component,
+			  struct ibv_pd *pd);
 void mlx5_free_buf_contig(struct mlx5_context *mctx, struct mlx5_buf *buf);
 int mlx5_alloc_prefered_buf(struct mlx5_context *mctx,
 			    struct mlx5_buf *buf,
 			    size_t size, int page_size,
 			    enum mlx5_alloc_type alloc_type,
-			    const char *component);
+			    const char *component, struct ibv_pd *pd);
 int mlx5_free_actual_buf(struct mlx5_context *ctx, struct mlx5_buf *buf);
 void mlx5_get_alloc_type(struct mlx5_context *context,
 			 struct ibv_pd *pd,
@@ -1131,13 +1137,17 @@ void mlx5_get_alloc_type(struct mlx5_context *context,
 			 enum mlx5_alloc_type default_alloc_type);
 int mlx5_use_huge(const char *key);
 bool mlx5_is_custom_alloc(struct ibv_pd *pd);
+bool mlx5_is_dmabuf_alloc(struct ibv_pd *pd);
 bool mlx5_is_extern_alloc(struct mlx5_context *context);
 int mlx5_alloc_buf_extern(struct mlx5_context *ctx, struct mlx5_buf *buf,
-			  size_t size);
+			  size_t size, struct ibv_pd *pd);
 void mlx5_free_buf_extern(struct mlx5_context *ctx, struct mlx5_buf *buf);
+int mlx5_alloc_buf_dmabuf(struct mlx5_context *ctx, struct mlx5_buf *buf,
+			  size_t size, struct ibv_pd *pd);
+void mlx5_free_buf_dmabuf(struct mlx5_context *ctx, struct mlx5_buf *buf);
 
 __be32 *mlx5_alloc_dbrec(struct mlx5_context *context, struct ibv_pd *pd,
-			 bool *custom_alloc);
+			 bool *custom_alloc, struct ibv_buf **dbrec_buf);
 void mlx5_free_db(struct mlx5_context *context, __be32 *db, struct ibv_pd *pd,
 		  bool custom_alloc);
 
@@ -1300,6 +1310,8 @@ int mlx5_dealloc_td(struct ibv_td *td);
 
 struct ibv_pd *mlx5_alloc_parent_domain(struct ibv_context *context,
 					struct ibv_parent_domain_init_attr *attr);
+void *mlx5_alloc_buf_op(struct ibv_pd *pd, size_t size, struct ibv_buf **buf);
+void mlx5_free_buf_op(struct ibv_buf *buf);
 
 struct ibv_dmah *mlx5_alloc_dmah(struct ibv_context *context,
 				 struct ibv_dmah_init_attr *attr);
