@@ -10,7 +10,7 @@ title: ibv_alloc_buf
 
 # NAME
 
-ibv_alloc_buf, ibv_free_buf, ibv_reg_buf_mr - allocate provider-aware buffers and register them as memory regions
+ibv_alloc_buf, ibv_free_buf, ibv_reg_buf_mr, ibv_export_buf_dmabuf_fd - allocate provider-aware buffers and register them as memory regions
 
 # SYNOPSIS
 
@@ -23,6 +23,8 @@ void ibv_free_buf(struct ibv_buf *buf);
 
 struct ibv_mr *ibv_reg_buf_mr(struct ibv_pd *pd, struct ibv_buf *buf, void *addr,
                               size_t length, int access);
+
+int ibv_export_buf_dmabuf_fd(struct ibv_buf *buf);
 ```
 
 # DESCRIPTION
@@ -30,8 +32,9 @@ struct ibv_mr *ibv_reg_buf_mr(struct ibv_pd *pd, struct ibv_buf *buf, void *addr
 **ibv_alloc_buf()** allocates a buffer using the allocation method selected by
 the provider for the protection domain *pd*. On success it returns the mapped
 address and stores an opaque buffer handle in *buf*. The handle is used by
-**ibv_free_buf()**, **ibv_reg_buf_mr()**, and **ibv_reg_mr_ex()** with
-**IBV_REG_MR_MASK_BUF**, and must not be interpreted by applications.
+**ibv_free_buf()**, **ibv_reg_buf_mr()**, **ibv_reg_mr_ex()** with
+**IBV_REG_MR_MASK_BUF**, and **ibv_export_buf_dmabuf_fd()**; it must not be
+interpreted by applications.
 
 **ibv_free_buf()** releases a buffer handle returned by **ibv_alloc_buf()**. The
 protection domain used for allocation must remain valid until the buffer is
@@ -53,6 +56,14 @@ For provider allocations backed by a DMA-buf, it registers
 the corresponding DMA-buf range using the metadata stored in
 the opaque *buf* handle.
 
+**ibv_export_buf_dmabuf_fd()** exports a new file descriptor for a buffer that
+is backed by a DMA-buf. This allows applications to pass provider-allocated
+memory to other APIs that import DMA-buf file descriptors. The returned file
+descriptor is owned by the caller and should be closed with **close(2)** when
+no longer needed. Calling
+**ibv_export_buf_dmabuf_fd()** does not transfer ownership of the buffer handle
+or the internal descriptor used by libibverbs.
+
 # ARGUMENTS
 
 *pd*
@@ -62,7 +73,7 @@ the opaque *buf* handle.
 :	Size of the buffer to allocate, in bytes (**ibv_alloc_buf()**).
 
 *buf*
-:	For **ibv_alloc_buf()**, an output parameter set on success to an opaque buffer handle. For **ibv_free_buf()** and **ibv_reg_buf_mr()**, the buffer handle returned by **ibv_alloc_buf()** to be released or registered, respectively.
+:	For **ibv_alloc_buf()**, an output parameter set on success to an opaque buffer handle. For **ibv_free_buf()** and **ibv_reg_buf_mr()**, the buffer handle returned by **ibv_alloc_buf()** to be released or registered, respectively. For **ibv_export_buf_dmabuf_fd()**, the buffer handle whose DMA-buf fd should be exported.
 
 *addr*
 :	The start address to register (**ibv_reg_buf_mr()**): the buffer base returned by **ibv_alloc_buf()** or an address within that buffer.
@@ -82,6 +93,10 @@ request fails.
 if the request fails.
 
 **ibv_free_buf()** does not return a value.
+
+**ibv_export_buf_dmabuf_fd()** returns a file descriptor >= 0 on success, or -1
+if the request fails with *errno* set. If *buf* is not backed by a DMA-buf,
+*errno* is set to **ENODATA**.
 
 # NOTES
 
