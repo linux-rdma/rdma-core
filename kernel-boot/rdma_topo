@@ -708,8 +708,7 @@ class NVCX_Inline_Complex(NVCX_Complex):
             res["rdma_nic_vpd_name"] = self.cx_pf.vpd_name
         if self.cx_pf.numa_node is not None:
             res["numa_node"] = self.cx_pf.numa_node
-        if self.cx_pf.has_ats:
-            res["rdma_nic_ats"] = self.cx_pf.has_ats
+        res["rdma_nic_ats"] = self.cx_pf.has_ats
 
         for pdev in sorted(
             itertools.chain([self.cx_pf, self.nvgpu]),
