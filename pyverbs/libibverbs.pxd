@@ -696,6 +696,7 @@ cdef extern from 'infiniband/verbs.h':
     ibv_mr *ibv_reg_dmabuf_mr(ibv_pd *pd, uint64_t offset, size_t length,
                               uint64_t iova, int fd, int access)
     void *ibv_alloc_buf(ibv_pd *pd, size_t size, ibv_buf **buf)
+    int ibv_export_buf_dmabuf_fd(ibv_buf *buf)
     void ibv_free_buf(ibv_buf *buf)
     ibv_mr *ibv_reg_buf_mr(ibv_pd *pd, ibv_buf *buf, void *addr,
                            size_t length, int access)
