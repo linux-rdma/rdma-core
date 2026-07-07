@@ -2426,6 +2426,12 @@ int efadv_query_qp_wqs(struct ibv_qp *ibvqp, struct efadv_wq_attr *sq_attr,
 	sq_attr->num_entries = qp->sq.wq.wqe_cnt;
 	sq_attr->doorbell = qp->sq.wq.db;
 	sq_attr->max_batch = qp->sq.max_batch_wr;
+	if (vext_field_avail(typeof(*sq_attr), reserved, inlen)) {
+		sq_attr->caps = 0;
+		memset(sq_attr->reserved, 0, sizeof(sq_attr->reserved));
+		if (qp->sq.wq.req_id_64_bit)
+			sq_attr->caps |= EFADV_WQ_CAPS_64_BIT_REQ_ID;
+	}
 
 	rq_attr->comp_mask = 0;
 	rq_attr->buffer = qp->rq.buf;
@@ -2433,6 +2439,10 @@ int efadv_query_qp_wqs(struct ibv_qp *ibvqp, struct efadv_wq_attr *sq_attr,
 	rq_attr->num_entries = qp->rq.wq.desc_mask + 1;
 	rq_attr->doorbell = qp->rq.wq.db;
 	rq_attr->max_batch = rq_attr->num_entries;
+	if (vext_field_avail(typeof(*rq_attr), reserved, inlen)) {
+		memset(rq_attr->reserved, 0, sizeof(rq_attr->reserved));
+		rq_attr->caps = 0;
+	}
 
 	return 0;
 }

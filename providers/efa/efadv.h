@@ -106,6 +106,10 @@ struct ibv_qp *efadv_create_qp_ex(struct ibv_context *ibvctx,
 				  struct efadv_qp_init_attr *efa_attr,
 				  uint32_t inlen);
 
+enum {
+	EFADV_WQ_CAPS_64_BIT_REQ_ID = 1 << 0,
+};
+
 struct efadv_wq_attr {
 	uint64_t comp_mask;
 	uint8_t *buffer;
@@ -113,7 +117,8 @@ struct efadv_wq_attr {
 	uint32_t num_entries;
 	uint32_t *doorbell;
 	uint32_t max_batch;
-	uint8_t reserved[4];
+	uint16_t caps;
+	uint8_t reserved[2];
 };
 
 int efadv_query_qp_wqs(struct ibv_qp *ibvqp, struct efadv_wq_attr *sq_attr,
