@@ -1137,6 +1137,17 @@ static inline int mlx5_start_poll(struct ibv_cq_ex *ibcq, struct ibv_poll_cq_att
 		return ENOENT;
 	}
 
+	if (clock_update) {
+		err = mlx5dv_get_clock_info(ibcq->context, &cq->last_clock_info);
+		if (err) {
+			if (err == EBUSY)
+				--cq->cons_index;
+			if (lock)
+				mlx5_spin_unlock(&cq->lock);
+			return err;
+		}
+	}
+
 	if (stall)
 		cq->flags |= MLX5_CQ_FLAGS_FOUND_CQES;
 
@@ -1152,17 +1163,8 @@ static inline int mlx5_start_poll(struct ibv_cq_ex *ibcq, struct ibv_poll_cq_att
 		}
 
 		cq->flags &= ~(MLX5_CQ_FLAGS_FOUND_CQES);
-
-		goto out;
 	}
 
-	if (clock_update && !err) {
-		err = mlx5dv_get_clock_info(ibcq->context, &cq->last_clock_info);
-		if (lock && err)
-			mlx5_spin_unlock(&cq->lock);
-	}
-
-out:
 	return err;
 }
 
