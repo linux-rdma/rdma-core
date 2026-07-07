@@ -83,6 +83,11 @@ struct xscdv_devx_umem_in {
 	int dmabuf_fd;
 };
 
+struct xsc_wqe_atomic_seg {
+	__be64		swap_add;
+	__be64		compare;
+};
+
 struct xscdv_ctx_allocators {
 	void *(*alloc)(size_t size, void *priv_data);
 	void (*free)(void *ptr, void *priv_data);

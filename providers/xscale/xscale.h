@@ -22,6 +22,7 @@
 
 #include "xsc-abi.h"
 #include "xscdv.h"
+#include "xsc_hsi.h"
 
 enum xsc_qp_ex_attr_mask {
 	XSC_QP_FLUSH		= 1 << 21,
@@ -48,16 +49,17 @@ enum {
 #define XSC_MIN_LOG2_CONTIG_BLOCK_SIZE 12
 
 enum {
-	XSC_DBG_QP = 1 << 0,
-	XSC_DBG_CQ = 1 << 1,
-	XSC_DBG_QP_SEND = 1 << 2,
-	XSC_DBG_QP_SEND_ERR = 1 << 3,
-	XSC_DBG_CQ_CQE = 1 << 4,
-	XSC_DBG_CONTIG = 1 << 5,
-	XSC_DBG_DR = 1 << 6,
-	XSC_DBG_CTX = 1 << 7,
-	XSC_DBG_PD = 1 << 8,
-	XSC_DBG_MR = 1 << 9,
+	XSC_DBG_QP		= 1 << 0,
+	XSC_DBG_CQ		= 1 << 1,
+	XSC_DBG_QP_SEND		= 1 << 2,
+	XSC_DBG_QP_SEND_ERR	= 1 << 3,
+	XSC_DBG_CQ_CQE		= 1 << 4,
+	XSC_DBG_CONTIG		= 1 << 5,
+	XSC_DBG_DR		= 1 << 6,
+	XSC_DBG_CTX		= 1 << 7,
+	XSC_DBG_PD		= 1 << 8,
+	XSC_DBG_MR		= 1 << 9,
+	XSC_DBG_QP_RECV		= 1 << 10,
 };
 
 extern uint32_t xsc_debug_mask;
@@ -152,7 +154,8 @@ struct xsc_spinlock {
 #define XSC_MV_HOST_VF_DEV_ID		0x1152
 #define XSC_MV_SOC_PF_DEV_ID		0x1153
 
-#define NAME_BUFFER_SIZE 64
+#define NAME_BUFFER_SIZE	64
+#define	MAX_OPCODE		IBV_WR_ATOMIC_WRITE
 
 struct xsc_context {
 	struct verbs_context		ibv_ctx;
@@ -197,6 +200,8 @@ struct xsc_context {
 	uint32_t			tx_multidb_base;
 	void				*mdb_base;
 	uint32_t			tx_mdb_idx;
+	uint32_t			wr2msg[MAX_OPCODE + 1];
+	uint32_t			msg2cqe[XSC_MSG_OPCODE_MAX][2][2];
 	uint32_t			hw_feature_flag;
 	uint32_t			mdb_mmap_size;
 };
@@ -495,6 +500,10 @@ int xsc_query_qp(struct ibv_qp *qp, struct ibv_qp_attr *attr, int attr_mask,
 		 struct ibv_qp_init_attr *init_attr);
 int xsc_modify_qp(struct ibv_qp *qp, struct ibv_qp_attr *attr, int attr_mask);
 int xsc_destroy_qp(struct ibv_qp *qp);
+int xsc_post_send(struct ibv_qp *ibqp, struct ibv_send_wr *wr,
+			  struct ibv_send_wr **bad_wr);
+int xsc_post_recv(struct ibv_qp *ibqp, struct ibv_recv_wr *wr,
+			  struct ibv_recv_wr **bad_wr);
 void xsc_init_qp_indices(struct xsc_qp *qp);
 struct xsc_qp *xsc_find_qp(struct xsc_context *ctx, uint32_t qpn);
 int xsc_store_qp(struct xsc_context *ctx, uint32_t qpn, struct xsc_qp *qp);
@@ -547,6 +556,11 @@ static inline void set_arg(int arg, off_t *offset)
 static inline void set_order(int order, off_t *offset)
 {
 	set_arg(order, offset);
+}
+
+static inline void *xsc_get_send_wqe(struct xsc_qp *qp, int n)
+{
+	return qp->sq_start + (n << qp->sq.wqe_shift);
 }
 
 #endif /* XSC_H */
