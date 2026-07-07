@@ -529,6 +529,21 @@ static inline uint64_t efa_get_sq_comp_wrid(struct efa_wq *wq,
 	return efa_wq_get_wrid_by_dev_req_id(wq, cqe->req_id);
 }
 
+static inline void efa_set_sq_comp_wrid(struct efa_io_tx_meta_desc *md, struct efa_wq *wq,
+					uint64_t wr_id) ALWAYS_INLINE;
+static inline void efa_set_sq_comp_wrid(struct efa_io_tx_meta_desc *md, struct efa_wq *wq,
+					uint64_t wr_id)
+{
+	if (wq->req_id_64_bit) {
+		md->req_id = (uint16_t)wr_id;
+		md->req_id_ex.w[0] = (uint16_t)(wr_id >> 16);
+		md->req_id_ex.w[1] = (uint16_t)(wr_id >> 32);
+		md->req_id_ex.w[2] = (uint16_t)(wr_id >> 48);
+	} else {
+		md->req_id = efa_wq_get_dev_req_id_locked(wq, wr_id);
+	}
+}
+
 static uint32_t efa_sub_cq_get_current_index(struct efa_sub_cq *sub_cq)
 {
 	return sub_cq->consumed_cnt & sub_cq->qmask;
@@ -1632,8 +1647,11 @@ static void efa_wq_terminate(struct efa_wq *wq, int pgsz)
 	db_aligned = (void *)((uintptr_t)wq->db & ~(pgsz - 1));
 	munmap(db_aligned, pgsz);
 
-	free(wq->wrid_idx_pool);
-	free(wq->wrid);
+	if (wq->wrid_idx_pool)
+		free(wq->wrid_idx_pool);
+
+	if (wq->wrid)
+		free(wq->wrid);
 }
 
 static int efa_wq_initialize(struct efa_wq *wq, struct efa_wq_init_attr *attr)
@@ -1643,14 +1661,20 @@ static int efa_wq_initialize(struct efa_wq *wq, struct efa_wq_init_attr *attr)
 	int err;
 	int i;
 
-	wq->wrid = malloc(wq->wqe_cnt * sizeof(*wq->wrid));
-	if (!wq->wrid)
-		return ENOMEM;
+	if (!wq->req_id_64_bit) {
+		wq->wrid = malloc(wq->wqe_cnt * sizeof(*wq->wrid));
+		if (!wq->wrid)
+			return ENOMEM;
 
-	wq->wrid_idx_pool = malloc(wq->wqe_cnt * sizeof(uint32_t));
-	if (!wq->wrid_idx_pool) {
-		err = ENOMEM;
-		goto err_free_wrid;
+		wq->wrid_idx_pool = malloc(wq->wqe_cnt * sizeof(uint32_t));
+		if (!wq->wrid_idx_pool) {
+			err = ENOMEM;
+			goto err_free_wrid;
+		}
+
+		/* Initialize the wrid free indexes pool. */
+		for (i = 0; i < wq->wqe_cnt; i++)
+			wq->wrid_idx_pool[i] = i;
 	}
 
 	wrid_idx_mask = roundup_pow_of_two(wq->wqe_cnt) - 1;
@@ -1666,10 +1690,6 @@ static int efa_wq_initialize(struct efa_wq *wq, struct efa_wq_init_attr *attr)
 
 	wq->db = (uint32_t *)(db_base + attr->db_off);
 
-	/* Initialize the wrid free indexes pool. */
-	for (i = 0; i < wq->wqe_cnt; i++)
-		wq->wrid_idx_pool[i] = i;
-
 	wq->need_lock = attr->need_lock;
 	if (wq->need_lock)
 		pthread_spin_init(&wq->wqlock, PTHREAD_PROCESS_PRIVATE);
@@ -1679,9 +1699,11 @@ static int efa_wq_initialize(struct efa_wq *wq, struct efa_wq_init_attr *attr)
 	return 0;
 
 err_free_wrid_idx_pool:
-	free(wq->wrid_idx_pool);
+	if (wq->wrid_idx_pool)
+		free(wq->wrid_idx_pool);
 err_free_wrid:
-	free(wq->wrid);
+	if (wq->wrid)
+		free(wq->wrid);
 	return err;
 }
 
@@ -1965,12 +1987,14 @@ static void efa_setup_qp(struct efa_context *ctx,
 						     ctx->min_sq_wr));
 	qp->sq.wq.max_sge = cap->max_send_sge;
 	qp->sq.wq.desc_mask = qp->sq.wq.wqe_cnt - 1;
+	qp->sq.wq.req_id_64_bit = !!(EFA_DEV_CAP(ctx, SQ_64_BIT_REQ_ID));
 	qp->sq.inline_write_enabled = inline_write_enabled;
 
 	qp->rq.wq.max_sge = cap->max_recv_sge;
 	rq_desc_cnt = roundup_pow_of_two(cap->max_recv_sge * cap->max_recv_wr);
 	qp->rq.wq.desc_mask = rq_desc_cnt - 1;
 	qp->rq.wq.wqe_cnt = rq_desc_cnt / qp->rq.wq.max_sge;
+	qp->rq.wq.req_id_64_bit = false;
 
 	qp->page_size = page_size;
 }
@@ -2185,6 +2209,9 @@ static struct ibv_qp *create_qp(struct ibv_context *ibvctx,
 		req.flags |= EFA_CREATE_QP_WITH_UNSOLICITED_WRITE_RECV;
 
 	req.sl = efa_attr->sl;
+
+	if (qp->sq.wq.req_id_64_bit)
+		req.flags |= EFA_CREATE_QP_WITH_SQ_64_BIT_REQ_ID;
 
 	err = ibv_cmd_create_qp_ex(ibvctx, &qp->verbs_qp,
 				   attr, &req.ibv_cmd, sizeof(req),
@@ -2734,7 +2761,8 @@ int efa_post_send(struct ibv_qp *ibvqp, struct ibv_send_wr *wr,
 
 		/* Set rest of the descriptor fields */
 		efa_set_common_ctrl_flags(md, sq, EFA_IO_SEND);
-		md->req_id = efa_wq_get_dev_req_id_locked(wq, wr->wr_id);
+		efa_set_sq_comp_wrid(md, wq, wr->wr_id);
+
 		md->dest_qp_num = wr->wr.ud.remote_qpn;
 		md->ah = ah->efa_ah;
 		md->qkey = wr->wr.ud.remote_qkey;
@@ -2807,7 +2835,7 @@ static void efa_send_wr_init(struct efa_qp *qp, struct ibv_qp_ex *ibvqpx,
 
 	sq->curr_tx_wqe.md = md;
 	efa_set_common_ctrl_flags(sq->curr_tx_wqe.md, sq, op_type);
-	sq->curr_tx_wqe.md->req_id = efa_wq_get_dev_req_id_locked(&sq->wq, ibvqpx->wr_id);
+	efa_set_sq_comp_wrid(sq->curr_tx_wqe.md, &sq->wq, ibvqpx->wr_id);
 
 	/* advance index and change phase */
 	efa_sq_advance_post_idx(sq);

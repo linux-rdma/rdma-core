@@ -136,7 +136,9 @@ struct efa_io_tx_meta_desc {
 	/* Queue key */
 	uint32_t qkey;
 
-	uint8_t reserved2[12];
+	uint8_t reserved2[6];
+
+	struct efa_io_req_id_ex req_id_ex;
 };
 
 /*
