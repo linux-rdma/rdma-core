@@ -490,6 +490,9 @@ int xsc_alloc_cq_buf(struct xsc_context *xctx, struct xsc_cq *cq,
 int xsc_free_cq_buf(struct xsc_context *ctx, struct xsc_buf *buf);
 int xsc_resize_cq(struct ibv_cq *cq, int cqe);
 int xsc_destroy_cq(struct ibv_cq *cq);
+int xsc_poll_cq(struct ibv_cq *cq, int ne, struct ibv_wc *wc);
+int xsc_arm_cq(struct ibv_cq *cq, int solicited);
+void xsc_cq_event(struct ibv_cq *cq);
 void __xsc_cq_clean(struct xsc_cq *cq, uint32_t qpn);
 void xsc_cq_clean(struct xsc_cq *cq, uint32_t qpn);
 

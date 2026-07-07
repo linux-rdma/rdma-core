@@ -43,6 +43,9 @@ static const struct verbs_context_ops xsc_ctx_common_ops = {
 	.dereg_mr = xsc_dereg_mr,
 
 	.create_cq = xsc_create_cq,
+	.poll_cq       = xsc_poll_cq,
+	.req_notify_cq = xsc_arm_cq,
+	.cq_event      = xsc_cq_event,
 	.resize_cq = xsc_resize_cq,
 	.destroy_cq = xsc_destroy_cq,
 
