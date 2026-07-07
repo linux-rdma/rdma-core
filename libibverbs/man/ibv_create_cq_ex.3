@@ -74,6 +74,11 @@ easily extensible in the future. This function either returns 0 on success or an
 otherwise. When no completions are available on the CQ, ENOENT is returned, but the CQ remains
 in a valid state. On success, querying the completion's attribute could be done using the query
 functions described below. If an error code is given, end_poll shouldn't be called.
+When
+.B IBV_WC_EX_WITH_COMPLETION_TIMESTAMP_WALLCLOCK
+is requested, EBUSY may be returned transiently if the device clock information
+cannot be read due to a concurrent kernel update; the CQ remains in a valid state
+and the application should retry.
 
 .BI "int ibv_next_poll(struct ibv_cq_ex " "*cq")
 .br
