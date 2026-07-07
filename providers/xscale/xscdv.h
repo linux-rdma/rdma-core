@@ -37,6 +37,39 @@ struct xscdv_cq_init_attr {
 	uint16_t cqe_size; /* when XSCDV_CQ_INIT_ATTR_MASK_CQE_SIZE set */
 };
 
+enum xscdv_wq_init_attr_mask {
+	XSCDV_WQ_INIT_ATTR_MASK_STRIDING_RQ	= 1 << 0,
+};
+
+enum xscdv_qp_create_flags {
+	XSCDV_QP_CREATE_TUNNEL_OFFLOADS = 1 << 0,
+	XSCDV_QP_CREATE_TIR_ALLOW_SELF_LOOPBACK_UC = 1 << 1,
+	XSCDV_QP_CREATE_TIR_ALLOW_SELF_LOOPBACK_MC = 1 << 2,
+	XSCDV_QP_CREATE_DISABLE_SCATTER_TO_CQE = 1 << 3,
+	XSCDV_QP_CREATE_ALLOW_SCATTER_TO_CQE = 1 << 4,
+};
+
+enum xscdv_qp_init_attr_mask {
+	XSCDV_QP_INIT_ATTR_MASK_QP_CREATE_FLAGS	= 1 << 0,
+	XSCDV_QP_INIT_ATTR_MASK_DC			= 1 << 1,
+};
+
+enum xscdv_dc_type {
+	XSCDV_DCTYPE_DCT     = 1,
+	XSCDV_DCTYPE_DCI,
+};
+
+struct xscdv_dc_init_attr {
+	enum xscdv_dc_type	dc_type;
+	uint64_t dct_access_key;
+};
+
+struct xscdv_qp_init_attr {
+	uint64_t comp_mask;	/* Use enum xscdv_qp_init_attr_mask */
+	uint32_t create_flags;	/* Use enum xsc_qp_create_flags */
+	struct xscdv_dc_init_attr  dc_init_attr;
+};
+
 enum xscdv_devx_umem_in_mask {
 	XSCDV_UMEM_MASK_DMABUF = 1 << 0,
 };

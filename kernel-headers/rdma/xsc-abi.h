@@ -20,7 +20,7 @@ struct xsc_ib_alloc_ucontext_resp {
 	__u32	cache_line_size;
 	__u16	max_sq_desc_sz;
 	__u16	max_rq_desc_sz;
-	__u32	max_send_wr;
+	__u32	max_send_wqebb;
 	__u32	max_recv_wr;
 	__u16	num_ports;
 	__u16	device_id;
@@ -56,6 +56,39 @@ struct xsc_ib_resize_cq {
 	__u16	cqe_size;
 	__u16	reserved0;
 	__u32	reserved1;
+};
+
+struct xsc_ib_create_qp {
+	__aligned_u64 buf_addr;
+	__aligned_u64 db_addr;
+	__u32	sq_wqe_count;
+	__u32	rq_wqe_count;
+	__u32	rq_wqe_shift;
+	__u32	flags;
+
+	int	dmabuf_fd;
+	size_t	dmabuf_sz;
+};
+
+struct xsc_ib_create_qp_resp {
+	__u32   bfreg_index;
+	__u32   resv;
+};
+
+struct xsc_ib_burst_info {
+	__u32       max_burst_sz;
+	__u16       typical_pkt_sz;
+	__u16       reserved;
+};
+
+struct xsc_ib_modify_qp {
+	__u32			   comp_mask;
+	struct xsc_ib_burst_info  burst_info;
+};
+
+struct xsc_ib_modify_qp_resp {
+	__u32	response_length;
+	__u32	dctn;
 };
 
 enum xsc_ib_mmap_cmd {

@@ -45,6 +45,12 @@ static const struct verbs_context_ops xsc_ctx_common_ops = {
 	.create_cq = xsc_create_cq,
 	.resize_cq = xsc_resize_cq,
 	.destroy_cq = xsc_destroy_cq,
+
+	.create_qp = xsc_create_qp,
+	.query_qp = xsc_query_qp,
+	.modify_qp = xsc_modify_qp,
+	.destroy_qp = xsc_destroy_qp,
+	.create_qp_ex = xsc_create_qp_ex,
 };
 
 static void open_debug_file(struct xsc_context *ctx)
@@ -208,9 +214,9 @@ static struct verbs_context *xsc_alloc_context(struct ibv_device *ibdev,
 	context->max_num_qps = resp.qp_tab_size;
 	context->max_sq_desc_sz = resp.max_sq_desc_sz;
 	context->max_rq_desc_sz = resp.max_rq_desc_sz;
-	context->max_send_wr = resp.max_send_wr;
-	context->num_ports = resp.num_ports;
-	context->max_recv_wr = resp.max_recv_wr;
+	context->max_send_wqebb	= resp.max_send_wqebb;
+	context->num_ports	= resp.num_ports;
+	context->max_recv_wr	= resp.max_recv_wr;
 	context->qpm_tx_db = resp.qpm_tx_db;
 	context->qpm_rx_db = resp.qpm_rx_db;
 	context->cqm_next_cid_reg = resp.cqm_next_cid_reg;
@@ -225,8 +231,8 @@ static struct verbs_context *xsc_alloc_context(struct ibv_device *ibdev,
 		context->max_num_qps, context->max_sq_desc_sz,
 		context->max_rq_desc_sz);
 	xsc_dbg(context->dbg_fp, XSC_DBG_CTX,
-		"max_send_wr:%u, num_ports:%u, max_recv_wr:%u\n",
-		context->max_send_wr,
+		"max_send_wqebb:%u, num_ports:%u, max_recv_wr:%u\n",
+		context->max_send_wqebb,
 		context->num_ports, context->max_recv_wr);
 	xsc_dbg(context->dbg_fp, XSC_DBG_CTX,
 		"send_ds_num:%u shift:%u recv_ds_num:%u shift:%u\n",

@@ -26,5 +26,17 @@ DECLARE_DRV_CMD(xsc_create_cq_ex, IB_USER_VERBS_EX_CMD_CREATE_CQ,
 		xsc_ib_create_cq, xsc_ib_create_cq_resp);
 DECLARE_DRV_CMD(xsc_resize_cq, IB_USER_VERBS_CMD_RESIZE_CQ,
 		xsc_ib_resize_cq, empty);
+DECLARE_DRV_CMD(xsc_create_qp_ex, IB_USER_VERBS_EX_CMD_CREATE_QP,
+		xsc_ib_create_qp, xsc_ib_create_qp_resp);
+DECLARE_DRV_CMD(xsc_create_qp, IB_USER_VERBS_CMD_CREATE_QP,
+		xsc_ib_create_qp, xsc_ib_create_qp_resp);
+DECLARE_DRV_CMD(xsc_modify_qp_ex, IB_USER_VERBS_EX_CMD_MODIFY_QP,
+		empty, xsc_ib_modify_qp_resp);
+
+struct xsc_modify_qp {
+	struct ibv_modify_qp_ex		ibv_cmd;
+	__u32				comp_mask;
+	struct xsc_ib_burst_info	burst_info;
+};
 
 #endif /* XSC_ABI_H */
