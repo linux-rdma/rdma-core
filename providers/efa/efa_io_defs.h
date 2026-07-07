@@ -70,6 +70,10 @@ enum efa_io_processing_hint {
 	EFA_IO_PROCESSING_HINT_BURST_PPS_SENSITIVE  = 1 << 0,
 };
 
+struct efa_io_req_id_ex {
+	uint16_t w[3];
+};
+
 struct efa_io_tx_meta_desc {
 	/* Verbs-generated Request ID */
 	uint16_t req_id;
@@ -287,8 +291,10 @@ struct efa_io_tx_cdesc {
 	/* Common completion info */
 	struct efa_io_cdesc_common common;
 
+	struct efa_io_req_id_ex req_id_ex;
+
 	/* MBZ */
-	uint16_t reserved16;
+	uint8_t reserved[4];
 };
 
 /* Rx Completion Descriptor */
