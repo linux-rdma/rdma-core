@@ -89,11 +89,6 @@ static inline int repoll_fd_to_slot_set(struct index_map *fd_to_slot, int fd,
 	return idm_set(fd_to_slot, fd, (void *)(uintptr_t)slot);
 }
 
-enum repoll_monitor_state {
-	REPOLL_MONITOR_SLEEPING,
-	REPOLL_MONITOR_RUNNING,
-};
-
 static struct index_map idm;
 static pthread_mutex_t mut = PTHREAD_MUTEX_INITIALIZER;
 static pthread_mutex_t svc_mut = PTHREAD_MUTEX_INITIALIZER;
@@ -4797,19 +4792,18 @@ struct repoll_info {
 	int cmd_pipe[2];
 	pthread_t monitor;
 	pthread_mutex_t lock;
-	pthread_cond_t monitor_wake;
+	pthread_cond_t monitor_cond;
+	pthread_cond_t wait_cond;
 	struct index_map fd_to_slot;
 	struct pollfd *fds;
 	union epoll_data *user_data;
 	uint16_t slot_count;
 	uint16_t active_fds;
 	uint16_t capacity;
-	uint32_t reload_gen;
-	uint32_t reload_ack;
-	uint32_t event_gen;
-
+	uint64_t monitor_seq;
+	uint64_t wait_seq;
+	unsigned int waiters;
 	bool running;
-	_Atomic(int) monitor_state;
 };
 
 static struct repoll_info *repoll_lookup(int epfd)
@@ -4835,6 +4829,10 @@ static int repoll_close(int epfd)
 		return EBUSY;
 
 	ri->running = false;
+	pthread_mutex_lock(&ri->lock);
+	pthread_cond_broadcast(&ri->monitor_cond);
+	pthread_cond_broadcast(&ri->wait_cond);
+	pthread_mutex_unlock(&ri->lock);
 	size = write(ri->cmd_pipe[1], &cmd, sizeof(cmd));
 	(void)size;
 	pthread_join(ri->monitor, NULL);
@@ -4848,7 +4846,8 @@ static int repoll_close(int epfd)
 	close(ri->epfd);
 	close(ri->epfd_peer);
 	pthread_mutex_destroy(&ri->lock);
-	pthread_cond_destroy(&ri->monitor_wake);
+	pthread_cond_destroy(&ri->monitor_cond);
+	pthread_cond_destroy(&ri->wait_cond);
 	free(ri->fds);
 	free(ri->user_data);
 	free(ri);
@@ -4894,58 +4893,69 @@ static int repoll_monitor_read_cmd(struct pollfd *fds)
 	return cmd;
 }
 
-static void repoll_monitor_signal_events(struct repoll_info *ri)
-{
-	pthread_mutex_lock(&ri->lock);
-	ri->event_gen++;
-	pthread_cond_broadcast(&ri->monitor_wake);
-	pthread_mutex_unlock(&ri->lock);
-}
-
-static void repoll_monitor_ack_reload(struct repoll_info *ri)
-{
-	pthread_mutex_lock(&ri->lock);
-	ri->reload_ack = ri->reload_gen;
-	pthread_cond_broadcast(&ri->monitor_wake);
-	pthread_mutex_unlock(&ri->lock);
-}
-
 static void *repoll_monitor_fn(void *arg)
 {
 	struct repoll_info *ri = arg;
 	struct pollfd *fds = NULL;
 	int fds_cap = 0;
 	int nfds;
+	uint64_t my_monitor_seq = 0;
 
-	if (repoll_monitor_refresh_fds(ri, &fds, &fds_cap, &nfds))
-		return NULL;
-
-	atomic_store(&ri->monitor_state, REPOLL_MONITOR_RUNNING);
-
+	pthread_mutex_lock(&ri->lock);
 	while (ri->running) {
-		int cmd;
+		while (ri->running && ri->monitor_seq == my_monitor_seq)
+			pthread_cond_wait(&ri->monitor_cond, &ri->lock);
 
-		if (rpoll(fds, nfds, -1) <= 0)
-			continue;
+		if (!ri->running)
+			break;
 
-		cmd = repoll_monitor_read_cmd(fds);
-		switch (cmd) {
-		case REPOLL_CMD_REFRESH_FDS:
-			if (repoll_monitor_refresh_fds(ri, &fds, &fds_cap,
-						       &nfds))
+		my_monitor_seq = ri->monitor_seq;
+		pthread_mutex_unlock(&ri->lock);
+
+		for (;;) {
+			unsigned int wait_cnt;
+
+			pthread_mutex_lock(&ri->lock);
+			wait_cnt = ri->waiters;
+			pthread_mutex_unlock(&ri->lock);
+			if (!wait_cnt)
+				break;
+
+			if (repoll_monitor_refresh_fds(ri, &fds, &fds_cap, &nfds))
 				goto out;
-			repoll_monitor_ack_reload(ri);
-			break;
-		case REPOLL_CMD_EXIT:
-			goto out;
-		default:
-			break;
+
+			if (rpoll(fds, nfds, -1) <= 0)
+				continue;
+
+			for (;;) {
+				int cmd = repoll_monitor_read_cmd(fds);
+
+				if (cmd == REPOLL_CMD_EXIT)
+					goto out;
+				if (cmd == REPOLL_CMD_REFRESH_FDS) {
+					if (repoll_monitor_refresh_fds(ri, &fds,
+								       &fds_cap,
+								       &nfds))
+						goto out;
+					continue;
+				}
+				break;
+			}
+
+			if (repoll_monitor_has_user_events(fds, nfds)) {
+				pthread_mutex_lock(&ri->lock);
+				my_monitor_seq = ri->monitor_seq;
+				ri->wait_seq++;
+				pthread_cond_broadcast(&ri->wait_cond);
+				pthread_mutex_unlock(&ri->lock);
+				break;
+			}
 		}
 
-		if (repoll_monitor_has_user_events(fds, nfds))
-			repoll_monitor_signal_events(ri);
+		pthread_mutex_lock(&ri->lock);
 	}
 
+	pthread_mutex_unlock(&ri->lock);
 out:
 	free(fds);
 	return NULL;
@@ -5021,7 +5031,8 @@ int repoll_create(int flags)
 	pthread_mutex_init(&ri->lock, NULL);
 	pthread_condattr_init(&cond_attr);
 	pthread_condattr_setclock(&cond_attr, CLOCK_MONOTONIC);
-	pthread_cond_init(&ri->monitor_wake, &cond_attr);
+	pthread_cond_init(&ri->monitor_cond, &cond_attr);
+	pthread_cond_init(&ri->wait_cond, &cond_attr);
 	pthread_condattr_destroy(&cond_attr);
 
 	if (repoll_setup_cmd_pipe(ri))
@@ -5097,28 +5108,12 @@ static int repoll_grow_fds(struct repoll_info *ri)
 	return 0;
 }
 
-static void repoll_wake_monitor_locked(struct repoll_info *ri)
-{
-	if (atomic_load(&ri->monitor_state) == REPOLL_MONITOR_SLEEPING &&
-	    ri->running) {
-		atomic_store(&ri->monitor_state, REPOLL_MONITOR_RUNNING);
-		pthread_cond_signal(&ri->monitor_wake);
-	}
-}
-
 static void repoll_send_reload(struct repoll_info *ri)
 {
 	int cmd = REPOLL_CMD_REFRESH_FDS;
 	int size;
-	uint32_t pending;
 
 	if (!ri->running)
-		return;
-
-	ri->reload_gen++;
-	repoll_wake_monitor_locked(ri);
-	pending = ri->reload_gen - ri->reload_ack;
-	if (pending > 1)
 		return;
 
 	size = write(ri->cmd_pipe[1], &cmd, sizeof(cmd));
@@ -5289,19 +5284,15 @@ static int repoll_collect_events(struct repoll_info *ri,
 	return j;
 }
 
-/* Future option: disable the monitor thread for a threadless mode
- * where repoll_wait calls rpoll directly.
- */
-
 int repoll_wait(int epfd, struct epoll_event *events, int maxevents,
 		int timeout)
 {
 	struct repoll_info *ri;
 	struct timespec abs_timeout;
-	uint32_t seen_reload;
-	uint32_t seen_event;
+	uint64_t my_wait_seq;
 	int nfds, ret;
-	int wait_ret;
+	int wait_ret = 0;
+	bool have_deadline = false;
 
 	if (epfd < 0)
 		return EBADF;
@@ -5310,24 +5301,24 @@ int repoll_wait(int epfd, struct epoll_event *events, int maxevents,
 	if (!ri)
 		return EINVAL;
 
-	if (timeout > 0 && repoll_timeout_to_abs_ts(timeout, &abs_timeout))
-		return errno ? errno : EINVAL;
+	if (timeout > 0) {
+		if (repoll_timeout_to_abs_ts(timeout, &abs_timeout))
+			return errno ? errno : EINVAL;
+		have_deadline = true;
+	}
 
 	do {
-		wait_ret = 0;
 		pthread_mutex_lock(&ri->lock);
 		nfds = ri->slot_count - 1;
-		if (nfds <= 0) {
-			pthread_mutex_unlock(&ri->lock);
-			return 0;
-		}
-
-		ret = rpoll(ri->fds + 1, nfds, 0);
-		if (ret > 0) {
-			ret = repoll_collect_events(ri, ri->fds + 1, nfds, events,
-						    maxevents);
-			pthread_mutex_unlock(&ri->lock);
-			return ret;
+		if (nfds > 0) {
+			ret = rpoll(ri->fds + 1, nfds, 0);
+			if (ret > 0) {
+				ret = repoll_collect_events(ri, ri->fds + 1,
+							    nfds, events,
+							    maxevents);
+				pthread_mutex_unlock(&ri->lock);
+				return ret;
+			}
 		}
 
 		if (!timeout) {
@@ -5335,27 +5326,43 @@ int repoll_wait(int epfd, struct epoll_event *events, int maxevents,
 			return 0;
 		}
 
-		seen_reload = ri->reload_ack;
-		seen_event = ri->event_gen;
-		repoll_wake_monitor_locked(ri);
-		while (ri->reload_ack == seen_reload && ri->event_gen == seen_event &&
-		       ri->running) {
-			if (timeout < 0) {
-				wait_ret = pthread_cond_wait(&ri->monitor_wake,
-						       &ri->lock);
+		ri->waiters++;
+		ri->monitor_seq++;
+		pthread_cond_signal(&ri->monitor_cond);
+
+		my_wait_seq = ri->wait_seq;
+		while (my_wait_seq == ri->wait_seq && ri->running) {
+			if (have_deadline) {
+				struct timespec now;
+
+				if (clock_gettime(CLOCK_MONOTONIC, &now))
+					wait_ret = errno;
+				else if (now.tv_sec > abs_timeout.tv_sec ||
+					 (now.tv_sec == abs_timeout.tv_sec &&
+					  now.tv_nsec >= abs_timeout.tv_nsec))
+					wait_ret = ETIMEDOUT;
+				else
+					wait_ret = pthread_cond_timedwait(
+							&ri->wait_cond,
+							&ri->lock,
+							&abs_timeout);
 			} else {
-				wait_ret = pthread_cond_timedwait(&ri->monitor_wake,
-						&ri->lock, &abs_timeout);
+				wait_ret = pthread_cond_wait(&ri->wait_cond,
+							     &ri->lock);
 			}
 
 			if (wait_ret)
 				break;
 		}
+
+		ri->waiters--;
 		pthread_mutex_unlock(&ri->lock);
 
 		if (wait_ret == ETIMEDOUT)
 			return 0;
 		if (wait_ret)
 			return wait_ret;
+		if (!ri->running)
+			return 0;
 	} while (1);
 }
