@@ -477,6 +477,8 @@ int xsc_free_pd(struct ibv_pd *pd);
 
 struct ibv_mr *xsc_reg_mr(struct ibv_pd *pd, void *addr, size_t length,
 			  uint64_t hca_va, int access);
+struct ibv_mr *xsc_reg_dmabuf_mr(struct ibv_pd *pd, uint64_t offset, size_t length,
+				 uint64_t iova, int fd, int acc);
 int xsc_dereg_mr(struct verbs_mr *mr);
 struct ibv_cq *xsc_create_cq(struct ibv_context *context, int cqe,
 			     struct ibv_comp_channel *channel, int comp_vector);
