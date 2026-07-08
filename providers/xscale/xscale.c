@@ -22,6 +22,7 @@
 
 #include "xscale.h"
 #include "xsc-abi.h"
+#include "xsc_hw.h"
 
 static const struct verbs_match_ent hca_table[] = {
 	VERBS_MODALIAS_MATCH("*xscale*", NULL),

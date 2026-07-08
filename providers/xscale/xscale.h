@@ -79,6 +79,24 @@ struct xsc_device {
 	int page_size;
 };
 
+#define XSC_PCI_VENDOR_ID		0x1f67
+
+#define XSC_MC_PF_DEV_ID		0x1011
+#define XSC_MC_VF_DEV_ID		0x1012
+#define XSC_MC_PF_DEV_ID_DIAMOND	0x1021
+#define XSC_MC_PF_DEV_ID_DIAMOND_NEXT	0x1023
+
+#define XSC_MF_HOST_PF_DEV_ID		0x1051
+#define XSC_MF_HOST_VF_DEV_ID		0x1052
+#define XSC_MF_SOC_PF_DEV_ID		0x1053
+
+#define XSC_MS_PF_DEV_ID		0x1111
+#define XSC_MS_VF_DEV_ID		0x1112
+
+#define XSC_MV_HOST_PF_DEV_ID		0x1151
+#define XSC_MV_HOST_VF_DEV_ID		0x1152
+#define XSC_MV_SOC_PF_DEV_ID		0x1153
+
 #define NAME_BUFFER_SIZE 64
 
 struct xsc_context {
@@ -112,6 +130,7 @@ struct xsc_context {
 	uint32_t			send_ds_shift;
 	uint32_t			recv_ds_shift;
 	FILE				*dbg_fp;
+	uint16_t			device_id;
 	uint32_t			multidb_num;
 	uint32_t			tx_multidb_base;
 	void				*mdb_base;
