@@ -90,6 +90,18 @@ static int get_len_from_wr(const void *list, int idx)
 	return wr->sg_list[idx].length;
 }
 
+static void *get_addr_from_buf_list(const void *list, int idx)
+{
+	const struct ibv_data_buf *buf_list = list;
+	return buf_list[idx].addr;
+}
+
+static int get_len_from_wr_list(const void *list, int idx)
+{
+	const struct ibv_data_buf *buf_list = list;
+	return buf_list[idx].length;
+}
+
 static int _set_wqe_inline(void *data_seg, size_t num_buf, const void *list,
 			   void *(*get_addr)(const void *, int),
 			   int (*get_len)(const void *, int))
@@ -162,6 +174,15 @@ static int set_wqe_inline_from_wr(struct xsc_qp *qp, struct ibv_send_wr *wr,
 				  seg_index - 1 + filled_ds_num);
 
 	return 0;
+}
+
+static int set_wqe_inline_from_buf_list(void *data_seg,
+					size_t num_buf,
+					const struct ibv_data_buf *buf_list)
+{
+	return _set_wqe_inline(data_seg, num_buf, buf_list,
+			       get_addr_from_buf_list,
+			       get_len_from_wr_list);
 }
 
 static inline void _zero_send_ds(int idx, struct xsc_qp *qp, int keep_ctrl)
@@ -471,10 +492,369 @@ int xsc_post_send(struct ibv_qp *ibqp, struct ibv_send_wr *wr,
 	return _xsc_post_send(ibqp, wr, bad_wr);
 }
 
+static inline void xsc_wr_start(struct ibv_qp_ex *ibqp)
+{
+	struct xsc_qp *qp = to_xqp((struct ibv_qp *)ibqp);
+
+	xsc_spin_lock(&qp->sq.lock);
+
+	qp->cur_post_rb = qp->sq.cur_post;
+	qp->err = 0;
+	qp->nreq = 0;
+}
+
+static inline int xsc_wr_complete(struct ibv_qp_ex *ibqp)
+{
+	struct xsc_qp *qp = to_xqp((struct ibv_qp *)ibqp);
+	int err = qp->err;
+
+	if (unlikely(err)) {
+		qp->sq.cur_post = qp->cur_post_rb;
+		goto out;
+	}
+
+	xsc_post_send_db(qp, qp->nreq);
+out:
+	xsc_spin_unlock(&qp->sq.lock);
+	return err;
+}
+
+static inline void xsc_wr_abort(struct ibv_qp_ex *ibqp)
+{
+	struct xsc_qp *qp = to_xqp((struct ibv_qp *)ibqp);
+
+	qp->sq.cur_post = qp->cur_post_rb;
+
+	xsc_spin_unlock(&qp->sq.lock);
+}
+
+#define RDMA_REMOTE_DATA_SEG_IDX	1
+#define RDMA_ATOMIC_LOCAL_DATA_SEG	2
+#define RDMA_ATOMIC_INLINE_DATE_SEG	3
+static const int local_ds_base_idx[] = {
+	[IBV_WR_RDMA_WRITE]		= 2,
+	[IBV_WR_RDMA_WRITE_WITH_IMM]	= 2,
+	[IBV_WR_SEND]			= 1,
+	[IBV_WR_SEND_WITH_IMM]		= 1,
+	[IBV_WR_RDMA_READ]		= 2,
+	[IBV_WR_ATOMIC_CMP_AND_SWP]	= 2,
+	[IBV_WR_ATOMIC_FETCH_AND_ADD]   = 2
+};
+
+static inline void _common_wqe_init(struct ibv_qp_ex *ibqp,
+				    enum ibv_wr_opcode ib_op)
+{
+	struct xsc_qp *qp = to_xqp((struct ibv_qp *)ibqp);
+	struct xsc_send_wqe_ctrl_seg *ctrl;
+	uint32_t idx;
+	struct xsc_context *ctx = to_xctx(ibqp->qp_base.context);
+
+	if (unlikely(xsc_wq_overflow(&qp->sq, qp->nreq,
+				     to_xcq(qp->ibv_qp->send_cq)))) {
+		xsc_dbg(to_xctx(ibqp->qp_base.context)->dbg_fp, XSC_DBG_QP_SEND,
+				"send work queue overflow\n");
+		if (!qp->err)
+			qp->err = ENOMEM;
+
+		return;
+	}
+
+	idx = qp->sq.cur_post & (qp->sq.wqe_cnt - 1);
+	clear_send_wqe(idx, qp);
+	ctrl = xsc_get_send_wqe(qp, idx);
+	qp->cur_ctrl = ctrl;
+	qp->cur_ds_num = 0;
+	qp->cur_data_len = 0;
+	qp->cur_data = get_seg_wqe(ctrl, local_ds_base_idx[ib_op]);
+	qp->cur_remote_addr = 0;
+	qp->cur_remote_key = 0;
+	ctrl->msg_opcode = ctx->wr2msg[ib_op];
+	ctrl->data1 |= FIELD_PREP(XSC_SWQE_CTRL_SEG_CE_MASK,
+				  qp->sq_signal_bits ?
+				  1 : (ibqp->wr_flags & IBV_SEND_SIGNALED ? 1 : 0)) |
+		       FIELD_PREP(XSC_SWQE_CTRL_SEG_SE_MASK,
+				  ibqp->wr_flags & IBV_SEND_SOLICITED ? 1 : 0) |
+		       FIELD_PREP(XSC_SWQE_CTRL_SEG_IN_LINE_MASK,
+				  ibqp->wr_flags & IBV_SEND_INLINE ? 1 : 0);
+	qp->sq.wrid[idx] = ibqp->wr_id;
+	qp->sq.wqe_head[idx] = qp->sq.head + qp->nreq;
+	qp->sq.wr_opcode[idx] = ib_op;
+	xsc_hw_set_wqe_id(ctx->device_id, ctrl,
+		 qp->sq.cur_post << (qp->sq.wqe_shift - XSC_BASE_WQE_SHIFT));
+}
+
+static inline void _common_wqe_finalize(struct ibv_qp_ex *ibqp)
+{
+	struct xsc_qp *qp = to_xqp((struct ibv_qp *)ibqp);
+	struct xsc_send_wqe_ctrl_seg *ctrl = qp->cur_ctrl;
+	struct xsc_wqe_data_seg *remote_seg;
+	uint32_t idx = qp->sq.cur_post & (qp->sq.wqe_cnt - 1);
+
+	ctrl->data0 |= FIELD_PREP(XSC_SWQE_CTRL_SEG_DS_DATA_NUM_MASK, qp->cur_ds_num);
+	ctrl->msg_len = qp->cur_data_len;
+	if (ctrl->msg_opcode == XSC_MSG_OPCODE_RDMA_WRITE ||
+	    ctrl->msg_opcode == XSC_MSG_OPCODE_RDMA_READ) {
+		remote_seg = get_seg_wqe(qp->cur_ctrl, RDMA_REMOTE_DATA_SEG_IDX);
+		set_data_seg_with_value(qp, remote_seg,
+					qp->cur_remote_addr,
+					qp->cur_remote_key,
+					ctrl->msg_len);
+	} else if (ctrl->msg_opcode == XSC_MSG_OPCODE_RDMA_ATOMIC_CMP_AND_SWAP ||
+		   ctrl->msg_opcode == XSC_MSG_OPCODE_RDMA_ATOMIC_FETCH_AND_ADD) {
+		remote_seg = get_seg_wqe(qp->cur_ctrl, RDMA_REMOTE_DATA_SEG_IDX);
+		set_data_seg_with_value(qp, remote_seg,
+					qp->cur_remote_addr,
+					qp->cur_remote_key,
+					8);
+		ctrl->msg_len = 16;
+	}
+
+	dump_wqe(0, idx, qp);
+	qp->sq.cur_post++;
+	qp->nreq++;
+	if (FIELD_GET(XSC_SWQE_CTRL_SEG_CE_MASK, ctrl->data1))
+		qp->sq.need_flush[idx] = 1;
+}
+
+static inline void xsc_wr_send(struct ibv_qp_ex *ibqp)
+{
+	_common_wqe_init(ibqp, IBV_WR_SEND);
+}
+
+static inline void xsc_wr_send_imm(struct ibv_qp_ex *ibqp, __be32 imm_data)
+{
+	struct xsc_qp *qp = to_xqp((struct ibv_qp *)ibqp);
+	struct xsc_send_wqe_ctrl_seg *ctrl;
+
+	_common_wqe_init(ibqp, IBV_WR_SEND_WITH_IMM);
+	ctrl = qp->cur_ctrl;
+	ctrl->data0 |= FIELD_PREP(XSC_SWQE_CTRL_SEG_WITH_IMMDT_MASK, 1);
+	WR_LE_32(ctrl->opcode_data, RD_BE_32(imm_data));
+}
+
+static inline void _xsc_wr_rdma(struct ibv_qp_ex *ibqp,
+				uint32_t rkey,
+				uint64_t remote_addr,
+				enum ibv_wr_opcode ib_op)
+{
+	struct xsc_qp *qp = to_xqp((struct ibv_qp *)ibqp);
+
+	_common_wqe_init(ibqp, ib_op);
+	qp->cur_remote_addr = remote_addr;
+	qp->cur_remote_key = rkey;
+	qp->cur_ds_num++;
+}
+
+static inline void xsc_wr_rdma_write(struct ibv_qp_ex *ibqp, uint32_t rkey,
+				     uint64_t remote_addr)
+{
+	_xsc_wr_rdma(ibqp, rkey, remote_addr, IBV_WR_RDMA_WRITE);
+}
+
+static inline void xsc_wr_rdma_write_imm(struct ibv_qp_ex *ibqp, uint32_t rkey,
+					 uint64_t remote_addr, __be32 imm_data)
+{
+	struct xsc_qp *qp = to_xqp((struct ibv_qp *)ibqp);
+	struct xsc_send_wqe_ctrl_seg *ctrl;
+
+	_xsc_wr_rdma(ibqp, rkey, remote_addr, IBV_WR_RDMA_WRITE_WITH_IMM);
+	ctrl = qp->cur_ctrl;
+	ctrl->data0 |= FIELD_PREP(XSC_SWQE_CTRL_SEG_WITH_IMMDT_MASK, 1);
+	WR_LE_32(ctrl->opcode_data, RD_BE_32(imm_data));
+}
+
+static inline void xsc_wr_rdma_read(struct ibv_qp_ex *ibqp, uint32_t rkey,
+				    uint64_t remote_addr)
+{
+	_xsc_wr_rdma(ibqp, rkey, remote_addr, IBV_WR_RDMA_READ);
+}
+
+static inline void _xsc_wr_atomic(struct ibv_qp_ex *ibqp,
+				  uint32_t rkey,
+				  uint64_t remote_addr,
+				  uint64_t compare_add,
+				  uint64_t swap,
+				  enum ibv_wr_opcode ib_op)
+{
+	struct xsc_qp *qp = to_xqp((struct ibv_qp *)ibqp);
+	struct xsc_send_wqe_ctrl_seg *ctrl;
+	struct xsc_wqe_atomic_seg *atomic_seg;
+
+	_common_wqe_init(ibqp, ib_op);
+	qp->cur_remote_addr = remote_addr;
+	qp->cur_remote_key = rkey;
+	qp->cur_ds_num++;
+
+	atomic_seg = get_seg_wqe(qp->cur_ctrl, RDMA_ATOMIC_INLINE_DATE_SEG);
+	set_atomic_seg_with_value(qp, atomic_seg, ib_op, swap, compare_add);
+	qp->cur_ds_num++;
+
+	ctrl = (struct xsc_send_wqe_ctrl_seg *)qp->cur_ctrl;
+	ctrl->data1 |= FIELD_PREP(XSC_SWQE_CTRL_SEG_IN_LINE_MASK, 1);
+}
+
+static inline void xsc_wr_atomic_cmp_swp(struct ibv_qp_ex *ibqp, uint32_t rkey,
+					 uint64_t remote_addr, uint64_t compare,
+					 uint64_t swap)
+{
+	_xsc_wr_atomic(ibqp, rkey, remote_addr, compare, swap,
+		       IBV_WR_ATOMIC_CMP_AND_SWP);
+}
+
+static inline void xsc_wr_atomic_fetch_add(struct ibv_qp_ex *ibqp, uint32_t rkey,
+					   uint64_t remote_addr, uint64_t add)
+{
+	_xsc_wr_atomic(ibqp, rkey, remote_addr, add, 0,
+			    IBV_WR_ATOMIC_FETCH_AND_ADD);
+}
+
+static inline void xsc_wr_set_sge(struct ibv_qp_ex *ibqp, uint32_t lkey, uint64_t addr,
+				  uint32_t length)
+{
+	struct xsc_qp *qp = to_xqp((struct ibv_qp *)ibqp);
+	struct xsc_wqe_data_seg *data_seg = qp->cur_data;
+
+	if (unlikely(!length))
+		return;
+
+	set_data_seg_with_value(qp, data_seg, addr, lkey, length);
+	qp->cur_ds_num++;
+	qp->cur_data_len = length;
+	_common_wqe_finalize(ibqp);
+}
+
+static inline void xsc_wr_set_sge_list(struct ibv_qp_ex *ibqp, size_t num_sge,
+				       const struct ibv_sge *sg_list)
+{
+	struct xsc_qp *qp = to_xqp((struct ibv_qp *)ibqp);
+	struct xsc_wqe_data_seg *data_seg = qp->cur_data;
+	int i;
+
+	if (unlikely(num_sge > qp->sq.max_gs)) {
+		xsc_dbg(to_xctx(ibqp->qp_base.context)->dbg_fp, XSC_DBG_QP_SEND,
+			"rdma read, max gs exceeded %lu (max = 1)\n",
+			num_sge);
+		if (!qp->err)
+			qp->err = ENOMEM;
+		return;
+	}
+
+	for (i = 0; i < num_sge; i++) {
+		if (unlikely(!sg_list[i].length))
+			continue;
+		set_local_data_seg_from_sge(qp, data_seg, &sg_list[i]);
+		data_seg++;
+		qp->cur_ds_num++;
+		qp->cur_data_len += sg_list[i].length;
+	}
+	_common_wqe_finalize(ibqp);
+}
+
+static inline void xsc_wr_set_inline_data(struct ibv_qp_ex *ibqp, void *addr,
+					  size_t length)
+{
+	struct xsc_qp *qp = to_xqp((struct ibv_qp *)ibqp);
+	struct xsc_wqe_data_seg *data_seg = qp->cur_data;
+	size_t num_buf = 1;
+	struct ibv_data_buf data_buf = {.addr = addr, .length = length};
+	int num_filled_ds = 0;
+
+	if (unlikely(length > qp->max_inline_data)) {
+		if (!qp->err)
+			qp->err = ENOMEM;
+		return;
+	}
+
+	num_filled_ds = set_wqe_inline_from_buf_list(data_seg, num_buf, &data_buf);
+
+	qp->cur_ds_num += num_filled_ds;
+	qp->cur_data_len = length;
+	_common_wqe_finalize(ibqp);
+}
+
+static inline void xsc_wr_set_inline_data_list(struct ibv_qp_ex *ibqp,
+					       size_t num_buf,
+					       const struct ibv_data_buf *buf_list)
+{
+	struct xsc_qp *qp = to_xqp((struct ibv_qp *)ibqp);
+	struct xsc_wqe_data_seg *data_seg = qp->cur_data;
+	int num_filled_ds = 0;
+	int i;
+	size_t total_len = 0;
+
+	for (i = 0; i < num_buf; i++)
+		total_len += buf_list[i].length;
+	if (unlikely(total_len > qp->max_inline_data)) {
+		if (!qp->err)
+			qp->err = ENOMEM;
+		return;
+	}
+
+	num_filled_ds = set_wqe_inline_from_buf_list(data_seg, num_buf, buf_list);
+
+	qp->cur_ds_num += num_filled_ds;
+	qp->cur_data_len = total_len;
+	_common_wqe_finalize(ibqp);
+}
+
+enum {
+	XSC_DIAMOND_SUPPORTED_SEND_OPS_FLAGS_RC =
+		IBV_QP_EX_WITH_SEND |
+		IBV_QP_EX_WITH_SEND_WITH_IMM |
+		IBV_QP_EX_WITH_RDMA_WRITE |
+		IBV_QP_EX_WITH_RDMA_WRITE_WITH_IMM |
+		IBV_QP_EX_WITH_RDMA_READ |
+		IBV_QP_EX_WITH_ATOMIC_CMP_AND_SWP |
+		IBV_QP_EX_WITH_ATOMIC_FETCH_AND_ADD,
+	XSC_DEFAULT_SUPPORTED_SEND_OPS_FLAGS_RC =
+		IBV_QP_EX_WITH_SEND |
+		IBV_QP_EX_WITH_SEND_WITH_IMM |
+		IBV_QP_EX_WITH_RDMA_WRITE |
+		IBV_QP_EX_WITH_RDMA_WRITE_WITH_IMM |
+		IBV_QP_EX_WITH_RDMA_READ,
+};
+
+static void fill_wr_pfns_rc(struct ibv_qp_ex *ibqp)
+{
+	ibqp->wr_send = xsc_wr_send;
+	ibqp->wr_send_imm = xsc_wr_send_imm;
+	ibqp->wr_rdma_write = xsc_wr_rdma_write;
+	ibqp->wr_rdma_write_imm = xsc_wr_rdma_write_imm;
+	ibqp->wr_rdma_read = xsc_wr_rdma_read;
+	ibqp->wr_atomic_cmp_swp = xsc_wr_atomic_cmp_swp;
+	ibqp->wr_atomic_fetch_add = xsc_wr_atomic_fetch_add;
+
+	ibqp->wr_set_sge = xsc_wr_set_sge;
+	ibqp->wr_set_sge_list = xsc_wr_set_sge_list;
+	ibqp->wr_set_inline_data = xsc_wr_set_inline_data;
+	ibqp->wr_set_inline_data_list = xsc_wr_set_inline_data_list;
+}
+
 int xsc_qp_fill_wr_pfns(struct xsc_context *ctx,
 			struct xsc_qp *xqp,
 			const struct ibv_qp_init_attr_ex *attr)
 {
+	struct ibv_qp_ex *ibqp = &xqp->verbs_qp.qp_ex;
+	uint64_t ops = attr->send_ops_flags;
+	uint64_t xsc_flag;
+
+	ibqp->wr_start = xsc_wr_start;
+	ibqp->wr_complete = xsc_wr_complete;
+	ibqp->wr_abort = xsc_wr_abort;
+	if (ctx->device_id == XSC_MC_PF_DEV_ID_DIAMOND)
+		xsc_flag = XSC_DIAMOND_SUPPORTED_SEND_OPS_FLAGS_RC;
+	else
+		xsc_flag = XSC_DEFAULT_SUPPORTED_SEND_OPS_FLAGS_RC;
+
+	switch (attr->qp_type) {
+	case IBV_QPT_RC:
+		if (ops & ~xsc_flag)
+			return EOPNOTSUPP;
+		fill_wr_pfns_rc(ibqp);
+		break;
+	default:
+		return EOPNOTSUPP;
+	}
 	return 0;
 }
 
