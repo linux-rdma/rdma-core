@@ -97,7 +97,8 @@ static inline void *idm_at(struct index_map *idm, int index)
 
 static inline void *idm_lookup(struct index_map *idm, int index)
 {
-	return ((index <= IDX_MAX_INDEX) && idm->array[idx_array_index(index)]) ?
+	return ((index >= 0) && (index <= IDX_MAX_INDEX) &&
+		idm->array[idx_array_index(index)]) ?
 		idm_at(idm, index) : NULL;
 }
 
