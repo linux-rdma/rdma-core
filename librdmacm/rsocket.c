@@ -71,8 +71,10 @@
 #define RS_CONN_RETRIES 6
 #define RS_SGL_SIZE 2
 #define REPOLL_CMD_REFRESH_FDS 1
+#define REPOLL_CMD_EXIT 2
 #define REPOLL_INIT_FD_CAP 1024
 #define REPOLL_FD_GROW_STEP 1024
+#define FD_EPOLL 64
 
 static inline int repoll_fd_slot(struct index_map *fd_to_slot, int fd)
 {
@@ -103,6 +105,8 @@ static pthread_mutex_t mut = PTHREAD_MUTEX_INITIALIZER;
 static pthread_mutex_t svc_mut = PTHREAD_MUTEX_INITIALIZER;
 
 struct rsocket;
+
+static int repoll_close(int epfd);
 
 enum {
 	RS_SVC_NOOP,
@@ -347,7 +351,7 @@ struct ds_qp {
 };
 
 struct rsocket {
-	int		  type;  /* SOCK_STREAM or SOCK_DGRAM only; flags in fd_flags/fs_flags */
+	int		  type;  /* SOCK_STREAM, SOCK_DGRAM, or FD_EPOLL; must be first */
 	int		  index;
 	fastlock_t	  slock;
 	fastlock_t	  rlock;
@@ -3601,6 +3605,8 @@ int rclose(int socket)
 	rs = idm_lookup(&idm, socket);
 	if (!rs)
 		return EBADF;
+	if (rs->type == FD_EPOLL)
+		return repoll_close(socket);
 	if (rs->type == SOCK_STREAM) {
 		if (rs->state & rs_connected)
 			rshutdown(socket, SHUT_RDWR);
@@ -3610,8 +3616,10 @@ int rclose(int socket)
 			rs_notify_svc(&listen_svc, rs, RS_SVC_REM_CM);
 		if (rs->opts & RS_OPT_CM_SVC)
 			rs_notify_svc(&connect_svc, rs, RS_SVC_REM_CM);
-	} else {
+	} else if (rs->type == SOCK_DGRAM) {
 		ds_shutdown(rs);
+	} else {
+		return EBADF;
 	}
 
 	rs_free(rs);
@@ -4789,6 +4797,7 @@ static void *cm_svc_run(void *arg)
 }
 
 struct repoll_info {
+	int type; /* FD_EPOLL; must be first */
 	int epfd;
 	int epfd_peer;
 	int cmd_pipe[2];
@@ -4809,7 +4818,48 @@ struct repoll_info {
 	_Atomic(int) monitor_lifecycle;
 };
 
-static struct index_map repoll_idm;
+static struct repoll_info *repoll_lookup(int epfd)
+{
+	struct repoll_info *ri;
+
+	ri = idm_lookup(&idm, epfd);
+	if (!ri || ri->type != FD_EPOLL)
+		return NULL;
+	return ri;
+}
+
+static int repoll_close(int epfd)
+{
+	struct repoll_info *ri;
+	int cmd = REPOLL_CMD_EXIT;
+	int size;
+
+	ri = repoll_lookup(epfd);
+	if (!ri)
+		return EBADF;
+	if (ri->slot_count > 1)
+		return EBUSY;
+
+	atomic_store(&ri->monitor_lifecycle, REPOLL_MONITOR_LIFECYCLE_STOPPED);
+	size = write(ri->cmd_pipe[1], &cmd, sizeof(cmd));
+	(void)size;
+	pthread_join(ri->monitor, NULL);
+
+	pthread_mutex_lock(&mut);
+	idm_clear(&idm, epfd);
+	pthread_mutex_unlock(&mut);
+
+	close(ri->cmd_pipe[0]);
+	close(ri->cmd_pipe[1]);
+	close(ri->epfd);
+	close(ri->epfd_peer);
+	pthread_mutex_destroy(&ri->lock);
+	pthread_cond_destroy(&ri->monitor_wake);
+	free(ri->fds);
+	free(ri->user_data);
+	free(ri);
+	return 0;
+}
 
 static int repoll_monitor_refresh_fds(struct repoll_info *ri,
 				      struct pollfd **fds, int *fds_cap,
@@ -4898,6 +4948,8 @@ static void *repoll_monitor_fn(void *arg)
 				goto out;
 			repoll_monitor_ack_reload(ri);
 			break;
+		case REPOLL_CMD_EXIT:
+			goto out;
 		default:
 			break;
 		}
@@ -4980,6 +5032,7 @@ int repoll_create(int flags)
 	if (ret == -1)
 		goto fail_pipe;
 
+	ri->type = FD_EPOLL;
 	ri->epfd = pipefd[0];
 	ri->epfd_peer = pipefd[1];
 	pthread_mutex_init(&ri->lock, NULL);
@@ -4992,7 +5045,7 @@ int repoll_create(int flags)
 		goto fail_comm;
 
 	pthread_mutex_lock(&mut);
-	ret = idm_set(&repoll_idm, ri->epfd, ri);
+	ret = idm_set(&idm, ri->epfd, ri);
 	pthread_mutex_unlock(&mut);
 	if (ret < 0)
 		goto fail_thread;
@@ -5004,7 +5057,7 @@ int repoll_create(int flags)
 
 fail_monitor:
 	pthread_mutex_lock(&mut);
-	idm_clear(&repoll_idm, ri->epfd);
+	idm_clear(&idm, ri->epfd);
 	pthread_mutex_unlock(&mut);
 fail_thread:
 	close(ri->cmd_pipe[0]);
@@ -5175,7 +5228,7 @@ int repoll_ctl(int epfd, int op, int fd, struct epoll_event *event)
 	if (epfd == fd)
 		return EINVAL;
 
-	ri = idm_lookup(&repoll_idm, epfd);
+	ri = repoll_lookup(epfd);
 	if (!ri)
 		return EINVAL;
 
@@ -5272,7 +5325,7 @@ int repoll_wait(int epfd, struct epoll_event *events, int maxevents,
 	if (epfd < 0)
 		return EBADF;
 
-	ri = idm_lookup(&repoll_idm, epfd);
+	ri = repoll_lookup(epfd);
 	if (!ri)
 		return EINVAL;
 
