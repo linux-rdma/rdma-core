@@ -91,13 +91,7 @@ static inline int repoll_fd_to_slot_set(struct index_map *fd_to_slot, int fd,
 
 enum repoll_monitor_state {
 	REPOLL_MONITOR_SLEEPING,
-	REPOLL_MONITOR_STARTING,
 	REPOLL_MONITOR_RUNNING,
-};
-
-enum repoll_monitor_lifecycle {
-	REPOLL_MONITOR_LIFECYCLE_STOPPED,
-	REPOLL_MONITOR_LIFECYCLE_ACTIVE,
 };
 
 static struct index_map idm;
@@ -4814,8 +4808,8 @@ struct repoll_info {
 	uint32_t reload_ack;
 	uint32_t event_gen;
 
+	bool running;
 	_Atomic(int) monitor_state;
-	_Atomic(int) monitor_lifecycle;
 };
 
 static struct repoll_info *repoll_lookup(int epfd)
@@ -4840,7 +4834,7 @@ static int repoll_close(int epfd)
 	if (ri->slot_count > 1)
 		return EBUSY;
 
-	atomic_store(&ri->monitor_lifecycle, REPOLL_MONITOR_LIFECYCLE_STOPPED);
+	ri->running = false;
 	size = write(ri->cmd_pipe[1], &cmd, sizeof(cmd));
 	(void)size;
 	pthread_join(ri->monitor, NULL);
@@ -4922,19 +4916,13 @@ static void *repoll_monitor_fn(void *arg)
 	struct pollfd *fds = NULL;
 	int fds_cap = 0;
 	int nfds;
-	int state;
 
-	if (repoll_monitor_refresh_fds(ri, &fds, &fds_cap, &nfds)) {
-		atomic_store(&ri->monitor_state, REPOLL_MONITOR_SLEEPING);
+	if (repoll_monitor_refresh_fds(ri, &fds, &fds_cap, &nfds))
 		return NULL;
-	}
 
-	state = REPOLL_MONITOR_STARTING;
-	atomic_compare_exchange_strong(&ri->monitor_state, &state,
-				       REPOLL_MONITOR_RUNNING);
+	atomic_store(&ri->monitor_state, REPOLL_MONITOR_RUNNING);
 
-	while (atomic_load(&ri->monitor_lifecycle) ==
-	       REPOLL_MONITOR_LIFECYCLE_ACTIVE) {
+	while (ri->running) {
 		int cmd;
 
 		if (rpoll(fds, nfds, -1) <= 0)
@@ -5001,16 +4989,11 @@ static int repoll_start_monitor(struct repoll_info *ri)
 {
 	int ret;
 
-	atomic_store(&ri->monitor_lifecycle,
-		     REPOLL_MONITOR_LIFECYCLE_ACTIVE);
-	atomic_store(&ri->monitor_state, REPOLL_MONITOR_STARTING);
-
+	ri->running = true;
 	ret = pthread_create(&ri->monitor, NULL, repoll_monitor_fn, ri);
 	if (ret)
 		return -1;
 
-	while (atomic_load(&ri->monitor_state) == REPOLL_MONITOR_STARTING)
-		;
 	return 0;
 }
 
@@ -5117,8 +5100,7 @@ static int repoll_grow_fds(struct repoll_info *ri)
 static void repoll_wake_monitor_locked(struct repoll_info *ri)
 {
 	if (atomic_load(&ri->monitor_state) == REPOLL_MONITOR_SLEEPING &&
-	    atomic_load(&ri->monitor_lifecycle) ==
-		    REPOLL_MONITOR_LIFECYCLE_ACTIVE) {
+	    ri->running) {
 		atomic_store(&ri->monitor_state, REPOLL_MONITOR_RUNNING);
 		pthread_cond_signal(&ri->monitor_wake);
 	}
@@ -5130,8 +5112,7 @@ static void repoll_send_reload(struct repoll_info *ri)
 	int size;
 	uint32_t pending;
 
-	if (atomic_load(&ri->monitor_lifecycle) !=
-	    REPOLL_MONITOR_LIFECYCLE_ACTIVE)
+	if (!ri->running)
 		return;
 
 	ri->reload_gen++;
@@ -5358,8 +5339,7 @@ int repoll_wait(int epfd, struct epoll_event *events, int maxevents,
 		seen_event = ri->event_gen;
 		repoll_wake_monitor_locked(ri);
 		while (ri->reload_ack == seen_reload && ri->event_gen == seen_event &&
-		       atomic_load(&ri->monitor_lifecycle) ==
-			       REPOLL_MONITOR_LIFECYCLE_ACTIVE) {
+		       ri->running) {
 			if (timeout < 0) {
 				wait_ret = pthread_cond_wait(&ri->monitor_wake,
 						       &ri->lock);
