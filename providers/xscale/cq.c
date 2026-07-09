@@ -609,8 +609,131 @@ int xsc_poll_cq(struct ibv_cq *ibcq, int ne, struct ibv_wc *wc)
 	return poll_cq(ibcq, ne, wc);
 }
 
+static inline int xsc_start_poll(struct ibv_cq_ex *ibcq,
+				 struct ibv_poll_cq_attr *attr)
+				 ALWAYS_INLINE;
+static inline int xsc_start_poll(struct ibv_cq_ex *ibcq,
+				 struct ibv_poll_cq_attr *attr)
+{
+	struct xsc_cq *cq = to_xcq(ibv_cq_ex_to_cq(ibcq));
+	int err;
+	uint8_t cqe_valid = 1;
+
+	xsc_spin_lock(&cq->lock);
+	err = xsc_poll_one(cq, NULL, NULL, 1, &cqe_valid);
+	if (err == CQ_EMPTY)
+		xsc_spin_unlock(&cq->lock);
+
+	return (err == CQ_EMPTY) ? ENOENT : err;
+}
+
+static inline void xsc_end_poll(struct ibv_cq_ex *ibcq)
+				ALWAYS_INLINE;
+static inline void xsc_end_poll(struct ibv_cq_ex *ibcq)
+{
+	struct xsc_cq *cq = to_xcq(ibv_cq_ex_to_cq(ibcq));
+
+	udma_to_device_barrier();
+	update_cons_index(cq);
+	xsc_spin_unlock(&cq->lock);
+}
+
+static inline int xsc_next_poll(struct ibv_cq_ex *ibcq)
+				ALWAYS_INLINE;
+static inline int xsc_next_poll(struct ibv_cq_ex *ibcq)
+{
+	struct xsc_cq *cq = to_xcq(ibv_cq_ex_to_cq(ibcq));
+	int err;
+	uint8_t cqe_valid = 1;
+
+	err = xsc_poll_one(cq, NULL, NULL, 1, &cqe_valid);
+
+	return (err == CQ_EMPTY) ? ENOENT : err;
+}
+
+static inline enum ibv_wc_opcode xsc_wc_read_opcode(struct ibv_cq_ex *ibcq)
+{
+	struct xsc_cqe *cqe = to_xcq(ibv_cq_ex_to_cq(ibcq))->cqe;
+	struct xsc_context *xctx = to_xctx(ibv_cq_ex_to_cq(ibcq)->context);
+	uint8_t opcode = xsc_hw_get_cqe_msg_opcode(xctx->device_id, cqe);
+
+	return xsc_cqe_opcode[opcode];
+}
+
+static inline uint32_t xsc_wc_read_qp_num(struct ibv_cq_ex *ibcq)
+{
+	struct xsc_cqe *cqe = to_xcq(ibv_cq_ex_to_cq(ibcq))->cqe;
+
+	return le32toh(FIELD_GET(XSC_CQE_QP_ID_MASK, cqe->data1));
+}
+
+static inline unsigned int xsc_wc_read_flags(struct ibv_cq_ex *ibcq)
+{
+	struct xsc_cqe *cqe = to_xcq(ibv_cq_ex_to_cq(ibcq))->cqe;
+	struct xsc_context *xctx = to_xctx(ibv_cq_ex_to_cq(ibcq)->context);
+	uint8_t opcode = xsc_hw_get_cqe_msg_opcode(xctx->device_id, cqe);
+
+	switch (opcode) {
+	case XSC_OPCODE_RDMA_REQ_SEND_IMMDT:
+	case XSC_OPCODE_RDMA_REQ_WRITE_IMMDT:
+	case XSC_OPCODE_RDMA_RSP_RECV_IMMDT:
+	case XSC_OPCODE_RDMA_RSP_WRITE_IMMDT:
+		return IBV_WC_WITH_IMM;
+	default:
+		return 0;
+	}
+}
+
+static inline uint32_t xsc_wc_read_byte_len(struct ibv_cq_ex *ibcq)
+{
+	struct xsc_cqe *cqe = to_xcq(ibv_cq_ex_to_cq(ibcq))->cqe;
+
+	return le32toh(cqe->msg_len);
+}
+
+static inline uint32_t xsc_wc_read_vendor_err(struct ibv_cq_ex *ibcq)
+{
+	struct xsc_cqe *cqe = to_xcq(ibv_cq_ex_to_cq(ibcq))->cqe;
+	struct xsc_context *xctx = to_xctx(ibv_cq_ex_to_cq(ibcq)->context);
+
+	return xsc_hw_get_cqe_err_code(xctx->device_id, cqe);
+}
+
+static inline __be32 xsc_wc_read_imm_data(struct ibv_cq_ex *ibcq)
+{
+	struct xsc_cqe *cqe = to_xcq(ibv_cq_ex_to_cq(ibcq))->cqe;
+	__be32 imm_data;
+
+	WR_BE_32(imm_data, RD_LE_32(cqe->imm_data));
+
+	return imm_data;
+}
+
+static inline uint64_t xsc_wc_read_completion_ts(struct ibv_cq_ex *ibcq)
+{
+	struct xsc_cqe *cqe = to_xcq(ibv_cq_ex_to_cq(ibcq))->cqe;
+
+	return le64toh(FIELD_GET(XSC_CQE_TS_MASK, cqe->data2));
+}
+
 void xsc_cq_fill_pfns(struct xsc_cq *cq, const struct ibv_cq_init_attr_ex *cq_attr)
 {
+
+	cq->verbs_cq.cq_ex.start_poll = xsc_start_poll;
+	cq->verbs_cq.cq_ex.next_poll = xsc_next_poll;
+	cq->verbs_cq.cq_ex.end_poll = xsc_end_poll;
+
+	cq->verbs_cq.cq_ex.read_opcode = xsc_wc_read_opcode;
+	cq->verbs_cq.cq_ex.read_vendor_err = xsc_wc_read_vendor_err;
+	cq->verbs_cq.cq_ex.read_wc_flags = xsc_wc_read_flags;
+	if (cq_attr->wc_flags & IBV_WC_EX_WITH_BYTE_LEN)
+		cq->verbs_cq.cq_ex.read_byte_len = xsc_wc_read_byte_len;
+	if (cq_attr->wc_flags & IBV_WC_EX_WITH_IMM)
+		cq->verbs_cq.cq_ex.read_imm_data = xsc_wc_read_imm_data;
+	if (cq_attr->wc_flags & IBV_WC_EX_WITH_QP_NUM)
+		cq->verbs_cq.cq_ex.read_qp_num = xsc_wc_read_qp_num;
+	if (cq_attr->wc_flags & IBV_WC_EX_WITH_COMPLETION_TIMESTAMP)
+		cq->verbs_cq.cq_ex.read_completion_ts = xsc_wc_read_completion_ts;
 }
 
 int xsc_arm_cq(struct ibv_cq *ibvcq, int solicited)

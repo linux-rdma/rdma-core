@@ -49,6 +49,7 @@ static const struct verbs_context_ops xsc_ctx_common_ops = {
 	.cq_event      = xsc_cq_event,
 	.resize_cq = xsc_resize_cq,
 	.destroy_cq = xsc_destroy_cq,
+	.create_cq_ex = xsc_create_cq_ex,
 
 	.create_qp = xsc_create_qp,
 	.query_qp = xsc_query_qp,
