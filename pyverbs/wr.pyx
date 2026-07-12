@@ -35,11 +35,13 @@ cdef class SGE(PyverbsCM):
         self.sge.length = length
         self.sge.lkey = lkey
 
-    def __dealloc(self):
+    def __dealloc__(self):
         self.close()
 
     cpdef close(self):
-        free(self.sge)
+        if self.sge != NULL:
+            free(self.sge)
+            self.sge = NULL
 
     cpdef read(self, length, offset):
         """
@@ -105,11 +107,13 @@ cdef class RecvWR(PyverbsCM):
         if next_wr is not None:
             self.recv_wr.next = &next_wr.recv_wr
 
-    def __dealloc(self):
+    def __dealloc__(self):
         self.close()
 
     cpdef close(self):
-        free(self.recv_wr.sg_list)
+        if self.recv_wr.sg_list != NULL:
+            free(self.recv_wr.sg_list)
+            self.recv_wr.sg_list = NULL
 
     def __str__(self):
         print_format = '{:22}: {:<20}\n'
@@ -180,11 +184,13 @@ cdef class SendWR(PyverbsCM):
         self.send_wr.imm_data = imm_data
         self.ah = None
 
-    def __dealloc(self):
+    def __dealloc__(self):
         self.close()
 
     cpdef close(self):
-        free(self.send_wr.sg_list)
+        if self.send_wr.sg_list != NULL:
+            free(self.send_wr.sg_list)
+            self.send_wr.sg_list = NULL
 
     def __str__(self):
         print_format = '{:22}: {:<20}\n'
