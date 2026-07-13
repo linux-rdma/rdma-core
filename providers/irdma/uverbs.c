@@ -1567,7 +1567,7 @@ static int irdma_destroy_vmapped_qp(struct irdma_uqp *iwuqp)
 {
 	int ret;
 
-	ret = ibv_cmd_destroy_qp(&iwuqp->ibv_qp);
+	ret = ibv_cmd_destroy_qp(&iwuqp->verbs_qp.qp);
 	if (ret)
 		return ret;
 
@@ -1644,7 +1644,8 @@ static int irdma_vmapped_qp(struct irdma_uqp *iwuqp, struct ibv_pd *pd,
 
 	cmd.user_wqe_bufs = (__u64)((uintptr_t)info->sq);
 	cmd.user_compl_ctx = (__u64)(uintptr_t)&iwuqp->qp;
-	ret = ibv_cmd_create_qp(pd, &iwuqp->ibv_qp, attr, &cmd.ibv_cmd,
+
+	ret = ibv_cmd_create_qp(pd, &iwuqp->verbs_qp.qp, attr, &cmd.ibv_cmd,
 				sizeof(cmd), &resp.ibv_resp,
 				sizeof(struct irdma_ucreate_qp_resp));
 	if (ret)
@@ -1656,7 +1657,7 @@ static int irdma_vmapped_qp(struct irdma_uqp *iwuqp, struct ibv_pd *pd,
 	info->qp_caps = resp.qp_caps;
 	info->qp_id = resp.qp_id;
 	iwuqp->irdma_drv_opt = resp.irdma_drv_opt;
-	iwuqp->ibv_qp.qp_num = resp.qp_id;
+	iwuqp->verbs_qp.qp.qp_num = resp.qp_id;
 
 	iwuqp->send_cq = container_of(attr->send_cq, struct irdma_ucq,
 				      verbs_cq.cq);
@@ -1787,7 +1788,7 @@ struct ibv_qp *irdma_ucreate_qp(struct ibv_pd *pd,
 	attr->cap.max_send_wr = (info.sq_depth - IRDMA_SQ_RSVD) >> info.sq_shift;
 	attr->cap.max_recv_wr = (info.rq_depth - IRDMA_RQ_RSVD) >> info.rq_shift;
 
-	return &iwuqp->ibv_qp;
+	return &iwuqp->verbs_qp.qp;
 
 err_free_vmap_qp:
 	irdma_destroy_vmapped_qp(iwuqp);
@@ -1833,7 +1834,7 @@ int irdma_umodify_qp(struct ibv_qp *qp, struct ibv_qp_attr *attr, int attr_mask)
 	struct irdma_uvcontext *iwctx;
 	struct irdma_uqp *iwuqp;
 
-	iwuqp = container_of(qp, struct irdma_uqp, ibv_qp);
+	iwuqp = container_of(qp, struct irdma_uqp, verbs_qp.qp);
 	iwctx = container_of(qp->context, struct irdma_uvcontext,
 			     ibv_ctx.context);
 
@@ -1916,7 +1917,7 @@ int irdma_udestroy_qp(struct ibv_qp *qp)
 	struct irdma_uqp *iwuqp;
 	int ret;
 
-	iwuqp = container_of(qp, struct irdma_uqp, ibv_qp);
+	iwuqp = container_of(qp, struct irdma_uqp, verbs_qp.qp);
 	ret = pthread_spin_destroy(&iwuqp->lock);
 	if (ret)
 		goto err;
@@ -1974,7 +1975,7 @@ int irdma_upost_send(struct ibv_qp *ib_qp, struct ibv_send_wr *ib_wr,
 	bool reflush = false;
 	int err;
 
-	iwuqp = container_of(ib_qp, struct irdma_uqp, ibv_qp);
+	iwuqp = container_of(ib_qp, struct irdma_uqp, verbs_qp.qp);
 	iwvctx = container_of(ib_qp->context, struct irdma_uvcontext,
 			      ibv_ctx.context);
 	uk_attrs = &iwvctx->uk_attrs;
@@ -2234,7 +2235,7 @@ int irdma_upost_recv(struct ibv_qp *ib_qp, struct ibv_recv_wr *ib_wr,
 	bool reflush = false;
 	int err;
 
-	iwuqp = container_of(ib_qp, struct irdma_uqp, ibv_qp);
+	iwuqp = container_of(ib_qp, struct irdma_uqp, verbs_qp.qp);
 	if (iwuqp->qp.srq_uk) {
 		*bad_wr = ib_wr;
 		return EINVAL;
