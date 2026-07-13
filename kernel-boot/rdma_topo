@@ -15,6 +15,7 @@ import re
 import subprocess
 import sys
 import tempfile
+import textwrap
 
 from abc import ABC, abstractmethod
 from base64 import b64encode, b64decode
@@ -426,6 +427,135 @@ class PCIDevice(object):
     def get_subsystems(self):
         """Return a list of subsystem the PCI device is connected to"""
         return self.sysfs_device.subsystems or {}
+
+
+class NVCX_Topo:
+
+    class NIC(object):
+        def __init__(self, pfs: Set[PCIDevice]):
+            assert len(pfs) > 0
+            self.pfs = pfs
+            self.parent = min(pfs, key=lambda pf: pf.bdf).parent
+            self.vpd_sn = min(pfs, key=lambda pf: pf.bdf).vpd_sn
+            if not all(pf.parent == self.parent for pf in pfs):
+                raise TopoUnexpectedError("All PFs of a NIC must have the same parent")
+            if not all(pf.vpd_sn == self.vpd_sn for pf in pfs):
+                raise TopoUnexpectedError("All PFs of a NIC must have the same VPD SN")
+
+        @property
+        def primary_pf(self) -> PCIDevice:
+            return min(self.pfs, key=lambda pf: pf.bdf)
+
+        def to_dict(self) -> Dict[str, Any]:
+            return {
+                "parent_bdf": str(self.parent.bdf) if self.parent else "UNKNOWN",
+                "ats": self.primary_pf.has_ats,
+                "pf_bdfs": [
+                    str(pf.bdf) for pf in sorted(self.pfs, key=lambda pf: pf.bdf)
+                ],
+            }
+
+        def str_single_pf(self) -> str:
+            res = ""
+            res += f"\tNIC ATS: {yesno(self.primary_pf.has_ats)}\n"
+            subsystems: Dict[str, Set[str]] = collections.defaultdict(set)
+            for pf in self.pfs:
+                for k, v in pf.get_subsystems().items():
+                    subsystems[k].update(v)
+            res += print_list("RDMA device", subsystems["infiniband"])
+            res += print_list("Net device", subsystems["net"])
+            return res[:-1]
+
+        def __str__(self) -> str:
+            parent_bdf = self.parent.bdf if self.parent else "UNKNOWN"
+            res = f"RDMA NIC Parent={parent_bdf}\n"
+            res += print_list("NIC PCI device", [str(pf.bdf) for pf in self.pfs])
+            res += self.str_single_pf()
+            return res
+
+    class Board(object):
+        def __init__(self, nics: Set[NVCX_Topo.NIC]):
+            def nic_sort_key(nic):
+                if nic.parent:
+                    return (0, nic.parent.bdf)
+                return (1, nic.primary_pf.bdf)
+
+            self.nics = sorted(nics, key=nic_sort_key)
+            self.sn = next(iter(nics)).vpd_sn
+            if not all(nic.vpd_sn == self.sn for nic in nics):
+                raise TopoUnexpectedError("All NICs of a Board must have the same VPD SN")
+
+        def to_dict(self) -> Dict[str, Any]:
+            return {
+                "board_sn": self.sn or "UNKNOWN",
+                "nics": [nic.to_dict() for nic in self.nics],
+            }
+
+        def __str__(self) -> str:
+            board_sn = self.sn or "UNKNOWN"
+            res = f"RDMA NIC Board={board_sn}\n"
+            for nic in self.nics:
+                res += textwrap.indent(str(nic), "\t")
+                res += "\n"
+            return res[:-1]
+
+    def __init__(self, pfs: Set[PCIDevice]):
+        assert len(pfs) > 0
+
+        pfs_by_sn: Dict[Optional[str], Set[PCIDevice]] = collections.defaultdict(set)
+        for pf in pfs:
+            pfs_by_sn[pf.vpd_sn].add(pf)
+
+        boards = set()
+        for board_pfs in pfs_by_sn.values():
+            pfs_by_nic: Dict[Optional[PCIDevice], Set[PCIDevice]] = (
+                collections.defaultdict(set)
+            )
+            for pf in board_pfs:
+                pfs_by_nic[pf.parent].add(pf)
+
+            nics: Set[NVCX_Topo.NIC] = set()
+            for nic_pfs in pfs_by_nic.values():
+                nics.add(NVCX_Topo.NIC(nic_pfs))
+
+            boards.add(NVCX_Topo.Board(nics))
+
+        self.boards = sorted(boards, key=lambda b: b.sn or "")
+
+    @property
+    def primary_pf(self) -> PCIDevice:
+        return min(self.pfs, key=lambda pf: pf.bdf)
+
+    @property
+    def pfs(self) -> Set[PCIDevice]:
+        return set(pf for board in self.boards for nic in board.nics for pf in nic.pfs)
+
+    def to_dict(self) -> Dict[str, Any]:
+        if len(self.pfs) == 1:
+            return {
+                "rdma_nic_pf_bdf": str(next(iter(self.pfs)).bdf),
+                "rdma_nic_ats": next(iter(self.pfs)).has_ats,
+            }
+
+        return {
+            "rdma_nic_boards": [board.to_dict() for board in self.boards]
+        }
+
+    def topo_str_key(self) -> str:
+        if len(self.pfs) == 1:
+            return f"RDMA NIC={next(iter(self.pfs)).bdf}"
+
+        return ""
+
+    def topo_str(self) -> str:
+        if len(self.pfs) == 1:
+            return self.boards[0].nics[0].str_single_pf()
+
+        res = ""
+        for board in self.boards:
+            res += textwrap.indent(str(board), "\t")
+            res += "\n"
+        return res[:-1]
 
 
 class NVCX_Complex(ABC):
