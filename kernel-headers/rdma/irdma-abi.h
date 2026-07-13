@@ -10,6 +10,7 @@
 #define IRDMA_ABI_H
 
 #include <linux/types.h>
+#include <rdma/ib_user_ioctl_cmds.h>
 
 /* irdma must support legacy GEN_1 i40iw kernel
  * and user-space whose last ABI ver is 5
@@ -131,4 +132,26 @@ struct irdma_create_ah_resp {
 	__u32 ah_id;
 	__u8 rsvd[4];
 };
+enum irdma_ib_create_cq_attrs {
+	IRDMA_IB_ATTR_CREATE_CQ_SHADOW_BUF_UMEM = UVERBS_ID_DRIVER_NS_WITH_UHW,
+};
+
+enum irdma_ib_create_srq_attrs {
+	IRDMA_IB_ATTR_CREATE_SRQ_SHADOW_BUF_UMEM = UVERBS_ID_DRIVER_NS_WITH_UHW,
+};
+
+enum irdma_ib_reg_mr_attrs {
+	IRDMA_IB_ATTR_REG_MR_TYPE = UVERBS_ID_DRIVER_NS_WITH_UHW,
+	IRDMA_IB_ATTR_REG_MR_CQ_PAGES,
+	IRDMA_IB_ATTR_REG_MR_RQ_PAGES,
+	IRDMA_IB_ATTR_REG_MR_SQ_PAGES,
+};
+
+enum irdma_ib_reg_dmabuf_mr_attrs {
+	IRDMA_IB_ATTR_REG_DMABUF_MR_TYPE = UVERBS_ID_DRIVER_NS_WITH_UHW,
+	IRDMA_IB_ATTR_REG_DMABUF_MR_CQ_PAGES,
+	IRDMA_IB_ATTR_REG_DMABUF_MR_RQ_PAGES,
+	IRDMA_IB_ATTR_REG_DMABUF_MR_SQ_PAGES,
+};
+
 #endif /* IRDMA_ABI_H */
