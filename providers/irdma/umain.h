@@ -108,7 +108,7 @@ struct irdma_ucq {
 };
 
 struct irdma_uqp {
-	struct ibv_qp ibv_qp;
+	struct verbs_qp verbs_qp;
 	struct irdma_ucq *send_cq;
 	struct irdma_ucq *recv_cq;
 	struct verbs_mr vmr;
