@@ -19,6 +19,7 @@
 
 #include "umain.h"
 #include "abi.h"
+#include <rdma/ib_user_ioctl_cmds.h>
 
 static inline void print_fw_ver(uint64_t fw_ver, char *str, size_t len)
 {
@@ -88,6 +89,27 @@ static void __irdma_free_buf(struct irdma_buf *ibuf)
 		ibv_dmabuf_heap_free(ibuf->ibv_buf.addr, ibuf->ibv_buf.size, ibuf->ibv_buf.dmabuf_fd);
 	else
 		free(ibuf->ibv_buf.addr);
+}
+
+static int irdma_reg_internal_dmabuf(struct ibv_pd *pd, struct irdma_buf *ibuf,
+				     enum irdma_memreg_type reg_type,
+				     uint16_t cq_pages, uint16_t rq_pages,
+				     uint16_t sq_pages, struct verbs_mr *vmr)
+{
+	DECLARE_COMMAND_BUFFER(driver_attrs, UVERBS_OBJECT_MR,
+			       UVERBS_METHOD_REG_DMABUF_MR, 4);
+
+	fill_attr_const_in(driver_attrs, IRDMA_IB_ATTR_REG_DMABUF_MR_TYPE, reg_type);
+	if (cq_pages)
+		fill_attr_const_in(driver_attrs, IRDMA_IB_ATTR_REG_DMABUF_MR_CQ_PAGES, cq_pages);
+	if (rq_pages)
+		fill_attr_const_in(driver_attrs, IRDMA_IB_ATTR_REG_DMABUF_MR_RQ_PAGES, rq_pages);
+	if (sq_pages)
+		fill_attr_const_in(driver_attrs, IRDMA_IB_ATTR_REG_DMABUF_MR_SQ_PAGES, sq_pages);
+
+	return ibv_cmd_reg_dmabuf_mr(pd, 0, ibuf->ibv_buf.size, (uintptr_t)ibuf->ibv_buf.addr,
+				     ibuf->ibv_buf.dmabuf_fd, IBV_ACCESS_LOCAL_WRITE,
+				     vmr, driver_attrs);
 }
 
 /**
