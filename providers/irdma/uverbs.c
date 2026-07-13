@@ -769,13 +769,21 @@ static struct ibv_cq_ex *ucreate_cq(struct ibv_context *context,
 		}
 
 		iwucq->vmr.ibv_mr.pd = &iwvctx->iwupd->ibv_pd;
+	} else {
+		ret = irdma_reg_internal_dmabuf(&iwvctx->iwupd->ibv_pd, &iwucq->cq_buf,
+						IRDMA_MEMREG_TYPE_CQ, cq_pages, 0, 0,
+						&iwucq->vmr);
+		if (ret) {
+			errno = ret;
+			goto err_dereg_mr;
+		}
 	}
 
 	if (uk_attrs->feature_flags & IRDMA_FEATURE_CQ_RESIZE) {
 		ret = __irdma_alloc_buf(pd, IRDMA_DB_SHADOW_AREA_SIZE, IRDMA_HW_PAGE_SIZE, &iwucq->shadow_buf);
 		if (ret) {
 			errno = ret;
-			goto err_dereg_mr
+			goto err_dereg_mr;
 		}
 		info.shadow_area = iwucq->shadow_buf.ibv_buf.addr;
 
@@ -794,6 +802,14 @@ static struct ibv_cq_ex *ucreate_cq(struct ibv_context *context,
 			}
 
 			iwucq->vmr_shadow_area.ibv_mr.pd = &iwvctx->iwupd->ibv_pd;
+		} else {
+			ret = irdma_reg_internal_dmabuf(&iwvctx->iwupd->ibv_pd, &iwucq->shadow_buf,
+							IRDMA_MEMREG_TYPE_CQ, 1, 0, 0,
+							&iwucq->vmr_shadow_area);
+			if (ret) {
+				errno = ret;
+				goto err_dereg_shadow;
+			}
 		}
 	} else {
 		/* If not resizing, the shadow area is appended to the end of the main CQ buffer */
@@ -805,9 +821,42 @@ static struct ibv_cq_ex *ucreate_cq(struct ibv_context *context,
 	cmd.user_cq_buf = (__u64)((uintptr_t)info.cq_base);
 	cmd.user_shadow_area = (__u64)((uintptr_t)info.shadow_area);
 
-	ret = ibv_cmd_create_cq_ex(context, attr_ex, NULL, &iwucq->verbs_cq,
-				   &cmd.ibv_cmd, sizeof(cmd), &resp.ibv_resp,
-				   sizeof(resp), 0);
+	{
+		DECLARE_COMMAND_BUFFER(driver_attrs, UVERBS_OBJECT_CQ,
+				       UVERBS_METHOD_CQ_CREATE, 2);
+
+		struct ib_uverbs_buffer_desc cq_buf_desc = {};
+		if (iwucq->cq_buf.ibv_buf.dmabuf_fd != -1) {
+			cq_buf_desc.type = IB_UVERBS_BUFFER_TYPE_DMABUF;
+			cq_buf_desc.fd = iwucq->cq_buf.ibv_buf.dmabuf_fd;
+			cq_buf_desc.addr = 0;
+			cq_buf_desc.length = total_size;
+		} else {
+			cq_buf_desc.type = IB_UVERBS_BUFFER_TYPE_VA;
+			cq_buf_desc.addr = (uintptr_t)info.cq_base;
+			cq_buf_desc.length = total_size;
+		}
+		fill_attr_in_ptr(driver_attrs, UVERBS_ATTR_CREATE_CQ_BUF_UMEM, &cq_buf_desc);
+
+		struct ib_uverbs_buffer_desc shadow_desc = {};
+		if (uk_attrs->feature_flags & IRDMA_FEATURE_CQ_RESIZE) {
+			if (iwucq->shadow_buf.ibv_buf.dmabuf_fd != -1) {
+				shadow_desc.type = IB_UVERBS_BUFFER_TYPE_DMABUF;
+				shadow_desc.fd = iwucq->shadow_buf.ibv_buf.dmabuf_fd;
+				shadow_desc.addr = 0;
+				shadow_desc.length = IRDMA_DB_SHADOW_AREA_SIZE;
+			} else {
+				shadow_desc.type = IB_UVERBS_BUFFER_TYPE_VA;
+				shadow_desc.addr = (uintptr_t)info.shadow_area;
+				shadow_desc.length = IRDMA_DB_SHADOW_AREA_SIZE;
+			}
+			fill_attr_in_ptr(driver_attrs, IRDMA_IB_ATTR_CREATE_CQ_SHADOW_BUF_UMEM, &shadow_desc);
+		}
+
+		ret = ibv_cmd_create_cq_ex2(context, attr_ex, NULL, &iwucq->verbs_cq,
+					    &cmd.ibv_cmd, sizeof(cmd), &resp.ibv_resp,
+					    sizeof(resp), 0, driver_attrs);
+	}
 	attr_ex->cqe = ncqe;
 	if (ret) {
 		errno = ret;
@@ -829,12 +878,13 @@ static struct ibv_cq_ex *ucreate_cq(struct ibv_context *context,
 
 err_dereg_shadow:
 	ibv_cmd_dereg_mr(&iwucq->vmr);
-	if (iwucq->vmr_shadow_area.ibv_mr.handle) {
-		ibv_cmd_dereg_mr(&iwucq->vmr_shadow_area);
-		irdma_free_hw_buf(info.shadow_area, IRDMA_HW_PAGE_SIZE);
+	if (uk_attrs->feature_flags & IRDMA_FEATURE_CQ_RESIZE) {
+		if (iwucq->vmr_shadow_area.ibv_mr.handle)
+			ibv_cmd_dereg_mr(&iwucq->vmr_shadow_area);
+		__irdma_free_buf(&iwucq->shadow_buf);
 	}
 err_dereg_mr:
-	irdma_free_hw_buf(info.cq_base, total_size);
+	__irdma_free_buf(&iwucq->cq_buf);
 err_cq_base:
 	pthread_spin_destroy(&iwucq->lock);
 
