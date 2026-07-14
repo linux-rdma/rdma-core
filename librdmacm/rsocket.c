@@ -1264,12 +1264,19 @@ err:
 	return ret;
 }
 
+static struct rsocket *rs_lookup(int socket)
+{
+	struct rsocket *rs = idm_lookup(&idm, socket);
+
+	return (rs && rs->type == FD_EPOLL) ? NULL : rs;
+}
+
 int rbind(int socket, const struct sockaddr *addr, socklen_t addrlen)
 {
 	struct rsocket *rs;
 	int ret;
 
-	rs = idm_lookup(&idm, socket);
+	rs = rs_lookup(socket);
 	if (!rs)
 		return ERR(EBADF);
 	if (rs->type == SOCK_STREAM) {
@@ -1292,7 +1299,7 @@ int rlisten(int socket, int backlog)
 	struct rsocket *rs;
 	int ret;
 
-	rs = idm_lookup(&idm, socket);
+	rs = rs_lookup(socket);
 	if (!rs)
 		return ERR(EBADF);
 
@@ -1385,7 +1392,7 @@ int raccept(int socket, struct sockaddr *addr, socklen_t *addrlen)
 	struct rsocket *rs, *new_rs;
 	int ret;
 
-	rs = idm_lookup(&idm, socket);
+	rs = rs_lookup(socket);
 	if (!rs)
 		return ERR(EBADF);
 
@@ -1750,7 +1757,7 @@ int rconnect(int socket, const struct sockaddr *addr, socklen_t addrlen)
 	struct rsocket *rs;
 	int ret, save_errno;
 
-	rs = idm_lookup(&idm, socket);
+	rs = rs_lookup(socket);
 	if (!rs)
 		return ERR(EBADF);
 	if (rs->type == SOCK_STREAM) {
@@ -3521,7 +3528,7 @@ int rshutdown(int socket, int how)
 	struct rsocket *rs;
 	int ctrl, ret = 0;
 
-	rs = idm_lookup(&idm, socket);
+	rs = rs_lookup(socket);
 	if (!rs)
 		return ERR(EBADF);
 	if (rs->opts & RS_OPT_KEEPALIVE)
@@ -3633,7 +3640,7 @@ int rgetpeername(int socket, struct sockaddr *addr, socklen_t *addrlen)
 {
 	struct rsocket *rs;
 
-	rs = idm_lookup(&idm, socket);
+	rs = rs_lookup(socket);
 	if (!rs)
 		return ERR(EBADF);
 	if (rs->type == SOCK_STREAM) {
@@ -3648,7 +3655,7 @@ int rgetsockname(int socket, struct sockaddr *addr, socklen_t *addrlen)
 {
 	struct rsocket *rs;
 
-	rs = idm_lookup(&idm, socket);
+	rs = rs_lookup(socket);
 	if (!rs)
 		return ERR(EBADF);
 	if (rs->type == SOCK_STREAM) {
@@ -3694,7 +3701,7 @@ int rsetsockopt(int socket, int level, int optname,
 	uint64_t *opts = NULL;
 
 	ret = ERR(ENOTSUP);
-	rs = idm_lookup(&idm, socket);
+	rs = rs_lookup(socket);
 	if (!rs)
 		return ERR(EBADF);
 	if ((rs->type == SOCK_DGRAM) && level != SOL_RDMA) {
@@ -3892,7 +3899,7 @@ int rgetsockopt(int socket, int level, int optname,
 	int ret = 0;
 	int num_paths;
 
-	rs = idm_lookup(&idm, socket);
+	rs = rs_lookup(socket);
 	if (!rs)
 		return ERR(EBADF);
 	switch (level) {
@@ -4060,7 +4067,7 @@ int rfcntl(int socket, int cmd, ... /* arg */ )
 	int param;
 	int ret = 0;
 
-	rs = idm_lookup(&idm, socket);
+	rs = rs_lookup(socket);
 	if (!rs)
 		return ERR(EBADF);
 	va_start(args, cmd);
