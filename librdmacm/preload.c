@@ -1350,7 +1350,22 @@ int __fxstat(int ver, int socket, struct stat *buf)
 
 int epoll_create1(int flags)
 {
-	return repoll_create(flags);
+	int index, ret, tmp;
+
+	init_preload();
+
+	index = fd_open();
+	if (index < 0)
+		return index;
+
+	ret = repoll_create(flags);
+	if (ret < 0) {
+		fd_close(index, &tmp);
+		return ret;
+	}
+
+	fd_store(index, ret, fd_rsocket, fd_ready);
+	return index;
 }
 
 int epoll_create(int size)
@@ -1360,12 +1375,13 @@ int epoll_create(int size)
 
 int epoll_ctl(int epfd, int op, int fd, struct epoll_event *event)
 {
+	int internal_epfd = fd_getd(epfd);
 	int internal_fd = fd_getd(fd);
 
-	return repoll_ctl(epfd, op, internal_fd, event);
+	return repoll_ctl(internal_epfd, op, internal_fd, event);
 }
 
 int epoll_wait(int epfd, struct epoll_event *events, int maxevents, int timeout)
 {
-	return repoll_wait(epfd, events, maxevents, timeout);
+	return repoll_wait(fd_getd(epfd), events, maxevents, timeout);
 }
