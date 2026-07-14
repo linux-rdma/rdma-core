@@ -5206,7 +5206,7 @@ int repoll_ctl(int epfd, int op, int fd, struct epoll_event *event)
 	struct repoll_info *ri;
 	int ret;
 
-	if (epfd < 0 || fd < 0)
+	if (fd < 0)
 		return EBADF;
 	if (epfd == fd)
 		return EINVAL;
@@ -5300,9 +5300,6 @@ int repoll_wait(int epfd, struct epoll_event *events, int maxevents,
 	int nfds, ret;
 	int wait_ret = 0;
 	bool have_deadline = false;
-
-	if (epfd < 0)
-		return EBADF;
 
 	ri = repoll_lookup(epfd);
 	if (!ri)
