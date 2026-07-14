@@ -4924,14 +4924,17 @@ static void *repoll_monitor_fn(void *arg)
 
 		for (;;) {
 			unsigned int wait_cnt;
+			int refresh_ret = 0;
 
 			pthread_mutex_lock(&ri->lock);
 			wait_cnt = ri->waiters;
+			if (wait_cnt)
+				refresh_ret = repoll_monitor_refresh_fds(
+						ri, &fds, &fds_cap, &nfds);
 			pthread_mutex_unlock(&ri->lock);
 			if (!wait_cnt)
 				break;
-
-			if (repoll_monitor_refresh_fds(ri, &fds, &fds_cap, &nfds))
+			if (refresh_ret)
 				goto out;
 
 			if (rpoll(fds, nfds, -1) <= 0)
