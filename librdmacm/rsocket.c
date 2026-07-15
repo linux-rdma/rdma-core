@@ -4704,6 +4704,9 @@ static void rs_handle_cm_event(struct rsocket *rs)
 {
 	int ret;
 
+	if (!rs->cm_id)
+		return;
+
 	if (rs->state & rs_opening) {
 		rs_do_connect(rs);
 	} else {
@@ -4774,6 +4777,7 @@ static void *cm_svc_run(void *arg)
 			cm_svc_process_sock(svc);
 			/* svc->contexts may have been reallocated, so need to assign again */
 			fds = svc->contexts;
+			continue;
 		}
 
 		for (i = 1; i <= svc->cnt; i++) {
