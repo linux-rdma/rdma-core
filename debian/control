@@ -104,6 +104,7 @@ Description: User space provider drivers for libibverbs
   - rxe: A software implementation of the RoCE protocol
   - siw: A software implementation of the iWarp protocol
   - vmw_pvrdma: VMware paravirtual RDMA device
+  - xscale: Yunsilicon RDMA device
 
 Package: ibverbs-utils
 Architecture: linux-any
