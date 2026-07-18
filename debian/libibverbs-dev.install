@@ -8,6 +8,9 @@ usr/include/infiniband/mlx4dv.h
 usr/include/infiniband/mlx5_api.h
 usr/include/infiniband/mlx5_user_ioctl_verbs.h
 usr/include/infiniband/mlx5dv.h
+usr/include/infiniband/xsc_api.h
+usr/include/infiniband/xsc_user_ioctl_verbs.h
+usr/include/infiniband/xscdv.h
 usr/include/infiniband/opcode.h
 usr/include/infiniband/sa-kern-abi.h
 usr/include/infiniband/sa.h
@@ -38,6 +41,7 @@ usr/lib/*/pkgconfig/libionic.pc
 usr/lib/*/pkgconfig/libmana.pc
 usr/lib/*/pkgconfig/libmlx4.pc
 usr/lib/*/pkgconfig/libmlx5.pc
+usr/lib/*/pkgconfig/libxscale.pc
 usr/share/man/man3/efadv_*.3
 usr/share/man/man3/hnsdv_*.3
 usr/share/man/man3/ibv_*

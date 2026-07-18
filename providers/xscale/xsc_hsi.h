@@ -14,23 +14,23 @@
 #define upper_32_bits(n) ((uint32_t)(((n) >> 16) >> 16))
 #define lower_32_bits(n) ((uint32_t)(n))
 
-#define DMA_LO_LE(x)		__cpu_to_le32(lower_32_bits(x))
-#define DMA_HI_LE(x)		__cpu_to_le32(upper_32_bits(x))
+#define DMA_LO_LE(x)		htole32(lower_32_bits(x))
+#define DMA_HI_LE(x)		htole32(upper_32_bits(x))
 #define DMA_REGPAIR_LE(x, val)	do { \
 					(x).hi = DMA_HI_LE((val)); \
 					(x).lo = DMA_LO_LE((val)); \
 				} while (0)
 
-#define WR_LE_16(x, val)	do { (x) = __cpu_to_le16(val); } while (0)
-#define WR_LE_32(x, val)	do { (x) = __cpu_to_le32(val); } while (0)
-#define WR_LE_64(x, val)	do { (x) = __cpu_to_le64(val); } while (0)
+#define WR_LE_16(x, val)	do { (x) = htole16(val); } while (0)
+#define WR_LE_32(x, val)	do { (x) = htole32(val); } while (0)
+#define WR_LE_64(x, val)	do { (x) = htole64(val); } while (0)
 #define WR_LE_R64(x, val)	DMA_REGPAIR_LE(x, val)
-#define WR_BE_32(x, val)	do { (x) = __cpu_to_be32(val); } while (0)
+#define WR_BE_32(x, val)	do { (x) = htobe32(val); } while (0)
 
-#define RD_LE_16(x)		__le16_to_cpu(x)
-#define RD_LE_32(x)		__le32_to_cpu(x)
-#define RD_BE_32(x)		__be32_to_cpu(x)
-#define RD_BE_64(x)		__be64_to_cpu(x)
+#define RD_LE_16(x)		le16toh(x)
+#define RD_LE_32(x)		le32toh(x)
+#define RD_BE_32(x)		be32toh(x)
+#define RD_BE_64(x)		be64toh(x)
 
 #define WR_REG(addr, val)	mmio_write32_le(addr, val)
 #define RD_REG(addr)		mmio_read32_le(addr)
@@ -230,7 +230,7 @@ struct xsc_send_wqe_ctrl_seg {
 struct xsc_wqe_data_seg {
 	union {
 		struct {
-			uint32_t	data0;
+			__le32		data0;
 #define XSC_WQE_DATA_SEG_LENGTH_MASK			GENMASK(31, 1)
 			__le32		mkey;
 			__le64		va;
@@ -316,11 +316,11 @@ static inline void xsc_set_cqe_sw_own(struct xsc_cqe *cqe,
 
 static inline bool xsc_get_cqe_sw_own(struct xsc_cqe *cqe, int cid, int ring_sz)
 {
-	return FIELD_GET(XSC_CQE_OWNER_MASK, cqe->data3)  == ((cid >> ring_sz) & 1);
+	return FIELD_GET(XSC_CQE_OWNER_MASK, le16toh(cqe->data3))  == ((cid >> ring_sz) & 1);
 }
 
 static inline void xsc_set_cqe_sw_own(struct xsc_cqe *cqe, int pid, int ring_sz)
 {
-	cqe->data3 |= FIELD_PREP(XSC_CQE_OWNER_MASK, ((pid >> ring_sz) & 1));
+	cqe->data3 |= htole16(FIELD_PREP(XSC_CQE_OWNER_MASK, ((pid >> ring_sz) & 1)));
 }
 #endif /* __XSC_HSI_H__ */

@@ -201,7 +201,7 @@ static void init_cqe(struct xsc_context *xctx, struct xsc_buf *buf, int ncqe, in
 		for (i = 0; i < ncqe; i++) {
 			struct xsc_cqe *cqe = (struct xsc_cqe *)(buf->buf + i * cqe_sz);
 
-			cqe->data3 |= FIELD_PREP(XSC_CQE_OWNER_MASK, 1);
+			cqe->data3 |= htole16(FIELD_PREP(XSC_CQE_OWNER_MASK, 1));
 		}
 	} else {
 		xsc_dbg(xctx->dbg_fp, XSC_DBG_CQ, "cq buff is given by gpu,do nothing in host.\n");
@@ -250,7 +250,7 @@ static struct ibv_cq_ex *create_cq(struct ibv_context *context,
 	}
 
 	if (cq_attr->wc_flags & ~CREATE_CQ_SUPPORTED_WC_FLAGS) {
-		xsc_err("unsupported wc flags:0x%lx\n", cq_attr->wc_flags);
+		xsc_err("unsupported wc flags:0x%" PRIx64 "\n", cq_attr->wc_flags);
 		errno = ENOTSUP;
 		return NULL;
 	}
@@ -326,7 +326,7 @@ static struct ibv_cq_ex *create_cq(struct ibv_context *context,
 		cq->flags |= XSC_CQ_FLAGS_OWNED_BY_GPU;
 		cmd_drv->dmabuf_fd = umem_in->dmabuf_fd;
 		cmd_drv->dmabuf_sz = umem_in->size;
-		xsc_dbg(xctx->dbg_fp, XSC_DBG_CQ, "cq_buf %p, buffer size:0x%lx, dmabuf_fd:%d\n",
+		xsc_dbg(xctx->dbg_fp, XSC_DBG_CQ, "cq_buf %p, buffer size:0x%zx, dmabuf_fd:%d\n",
 			umem_in->addr, umem_in->size, umem_in->dmabuf_fd);
 	} else {
 		cmd_drv->dmabuf_fd = -1;
@@ -373,7 +373,7 @@ static struct ibv_cq_ex *create_cq(struct ibv_context *context,
 
 	env = getenv("XSC_DISABLE_FLUSH_ERROR");
 	cq->disable_flush_error_cqe = env ? true : false;
-	xsc_dbg(xctx->dbg_fp, XSC_DBG_CQ, "cqe count:%u cqn:%u cq_buf:%p cq_buf_sz:0x%lx dmabuf_fd:%d\n",
+	xsc_dbg(xctx->dbg_fp, XSC_DBG_CQ, "cqe count:%u cqn:%u cq_buf:%p cq_buf_sz:0x%zx dmabuf_fd:%d\n",
 		cq->cqe_cnt, cq->cqn, cq->buf_a.buf, cq->buf_a.length,
 		umem_in ? umem_in->dmabuf_fd : -1);
 	list_head_init(&cq->err_state_qp_list);
@@ -682,7 +682,7 @@ static int xsc_alloc_qp_buf(struct ibv_context *context,
 		qp->buf.length = umem_in->size;
 
 		xsc_dbg(to_xctx(context)->dbg_fp, XSC_DBG_QP,
-			"qp_buf(%p),qp_buf_size=0x%lx is given by gpu memory, infact need size=0x%x.\n",
+			"qp_buf(%p),qp_buf_size=0x%zx is given by gpu memory, infact need size=0x%x.\n",
 			qp->buf.buf, qp->buf.length, size);
 	} else {
 		/* compatibility support */
@@ -924,7 +924,7 @@ static struct ibv_qp *create_qp(struct ibv_context *context,
 		qp->flags |= XSC_QP_FLAG_OWNED_BY_GPU;
 		cmd.dmabuf_fd = umem_in->dmabuf_fd;
 		cmd.dmabuf_sz = umem_in->size;
-		xsc_dbg(ctx->dbg_fp, XSC_DBG_QP, "wq_buf %p, buffer size:0x%lx, dmabuf_fd:%d\n",
+		xsc_dbg(ctx->dbg_fp, XSC_DBG_QP, "wq_buf %p, buffer size:0x%zx, dmabuf_fd:%d\n",
 			umem_in->addr, umem_in->size, umem_in->dmabuf_fd);
 	} else {
 		cmd.dmabuf_fd = -1;

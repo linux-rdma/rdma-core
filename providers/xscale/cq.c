@@ -100,12 +100,12 @@ static inline uint8_t xsc_get_cqe_opcode(struct xsc_context *ctx,
 	uint8_t with_immdt;
 	int err;
 
-	type = FIELD_GET(XSC_CQE_TYPE_MASK, cqe->data1);
-	with_immdt = FIELD_GET(XSC_CQE_WITH_IMMDT_MASK, cqe->data1);
+	type = FIELD_GET(XSC_CQE_TYPE_MASK, le32toh(cqe->data1));
+	with_immdt = FIELD_GET(XSC_CQE_WITH_IMMDT_MASK, le32toh(cqe->data1));
 	if (xsc_hw_is_err_cqe(ctx->device_id, cqe))
 		return type ? XSC_OPCODE_RDMA_RSP_ERROR : XSC_OPCODE_RDMA_REQ_ERROR;
 
-	err = get_qp_ctx(ctx, cur_rsc, RD_LE_16(FIELD_GET(XSC_CQE_QP_ID_MASK, cqe->data1)));
+	err = get_qp_ctx(ctx, cur_rsc, FIELD_GET(XSC_CQE_QP_ID_MASK, le32toh(cqe->data1)));
 	if (unlikely(err))
 		goto msg_opcode_err_check;
 	qp = rsc_to_xqp(*cur_rsc);
@@ -160,7 +160,7 @@ static inline void handle_good_req(struct ibv_wc *wc, struct xsc_cqe *cqe,
 	wq->tail = wq->wqe_head[idx] + 1;
 	if (opcode == XSC_OPCODE_RDMA_REQ_READ) {
 		ctrl = xsc_get_send_wqe(qp, idx);
-		wc->byte_len = ctrl->msg_len;
+		wc->byte_len = le32toh(ctrl->msg_len);
 	}
 	wq->need_flush[idx] = 0;
 
@@ -174,7 +174,7 @@ static inline void handle_good_responder(
 	uint16_t idx;
 	struct xsc_qp *qp = container_of(wq, struct xsc_qp, rq);
 
-	wc->byte_len = RD_LE_32(cqe->msg_len);
+	wc->byte_len = le32toh(cqe->msg_len);
 	wc->opcode = xsc_cqe_opcode[opcode];
 	wc->status = IBV_WC_SUCCESS;
 
@@ -228,7 +228,7 @@ static inline bool xsc_need_report_rsp_err_cqe(struct xsc_context *ctx, struct x
 	case XSC_MC_PF_DEV_ID_DIAMOND:
 	case XSC_MC_PF_DEV_ID_DIAMOND_NEXT:
 		msg_opcode = xsc_diamond_get_cqe_msg_opcode(cqe);
-		with_immdt = FIELD_GET(XSC_CQE_WITH_IMMDT_MASK, cqe->data1);
+		with_immdt = FIELD_GET(XSC_CQE_WITH_IMMDT_MASK, le32toh(cqe->data1));
 		xsc_dbg(ctx->dbg_fp, XSC_DBG_CQ_CQE, "msg_opcode:0x%x with_immdt:%u\n",
 			msg_opcode, with_immdt);
 		if (msg_opcode == XSC_MSG_OPCODE_SEND_DIAMOND_NEXT ||
@@ -291,7 +291,7 @@ static inline int xsc_parse_cqe(struct xsc_cq *cq,
 	wc->wc_flags = 0;
 
 	xctx = to_xctx(ibv_cq_ex_to_cq(&cq->verbs_cq.cq_ex)->context);
-	qp_id = RD_LE_16(FIELD_GET(XSC_CQE_QP_ID_MASK, cqe->data1));
+	qp_id = FIELD_GET(XSC_CQE_QP_ID_MASK, le32toh(cqe->data1));
 	wc->qp_num = qp_id;
 	opcode = xsc_get_cqe_opcode(xctx, cur_rsc, cqe);
 
@@ -371,7 +371,7 @@ static inline int xsc_parse_cqe_lazy(struct xsc_cq *cq, struct xsc_cqe *cqe)
 
 	cq->cqe = cqe;
 	xctx = to_xctx(ibv_cq_ex_to_cq(&cq->verbs_cq.cq_ex)->context);
-	qp_id = RD_LE_16(FIELD_GET(XSC_CQE_QP_ID_MASK, cqe->data1));
+	qp_id = FIELD_GET(XSC_CQE_QP_ID_MASK, le32toh(cqe->data1));
 	opcode = xsc_get_cqe_opcode(xctx, &cur_rsc, cqe);
 
 	xsc_dbg(xctx->dbg_fp, XSC_DBG_CQ_CQE, "opcode:0x%x qp_num:%u\n", opcode, qp_id);
@@ -664,7 +664,7 @@ static inline uint32_t xsc_wc_read_qp_num(struct ibv_cq_ex *ibcq)
 {
 	struct xsc_cqe *cqe = to_xcq(ibv_cq_ex_to_cq(ibcq))->cqe;
 
-	return le32toh(FIELD_GET(XSC_CQE_QP_ID_MASK, cqe->data1));
+	return FIELD_GET(XSC_CQE_QP_ID_MASK, le32toh(cqe->data1));
 }
 
 static inline unsigned int xsc_wc_read_flags(struct ibv_cq_ex *ibcq)
@@ -713,7 +713,7 @@ static inline uint64_t xsc_wc_read_completion_ts(struct ibv_cq_ex *ibcq)
 {
 	struct xsc_cqe *cqe = to_xcq(ibv_cq_ex_to_cq(ibcq))->cqe;
 
-	return le64toh(FIELD_GET(XSC_CQE_TS_MASK, cqe->data2));
+	return FIELD_GET(XSC_CQE_TS_MASK, le64toh(cqe->data2));
 }
 
 void xsc_cq_fill_pfns(struct xsc_cq *cq, const struct ibv_cq_init_attr_ex *cq_attr)
@@ -755,7 +755,7 @@ static int is_equal_rsn(struct xsc_cqe *cqe, uint32_t rsn)
 {
 	uint32_t qp_id;
 
-	qp_id = RD_LE_16(FIELD_GET(XSC_CQE_QP_ID_MASK, cqe->data1));
+	qp_id = FIELD_GET(XSC_CQE_QP_ID_MASK, le32toh(cqe->data1));
 	return rsn == qp_id;
 }
 
@@ -799,9 +799,9 @@ void __xsc_cq_clean(struct xsc_cq *cq, uint32_t rsn)
 			++nfreed;
 		} else if (nfreed) {
 			dest = get_cqe(cq, (prod_index + nfreed) & (cq->verbs_cq.cq_ex.cqe - 1));
-			owner_bit = FIELD_GET(XSC_CQE_OWNER_MASK, dest->data3);
+			owner_bit = FIELD_GET(XSC_CQE_OWNER_MASK, le16toh(dest->data3));
 			memcpy(dest, cqe, cq->cqe_sz);
-			dest->data3 |= FIELD_PREP(XSC_CQE_OWNER_MASK, owner_bit);
+			dest->data3 |= htole16(FIELD_PREP(XSC_CQE_OWNER_MASK, owner_bit));
 		}
 	}
 
@@ -858,7 +858,7 @@ int xsc_alloc_cq_buf(struct xsc_context *xctx, struct xsc_cq *cq,
 		buf->length = umem_in->size;
 
 		xsc_dbg(xctx->dbg_fp, XSC_DBG_CQ,
-			"cq_buf(%p),cq_buf_size=0x%lx is given by gpu memory,infact need size=0x%x.\n",
+			"cq_buf(%p),cq_buf_size=0x%zx is given by gpu memory,infact need size=0x%x.\n",
 			buf->buf, buf->length, (nent * cqe_sz));
 	} else {
 		if (xsc_use_huge("HUGE_CQ"))

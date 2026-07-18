@@ -10,6 +10,7 @@
 #include <linux/types.h>
 #include <linux/if_ether.h>	/* For ETH_ALEN. */
 #include <rdma/ib_user_ioctl_verbs.h>
+#include <stddef.h>
 
 enum {
 	XSC_HW_FEATURE_FLAG_SUPPORT_CQE64 = 1 << 0,

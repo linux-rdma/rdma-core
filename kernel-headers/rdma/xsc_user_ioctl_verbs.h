@@ -9,6 +9,10 @@
 
 #include <linux/types.h>
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 enum xsc_ib_uapi_flow_action_flags {
 	XSC_IB_UAPI_FLOW_ACTION_FLAGS_REQUIRE_METADATA	= 1 << 0,
 };
@@ -24,6 +28,10 @@ enum xsc_ib_uapi_flow_action_packet_reformat_type {
 	XSC_IB_UAPI_FLOW_ACTION_PACKET_REFORMAT_TYPE_L3_TUNNEL_TO_L2 = 0x2,
 	XSC_IB_UAPI_FLOW_ACTION_PACKET_REFORMAT_TYPE_L2_TO_L3_TUNNEL = 0x3,
 };
+
+#ifdef __cplusplus
+}
+#endif
 
 #endif
 

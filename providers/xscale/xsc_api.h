@@ -9,6 +9,10 @@
 
 #include <infiniband/xsc_user_ioctl_verbs.h>
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 #define xscdv_flow_action_flags			xsc_ib_uapi_flow_action_flags
 #define XSCDV_FLOW_ACTION_FLAGS_REQUIRE_METADATA \
 	XSC_IB_UAPI_FLOW_ACTION_FLAGS_REQUIRE_METADATA
@@ -31,5 +35,9 @@ enum xsc_qp_create_flags {
 	XSC_QP_CREATE_RAWPACKET_TX	= 1 << 3,
 	XSC_QP_CREATE_WORC		= 1 << 4,
 };
+
+#ifdef __cplusplus
+}
+#endif
 
 #endif

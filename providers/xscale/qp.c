@@ -155,7 +155,7 @@ static int set_wqe_inline_from_wr(struct xsc_qp *qp, struct ibv_send_wr *wr,
 {
 	void *data_seg;
 	unsigned int seg_index;
-	int msg_len = ctrl->msg_len;
+	int msg_len = le32toh(ctrl->msg_len);
 	int filled_ds_num;
 
 	if (wr->opcode == IBV_WR_SEND || wr->opcode == IBV_WR_SEND_WITH_IMM)
@@ -356,7 +356,7 @@ static inline int _xsc_post_send(struct ibv_qp *ibqp, struct ibv_send_wr *wr,
 			if (likely(wr->sg_list[i].length))
 				msg_len += wr->sg_list[i].length;
 		}
-		ctrl->msg_len = msg_len;
+		ctrl->msg_len = htole32(msg_len);
 
 		if (unlikely(wr->opcode == IBV_WR_RDMA_READ && msg_len == 0)) {
 			xsc_dbg(to_xctx(ibqp->context)->dbg_fp, XSC_DBG_QP_SEND,
@@ -402,7 +402,7 @@ static inline int _xsc_post_send(struct ibv_qp *ibqp, struct ibv_send_wr *wr,
 					goto out;
 				}
 
-				ctrl->msg_len = 16;
+				ctrl->msg_len = htole32(16);
 				data_seg = get_seg_wqe(ctrl, seg_index);
 				set_data_seg_with_value(qp,
 							data_seg,
@@ -591,14 +591,14 @@ static inline void _common_wqe_finalize(struct ibv_qp_ex *ibqp)
 	uint32_t idx = qp->sq.cur_post & (qp->sq.wqe_cnt - 1);
 
 	ctrl->data0 |= FIELD_PREP(XSC_SWQE_CTRL_SEG_DS_DATA_NUM_MASK, qp->cur_ds_num);
-	ctrl->msg_len = qp->cur_data_len;
+	ctrl->msg_len = htole32(qp->cur_data_len);
 	if (ctrl->msg_opcode == XSC_MSG_OPCODE_RDMA_WRITE ||
 	    ctrl->msg_opcode == XSC_MSG_OPCODE_RDMA_READ) {
 		remote_seg = get_seg_wqe(qp->cur_ctrl, RDMA_REMOTE_DATA_SEG_IDX);
 		set_data_seg_with_value(qp, remote_seg,
 					qp->cur_remote_addr,
 					qp->cur_remote_key,
-					ctrl->msg_len);
+					qp->cur_data_len);
 	} else if (ctrl->msg_opcode == XSC_MSG_OPCODE_RDMA_ATOMIC_CMP_AND_SWAP ||
 		   ctrl->msg_opcode == XSC_MSG_OPCODE_RDMA_ATOMIC_FETCH_AND_ADD) {
 		remote_seg = get_seg_wqe(qp->cur_ctrl, RDMA_REMOTE_DATA_SEG_IDX);
@@ -606,7 +606,7 @@ static inline void _common_wqe_finalize(struct ibv_qp_ex *ibqp)
 					qp->cur_remote_addr,
 					qp->cur_remote_key,
 					8);
-		ctrl->msg_len = 16;
+		ctrl->msg_len = htole32(16);
 	}
 
 	dump_wqe(0, idx, qp);
@@ -732,7 +732,7 @@ static inline void xsc_wr_set_sge_list(struct ibv_qp_ex *ibqp, size_t num_sge,
 
 	if (unlikely(num_sge > qp->sq.max_gs)) {
 		xsc_dbg(to_xctx(ibqp->qp_base.context)->dbg_fp, XSC_DBG_QP_SEND,
-			"rdma read, max gs exceeded %lu (max = 1)\n",
+			"rdma read, max gs exceeded %zu (max = 1)\n",
 			num_sge);
 		if (!qp->err)
 			qp->err = ENOMEM;
@@ -858,7 +858,7 @@ int xsc_qp_fill_wr_pfns(struct xsc_context *ctx,
 	return 0;
 }
 
-int xsc_post_recv_dump_wqe = 1;
+static int xsc_post_recv_dump_wqe = 1;
 int xsc_post_recv(struct ibv_qp *ibqp, struct ibv_recv_wr *wr,
 		   struct ibv_recv_wr **bad_wr)
 {
@@ -1109,7 +1109,7 @@ int xsc_post_send_mask_atomic(struct ibv_qp *ibqp,
 			if (likely(wr->sg_list[i].length))
 				msg_len += wr->sg_list[i].length;
 		}
-		ctrl->msg_len = msg_len;
+		ctrl->msg_len = htole32(msg_len);
 
 		if (unlikely(!qp->atomics_enabled)) {
 			xsc_dbg(to_xctx(ibqp->context)->dbg_fp, XSC_DBG_QP_SEND,
@@ -1123,12 +1123,12 @@ int xsc_post_send_mask_atomic(struct ibv_qp *ibqp,
 		case IBV_QPT_RC:
 			switch (wr->opcode) {
 			case XSCDV_MSG_OPCODE_RDMA_ATOMIC_8B_MSK_CMP_AND_SWAP:
-				ctrl->msg_len = 32;
+				ctrl->msg_len = htole32(32);
 				ctrl->data1 |= FIELD_PREP(XSC_SWQE_CTRL_SEG_IN_LINE_MASK, 1);
 				data_seg = get_seg_wqe(ctrl, seg_index);
-				data_seg->mkey = wr->ext_op.masked_atomics.rkey;
-				data_seg->va = wr->ext_op.masked_atomics.remote_addr;
-				data_seg->data0 |= FIELD_PREP(XSC_WQE_DATA_SEG_LENGTH_MASK, 8);
+				data_seg->mkey = htole32(wr->ext_op.masked_atomics.rkey);
+				data_seg->va = htole64(wr->ext_op.masked_atomics.remote_addr);
+				data_seg->data0 |= htole32(FIELD_PREP(XSC_WQE_DATA_SEG_LENGTH_MASK, 8));
 				seg_index++;
 
 				data_seg = get_seg_wqe(ctrl, seg_index);
@@ -1142,25 +1142,25 @@ int xsc_post_send_mask_atomic(struct ibv_qp *ibqp,
 				mask_64_cs_seg0 = get_seg_wqe(ctrl, seg_index);
 				swap_val = wr->ext_op.masked_atomics.wr_data.inline_data.op.cmp_swap.swap_val;
 				cmp_val = wr->ext_op.masked_atomics.wr_data.inline_data.op.cmp_swap.compare_val;
-				mask_64_cs_seg0->swap_add = RD_BE_64(swap_val);
-				mask_64_cs_seg0->compare = RD_BE_64(cmp_val);
+				mask_64_cs_seg0->swap_add = htobe64(swap_val);
+				mask_64_cs_seg0->compare = htobe64(cmp_val);
 				seg_index++;
 
 				mask_64_cs_seg1 = get_seg_wqe(ctrl, seg_index);
 				swap_mask = wr->ext_op.masked_atomics.wr_data.inline_data.op.cmp_swap.swap_mask;
 				cmp_mask = wr->ext_op.masked_atomics.wr_data.inline_data.op.cmp_swap.compare_mask;
-				mask_64_cs_seg1->swap_add = RD_BE_64(swap_mask);
-				mask_64_cs_seg1->compare = RD_BE_64(cmp_mask);
+				mask_64_cs_seg1->swap_add = htobe64(swap_mask);
+				mask_64_cs_seg1->compare = htobe64(cmp_mask);
 				seg_index++;
 
 				break;
 			case XSCDV_MSG_OPCODE_RDMA_ATOMIC_8B_MSK_FETCH_AND_ADD:
-				ctrl->msg_len = 16;
+				ctrl->msg_len = htole32(16);
 				ctrl->data1 |= FIELD_PREP(XSC_SWQE_CTRL_SEG_IN_LINE_MASK, 1);
 				data_seg = get_seg_wqe(ctrl, seg_index);
-				data_seg->mkey = wr->ext_op.masked_atomics.rkey;
-				data_seg->va = wr->ext_op.masked_atomics.remote_addr;
-				data_seg->data0 |= FIELD_PREP(XSC_WQE_DATA_SEG_LENGTH_MASK, 8);
+				data_seg->mkey = htole32(wr->ext_op.masked_atomics.rkey);
+				data_seg->va = htole64(wr->ext_op.masked_atomics.remote_addr);
+				data_seg->data0 |= htole32(FIELD_PREP(XSC_WQE_DATA_SEG_LENGTH_MASK, 8));
 				seg_index++;
 
 				data_seg = get_seg_wqe(ctrl, seg_index);
@@ -1174,17 +1174,17 @@ int xsc_post_send_mask_atomic(struct ibv_qp *ibqp,
 				mask_64_fa = get_seg_wqe(ctrl, seg_index);
 				add_val = wr->ext_op.masked_atomics.wr_data.inline_data.op.fetch_add.add_val;
 				field_boundary = wr->ext_op.masked_atomics.wr_data.inline_data.op.fetch_add.field_boundary;
-				mask_64_fa->add_data = RD_BE_64(add_val);
-				mask_64_fa->field_boundary = RD_BE_64(field_boundary);
+				mask_64_fa->add_data = htobe64(add_val);
+				mask_64_fa->field_boundary = htobe64(field_boundary);
 				seg_index++;
 				break;
 			case XSCDV_MSG_OPCODE_RDMA_ATOMIC_4B_MSK_CMP_AND_SWAP:
-				ctrl->msg_len = 16;
+				ctrl->msg_len = htole32(16);
 				ctrl->data1 |= FIELD_PREP(XSC_SWQE_CTRL_SEG_IN_LINE_MASK, 1);
 				data_seg = get_seg_wqe(ctrl, seg_index);
-				data_seg->mkey = wr->ext_op.masked_atomics.rkey;
-				data_seg->va = wr->ext_op.masked_atomics.remote_addr;
-				data_seg->data0 |= FIELD_PREP(XSC_WQE_DATA_SEG_LENGTH_MASK, 4);
+				data_seg->mkey = htole32(wr->ext_op.masked_atomics.rkey);
+				data_seg->va = htole64(wr->ext_op.masked_atomics.remote_addr);
+				data_seg->data0 |= htole32(FIELD_PREP(XSC_WQE_DATA_SEG_LENGTH_MASK, 4));
 				seg_index++;
 
 				data_seg = get_seg_wqe(ctrl, seg_index);
@@ -1200,20 +1200,20 @@ int xsc_post_send_mask_atomic(struct ibv_qp *ibqp,
 				cmp_val = wr->ext_op.masked_atomics.wr_data.inline_data.op.cmp_swap.compare_val;
 				swap_mask = wr->ext_op.masked_atomics.wr_data.inline_data.op.cmp_swap.swap_mask;
 				cmp_mask = wr->ext_op.masked_atomics.wr_data.inline_data.op.cmp_swap.compare_mask;
-				mask_32_cs->swap_data = RD_BE_32((uint32_t)swap_val);
-				mask_32_cs->compare_data = RD_BE_32((uint32_t)cmp_val);
-				mask_32_cs->swap_mask = RD_BE_32((uint32_t)swap_mask);
-				mask_32_cs->compare_mask = RD_BE_32((uint32_t)cmp_mask);
+				mask_32_cs->swap_data = htobe32((uint32_t)swap_val);
+				mask_32_cs->compare_data = htobe32((uint32_t)cmp_val);
+				mask_32_cs->swap_mask = htobe32((uint32_t)swap_mask);
+				mask_32_cs->compare_mask = htobe32((uint32_t)cmp_mask);
 				seg_index++;
 
 				break;
 			case XSCDV_MSG_OPCODE_RDMA_ATOMIC_4B_MSK_FETCH_AND_ADD:
-				ctrl->msg_len = 8;
+				ctrl->msg_len = htole32(8);
 				ctrl->data1 |= FIELD_PREP(XSC_SWQE_CTRL_SEG_IN_LINE_MASK, 1);
 				data_seg = get_seg_wqe(ctrl, seg_index);
-				data_seg->mkey = wr->ext_op.masked_atomics.rkey;
-				data_seg->va = wr->ext_op.masked_atomics.remote_addr;
-				data_seg->data0 |= FIELD_PREP(XSC_WQE_DATA_SEG_LENGTH_MASK, 4);
+				data_seg->mkey = htole32(wr->ext_op.masked_atomics.rkey);
+				data_seg->va = htole64(wr->ext_op.masked_atomics.remote_addr);
+				data_seg->data0 |= htole32(FIELD_PREP(XSC_WQE_DATA_SEG_LENGTH_MASK, 4));
 				seg_index++;
 
 				data_seg = get_seg_wqe(ctrl, seg_index);
@@ -1227,8 +1227,8 @@ int xsc_post_send_mask_atomic(struct ibv_qp *ibqp,
 				mask_32_fa = get_seg_wqe(ctrl, seg_index);
 				add_val = wr->ext_op.masked_atomics.wr_data.inline_data.op.fetch_add.add_val;
 				field_boundary = wr->ext_op.masked_atomics.wr_data.inline_data.op.fetch_add.field_boundary;
-				mask_32_fa->add_data = RD_BE_32((uint32_t)add_val);
-				mask_32_fa->field_boundary = RD_BE_32((uint32_t)field_boundary);
+				mask_32_fa->add_data = htobe32((uint32_t)add_val);
+				mask_32_fa->field_boundary = htobe32((uint32_t)field_boundary);
 				mask_32_fa->reserved = 0;
 				seg_index++;
 				break;

@@ -152,7 +152,7 @@ static int xsc_mmap(struct xsc_device *xdev, struct xsc_context *context,
 					 context->tx_multidb_base & page_mask);
 		if (context->mdb_base == MAP_FAILED)
 			goto free_mdb;
-		xsc_dbg(context->dbg_fp, XSC_DBG_CTX, "multidb va base:%p, mdb_size:0x%lx\n",
+		xsc_dbg(context->dbg_fp, XSC_DBG_CTX, "multidb va base:%p, mdb_size:0x%zx\n",
 			context->mdb_base, mdb_size);
 		context->mdb_mmap_size = mdb_size;
 	}

@@ -1,6 +1,6 @@
 /* Export symbols should be added below according to
    Documentation/versioning.md document. */
-XSC_1.0 {
+XSCALE_1.0 {
         local: *;
 };
 

@@ -54,29 +54,29 @@ struct xsc_andes_cqe {
 };
 
 struct xsc_andes_cq_doorbell {
-	uint32_t raw;
+	__le32 raw;
 #define XSC_ANDES_CQ_DOORBELL_CQ_NEXT_CID_MASK		GENMASK(15, 0)
 #define XSC_ANDES_CQ_DOORBELL_CQ_ID_MASK		GENMASK(30, 16)
 #define XSC_ANDES_CQ_DOORBELL_ARM_MASK			BIT(31)
 };
 
 struct xsc_andes_send_doorbell {
-	uint32_t raw;
+	__le32 raw;
 #define XSC_ANDES_SEND_DOORBELL_NEXT_PID_MASK		GENMASK(15, 0)
 #define XSC_ANDES_SEND_DOORBELL_QP_ID_MASK		GENMASK(30, 16)
 };
 
 struct xsc_andes_recv_doorbell {
-	uint32_t raw;
+	__le32 raw;
 #define XSC_ANDES_RECV_DOORBELL_NEXT_PID_MASK		GENMASK(12, 0)
 #define XSC_ANDES_RECV_DOORBELL_QP_ID_MASK		GENMASK(27, 13)
 };
 
 struct xsc_andes_data_seg {
-	uint32_t data0;
+	__le32 data0;
 #define XSC_ANDES_DATA_SEG_LENGTH_MASK			GENMASK(31, 1)
-	uint32_t key;
-	uint64_t addr;
+	__le32 key;
+	__le64 addr;
 };
 
 struct diamond_send_wqe_ctrl_seg {
@@ -119,50 +119,50 @@ struct xsc_diamond_cqe {
 };
 
 struct xsc_diamond_cq_doorbell {
-	uint64_t raw;
+	__le64 raw;
 #define XSC_DIAMOND_CQ_DOORBELL_CQ_NEXT_CID_MASK	GENMASK_ULL(22, 0)
 #define XSC_DIAMOND_CQ_DOORBELL_CQ_ID_MASK		GENMASK_ULL(38, 23)
 #define XSC_DIAMOND_CQ_DOORBELL_CQ_STA_MASK		GENMASK_ULL(40, 39)
 };
 
 struct xsc_diamond_recv_doorbell {
-	uint64_t raw;
+	__le64 raw;
 #define XSC_DIAMOND_RECV_DOORBELL_NEXT_PID_MASK		GENMASK_ULL(17, 0)
 #define XSC_DIAMOND_RECV_DOORBELL_QP_ID_MASK		GENMASK_ULL(33, 18)
 };
 
 struct xsc_diamond_send_doorbell {
-	uint64_t raw;
+	__le64 raw;
 #define XSC_DIAMOND_SEND_DOORBELL_NEXT_PID_MASK		GENMASK_ULL(20, 0)
 #define XSC_DIAMOND_SEND_DOORBELL_QP_ID_MASK		GENMASK_ULL(36, 21)
 };
 
 struct xsc_diamond_data_seg {
-	uint32_t length;
-	uint32_t key;
-	uint64_t addr;
+	__le32 length;
+	__le32 key;
+	__le64 addr;
 };
 
 struct xsc_diamond_atomic_seg {
-	uint64_t swap_add;
-	uint64_t compare;
+	__le64 swap_add;
+	__le64 compare;
 };
 
 struct xsc_diamond_next_cq_doorbell {
-	uint64_t raw;
+	__le64 raw;
 #define XSC_DIAMOND_NEXT_CQ_DOORBELL_CQ_NEXT_CID_MASK	GENMASK_ULL(22, 0)
 #define XSC_DIAMOND_NEXT_CQ_DOORBELL_CQ_ID_MASK		GENMASK_ULL(38, 23)
 #define XSC_DIAMOND_NEXT_CQ_DOORBELL_CQ_STA_MASK	GENMASK_ULL(40, 39)
 };
 
 struct xsc_diamond_next_send_doorbell {
-	uint64_t raw;
+	__le64 raw;
 #define XSC_DIAMOND_NEXT_SEND_DOORBELL_NEXT_PID_MASK	GENMASK_ULL(16, 0)
 #define XSC_DIAMOND_NEXT_SEND_DOORBELL_QP_ID_MASK	GENMASK_ULL(32, 17)
 };
 
 struct xsc_diamond_next_recv_doorbell {
-	uint64_t raw;
+	__le64 raw;
 #define XSC_DIAMOND_NEXT_RECV_DOORBELL_NEXT_PID_MASK	GENMASK_ULL(13, 0)
 #define XSC_DIAMOND_NEXT_RECV_DOORBELL_QP_ID_MASK	GENMASK_ULL(29, 14)
 };
@@ -177,7 +177,7 @@ enum {
 static inline uint8_t xsc_diamond_get_cqe_msg_opcode(void *cqe)
 {
 	return FIELD_GET(XSC_DIAMOND_CQE_MSG_OPCODE_MASK,
-			 ((struct xsc_diamond_cqe *)cqe)->data2);
+			 le32toh(((struct xsc_diamond_cqe *)cqe)->data2));
 }
 
 static inline uint8_t xsc_andes_get_cqe_msg_opcode(void *cqe)
@@ -208,7 +208,7 @@ static inline uint32_t xsc_hw_get_wqe_id(uint16_t device_id, void *cqe)
 	case XSC_MC_PF_DEV_ID_DIAMOND:
 	case XSC_MC_PF_DEV_ID_DIAMOND_NEXT:
 		return FIELD_GET(XSC_DIAMOND_CQE_WQE_ID_MASK,
-				 ((struct xsc_diamond_cqe *)cqe)->data2);
+				 le32toh(((struct xsc_diamond_cqe *)cqe)->data2));
 	default:
 		return RD_LE_16(((struct xsc_andes_cqe *)cqe)->wqe_id);
 	}
@@ -226,7 +226,7 @@ static inline void xsc_hw_set_wqe_id(uint16_t device_id, void *cseg, uint32_t wq
 	case XSC_MC_PF_DEV_ID_DIAMOND:
 	case XSC_MC_PF_DEV_ID_DIAMOND_NEXT:
 		((struct diamond_send_wqe_ctrl_seg *)cseg)->data1 |=
-			FIELD_PREP(XSC_DIAMOND_WQE_CTRL_SEG_WQE_ID_MASK, wqe_id);
+			htole32(FIELD_PREP(XSC_DIAMOND_WQE_CTRL_SEG_WQE_ID_MASK, wqe_id));
 		break;
 	default:
 		WR_LE_16(((struct andes_send_wqe_ctrl_seg *)cseg)->wqe_id, wqe_id16);
@@ -420,9 +420,9 @@ static inline void xsc_diamond_set_data_seg(void *data_seg,
 {
 	struct xsc_diamond_data_seg *seg = data_seg;
 
-	seg->length = length;
-	seg->key = key;
-	seg->addr = addr;
+	seg->length = htole32(length);
+	seg->key = htole32(key);
+	seg->addr = htole64(addr);
 }
 
 static inline void xsc_diamond_set_atomic_seg(void *atomic_seg, int opcode,
@@ -431,10 +431,10 @@ static inline void xsc_diamond_set_atomic_seg(void *atomic_seg, int opcode,
 	struct xsc_diamond_atomic_seg *aseg = (struct xsc_diamond_atomic_seg *)atomic_seg;
 
 	if (opcode == IBV_WR_ATOMIC_CMP_AND_SWP) {
-		aseg->swap_add = RD_BE_64(swap);
-		aseg->compare = RD_BE_64(compare_add);
+		aseg->swap_add = htole64(swap);
+		aseg->compare = htole64(compare_add);
 	} else {
-		aseg->swap_add = RD_BE_64(compare_add);
+		aseg->swap_add = htole64(compare_add);
 	}
 }
 
@@ -444,9 +444,9 @@ static inline void xsc_andes_set_data_seg(void *data_seg,
 {
 	struct xsc_andes_data_seg *seg = data_seg;
 
-	seg->data0 |= FIELD_PREP(XSC_ANDES_DATA_SEG_LENGTH_MASK, length);
-	seg->key = key;
-	seg->addr = addr;
+	seg->data0 |= htole32(FIELD_PREP(XSC_ANDES_DATA_SEG_LENGTH_MASK, length));
+	seg->key = htole32(key);
+	seg->addr = htole64(addr);
 }
 
 static inline void xsc_hw_set_data_seg(uint16_t device_id, void *data_seg,
@@ -484,9 +484,9 @@ static inline void xsc_diamond_set_cq_ci(void *db_addr,
 {
 	struct xsc_diamond_cq_doorbell db;
 
-	db.raw = FIELD_PREP(XSC_DIAMOND_CQ_DOORBELL_CQ_ID_MASK, cqn) |
-		 FIELD_PREP(XSC_DIAMOND_CQ_DOORBELL_CQ_NEXT_CID_MASK, next_cid) |
-		 FIELD_PREP(XSC_DIAMOND_CQ_DOORBELL_CQ_STA_MASK, XSC_CQ_STAT_KEEP);
+	db.raw = htole64(FIELD_PREP(XSC_DIAMOND_CQ_DOORBELL_CQ_ID_MASK, cqn) |
+			 FIELD_PREP(XSC_DIAMOND_CQ_DOORBELL_CQ_NEXT_CID_MASK, next_cid) |
+			 FIELD_PREP(XSC_DIAMOND_CQ_DOORBELL_CQ_STA_MASK, XSC_CQ_STAT_KEEP));
 	udma_to_device_barrier();
 	mmio_write64_le(db_addr, db.raw);
 }
@@ -496,9 +496,9 @@ static inline void xsc_diamond_next_set_cq_ci(void *db_addr,
 {
 	struct xsc_diamond_next_cq_doorbell db;
 
-	db.raw = FIELD_PREP(XSC_DIAMOND_NEXT_CQ_DOORBELL_CQ_ID_MASK, cqn) |
-		 FIELD_PREP(XSC_DIAMOND_NEXT_CQ_DOORBELL_CQ_NEXT_CID_MASK, next_cid) |
-		 FIELD_PREP(XSC_DIAMOND_NEXT_CQ_DOORBELL_CQ_STA_MASK, XSC_CQ_STAT_KEEP);
+	db.raw = htole64(FIELD_PREP(XSC_DIAMOND_NEXT_CQ_DOORBELL_CQ_ID_MASK, cqn) |
+			 FIELD_PREP(XSC_DIAMOND_NEXT_CQ_DOORBELL_CQ_NEXT_CID_MASK, next_cid) |
+			 FIELD_PREP(XSC_DIAMOND_NEXT_CQ_DOORBELL_CQ_STA_MASK, XSC_CQ_STAT_KEEP));
 	udma_to_device_barrier();
 	mmio_write64_le(db_addr, db.raw);
 }
@@ -508,9 +508,9 @@ static inline void xsc_andes_set_cq_ci(void *db_addr,
 {
 	struct xsc_andes_cq_doorbell db;
 
-	db.raw = FIELD_PREP(XSC_ANDES_CQ_DOORBELL_CQ_ID_MASK, cqn) |
-		 FIELD_PREP(XSC_ANDES_CQ_DOORBELL_CQ_NEXT_CID_MASK, next_cid) |
-		 FIELD_PREP(XSC_ANDES_CQ_DOORBELL_ARM_MASK, XSC_CQ_STAT_FIRED);
+	db.raw = htole32(FIELD_PREP(XSC_ANDES_CQ_DOORBELL_CQ_ID_MASK, cqn) |
+			 FIELD_PREP(XSC_ANDES_CQ_DOORBELL_CQ_NEXT_CID_MASK, next_cid) |
+			 FIELD_PREP(XSC_ANDES_CQ_DOORBELL_ARM_MASK, XSC_CQ_STAT_FIRED));
 	udma_to_device_barrier();
 	mmio_write32_le(db_addr, db.raw);
 }
@@ -541,10 +541,10 @@ static inline void xsc_diamond_update_cq_db(void *db_addr,
 {
 	struct xsc_diamond_cq_doorbell db;
 
-	db.raw = FIELD_PREP(XSC_DIAMOND_CQ_DOORBELL_CQ_ID_MASK, cqn) |
-		 FIELD_PREP(XSC_DIAMOND_CQ_DOORBELL_CQ_NEXT_CID_MASK, next_cid) |
-		 FIELD_PREP(XSC_DIAMOND_CQ_DOORBELL_CQ_STA_MASK,
-			    solicited ? XSC_CQ_STAT_ARM_SOLICITED : XSC_CQ_STAT_ARM_NEXT);
+	db.raw = htole64(FIELD_PREP(XSC_DIAMOND_CQ_DOORBELL_CQ_ID_MASK, cqn) |
+			 FIELD_PREP(XSC_DIAMOND_CQ_DOORBELL_CQ_NEXT_CID_MASK, next_cid) |
+			 FIELD_PREP(XSC_DIAMOND_CQ_DOORBELL_CQ_STA_MASK,
+				    solicited ? XSC_CQ_STAT_ARM_SOLICITED : XSC_CQ_STAT_ARM_NEXT));
 	udma_to_device_barrier();
 	mmio_wc_start();
 	mmio_write64_le(db_addr, db.raw);
@@ -557,10 +557,10 @@ static inline void xsc_diamond_next_update_cq_db(void *db_addr,
 {
 	struct xsc_diamond_next_cq_doorbell db;
 
-	db.raw = FIELD_PREP(XSC_DIAMOND_NEXT_CQ_DOORBELL_CQ_ID_MASK, cqn) |
-		 FIELD_PREP(XSC_DIAMOND_NEXT_CQ_DOORBELL_CQ_NEXT_CID_MASK, next_cid) |
-		 FIELD_PREP(XSC_DIAMOND_NEXT_CQ_DOORBELL_CQ_STA_MASK,
-			    solicited ? XSC_CQ_STAT_ARM_SOLICITED : XSC_CQ_STAT_ARM_NEXT);
+	db.raw = htole64(FIELD_PREP(XSC_DIAMOND_NEXT_CQ_DOORBELL_CQ_ID_MASK, cqn) |
+			 FIELD_PREP(XSC_DIAMOND_NEXT_CQ_DOORBELL_CQ_NEXT_CID_MASK, next_cid) |
+			 FIELD_PREP(XSC_DIAMOND_NEXT_CQ_DOORBELL_CQ_STA_MASK,
+				    solicited ? XSC_CQ_STAT_ARM_SOLICITED : XSC_CQ_STAT_ARM_NEXT));
 	udma_to_device_barrier();
 	mmio_wc_start();
 	mmio_write64_le(db_addr, db.raw);
@@ -573,10 +573,10 @@ static inline void xsc_andes_update_cq_db(void *db_addr,
 {
 	struct xsc_andes_cq_doorbell db;
 
-	db.raw = FIELD_PREP(XSC_ANDES_CQ_DOORBELL_CQ_ID_MASK, cqn) |
-		 FIELD_PREP(XSC_ANDES_CQ_DOORBELL_CQ_NEXT_CID_MASK, next_cid) |
-		 FIELD_PREP(XSC_ANDES_CQ_DOORBELL_ARM_MASK,
-			    solicited ? XSC_CQ_STAT_ARM_SOLICITED : XSC_CQ_STAT_ARM_NEXT);
+	db.raw = htole32(FIELD_PREP(XSC_ANDES_CQ_DOORBELL_CQ_ID_MASK, cqn) |
+			 FIELD_PREP(XSC_ANDES_CQ_DOORBELL_CQ_NEXT_CID_MASK, next_cid) |
+			 FIELD_PREP(XSC_ANDES_CQ_DOORBELL_ARM_MASK,
+				    solicited ? XSC_CQ_STAT_ARM_SOLICITED : XSC_CQ_STAT_ARM_NEXT));
 	udma_to_device_barrier();
 	mmio_wc_start();
 	mmio_write32_le(db_addr, db.raw);
@@ -608,8 +608,8 @@ static inline void xsc_diamond_ring_rx_doorbell(void *db_addr,
 {
 	struct xsc_diamond_recv_doorbell db;
 
-	db.raw = FIELD_PREP(XSC_DIAMOND_RECV_DOORBELL_QP_ID_MASK, rqn) |
-		 FIELD_PREP(XSC_DIAMOND_RECV_DOORBELL_NEXT_PID_MASK, next_pid);
+	db.raw = htole64(FIELD_PREP(XSC_DIAMOND_RECV_DOORBELL_QP_ID_MASK, rqn) |
+			 FIELD_PREP(XSC_DIAMOND_RECV_DOORBELL_NEXT_PID_MASK, next_pid));
 	udma_to_device_barrier();
 	mmio_write64_le(db_addr, db.raw);
 }
@@ -620,8 +620,8 @@ static inline void xsc_diamond_next_ring_rx_doorbell(void *db_addr,
 {
 	struct xsc_diamond_next_recv_doorbell db;
 
-	db.raw = FIELD_PREP(XSC_DIAMOND_NEXT_RECV_DOORBELL_QP_ID_MASK, rqn) |
-		 FIELD_PREP(XSC_DIAMOND_NEXT_RECV_DOORBELL_NEXT_PID_MASK, next_pid);
+	db.raw = htole64(FIELD_PREP(XSC_DIAMOND_NEXT_RECV_DOORBELL_QP_ID_MASK, rqn) |
+			 FIELD_PREP(XSC_DIAMOND_NEXT_RECV_DOORBELL_NEXT_PID_MASK, next_pid));
 	udma_to_device_barrier();
 	mmio_write64_le(db_addr, db.raw);
 }
@@ -631,8 +631,8 @@ static inline void xsc_andes_ring_rx_doorbell(void *db_addr,
 {
 	struct xsc_andes_recv_doorbell db;
 
-	db.raw = FIELD_PREP(XSC_ANDES_RECV_DOORBELL_QP_ID_MASK, rqn) |
-		 FIELD_PREP(XSC_ANDES_RECV_DOORBELL_NEXT_PID_MASK, next_pid);
+	db.raw = htole32(FIELD_PREP(XSC_ANDES_RECV_DOORBELL_QP_ID_MASK, rqn) |
+			 FIELD_PREP(XSC_ANDES_RECV_DOORBELL_NEXT_PID_MASK, next_pid));
 	udma_to_device_barrier();
 	mmio_write32_le(db_addr, db.raw);
 }
@@ -662,8 +662,8 @@ static inline void xsc_diamond_ring_tx_doorbell(void *db_addr,
 {
 	struct xsc_diamond_send_doorbell db;
 
-	db.raw = FIELD_PREP(XSC_DIAMOND_SEND_DOORBELL_QP_ID_MASK, rqn) |
-		 FIELD_PREP(XSC_DIAMOND_SEND_DOORBELL_NEXT_PID_MASK, next_pid);
+	db.raw = htole64(FIELD_PREP(XSC_DIAMOND_SEND_DOORBELL_QP_ID_MASK, rqn) |
+			 FIELD_PREP(XSC_DIAMOND_SEND_DOORBELL_NEXT_PID_MASK, next_pid));
 
 	udma_to_device_barrier();
 	mmio_write64_le(db_addr, db.raw);
@@ -675,8 +675,8 @@ static inline void xsc_diamond_next_ring_tx_doorbell(void *db_addr,
 {
 	struct xsc_diamond_next_send_doorbell db;
 
-	db.raw = FIELD_PREP(XSC_DIAMOND_NEXT_SEND_DOORBELL_QP_ID_MASK, rqn) |
-		 FIELD_PREP(XSC_DIAMOND_NEXT_SEND_DOORBELL_NEXT_PID_MASK, next_pid);
+	db.raw = htole64(FIELD_PREP(XSC_DIAMOND_NEXT_SEND_DOORBELL_QP_ID_MASK, rqn) |
+			 FIELD_PREP(XSC_DIAMOND_NEXT_SEND_DOORBELL_NEXT_PID_MASK, next_pid));
 
 	udma_to_device_barrier();
 	mmio_write64_le(db_addr, db.raw);
@@ -687,8 +687,8 @@ static inline void xsc_andes_ring_tx_doorbell(void *db_addr,
 {
 	struct xsc_andes_send_doorbell db;
 
-	db.raw = FIELD_PREP(XSC_ANDES_SEND_DOORBELL_QP_ID_MASK, rqn) |
-		 FIELD_PREP(XSC_ANDES_SEND_DOORBELL_NEXT_PID_MASK, next_pid);
+	db.raw = htole32(FIELD_PREP(XSC_ANDES_SEND_DOORBELL_QP_ID_MASK, rqn) |
+			 FIELD_PREP(XSC_ANDES_SEND_DOORBELL_NEXT_PID_MASK, next_pid));
 
 	udma_to_device_barrier();
 	mmio_write32_le(db_addr, db.raw);
