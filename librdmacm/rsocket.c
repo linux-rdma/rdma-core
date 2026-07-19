@@ -4829,7 +4829,8 @@ static void repoll_wake_monitor(struct repoll_info *ri)
 {
 	uint64_t val = 1;
 
-	(void) write(ri->event_fd, &val, sizeof(val));
+	if (write(ri->event_fd, &val, sizeof(val)) != sizeof(val))
+		return;
 }
 
 static int repoll_close(int epfd)
@@ -4899,7 +4900,8 @@ static bool repoll_monitor_drain_event(struct pollfd *fds)
 
 	if (!(fds[0].revents & POLLIN))
 		return false;
-	(void) read(fds[0].fd, &val, sizeof(val));
+	if (read(fds[0].fd, &val, sizeof(val)) != sizeof(val))
+		return true;
 	return true;
 }
 
@@ -4908,7 +4910,7 @@ static void *repoll_monitor_fn(void *arg)
 	struct repoll_info *ri = arg;
 	struct pollfd *fds = NULL;
 	int fds_cap = 0;
-	int nfds;
+	int nfds = 0;
 	uint64_t my_monitor_seq = 0;
 	uint64_t my_snapshot = 0;
 
