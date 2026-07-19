@@ -454,6 +454,7 @@ struct repoll_info {
 	uint16_t capacity;
 	uint64_t monitor_seq;
 	uint64_t wait_seq;
+	uint64_t snapshot;
 	unsigned int waiters;
 	bool running;
 };
@@ -4909,6 +4910,7 @@ static void *repoll_monitor_fn(void *arg)
 	int fds_cap = 0;
 	int nfds;
 	uint64_t my_monitor_seq = 0;
+	uint64_t my_snapshot = 0;
 
 	pthread_mutex_lock(&ri->lock);
 	while (ri->running) {
@@ -4927,9 +4929,12 @@ static void *repoll_monitor_fn(void *arg)
 
 			pthread_mutex_lock(&ri->lock);
 			wait_cnt = ri->waiters;
-			if (wait_cnt)
+			if (wait_cnt && my_snapshot != ri->snapshot) {
 				refresh_ret = repoll_monitor_refresh_fds(
 						ri, &fds, &fds_cap, &nfds);
+				if (!refresh_ret)
+					my_snapshot = ri->snapshot;
+			}
 			pthread_mutex_unlock(&ri->lock);
 			if (!wait_cnt)
 				break;
@@ -4992,6 +4997,7 @@ static int repoll_setup_event_fd(struct repoll_info *ri)
 	ri->fds[0].events = POLLIN;
 	ri->fds[0].revents = 0;
 	ri->slot_count = 1;
+	ri->snapshot = 1;
 	return 0;
 }
 
@@ -5216,8 +5222,10 @@ int repoll_ctl(int epfd, int op, int fd, struct epoll_event *event)
 		ret = EINVAL;
 	}
 
-	if (!ret)
+	if (!ret) {
+		ri->snapshot++;
 		repoll_send_reload(ri);
+	}
 	pthread_mutex_unlock(&ri->lock);
 	return ret;
 }
