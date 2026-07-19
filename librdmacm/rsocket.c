@@ -74,19 +74,6 @@
 #define REPOLL_FD_GROW_STEP 1024
 #define FD_EPOLL 64
 
-static inline int repoll_fd_slot(struct index_map *fd_to_slot, int fd)
-{
-	void *slot = idm_lookup(fd_to_slot, fd);
-
-	return slot ? (int)(uintptr_t)slot : -1;
-}
-
-static inline int repoll_fd_to_slot_set(struct index_map *fd_to_slot, int fd,
-					int slot)
-{
-	return idm_set(fd_to_slot, fd, (void *)(uintptr_t)slot);
-}
-
 static struct index_map idm;
 static pthread_mutex_t mut = PTHREAD_MUTEX_INITIALIZER;
 static pthread_mutex_t svc_mut = PTHREAD_MUTEX_INITIALIZER;
@@ -338,7 +325,7 @@ struct ds_qp {
 };
 
 struct rsocket {
-	int		  type;  /* SOCK_STREAM, SOCK_DGRAM, or FD_EPOLL; must be first */
+	int		  type;  /* SOCK_STREAM or SOCK_DGRAM; must be first */
 	int		  index;
 	fastlock_t	  slock;
 	fastlock_t	  rlock;
@@ -450,6 +437,26 @@ struct ds_udp_header {
 #define DS_UDP_IPV6_HDR_LEN 28
 
 #define ds_next_qp(qp) container_of((qp)->list.next, struct ds_qp, list)
+
+struct repoll_info {
+	int type; /* FD_EPOLL; must be first */
+	int epfd;
+	int epfd_peer;
+	int event_fd;
+	pthread_t monitor;
+	pthread_mutex_t lock;
+	pthread_cond_t monitor_cond;
+	pthread_cond_t wait_cond;
+	struct index_map fd_to_slot;
+	struct pollfd *fds;
+	union epoll_data *user_data;
+	uint16_t slot_count;
+	uint16_t capacity;
+	uint64_t monitor_seq;
+	uint64_t wait_seq;
+	unsigned int waiters;
+	bool running;
+};
 
 static void write_all(int fd, const void *msg, size_t len)
 {
@@ -4794,26 +4801,18 @@ static void *cm_svc_run(void *arg)
 	return NULL;
 }
 
-struct repoll_info {
-	int type; /* FD_EPOLL; must be first */
-	int epfd;
-	int epfd_peer;
-	int event_fd;
-	pthread_t monitor;
-	pthread_mutex_t lock;
-	pthread_cond_t monitor_cond;
-	pthread_cond_t wait_cond;
-	struct index_map fd_to_slot;
-	struct pollfd *fds;
-	union epoll_data *user_data;
-	uint16_t slot_count;
-	uint16_t active_fds;
-	uint16_t capacity;
-	uint64_t monitor_seq;
-	uint64_t wait_seq;
-	unsigned int waiters;
-	bool running;
-};
+static inline int repoll_fd_slot(struct index_map *fd_to_slot, int fd)
+{
+	void *slot = idm_lookup(fd_to_slot, fd);
+
+	return slot ? (int)(uintptr_t)slot : -1;
+}
+
+static inline int repoll_fd_to_slot_set(struct index_map *fd_to_slot, int fd,
+					int slot)
+{
+	return idm_set(fd_to_slot, fd, (void *)(uintptr_t)slot);
+}
 
 static struct repoll_info *repoll_lookup(int epfd)
 {
@@ -4828,10 +4827,8 @@ static struct repoll_info *repoll_lookup(int epfd)
 static void repoll_wake_monitor(struct repoll_info *ri)
 {
 	uint64_t val = 1;
-	ssize_t size;
 
-	size = write(ri->event_fd, &val, sizeof(val));
-	(void)size;
+	(void) write(ri->event_fd, &val, sizeof(val));
 }
 
 static int repoll_close(int epfd)
@@ -4898,12 +4895,10 @@ static int repoll_monitor_has_user_events(struct pollfd *fds, int nfds)
 static bool repoll_monitor_drain_event(struct pollfd *fds)
 {
 	uint64_t val;
-	ssize_t size;
 
 	if (!(fds[0].revents & POLLIN))
 		return false;
-	size = read(fds[0].fd, &val, sizeof(val));
-	(void)size;
+	(void) read(fds[0].fd, &val, sizeof(val));
 	return true;
 }
 
@@ -4997,7 +4992,6 @@ static int repoll_setup_event_fd(struct repoll_info *ri)
 	ri->fds[0].events = POLLIN;
 	ri->fds[0].revents = 0;
 	ri->slot_count = 1;
-	ri->active_fds = 1;
 	return 0;
 }
 
@@ -5143,7 +5137,6 @@ static int repoll_ctl_add(struct repoll_info *ri, int fd,
 	ri->fds[slot].revents = 0;
 	memcpy(&ri->user_data[slot], &event->data, sizeof(event->data));
 	ri->slot_count++;
-	ri->active_fds++;
 	return 0;
 }
 
@@ -5175,8 +5168,7 @@ static int repoll_ctl_del(struct repoll_info *ri, int fd)
 
 	if (slot != last) {
 		moved_fd = ri->fds[last].fd;
-		if (repoll_fd_slot(&ri->fd_to_slot, moved_fd) < 0)
-			return EINVAL;
+		assert(repoll_fd_slot(&ri->fd_to_slot, moved_fd) >= 0);
 	}
 
 	idm_clear(&ri->fd_to_slot, fd);
@@ -5191,7 +5183,6 @@ static int repoll_ctl_del(struct repoll_info *ri, int fd)
 	ri->fds[last].revents = 0;
 	memset(&ri->user_data[last], 0, sizeof(ri->user_data[last]));
 	ri->slot_count--;
-	ri->active_fds--;
 	return 0;
 }
 
@@ -5268,21 +5259,23 @@ static int repoll_collect_events(struct repoll_info *ri,
 				 struct pollfd *polled_fds, int polled_nfds,
 				 struct epoll_event *events, int maxevents)
 {
-	int j = 0;
+	int event_cnt = 0;
+	int slot;
+	int i;
 
-	for (int i = 0; j < maxevents && i < polled_nfds; ++i) {
-		int slot = i + 1;
+	for (i = 0; i < polled_nfds && i < ri->slot_count - 1; ++i) {
+		slot = i + 1;
 
-		if (polled_fds[i].revents && slot < ri->slot_count &&
+		if (polled_fds[i].revents &&
 		    ri->fds[slot].fd == polled_fds[i].fd) {
-			memcpy(&events[j].data, &ri->user_data[slot],
-			       sizeof(events->data));
-			events[j].events =
+			events[event_cnt].data = ri->user_data[slot];
+			events[event_cnt].events =
 				poll_to_epoll_events(polled_fds[i].revents);
-			++j;
+			if (++event_cnt >= maxevents)
+				break;
 		}
 	}
-	return j;
+	return event_cnt;
 }
 
 int repoll_wait(int epfd, struct epoll_event *events, int maxevents,
@@ -5290,6 +5283,7 @@ int repoll_wait(int epfd, struct epoll_event *events, int maxevents,
 {
 	struct repoll_info *ri;
 	struct timespec abs_timeout;
+	struct timespec now;
 	uint64_t my_wait_seq;
 	int nfds, ret;
 	int wait_ret = 0;
@@ -5331,8 +5325,6 @@ int repoll_wait(int epfd, struct epoll_event *events, int maxevents,
 		my_wait_seq = ri->wait_seq;
 		while (my_wait_seq == ri->wait_seq && ri->running) {
 			if (have_deadline) {
-				struct timespec now;
-
 				if (clock_gettime(CLOCK_MONOTONIC, &now))
 					wait_ret = errno;
 				else if (now.tv_sec > abs_timeout.tv_sec ||
