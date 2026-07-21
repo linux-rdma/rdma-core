@@ -101,10 +101,15 @@ enum uverbs_attrs_query_comp_cntr_caps_attr_ids {
 	UVERBS_ATTR_QUERY_COMP_CNTR_CAPS_SUPPORTED_QP_ATTACH_OPS,
 };
 
+enum uverbs_attrs_get_context_flags {
+	UVERBS_ATTR_GET_CONTEXT_FLAG_ADVERSARIAL_SUPPORTED = 1 << 0,
+};
+
 enum uverbs_attrs_get_context_attr_ids {
 	UVERBS_ATTR_GET_CONTEXT_NUM_COMP_VECTORS,
 	UVERBS_ATTR_GET_CONTEXT_CORE_SUPPORT,
 	UVERBS_ATTR_GET_CONTEXT_FD_ARR,
+	UVERBS_ATTR_GET_CONTEXT_FLAGS,
 };
 
 enum uverbs_attrs_query_context_attr_ids {
