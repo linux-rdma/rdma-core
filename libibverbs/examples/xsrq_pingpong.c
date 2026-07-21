@@ -60,6 +60,7 @@
 #define TERMINATION_MSG "END"
 static int page_size;
 static int use_odp;
+static int use_unordered;
 
 struct pingpong_dest {
 	union ibv_gid gid;
@@ -232,6 +233,9 @@ static int pp_init_ctx(char *ib_devname)
 		}
 		access_flags |= IBV_ACCESS_ON_DEMAND;
 	}
+
+	if (use_unordered)
+		access_flags |= IBV_ACCESS_UNORDERED;
 
 	if (pp_get_port_info(ctx.context, ctx.ib_port, &port_attr)) {
 		fprintf(stderr, "Failed to get port info\n");
@@ -869,6 +873,7 @@ static void usage(const char *argv0)
 	printf("  -e, --events           sleep on CQ events (default poll)\n");
 	printf("  -o, --odp		    use on demand paging\n");
 	printf("  -g, --gid-idx=<gid index> local port gid index\n");
+	printf("  -W, --weak-ordering    use weak (unordered) memory access\n");
 }
 
 int main(int argc, char *argv[])
@@ -896,10 +901,11 @@ int main(int argc, char *argv[])
 			{ .name = "events",    .has_arg = 0, .val = 'e' },
 			{ .name = "odp",       .has_arg = 0, .val = 'o' },
 			{ .name = "gid-idx",   .has_arg = 1, .val = 'g' },
+			{ .name = "weak-ordering",     .has_arg = 0, .val = 'W' },
 			{}
 		};
 
-		c = getopt_long(argc, argv, "p:d:i:s:m:n:l:eog:c:", long_options,
+		c = getopt_long(argc, argv, "p:d:i:s:m:n:l:eog:c:W", long_options,
 				NULL);
 		if (c == -1)
 			break;
@@ -949,6 +955,9 @@ int main(int argc, char *argv[])
 			break;
 		case 'o':
 			use_odp = 1;
+			break;
+		case 'W':
+			use_unordered = 1;
 			break;
 		default:
 			usage(argv[0]);

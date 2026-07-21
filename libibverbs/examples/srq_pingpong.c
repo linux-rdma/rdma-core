@@ -57,6 +57,7 @@ enum {
 static int page_size;
 static int validate_buf;
 static int use_odp;
+static int use_unordered;
 
 struct pingpong_context {
 	struct ibv_context	*context;
@@ -395,6 +396,8 @@ static struct pingpong_context *pp_init_ctx(struct ibv_device *ib_dev, int size,
 		access_flags |= IBV_ACCESS_ON_DEMAND;
 	}
 
+	if (use_unordered)
+		access_flags |= IBV_ACCESS_UNORDERED;
 
 	if (use_event) {
 		ctx->channel = ibv_create_comp_channel(ctx->context);
@@ -638,6 +641,7 @@ static void usage(const char *argv0)
 	printf("  -g, --gid-idx=<gid index> local port gid index\n");
 	printf("  -o, --odp		    use on demand paging\n");
 	printf("  -c, --chk              validate received buffer\n");
+	printf("  -W, --weak-ordering    use weak (unordered) memory access\n");
 }
 
 int main(int argc, char *argv[])
@@ -687,10 +691,11 @@ int main(int argc, char *argv[])
 			{ .name = "odp",      .has_arg = 0, .val = 'o' },
 			{ .name = "gid-idx",  .has_arg = 1, .val = 'g' },
 			{ .name = "chk",      .has_arg = 0, .val = 'c' },
+			{ .name = "weak-ordering",    .has_arg = 0, .val = 'W' },
 			{}
 		};
 
-		c = getopt_long(argc, argv, "p:d:i:s:m:q:r:n:l:eog:c",
+		c = getopt_long(argc, argv, "p:d:i:s:m:q:r:n:l:eog:cW",
 				long_options, NULL);
 		if (c == -1)
 			break;
@@ -762,6 +767,10 @@ int main(int argc, char *argv[])
 
 		case 'c':
 			validate_buf = 1;
+			break;
+
+		case 'W':
+			use_unordered = 1;
 			break;
 
 		default:
