@@ -140,10 +140,11 @@ int ibv_cmd_alloc_async_fd(struct ibv_context *context)
 
 static int cmd_get_context(struct verbs_context *context_ex,
 			   struct ibv_fd_arr *fds,
+			   uint32_t flags,
 			   struct ibv_command_buffer *link)
 {
 	DECLARE_FBCMD_BUFFER(cmdb, UVERBS_OBJECT_DEVICE,
-			     UVERBS_METHOD_GET_CONTEXT, 3, link);
+			     UVERBS_METHOD_GET_CONTEXT, 4, link);
 
 	struct ibv_context *context = &context_ex->context;
 	struct verbs_device *verbs_device;
@@ -155,6 +156,10 @@ static int cmd_get_context(struct verbs_context *context_ex,
 			  &num_comp_vectors);
 	fill_attr_out_ptr(cmdb, UVERBS_ATTR_GET_CONTEXT_CORE_SUPPORT,
 			  &core_support);
+	if (flags)
+		attr_optional(fill_attr_in_uint32(cmdb,
+						  UVERBS_ATTR_GET_CONTEXT_FLAGS,
+						  flags));
 
 	if (fds)
 		fill_attr_in_ptr_array(cmdb, UVERBS_ATTR_GET_CONTEXT_FD_ARR,
@@ -193,13 +198,13 @@ int ibv_cmd_get_context(struct verbs_context *context_ex,
 			struct ibv_get_context *cmd, size_t cmd_size,
 			struct ibv_fd_arr *fd_arr,
 			struct ib_uverbs_get_context_resp *resp,
-			size_t resp_size)
+			size_t resp_size, uint32_t flags)
 {
 	DECLARE_CMD_BUFFER_COMPAT(cmdb, UVERBS_OBJECT_DEVICE,
 				  UVERBS_METHOD_GET_CONTEXT, cmd, cmd_size,
 				  resp, resp_size);
 
-	return cmd_get_context(context_ex, fd_arr, cmdb);
+	return cmd_get_context(context_ex, fd_arr, flags, cmdb);
 }
 
 int ibv_cmd_query_context(struct ibv_context *context,

@@ -154,7 +154,7 @@ static struct verbs_context *ipath_alloc_context(struct ibv_device *ibdev,
 		return NULL;
 
 	if (ibv_cmd_get_context(&context->ibv_ctx, &cmd,
-				sizeof cmd, NULL, &resp, sizeof resp))
+				sizeof cmd, NULL, &resp, sizeof resp, 0))
 		goto err_free;
 
 	verbs_set_ops(&context->ibv_ctx, &ipath_ctx_common_ops);
