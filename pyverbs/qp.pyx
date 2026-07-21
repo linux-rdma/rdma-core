@@ -32,6 +32,19 @@ cdef extern from 'endian.h':
     unsigned long htobe32(unsigned long host_32bits)
 
 
+cdef void update_mw_rkeys(v.ibv_send_wr *wr, v.ibv_send_wr *bad_wr):
+    """
+    Update MW rkeys for successfully posted bind WRs.
+
+    ibv_post_send() returns the first WR that was not posted in bad_wr, so
+    only the WRs preceding it were accepted when posting a list fails.
+    """
+    while wr != bad_wr:
+        if wr.opcode == e.IBV_WR_BIND_MW:
+            wr.bind_mw.mw.rkey = wr.bind_mw.rkey
+        wr = wr.next
+
+
 cdef class QPCap(PyverbsObject):
     def __init__(self, max_send_wr=1, max_recv_wr=10, max_send_sge=1,
                  max_recv_sge=1, max_inline_data=0):
@@ -1262,8 +1275,9 @@ cdef class QP(PyverbsCM):
         """
         # In order to provide a pointer to a pointer, use a temporary cdef'ed
         # variable.
-        cdef v.ibv_send_wr *my_bad_wr
+        cdef v.ibv_send_wr *my_bad_wr = NULL
         rc = v.ibv_post_send(self.qp, &wr.send_wr, &my_bad_wr)
+        update_mw_rkeys(&wr.send_wr, my_bad_wr)
         if rc != 0:
             if (bad_wr):
                 memcpy(&bad_wr.send_wr, my_bad_wr, sizeof(bad_wr.send_wr))
