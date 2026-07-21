@@ -33,6 +33,10 @@
 #define _GNU_SOURCE
 #include <config.h>
 
+#ifdef __FreeBSD__
+#define EPOLL_SHIM_DISABLE_WRAPPER_MACROS
+#endif
+
 #include <sys/types.h>
 #include <sys/socket.h>
 #include <sys/epoll.h>
