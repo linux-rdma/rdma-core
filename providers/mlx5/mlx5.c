@@ -763,7 +763,7 @@ static int mlx5_cmd_get_context(struct mlx5_context *context,
 
 	if (!ibv_cmd_get_context(verbs_ctx, &req->ibv_cmd,
 				 req_len, fds, &resp->ibv_resp, resp_len,
-				 0))
+				 UVERBS_ATTR_GET_CONTEXT_FLAG_ADVERSARIAL_SUPPORTED))
 		return 0;
 
 	/* The ibv_cmd_get_context fails in older kernels when passing
@@ -784,6 +784,8 @@ static int mlx5_cmd_get_context(struct mlx5_context *context,
 	 * kernel, either because it is unaware or because it decided
 	 * to do so. If zero is a valid response, we will add a new
 	 * field that indicates whether the request was handled.
+	 * Such older kernels predate adversarial mode, so the fallbacks
+	 * do not pass its flag.
 	 */
 	if (!ibv_cmd_get_context(verbs_ctx, &req->ibv_cmd,
 				 offsetof(struct mlx5_alloc_ucontext, lib_caps),
