@@ -764,6 +764,16 @@ cdef class Buf(PyverbsCM):
         else:
             raise PyverbsError('Unrecognized object type')
 
+    def export_dmabuf_fd(self):
+        """
+        Export a dmabuf FD for this Buf object.
+        :return: A file descriptor (int) for the dmabuf FD
+        """
+        fd = v.ibv_export_buf_dmabuf_fd(self.bufh)
+        if fd < 0:
+            raise PyverbsRDMAErrno('Failed to export dmabuf FD for Buf')
+        return fd
+
     @property
     def addr(self):
         return <uintptr_t>self.addr

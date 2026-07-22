@@ -3219,6 +3219,16 @@ ibv_alloc_parent_domain(struct ibv_context *context,
 void *ibv_alloc_buf(struct ibv_pd *pd, size_t size, struct ibv_buf **buf);
 
 /**
+ * ibv_export_buf_dmabuf_fd - Export a DMA-buf fd for an ibv_buf
+ * @buf: Handle from ibv_alloc_buf()
+ *
+ * Returns a new fd for the DMA-buf backing the buffer on success, or -1
+ * on failure with errno set. The returned fd is owned by the caller and
+ * should be closed with close(2) when no longer needed.
+ */
+int ibv_export_buf_dmabuf_fd(struct ibv_buf *buf);
+
+/**
  * ibv_free_buf - Free a buffer allocated with ibv_alloc_buf
  * @buf: Handle from ibv_alloc_buf()
  */

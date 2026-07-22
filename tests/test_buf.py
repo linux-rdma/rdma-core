@@ -6,6 +6,7 @@ ibv_reg_buf_mr() and the ibv_reg_mr_ex() IBV_REG_MR_MASK_BUF path.
 """
 import unittest
 import errno
+import os
 import resource
 
 from pyverbs.pyverbs_error import PyverbsRDMAError
@@ -198,6 +199,22 @@ class BufAPITest(PyverbsAPITestCase):
         return register_buf_mr(pd, buf, length,
                                ibv_access_flags.IBV_ACCESS_LOCAL_WRITE,
                                offset=offset, via_reg_mr_ex=via_reg_mr_ex)
+
+    def test_buf_export_dmabuf_fd_plain_pd(self):
+        """Plain PD: no DMA-buf fd is available for ordinary memory."""
+        buf = self.get_buf(self.get_pd(), PAGE_SIZE)
+        with self.assertRaises(PyverbsRDMAError) as cm:
+            buf.export_dmabuf_fd()
+        self.assertEqual(cm.exception.error_code, errno.ENODATA,
+                         'Non-DMA-buf backed buffers must report ENODATA')
+
+    def test_buf_export_dmabuf_fd_on_bounce_device(self):
+        """DMA-bounce device: a buffer's DMA-buf fd is exported."""
+        if not device_has_cc_dma_bounce(self.ctx):
+            raise unittest.SkipTest('Device does not report CC_DMA_BOUNCE')
+        buf = self.get_buf(self.get_pd(cc=True), PAGE_SIZE)
+        fd = buf.export_dmabuf_fd()
+        os.close(fd)
 
     def check_multiple_mrs_one_buf(self, pd, via_reg_mr_ex=False):
         """Register two disjoint subranges of one buffer and access them."""

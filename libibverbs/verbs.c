@@ -40,6 +40,7 @@
 #include <unistd.h>
 #include <stdlib.h>
 #include <errno.h>
+#include <fcntl.h>
 #include <string.h>
 #include <linux/ip.h>
 #include <dirent.h>
@@ -438,6 +439,16 @@ struct ibv_mr *ibv_reg_dmabuf_mr(struct ibv_pd *pd, uint64_t offset,
 void *ibv_alloc_buf(struct ibv_pd *pd, size_t size, struct ibv_buf **buf)
 {
 	return get_ops(pd->context)->alloc_buf(pd, size, buf);
+}
+
+int ibv_export_buf_dmabuf_fd(struct ibv_buf *buf)
+{
+	if (buf->dmabuf_fd < 0) {
+		errno = ENODATA;
+		return -1;
+	}
+
+	return fcntl(buf->dmabuf_fd, F_DUPFD_CLOEXEC, 0);
 }
 
 struct ibv_mr *ibv_reg_buf_mr(struct ibv_pd *pd, struct ibv_buf *buf,
