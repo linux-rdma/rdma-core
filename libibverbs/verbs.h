@@ -3064,13 +3064,19 @@ static inline int ibv_modify_cq(struct ibv_cq *cq, struct ibv_modify_cq_attr *at
 	return vctx->modify_cq(cq, attr);
 }
 
+int _ibv_query_comp_cntr_caps(struct ibv_context *context,
+			      struct ibv_comp_cntr_caps *caps, size_t caps_size);
+
 /**
  * ibv_query_comp_cntr_caps - Query completion counter capabilities
  * @context: Device context.
  * @caps: Output capabilities struct.
  */
-int ibv_query_comp_cntr_caps(struct ibv_context *context,
-			     struct ibv_comp_cntr_caps *caps);
+static inline int ibv_query_comp_cntr_caps(struct ibv_context *context,
+					   struct ibv_comp_cntr_caps *caps)
+{
+	return _ibv_query_comp_cntr_caps(context, caps, sizeof(*caps));
+}
 
 /**
  * ibv_create_comp_cntr - Create a completion counter

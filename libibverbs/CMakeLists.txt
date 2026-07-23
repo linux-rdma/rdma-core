@@ -27,6 +27,7 @@ rdma_library(ibverbs "${CMAKE_CURRENT_BINARY_DIR}/libibverbs.map"
   cmd.c
   cmd_ah.c
   cmd_counters.c
+  cmd_comp_cntr.c
   cmd_cq.c
   cmd_device.c
   cmd_dm.c
