@@ -22,6 +22,7 @@ rdma_cython_module(pyverbs ""
   addr.pyx
   base.pyx
   cmid.pyx
+  comp_cntr.pyx
   cq.pyx
   device.pyx
   ${DMA_UTIL}

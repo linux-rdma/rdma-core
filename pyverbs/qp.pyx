@@ -21,6 +21,7 @@ from pyverbs.addr cimport GlobalRoute
 from pyverbs.device cimport Context
 from cpython.ref cimport PyObject
 from pyverbs.cq cimport CQ, CQEX
+from pyverbs.comp_cntr cimport CompCntr
 cimport pyverbs.libibverbs as v
 from pyverbs.xrcd cimport XRCD
 from pyverbs.srq cimport SRQ
@@ -978,6 +979,17 @@ cdef class QPRateLimitAttr(PyverbsObject):
                print_format.format('Comp mask', self.attr.comp_mask)
 
 
+cdef class QPAttachCompCntrAttr(PyverbsObject):
+    """Attributes for attaching a completion counter to a QP."""
+    def __init__(self, op_mask=0):
+        super().__init__()
+        self.attr.op_mask = op_mask
+
+    @property
+    def op_mask(self):
+        return self.attr.op_mask
+
+
 cdef class QP(PyverbsCM):
     def __init__(self, object creator not None, object init_attr not None,
                  QPAttr qp_attr=None):
@@ -1234,6 +1246,18 @@ cdef class QP(PyverbsCM):
         rc = v.ibv_modify_qp_rate_limit(self.qp, &attr.attr)
         if rc != 0:
             raise PyverbsRDMAError('Failed to modify QP rate limit', rc)
+
+    def attach_comp_cntr(self, CompCntr comp_cntr not None,
+                         QPAttachCompCntrAttr attr not None):
+        """
+        Attach a completion counter to this QP.
+        :param comp_cntr: The completion counter to attach
+        :param attr: Attach attributes including op_mask
+        """
+        rc = v.ibv_qp_attach_comp_cntr(self.qp, comp_cntr.comp_cntr,
+                                        &attr.attr)
+        if rc != 0:
+            raise PyverbsRDMAError('Failed to attach comp cntr to QP', rc)
 
     def post_recv(self, RecvWR wr not None, RecvWR bad_wr=None):
         """
