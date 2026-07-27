@@ -94,6 +94,7 @@ class QpExRCAtomicWrite(RCResources):
     def create_qps(self):
         u.create_qp_ex(self, ibv_qp_type.IBV_QPT_RC, ibv_qp_create_send_ops_flags.IBV_QP_EX_WITH_ATOMIC_WRITE)
 
+    @u.skip_unsupported
     def create_mr(self):
         self.mr = u.create_custom_mr(self, ibv_access_flags.IBV_ACCESS_REMOTE_WRITE)
 
@@ -102,6 +103,7 @@ class QpExRCRDMAWrite(RCResources):
     def create_qps(self):
         u.create_qp_ex(self, ibv_qp_type.IBV_QPT_RC, ibv_qp_create_send_ops_flags.IBV_QP_EX_WITH_RDMA_WRITE)
 
+    @u.skip_unsupported
     def create_mr(self):
         self.mr = u.create_custom_mr(self, ibv_access_flags.IBV_ACCESS_REMOTE_WRITE)
 
@@ -110,6 +112,7 @@ class QpExRCRDMAWriteImm(RCResources):
     def create_qps(self):
         u.create_qp_ex(self, ibv_qp_type.IBV_QPT_RC, ibv_qp_create_send_ops_flags.IBV_QP_EX_WITH_RDMA_WRITE_WITH_IMM)
 
+    @u.skip_unsupported
     def create_mr(self):
         self.mr = u.create_custom_mr(self, ibv_access_flags.IBV_ACCESS_REMOTE_WRITE)
 
@@ -118,6 +121,7 @@ class QpExRCRDMARead(RCResources):
     def create_qps(self):
         u.create_qp_ex(self, ibv_qp_type.IBV_QPT_RC, ibv_qp_create_send_ops_flags.IBV_QP_EX_WITH_RDMA_READ)
 
+    @u.skip_unsupported
     def create_mr(self):
         self.mr = u.create_custom_mr(self, ibv_access_flags.IBV_ACCESS_REMOTE_READ)
 
@@ -139,6 +143,7 @@ class QpExRCBindMw(RCResources):
         u.create_qp_ex(self, ibv_qp_type.IBV_QPT_RC, ibv_qp_create_send_ops_flags.IBV_QP_EX_WITH_RDMA_WRITE |
                        ibv_qp_create_send_ops_flags.IBV_QP_EX_WITH_BIND_MW)
 
+    @u.skip_unsupported
     def create_mr(self):
         self.mr = u.create_custom_mr(self, ibv_access_flags.IBV_ACCESS_REMOTE_WRITE |
                                      ibv_access_flags.IBV_ACCESS_MW_BIND)

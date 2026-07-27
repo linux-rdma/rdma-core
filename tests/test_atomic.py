@@ -1,5 +1,4 @@
 import unittest
-import errno
 
 from tests.base import RCResources, RDMATestCase, XRCResources
 from pyverbs.pyverbs_error import PyverbsRDMAError
@@ -31,13 +30,9 @@ class RCAtomic(RCResources):
         self.msg_size = msg_size
         self.new_mr_lkey = None
 
+    @u.skip_unsupported
     def create_mr(self):
-        try:
-            self.mr = MR(self.pd, self.msg_size, self.mr_access)
-        except PyverbsRDMAError as ex:
-            if ex.error_code == errno.EOPNOTSUPP:
-                raise unittest.SkipTest(f'Reg MR with access ({self.mr_access}) is not supported')
-            raise ex
+        self.mr = MR(self.pd, self.msg_size, self.mr_access)
 
     def create_qp_init_attr(self):
         return QPInitAttr(qp_type=ibv_qp_type.IBV_QPT_RC, scq=self.cq, sq_sig_all=0,
@@ -54,15 +49,11 @@ class RCAtomic(RCResources):
 
 
 class XRCAtomic(XRCResources):
+    @u.skip_unsupported
     def create_mr(self):
-        try:
-            atomic_access = ibv_access_flags.IBV_ACCESS_LOCAL_WRITE | \
-                ibv_access_flags.IBV_ACCESS_REMOTE_ATOMIC
-            self.mr = MR(self.pd, self.msg_size, atomic_access)
-        except PyverbsRDMAError as ex:
-            if ex.error_code == errno.EOPNOTSUPP:
-                raise unittest.SkipTest(f'Reg MR with access ({atomic_access}) is not supported')
-            raise ex
+        atomic_access = ibv_access_flags.IBV_ACCESS_LOCAL_WRITE | \
+            ibv_access_flags.IBV_ACCESS_REMOTE_ATOMIC
+        self.mr = MR(self.pd, self.msg_size, atomic_access)
 
 
 class AtomicTest(RDMATestCase):

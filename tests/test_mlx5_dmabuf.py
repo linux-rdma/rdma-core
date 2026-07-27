@@ -63,6 +63,7 @@ class Mlx5DmabufCudaRes(RCResources):
         self.cuda_addr = None
         super().__init__(dev_name=dev_name, ib_port=ib_port, gid_index=gid_index)
 
+    @u.skip_unsupported
     def create_mr(self):
         self.cuda_addr = cu.check_cuda_errors(cuda.cuMemAlloc(GPU_PAGE_SIZE))
 
@@ -83,10 +84,6 @@ class Mlx5DmabufCudaRes(RCResources):
         try:
             self.mr = Mlx5DmaBufMR(self.pd, offset=0, length=self.msg_size, access=self.mr_access,
                                    fd=dmabuf_fd, mlx5_access=self.mlx5_access)
-        except PyverbsRDMAError as ex:
-            if ex.error_code == errno.EOPNOTSUPP:
-                raise unittest.SkipTest('Registering DV DMABUF MR is not supported')
-            raise ex
         finally:
             os.close(dmabuf_fd)
 

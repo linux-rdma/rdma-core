@@ -30,6 +30,7 @@ class CqExUD(UDResources):
     def create_cq(self):
         create_ex_cq(self)
 
+    @u.skip_unsupported
     def create_mr(self):
         self.mr = MR(self.pd, self.msg_size + self.GRH_SIZE,
                      ibv_access_flags.IBV_ACCESS_LOCAL_WRITE)

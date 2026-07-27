@@ -26,6 +26,20 @@ from pyverbs.libibverbs_enums import ibv_access_flags, ibv_qp_create_send_ops_fl
 import tests.utils as u
 
 
+def skip_if_so_unsupported(agr_obj):
+    from tests.mlx5_prm_structs import QueryHcaCapIn, QueryCmdHcaCapOut
+
+    query_cap_in = QueryHcaCapIn(op_mod=0x1)
+    query_cap_out = QueryCmdHcaCapOut(agr_obj.ctx.devx_general_cmd(query_cap_in,
+                                                                  len(QueryCmdHcaCapOut())))
+    if query_cap_out.status:
+        raise unittest.SkipTest('Failed to query general HCA CAPs with syndrome '
+                                f'({query_cap_out.syndrome})')
+    if query_cap_out.capability.mkc_order_write_after_write_ro_only:
+        raise unittest.SkipTest('Strongly ordered indirect mkey is unsupported on devices '
+                                'that allow relaxed-ordering writes only')
+
+
 class Mlx5MkeyResources(RCResources):
     def __init__(self, dev_name, ib_port, gid_index, dv_send_ops_flags=0,
                  mkey_create_flags=mlx5dv_mkey_init_attr_flags.MLX5DV_MKEY_INIT_ATTR_FLAGS_INDIRECT,
@@ -59,6 +73,7 @@ class Mlx5MkeyResources(RCResources):
             raise unittest.SkipTest('Opening mlx5 context is not supported')
 
     def create_mkey(self):
+        skip_if_so_unsupported(self)
         try:
             self.mkey = Mlx5Mkey(self.pd, self.mkey_create_flags, 3)
         except PyverbsRDMAError as ex:
@@ -101,6 +116,7 @@ class Mlx5MkeyResources(RCResources):
 
 
 class Mlx5MkeyOdpRes(Mlx5MkeyResources):
+    @u.skip_unsupported
     @u.requires_odp('rc', ibv_odp_transport_cap_bits.IBV_ODP_SUPPORT_SEND | ibv_odp_transport_cap_bits.IBV_ODP_SUPPORT_RECV)
     def create_mr(self):
         self.mr = MR(self.pd, self.msg_size, ibv_access_flags.IBV_ACCESS_LOCAL_WRITE | ibv_access_flags.IBV_ACCESS_ON_DEMAND)

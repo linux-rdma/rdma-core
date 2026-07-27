@@ -664,7 +664,13 @@ class TrafficResources(BaseResources):
         test.
         :return: None
         """
-        self.mr = MR(self.pd, self.msg_size, ibv_access_flags.IBV_ACCESS_LOCAL_WRITE)
+        try:
+            self.mr = MR(self.pd, self.msg_size, ibv_access_flags.IBV_ACCESS_LOCAL_WRITE)
+        except PyverbsRDMAError as ex:
+            if ex.error_code in [errno.EOPNOTSUPP, errno.EPROTONOSUPPORT]:
+                raise unittest.SkipTest(
+                    f'MR registration not supported ({str(ex)})')
+            raise
 
     def create_qp_cap(self):
         return QPCap(max_recv_wr=self.num_msgs)
@@ -780,8 +786,14 @@ class UDResources(RoCETrafficResources):
     GRH_SIZE = 40
 
     def create_mr(self):
-        self.mr = MR(self.pd, self.msg_size + self.GRH_SIZE,
-                     ibv_access_flags.IBV_ACCESS_LOCAL_WRITE)
+        try:
+            self.mr = MR(self.pd, self.msg_size + self.GRH_SIZE,
+                         ibv_access_flags.IBV_ACCESS_LOCAL_WRITE)
+        except PyverbsRDMAError as ex:
+            if ex.error_code in [errno.EOPNOTSUPP, errno.EPROTONOSUPPORT]:
+                raise unittest.SkipTest(
+                    f'MR registration not supported ({str(ex)})')
+            raise
 
     def create_qp_init_attr(self):
         return QPInitAttr(qp_type=ibv_qp_type.IBV_QPT_UD, scq=self.cq,

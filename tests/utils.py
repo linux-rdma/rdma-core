@@ -458,9 +458,10 @@ def create_custom_mr(agr_obj, additional_access_flags=0, size=None, user_addr=No
         return MR(agr_obj.pd, mr_length,
                   ibv_access_flags.IBV_ACCESS_LOCAL_WRITE | additional_access_flags, address=user_addr)
     except PyverbsRDMAError as ex:
-        if ex.error_code == errno.EOPNOTSUPP:
-                raise unittest.SkipTest(f'Create custom mr with additional access flags {additional_access_flags} is not supported')
-        raise ex
+        if ex.error_code in [errno.EOPNOTSUPP, errno.EPROTONOSUPPORT]:
+            raise unittest.SkipTest(f'Create custom mr with additional access flags '
+                                    f'{additional_access_flags} is not supported')
+        raise
 
 # Traffic helpers
 
