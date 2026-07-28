@@ -2743,6 +2743,12 @@ static struct ibv_qp *create_qp(struct ibv_context *context,
 
 	cmd.flags = mlx5_create_flags;
 	qp->wq_sig = qp_sig_enabled();
+	if (qp->wq_sig && (ctx->flags & MLX5_CTX_FLAGS_ADVERSARIAL_DP)) {
+		mlx5_dbg(fp, MLX5_DBG_QP,
+			 "WQE signature is not supported in adversarial mode\n");
+		errno = EOPNOTSUPP;
+		goto err;
+	}
 	if (qp->wq_sig)
 		cmd.flags |= MLX5_QP_FLAG_SIGNATURE;
 
