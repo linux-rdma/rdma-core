@@ -368,9 +368,26 @@ static int set_data_inl_seg(struct mlx5_qp *qp, struct ibv_send_wr *wr,
 	return 0;
 }
 
-static uint8_t wq_sig(struct mlx5_wqe_ctrl_seg *ctrl)
+/* Like calc_sig(), but wraps around the cyclic SQ buffer */
+static uint8_t calc_sig_cyclic(void *wqe, int size, void *qstart, void *qend)
 {
-	return calc_sig(ctrl, (be32toh(ctrl->qpn_ds) & 0x3f) << 4);
+	uint8_t *p = wqe;
+	uint8_t res = 0;
+	int i;
+
+	for (i = 0; i < size; ++i) {
+		res ^= *p++;
+		if (p == qend)
+			p = qstart;
+	}
+	return ~res;
+}
+
+static uint8_t wq_sig(struct mlx5_wqe_ctrl_seg *ctrl, void *qstart,
+		      void *qend)
+{
+	return calc_sig_cyclic(ctrl, (be32toh(ctrl->qpn_ds) & 0x3f) << 4,
+			       qstart, qend);
 }
 
 #ifdef MLX5_DEBUG
@@ -1128,7 +1145,8 @@ static inline int _mlx5_post_send(struct ibv_qp *ibqp, struct ibv_send_wr *wr,
 		ctrl->qpn_ds = htobe32(size | (ibqp->qp_num << 8));
 
 		if (unlikely(qp->wq_sig))
-			ctrl->signature = wq_sig(ctrl);
+			ctrl->signature = wq_sig(ctrl, qp->sq_start,
+						 qp->sq.qend);
 
 		qp->sq.wrid[idx] = wr->wr_id;
 		qp->sq.wqe_head[idx] = qp->sq.head + nreq;
@@ -1306,7 +1324,8 @@ static inline void __wqe_finalize(struct mlx5_qp *mqp)
 static inline void __wqe_finalize(struct mlx5_qp *mqp)
 {
 	if (unlikely(mqp->wq_sig))
-		mqp->cur_ctrl->signature = wq_sig(mqp->cur_ctrl);
+		mqp->cur_ctrl->signature = wq_sig(mqp->cur_ctrl, mqp->sq_start,
+						  mqp->sq.qend);
 
 #ifdef MLX5_DEBUG
 	if (mlx5_debug_mask & MLX5_DBG_QP_SEND) {
@@ -4070,7 +4089,8 @@ int mlx5_post_srq_ops(struct ibv_srq *ibsrq, struct ibv_ops_wr *wr,
 		ctrl->qpn_ds = htobe32(size | (srq->cmd_qp->qp_num << 8));
 
 		if (unlikely(qp->wq_sig))
-			ctrl->signature = wq_sig(ctrl);
+			ctrl->signature = wq_sig(ctrl, qp->sq_start,
+						 qp->sq.qend);
 
 		qp->sq.cur_post += DIV_ROUND_UP(size * 16, MLX5_SEND_WQE_BB);
 
