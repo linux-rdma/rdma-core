@@ -1443,6 +1443,11 @@ struct ibv_srq *mlx5_create_srq(struct ibv_pd *pd,
 	struct ibv_srq		   *ibsrq;
 
 	ctx = to_mctx(pd->context);
+	if (ctx->flags & MLX5_CTX_FLAGS_ADVERSARIAL_DP) {
+		errno = EOPNOTSUPP;
+		return NULL;
+	}
+
 	srq = calloc(1, sizeof *srq);
 	if (!srq) {
 		mlx5_err(ctx->dbg_fp, "%s-%d:\n", __func__, __LINE__);
@@ -3878,6 +3883,11 @@ struct ibv_srq *mlx5_create_srq_ex(struct ibv_context *context,
 	int max_sge;
 	struct ibv_srq *ibsrq;
 	int uidx;
+
+	if (ctx->flags & MLX5_CTX_FLAGS_ADVERSARIAL_DP) {
+		errno = EOPNOTSUPP;
+		return NULL;
+	}
 
 	if (!(attr->comp_mask & IBV_SRQ_INIT_ATTR_TYPE) ||
 	    (attr->srq_type == IBV_SRQT_BASIC))
