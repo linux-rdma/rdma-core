@@ -3583,6 +3583,12 @@ struct ibv_ah *mlx5_create_ah(struct ibv_pd *pd, struct ibv_ah_attr *attr)
 	bool is_eth;
 	bool grh_req;
 
+	/* AHs are used only by UD and DC QPs, which are refused */
+	if (ctx->flags & MLX5_CTX_FLAGS_ADVERSARIAL_DP) {
+		errno = EOPNOTSUPP;
+		return NULL;
+	}
+
 	if (attr->port_num < 1 || attr->port_num > ctx->num_ports)
 		return NULL;
 
