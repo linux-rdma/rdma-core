@@ -1955,7 +1955,7 @@ int mlx5_alloc_cq_buf(struct mlx5_context *mctx, struct mlx5_cq *cq,
 		return -1;
 
 	if (buf->type != MLX5_ALLOC_TYPE_CUSTOM)
-		memset(buf->ibv_buf.addr, 0, nent * cqe_sz);
+		memset(buf->ibv_buf.addr, 0, buf->ibv_buf.size);
 
 	for (i = 0; i < nent; ++i) {
 		cqe = buf->ibv_buf.addr + i * cqe_sz;

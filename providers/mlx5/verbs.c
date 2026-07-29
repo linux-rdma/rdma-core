@@ -2221,7 +2221,7 @@ static int mlx5_alloc_qp_buf(struct ibv_context *context,
 	}
 
 	if (qp->buf.type != MLX5_ALLOC_TYPE_CUSTOM)
-		memset(qp->buf.ibv_buf.addr, 0, qp->buf_size);
+		memset(qp->buf.ibv_buf.addr, 0, qp->buf.ibv_buf.size);
 
 	if (attr->qp_type == IBV_QPT_RAW_PACKET ||
 	    qp->flags & MLX5_QP_FLAGS_USE_UNDERLAY) {
@@ -4738,6 +4738,9 @@ static int mlx5_alloc_rwq_buf(struct ibv_context *context,
 		errno = ENOMEM;
 		return -1;
 	}
+
+	if (rwq->buf.type != MLX5_ALLOC_TYPE_CUSTOM)
+		memset(rwq->buf.ibv_buf.addr, 0, rwq->buf.ibv_buf.size);
 
 	return 0;
 }
