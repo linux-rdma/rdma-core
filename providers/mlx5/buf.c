@@ -33,6 +33,7 @@
 #include <config.h>
 
 #include <signal.h>
+#include <string.h>
 #include <sys/ipc.h>
 #include <sys/shm.h>
 #include <stdio.h>
@@ -175,6 +176,9 @@ static int alloc_huge_buf(struct mlx5_context *mctx, struct mlx5_buf *buf,
 	ibv_buf_init(&buf->ibv_buf, pd,
 		     hmem->shmaddr + buf->base * MLX5_Q_CHUNK_SIZE,
 		     buf->ibv_buf.size);
+
+	if (found)
+		memset(buf->ibv_buf.addr, 0, buf->ibv_buf.size);
 
 	ret = ibv_dontfork_range(buf->ibv_buf.addr, buf->ibv_buf.size);
 	if (ret) {
