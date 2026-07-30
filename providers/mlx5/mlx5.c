@@ -2495,7 +2495,7 @@ static int mlx5_set_context(struct mlx5_context *context,
 	for (i = 0; i < MLX5_QP_TABLE_SIZE; ++i)
 		context->qp_table[i].refcnt = 0;
 
-	for (i = 0; i < MLX5_QP_TABLE_SIZE; ++i)
+	for (i = 0; i < MLX5_UIDX_TABLE_SIZE; ++i)
 		context->uidx_table[i].refcnt = 0;
 
 	for (i = 0; i < MLX5_MKEY_TABLE_SIZE; ++i)
