@@ -39,7 +39,7 @@ static inline bool have_movdir64b(void)
 	/* Return highest supported cpuid input value.  */
 	__asm__ volatile ("cpuid\n\t"
 			  : "=a" (ax), "=b" (bx), "=c" (cx), "=d" (dx)
-			  : "0" (leaf));
+			  : "0" (0));
 
 	if (ax == 0 || ax < leaf)
 		return 0;
