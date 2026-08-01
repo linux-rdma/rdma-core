@@ -2,6 +2,7 @@
 # Licensed under BSD (MIT variant) or GPLv2. See COPYING.
 
 find_library(LIBUDEV_LIBRARY NAMES udev libudev)
+find_path(UDEV_INCLUDE_DIRS "libudev.h")
 
 set(UDEV_LIBRARIES ${LIBUDEV_LIBRARY})
 
