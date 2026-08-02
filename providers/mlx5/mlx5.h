@@ -358,10 +358,10 @@ struct mlx5_context {
 	cl_qmap_t		        dbr_map;
 	pthread_mutex_t			dbr_map_mutex;
 	int				cache_line_size;
-	int				max_sq_desc_sz;
-	int				max_rq_desc_sz;
-	int				max_send_wqebb;
-	int				max_recv_wr;
+	uint32_t			max_sq_desc_sz;
+	uint32_t			max_rq_desc_sz;
+	uint32_t			max_send_wqebb;
+	uint32_t			max_recv_wr;
 	unsigned			max_srq_recv_wr;
 	int				num_ports;
 	int				stall_enable;

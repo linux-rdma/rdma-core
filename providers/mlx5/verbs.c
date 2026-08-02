@@ -1921,7 +1921,7 @@ static int mlx5_calc_rwq_size(struct mlx5_context *ctx,
 	if (rwq->wq_sig)
 		wqe_size += sizeof(struct mlx5_rwqe_sig);
 
-	if (wqe_size <= 0 || wqe_size > ctx->max_rq_desc_sz)
+	if (wqe_size > ctx->max_rq_desc_sz)
 		return -EINVAL;
 
 	wqe_size = roundup_pow_of_two(wqe_size);
