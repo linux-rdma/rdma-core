@@ -257,6 +257,7 @@ static uint32_t get_queue_size(struct ibv_qp_init_attr *attr, enum user_queue_ty
 static int mana_create_cmd_qp_rc(struct mana_qp *qp, struct ibv_pd *ibpd,
 				 struct ibv_qp_init_attr *attr)
 {
+	struct mana_context *ctx = to_mctx(ibpd->context);
 	struct mana_ib_create_rc_qp_resp *qp_resp_drv;
 	struct mana_create_rc_qp_resp qp_resp = {};
 	struct mana_ib_create_rc_qp *qp_cmd_drv;
@@ -273,6 +274,13 @@ static int mana_create_cmd_qp_rc(struct mana_qp *qp, struct ibv_pd *ibpd,
 		qp_cmd_drv->queue_size[i] = qp->rnic_qp.queues[i].size;
 	}
 
+	if (ctx->comp_mask & MANA_IB_UCNTX_RC_EXT_SUPPORT) {
+		qp_cmd_drv->comp_mask |= MANA_IB_RC_QP_FIXED_WQE | MANA_IB_RC_MMQ_CREATE;
+		qp_cmd_drv->mmq_buf =
+			(uintptr_t)qp->rnic_qp.queues[USER_RNIC_SEND_QUEUE_MM].buffer;
+		qp_cmd_drv->mmq_size = qp->rnic_qp.queues[USER_RNIC_SEND_QUEUE_MM].size;
+	}
+
 	ret = ibv_cmd_create_qp(ibpd, &qp->ibqp.qp, attr, &qp_cmd.ibv_cmd,
 				sizeof(qp_cmd), &qp_resp.ibv_resp,
 				sizeof(qp_resp));
@@ -286,6 +294,8 @@ static int mana_create_cmd_qp_rc(struct mana_qp *qp, struct ibv_pd *ibpd,
 			continue;
 		qp->rnic_qp.queues[i].id = qp_resp_drv->queue_id[i];
 	}
+
+	qp->rnic_qp.queues[USER_RNIC_SEND_QUEUE_MM].id = qp_resp_drv->mmq_id;
 
 	return 0;
 }
