@@ -176,24 +176,22 @@ struct ibv_cq *erdma_create_cq(struct ibv_context *ctx, int num_cqe,
 		num_cqe = 64;
 
 	num_cqe = roundup_pow_of_two(num_cqe);
-	cq_size = align(num_cqe * sizeof(struct erdma_cqe), ERDMA_PAGE_SIZE);
+	cq_size = align(num_cqe * sizeof(struct erdma_cqe), ectx->page_size);
 
-	rv = posix_memalign((void **)&cq->queue, ERDMA_PAGE_SIZE, cq_size);
-	if (rv) {
-		errno = rv;
+	cq->qbuf_size = cq_size;
+	cq->queue = mmap(NULL, cq->qbuf_size, PROT_READ | PROT_WRITE,
+			 MAP_PRIVATE | MAP_ANONYMOUS, -1, 0);
+	if (cq->queue == MAP_FAILED) {
 		free(cq);
 		return NULL;
 	}
 
-	rv = ibv_dontfork_range(cq->queue, cq_size);
+	rv = ibv_dontfork_range(cq->queue, cq->qbuf_size);
 	if (rv) {
-		free(cq->queue);
+		munmap(cq->queue, cq->qbuf_size);
 		cq->queue = NULL;
 		goto error_alloc;
 	}
-
-	memset(cq->queue, 0, cq_size);
-	cq->qbuf_size = cq_size;
 
 	db_records = erdma_alloc_dbrecords(ectx);
 	if (!db_records) {
@@ -235,8 +233,8 @@ error_alloc:
 		erdma_dealloc_dbrecords(ectx, db_records);
 
 	if (cq->queue) {
-		ibv_dofork_range(cq->queue, cq_size);
-		free(cq->queue);
+		ibv_dofork_range(cq->queue, cq->qbuf_size);
+		munmap(cq->queue, cq->qbuf_size);
 	}
 
 	free(cq);
@@ -264,7 +262,7 @@ int erdma_destroy_cq(struct ibv_cq *base_cq)
 
 	if (cq->queue) {
 		ibv_dofork_range(cq->queue, cq->qbuf_size);
-		free(cq->queue);
+		munmap(cq->queue, cq->qbuf_size);
 	}
 
 	free(cq);
