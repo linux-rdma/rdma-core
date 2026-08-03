@@ -219,6 +219,10 @@ struct ibv_cq *erdma_create_cq(struct ibv_context *ctx, int num_cqe,
 	cq->db += cq->db_offset;
 
 	cq->comp_vector = comp_vector;
+	*(__le64 *)cq->db_record =
+		htole64(FIELD_PREP(ERDMA_CQDB_IDX_MASK, 0xFF) |
+			FIELD_PREP(ERDMA_CQDB_CQN_MASK, cq->id) |
+			FIELD_PREP(ERDMA_CQDB_CMDSN_MASK, 0x3));
 
 	return &cq->base_cq;
 
