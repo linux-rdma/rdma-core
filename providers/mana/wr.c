@@ -299,6 +299,7 @@ mana_ib_post_send_request(struct mana_qp *qp, struct ibv_send_wr *wr,
 		struct rdma_recv_oob recv_oob = {0};
 
 		recv_oob.psn_start = qp->sq_psn;
+		recv_oob.msn = qp->sq_ssn;
 		ret = gdma_post_rq_wqe(mana_ib_get_rreq(qp), wr->sg_list,
 				       &recv_oob, num_sge, GDMA_WORK_REQ_CHECK_SN, &gdma_wqe);
 		if (ret) {

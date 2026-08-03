@@ -231,8 +231,9 @@ static uint32_t get_queue_size(struct ibv_qp_init_attr *attr, enum user_queue_ty
 			size = align_hw_size(MANA_PAGE_SIZE);
 		break;
 	case USER_RNIC_RECV_QUEUE_REQUESTER:
+		sges = max(1U, attr->cap.max_send_sge);
 		if (attr->qp_type == IBV_QPT_RC)
-			size = align_hw_size(MANA_PAGE_SIZE);
+			size = align_hw_size(attr->cap.max_send_wr * get_wqe_size(sges));
 		break;
 	case USER_RNIC_RECV_QUEUE_RESPONDER:
 		/* WQE must have at least one SGE */
