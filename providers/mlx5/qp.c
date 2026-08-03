@@ -178,6 +178,12 @@ void mlx5_init_qp_indices(struct mlx5_qp *qp)
 	qp->rq.tail	 = 0;
 	qp->sq.cur_post  = 0;
 
+	/* Empty the adversarial rings; entries are rewritten on post */
+	qp->sq.shadow_head	= 0;
+	qp->sq.shadow_tail	= 0;
+	qp->sq.signaled_head	= 0;
+	qp->sq.signaled_tail	= 0;
+
 	if (qp->rq.in_flight)
 		memset(qp->rq.in_flight, 0,
 		       qp->rq.wqe_cnt * sizeof(*qp->rq.in_flight));

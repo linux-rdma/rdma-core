@@ -2127,6 +2127,42 @@ static int mlx5_alloc_qp_buf(struct ibv_context *context,
 			err = -1;
 			goto ex_wrid;
 		}
+
+		/* Adversarial post_send and poll_cq state, see struct mlx5_wq */
+		if (to_mctx(context)->flags & MLX5_CTX_FLAGS_ADVERSARIAL_DP) {
+			qp->sq.shadow_queue =
+				calloc(qp->sq.wqe_cnt,
+				       sizeof(*qp->sq.shadow_queue));
+			if (!qp->sq.shadow_queue) {
+				errno = ENOMEM;
+				err = -1;
+				goto ex_wrid;
+			}
+			qp->sq.signaled_ring =
+				calloc(qp->sq.wqe_cnt,
+				       sizeof(*qp->sq.signaled_ring));
+			if (!qp->sq.signaled_ring) {
+				errno = ENOMEM;
+				err = -1;
+				goto ex_wrid;
+			}
+			qp->sq.adv_mlx5_opcodes =
+				calloc(qp->sq.wqe_cnt,
+				       sizeof(*qp->sq.adv_mlx5_opcodes));
+			if (!qp->sq.adv_mlx5_opcodes) {
+				errno = ENOMEM;
+				err = -1;
+				goto ex_wrid;
+			}
+			qp->sq.adv_read_len =
+				calloc(qp->sq.wqe_cnt,
+				       sizeof(*qp->sq.adv_read_len));
+			if (!qp->sq.adv_read_len) {
+				errno = ENOMEM;
+				err = -1;
+				goto ex_wrid;
+			}
+		}
 	}
 
 	if (qp->rq.wqe_cnt) {
@@ -2217,6 +2253,18 @@ ex_wrid:
 	if (qp->rq.wrid)
 		free(qp->rq.wrid);
 
+	if (qp->sq.adv_read_len)
+		free(qp->sq.adv_read_len);
+
+	if (qp->sq.adv_mlx5_opcodes)
+		free(qp->sq.adv_mlx5_opcodes);
+
+	if (qp->sq.signaled_ring)
+		free(qp->sq.signaled_ring);
+
+	if (qp->sq.shadow_queue)
+		free(qp->sq.shadow_queue);
+
 	if (qp->sq.wqe_head)
 		free(qp->sq.wqe_head);
 
@@ -2240,6 +2288,18 @@ static void mlx5_free_qp_buf(struct mlx5_context *ctx, struct mlx5_qp *qp)
 
 	if (qp->rq.wrid)
 		free(qp->rq.wrid);
+
+	if (qp->sq.adv_read_len)
+		free(qp->sq.adv_read_len);
+
+	if (qp->sq.adv_mlx5_opcodes)
+		free(qp->sq.adv_mlx5_opcodes);
+
+	if (qp->sq.signaled_ring)
+		free(qp->sq.signaled_ring);
+
+	if (qp->sq.shadow_queue)
+		free(qp->sq.shadow_queue);
 
 	if (qp->sq.wqe_head)
 		free(qp->sq.wqe_head);

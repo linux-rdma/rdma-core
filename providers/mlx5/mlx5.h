@@ -615,6 +615,17 @@ struct mlx5_wq {
 	 * post_recv and poll_cq update it under different locks.
 	 */
 	uint8_t			       *in_flight;
+	/* Adversarial mode: wqe_counter of each in-flight WR */
+	uint16_t		       *shadow_queue;
+	unsigned			shadow_head;
+	unsigned			shadow_tail;
+	/* Adversarial mode: shadow_queue positions of signaled WRs */
+	unsigned		       *signaled_ring;
+	unsigned			signaled_head;
+	unsigned			signaled_tail;
+	/* Adversarial mode: per-WQE opcode and RDMA_READ length */
+	uint8_t			       *adv_mlx5_opcodes;
+	uint32_t		       *adv_read_len;
 };
 
 struct mlx5_devx_uar {
