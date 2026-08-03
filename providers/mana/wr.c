@@ -249,7 +249,7 @@ gdma_post_sq_wqe(struct mana_gdma_queue *wq, struct ibv_sge *sgl, struct rdma_se
 	}
 
 	total_sge = num_sge + (oob_sge ? 1 : 0);
-	wqe_size = get_large_wqe_size(total_sge);
+	wqe_size = get_large_wqe_size(total_sge, wq->wqe_size_in_bu);
 
 	ret = gdma_get_current_wqe(wq, INLINE_OOB_LARGE_SIZE, wqe_size, wqe);
 	if (ret)

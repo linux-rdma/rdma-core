@@ -223,9 +223,8 @@ static uint32_t get_queue_size(struct ibv_qp_init_attr *attr, enum user_queue_ty
 	switch (type) {
 	case USER_RNIC_SEND_QUEUE_REQUESTER:
 		/* WQE must have at least one SGE */
-		/* For write with imm we need one extra SGE */
-		sges = max(1U, attr->cap.max_send_sge) + 1;
-		size = align_hw_size(attr->cap.max_send_wr * get_large_wqe_size(sges));
+		sges = max(1U, attr->cap.max_send_sge);
+		size = align_hw_size(attr->cap.max_send_wr * get_large_fixed_wqe_size(sges));
 		break;
 	case USER_RNIC_SEND_QUEUE_RESPONDER:
 		if (attr->qp_type == IBV_QPT_RC)
@@ -241,8 +240,8 @@ static uint32_t get_queue_size(struct ibv_qp_init_attr *attr, enum user_queue_ty
 		size = align_hw_size(attr->cap.max_recv_wr * get_wqe_size(sges));
 		break;
 	case USER_RNIC_SEND_QUEUE_MM:
-		sges = 2;
-		size = align_hw_size(attr->cap.max_send_wr * get_large_wqe_size(sges));
+		sges = 1;
+		size = align_hw_size(attr->cap.max_send_wr * get_large_fixed_wqe_size(sges));
 		break;
 	default:
 		return 0;
@@ -356,6 +355,7 @@ static struct ibv_qp *mana_create_qp_rnic(struct ibv_pd *ibpd,
 					  struct ibv_qp_init_attr *attr)
 {
 	struct mana_context *ctx = to_mctx(ibpd->context);
+	uint8_t wqe_size_in_bu;
 	struct mana_qp *qp;
 	int ret, i;
 
@@ -398,6 +398,10 @@ static struct ibv_qp *mana_create_qp_rnic(struct ibv_pd *ibpd,
 			goto destroy_queues;
 		}
 	}
+
+	wqe_size_in_bu = get_large_fixed_wqe_size(max(1U, attr->cap.max_send_sge))
+		/ GDMA_WQE_ALIGNMENT_UNIT_SIZE;
+	qp->rnic_qp.queues[USER_RNIC_SEND_QUEUE_REQUESTER].wqe_size_in_bu = wqe_size_in_bu;
 
 	ret = mana_create_cmd_qp(qp, ibpd, attr);
 	if (ret) {
