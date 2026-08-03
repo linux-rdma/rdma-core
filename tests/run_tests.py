@@ -15,4 +15,6 @@ tests = importlib.util.module_from_spec(spec)
 sys.modules['tests'] = tests
 spec.loader.exec_module(tests)
 parser.parse_args()
+if parser.get_config().get('relaxed_ordering'):
+    os.environ['PYVERBS_FORCE_RELAXED_ORDERING'] = '1'
 unittest.main(module=tests)

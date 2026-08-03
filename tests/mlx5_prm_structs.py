@@ -5,6 +5,7 @@
 This module provides scapy based classes that represent the mlx5 PRM structs.
 """
 import unittest
+import os
 
 try:
     import logging
@@ -1784,6 +1785,13 @@ class SwMkc(PRMPacket):
         BitField('crypto_en', 0, 2),
         BitField('reserved15', 0, 27),
     ]
+
+    def __init__(self, *args, **kwargs):
+        if not args and '_pkt' not in kwargs and \
+                os.environ.get('PYVERBS_FORCE_RELAXED_ORDERING') == '1':
+            kwargs['relaxed_ordering_write'] = 1
+            kwargs['relaxed_ordering_read'] = 1
+        super().__init__(*args, **kwargs)
 
 
 class CreateMkeyIn(PRMPacket):

@@ -5,6 +5,7 @@
 import resource
 import logging
 import weakref
+import os
 
 from posix.mman cimport mmap, munmap, MAP_PRIVATE, PROT_READ, PROT_WRITE, \
     MAP_ANONYMOUS, MAP_HUGETLB, MAP_SHARED
@@ -28,6 +29,12 @@ cdef extern from 'sys/mman.h':
     cdef void* MAP_FAILED
 
 HUGE_PAGE_SIZE = 0x200000
+
+
+def add_ro_access_flag(access):
+    if os.environ.get('PYVERBS_FORCE_RELAXED_ORDERING') == '1':
+        return access | e.IBV_ACCESS_RELAXED_ORDERING
+    return access
 
 
 cdef class MR(PyverbsCM):
@@ -89,6 +96,7 @@ cdef class MR(PyverbsCM):
             self.mmap_length = mmap_len
         if isinstance(creator, PD):
             pd = <PD>creator
+            access = add_ro_access_flag(access)
             if implicit:
                 self.mr = v.ibv_reg_mr(pd.pd, NULL, SIZE_MAX, access)
             else:
@@ -189,6 +197,8 @@ cdef class MR(PyverbsCM):
         :param access: New MR access
         :return: None
         """
+        if flags & e.IBV_REREG_MR_CHANGE_ACCESS:
+            access = add_ro_access_flag(access)
         ret = v.ibv_rereg_mr(self.mr, flags, pd.pd, <void*><uintptr_t>addr,
                              length, access)
         if ret != 0:
@@ -386,6 +396,7 @@ cdef class DMMR(MR):
         # the DMMR is allocated. Allocation can fail, which will lead to
         # exceptions thrown during object's teardown.
         self.logger = logging.getLogger(self.__class__.__name__)
+        access = add_ro_access_flag(access)
         self.mr = v.ibv_reg_dm_mr(pd.pd, dm.dm, offset, length, access)
         if self.mr == NULL:
             raise PyverbsRDMAErrno('Failed to register a device MR. length: {len}, access flags: {flags}'.
@@ -423,6 +434,7 @@ cdef class DmaBufMR(MR):
         :return: The newly created DMABUFMR
         """
         self.logger = logging.getLogger(self.__class__.__name__)
+        access = add_ro_access_flag(access)
         if dmabuf is None:
             self.is_dmabuf_internal = True
             dmabuf = DmaBuf(length + offset, gpu, gtt)
@@ -644,6 +656,7 @@ cdef class MREx(MR):
         PyverbsCM.__init__(self)
         cdef int mmap_len = 0
         cdef v.ibv_mr_init_attr in_
+        access = add_ro_access_flag(access)
         self.is_huge = True if access & e.IBV_ACCESS_HUGETLB else False
         self.is_user_addr = False
         self.mmap_length = 0
@@ -809,6 +822,7 @@ cdef class BufMR(MR):
         """
         self.logger = logging.getLogger(self.__class__.__name__)
         cdef void *addr = <void*>(<uintptr_t>buf.addr + <uintptr_t>offset)
+        access = add_ro_access_flag(access)
         self.mr = v.ibv_reg_buf_mr(pd.pd, buf.bufh, addr, length, access)
         if self.mr == NULL:
             raise PyverbsRDMAErrno(f'Failed to register a buf MR. length: '
