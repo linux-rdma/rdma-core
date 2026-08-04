@@ -621,6 +621,7 @@ static int do_madvise(void *addr, size_t length, int advice,
 	return 0;
 }
 
+/* Return 0 on success, or -1 on failure with errno set to indicate the reason. */
 static int ibv_madvise_range(void *base, size_t size, int advice)
 {
 	uintptr_t start, end;
