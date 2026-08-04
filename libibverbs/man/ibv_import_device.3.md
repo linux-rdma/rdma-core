@@ -35,7 +35,7 @@ This call may cleanup whatever is needed/opposite of the import including closin
 
 # RETURN VALUE
 
-**ibv_import_device()** returns a pointer to the allocated RDMA context, or NULL if the request fails.
+**ibv_import_device()** returns a pointer to the allocated RDMA context, or NULL if the request fails, and errno is set to indicate the reason.
 
 # SEE ALSO
 

@@ -23,7 +23,7 @@ closes the device context
 .I context\fR.
 .SH "RETURN VALUE"
 .B ibv_open_device()
-returns a pointer to the allocated device context, or NULL if the request fails.
+returns a pointer to the allocated device context, or NULL if the request fails, and errno is set to indicate the reason.
 .PP
 .B ibv_close_device()
 returns 0 on success, \-1 on failure.

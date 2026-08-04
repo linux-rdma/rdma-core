@@ -38,7 +38,7 @@ destroys the CQ
 .I cq\fR.
 .SH "RETURN VALUE"
 .B ibv_create_cq()
-returns a pointer to the CQ, or NULL if the request fails.
+returns a pointer to the CQ, or NULL if the request fails, and errno is set to indicate the reason.
 .PP
 .B ibv_destroy_cq()
 returns 0 on success, or the value of errno on failure (which indicates the failure reason).
