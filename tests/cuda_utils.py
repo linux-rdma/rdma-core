@@ -8,8 +8,28 @@ including the initialization/tear down needed and some error handlers.
 
 import unittest
 
+
+def import_cuda():
+    """
+    Import the cuda-python bindings for both the cuda-python 13 and 12 layouts.
+
+    :return: A tuple of the (cuda, cudart, nvrtc) cuda-python modules.
+    """
+    try:
+        from cuda.bindings import driver as cuda, runtime as cudart, nvrtc
+    except ImportError:
+        from cuda import cuda, cudart, nvrtc
+
+    return cuda, cudart, nvrtc
+
+
 try:
-    from cuda import cuda, cudart, nvrtc
+    cuda, cudart, nvrtc = import_cuda()
+    try:
+        from cuda.bindings import __version__ as _cuda_version
+    except ImportError:
+        from cuda import __version__ as _cuda_version
+    CUDA_PYTHON_MAJOR = int(_cuda_version.split('.', 1)[0])
     CUDA_FOUND = True
 except ImportError:
     CUDA_FOUND = False
@@ -87,9 +107,24 @@ def init_cuda(obj):
         raise unittest.SkipTest('GPU device ID must be passed')
     check_cuda_errors(cuda.cuInit(0))
     cuda_device = check_cuda_errors(cuda.cuDeviceGet(cuda_dev_id))
-    obj.cuda_ctx = check_cuda_errors(
-        cuda.cuCtxCreate(cuda.CUctx_flags.CU_CTX_MAP_HOST, cuda_device))
+    obj.cuda_ctx = create_cuda_ctx(cuda.CUctx_flags.CU_CTX_MAP_HOST, cuda_device)
     check_cuda_errors(cuda.cuCtxSetCurrent(obj.cuda_ctx))
+
+
+def create_cuda_ctx(flags, cuda_device):
+    """
+    Create a CUDA context using the calling convention for the installed
+    cuda-python version.
+    The cuCtxCreate signature is version-dependent:
+      - cuda-python 12: cuCtxCreate(flags, dev)
+      - cuda-python 13: cuCtxCreate(ctxCreateParams, flags, dev)
+    :param flags: CUDA context creation flags.
+    :param cuda_device: Target CUDA device.
+    :return: The created CUDA context.
+    """
+    if CUDA_PYTHON_MAJOR >= 13:
+        return check_cuda_errors(cuda.cuCtxCreate(None, flags, cuda_device))
+    return check_cuda_errors(cuda.cuCtxCreate(flags, cuda_device))
 
 
 def set_init_cuda_methods(cls):

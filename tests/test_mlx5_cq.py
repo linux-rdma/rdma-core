@@ -10,7 +10,8 @@ from tests.mlx5_base import Mlx5RDMATestCase
 from tests.mlx5_base import Mlx5DcResources
 from pyverbs.cq import CqInitAttrEx
 from tests.base import RCResources
-from pyverbs.libibverbs_enums import ibv_qp_create_send_ops_flags, ibv_wr_opcode
+from pyverbs.libibverbs_enums import ibv_qp_create_send_ops_flags, ibv_wr_opcode, \
+    ibv_qp_type, ibv_access_flags
 import tests.utils as u
 
 
@@ -81,6 +82,16 @@ class Mlx5CQRes(RCResources):
 
     def create_cq(self):
         create_dv_cq(self)
+
+
+class Mlx5CqRdmaReadRes(Mlx5CQRes):
+    def create_mr(self):
+        self.mr = u.create_custom_mr(self, ibv_access_flags.IBV_ACCESS_REMOTE_READ)
+
+    def create_qps(self):
+        u.create_qp_ex(self, ibv_qp_type.IBV_QPT_RC,
+                       ibv_qp_create_send_ops_flags.IBV_QP_EX_WITH_RDMA_READ,
+                       sq_sig_all=1)
 
 
 class Mlx5DvCqDcRes(Mlx5DcResources):
@@ -187,6 +198,18 @@ class DvCqTest(Mlx5RDMATestCase):
         for size in msg_sizes:
             self.create_players(Mlx5CQRes, cqe_size=128, msg_size=size)
             u.traffic(**self.traffic_args, is_cq_ex=True)
+
+    def test_dv_cq_rdma_read_small_msg_128_cqe(self):
+        """
+        RDMA_READ with mlx5dv 128B CQE and payload < 64B on the requestor side.
+        Exercises scatter-to-CQE inline copy from the CQE (ibv_cq_ex poll path).
+        """
+        msg_sizes = [16, 40, 60]
+        for size in msg_sizes:
+            self.create_players(Mlx5CqRdmaReadRes, cqe_size=128, msg_size=size)
+            u.rdma_traffic(**self.traffic_args, new_send=True,
+                           send_op=ibv_wr_opcode.IBV_WR_RDMA_READ,
+                           is_cq_ex=True)
 
     def test_dv_cq_cqe_size_64(self):
         """
