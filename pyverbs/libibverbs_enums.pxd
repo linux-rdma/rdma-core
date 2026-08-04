@@ -118,6 +118,7 @@ cdef extern from '<infiniband/verbs.h>':
         IBV_ACCESS_FLUSH_GLOBAL
         IBV_ACCESS_FLUSH_PERSISTENT
         IBV_ACCESS_RELAXED_ORDERING
+        IBV_ACCESS_UNORDERED
 
     cpdef enum ibv_rereg_mr_flags:
         IBV_REREG_MR_CHANGE_TRANSLATION
