@@ -507,10 +507,28 @@ static void print_raw_packet_caps(uint32_t raw_packet_caps)
 		printf("\t\t\t\t\tDelay drop\n");
 }
 
+static void print_comp_cntr_attach_ops(uint32_t ops)
+{
+	printf("\tcomp_cntr_caps:\n");
+	if (ops & IBV_QP_ATTACH_COMP_CNTR_OP_SEND)
+		printf("\t\t\t\t\tQP_ATTACH_SEND\n");
+	if (ops & IBV_QP_ATTACH_COMP_CNTR_OP_RECV)
+		printf("\t\t\t\t\tQP_ATTACH_RECV\n");
+	if (ops & IBV_QP_ATTACH_COMP_CNTR_OP_RDMA_READ)
+		printf("\t\t\t\t\tQP_ATTACH_RDMA_READ\n");
+	if (ops & IBV_QP_ATTACH_COMP_CNTR_OP_REMOTE_RDMA_READ)
+		printf("\t\t\t\t\tQP_ATTACH_REMOTE_RDMA_READ\n");
+	if (ops & IBV_QP_ATTACH_COMP_CNTR_OP_RDMA_WRITE)
+		printf("\t\t\t\t\tQP_ATTACH_RDMA_WRITE\n");
+	if (ops & IBV_QP_ATTACH_COMP_CNTR_OP_REMOTE_RDMA_WRITE)
+		printf("\t\t\t\t\tQP_ATTACH_REMOTE_RDMA_WRITE\n");
+}
+
 static int print_hca_cap(struct ibv_device *ib_dev, uint8_t ib_port)
 {
 	struct ibv_context *ctx;
 	struct ibv_device_attr_ex device_attr = {};
+	struct ibv_comp_cntr_caps cc_caps = {};
 	struct ibv_port_attr port_attr;
 	uint64_t port_speed;
 	int rc = 0;
@@ -592,6 +610,10 @@ static int print_hca_cap(struct ibv_device *ib_dev, uint8_t ib_port)
 			printf("\tmax_srq_sge:\t\t\t%d\n", device_attr.orig_attr.max_srq_sge);
 		}
 		printf("\tmax_pkeys:\t\t\t%d\n", device_attr.orig_attr.max_pkeys);
+		if (!ibv_query_comp_cntr_caps(ctx, &cc_caps)) {
+			printf("\tmax_comp_cntr:\t\t\t%d\n", cc_caps.max_counters);
+			print_comp_cntr_attach_ops(cc_caps.supported_qp_attach_ops);
+		}
 		printf("\tlocal_ca_ack_delay:\t\t%d\n", device_attr.orig_attr.local_ca_ack_delay);
 
 		print_odp_caps(&device_attr);

@@ -92,6 +92,9 @@ struct efadv_device_attr {
 		Indicates that creating CQs with external memory buffers by passing dmabuf is
 		supported.
 
+	EFADV_DEVICE_ATTR_CAPS_COMP_CNTR:
+		Completion counters are supported.
+
 *max_rdma_size*
 :	Maximum RDMA transfer size in bytes.
 

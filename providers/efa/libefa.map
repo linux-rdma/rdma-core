@@ -40,3 +40,8 @@ EFA_1.6 {
 	global:
 		efadv_qp_from_ibv_qp_ex;
 } EFA_1.5;
+
+EFA_1.7 {
+	global:
+		efadv_create_comp_cntr;
+} EFA_1.6;

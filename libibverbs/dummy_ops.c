@@ -161,6 +161,13 @@ static struct ibv_ah *create_ah(struct ibv_pd *pd, struct ibv_ah_attr *attr)
 	return NULL;
 }
 
+static struct ibv_comp_cntr *create_comp_cntr(struct ibv_context *context,
+					      struct ibv_comp_cntr_init_attr *attr)
+{
+	errno = EOPNOTSUPP;
+	return NULL;
+}
+
 static struct ibv_counters *create_counters(struct ibv_context *context,
 					    struct ibv_counters_init_attr *init_attr)
 {
@@ -271,6 +278,11 @@ static int destroy_ah(struct ibv_ah *ah)
 	return EOPNOTSUPP;
 }
 
+static int destroy_comp_cntr(struct ibv_comp_cntr *comp_cntr)
+{
+	return EOPNOTSUPP;
+}
+
 static int destroy_counters(struct ibv_counters *counters)
 {
 	return EOPNOTSUPP;
@@ -359,6 +371,16 @@ static struct ibv_pd *import_pd(struct ibv_context *context,
 	return NULL;
 }
 
+static int inc_comp_cntr(struct ibv_comp_cntr *comp_cntr, uint64_t amount)
+{
+	return EOPNOTSUPP;
+}
+
+static int inc_err_comp_cntr(struct ibv_comp_cntr *comp_cntr, uint64_t amount)
+{
+	return EOPNOTSUPP;
+}
+
 static int modify_cq(struct ibv_cq *cq, struct ibv_modify_cq_attr *attr)
 {
 	return EOPNOTSUPP;
@@ -435,6 +457,20 @@ static int post_srq_recv(struct ibv_srq *srq, struct ibv_recv_wr *recv_wr,
 	return EOPNOTSUPP;
 }
 
+static int qp_attach_comp_cntr(struct ibv_qp *qp,
+			       struct ibv_comp_cntr *comp_cntr,
+			       struct ibv_qp_attach_comp_cntr_attr *attr)
+{
+	return EOPNOTSUPP;
+}
+
+static int query_comp_cntr_caps(struct ibv_context *context,
+				struct ibv_comp_cntr_caps *caps,
+				size_t caps_size)
+{
+	return EOPNOTSUPP;
+}
+
 static int query_device_ex(struct ibv_context *context,
 			   const struct ibv_query_device_ex_input *input,
 			   struct ibv_device_attr_ex *attr, size_t attr_size)
@@ -482,10 +518,20 @@ static int query_srq(struct ibv_srq *srq, struct ibv_srq_attr *srq_attr)
 	return EOPNOTSUPP;
 }
 
+static int read_comp_cntr(struct ibv_comp_cntr *comp_cntr, uint64_t *value)
+{
+	return EOPNOTSUPP;
+}
+
 static int read_counters(struct ibv_counters *counters,
 			 uint64_t *counters_value,
 			 uint32_t ncounters,
 			 uint32_t flags)
+{
+	return EOPNOTSUPP;
+}
+
+static int read_err_comp_cntr(struct ibv_comp_cntr *comp_cntr, uint64_t *value)
 {
 	return EOPNOTSUPP;
 }
@@ -578,7 +624,17 @@ static int resize_cq(struct ibv_cq *cq, int cqe)
 	return EOPNOTSUPP;
 }
 
+static int set_comp_cntr(struct ibv_comp_cntr *comp_cntr, uint64_t value)
+{
+	return EOPNOTSUPP;
+}
+
 static int set_ece(struct ibv_qp *qp, struct ibv_ece *ece)
+{
+	return EOPNOTSUPP;
+}
+
+static int set_err_comp_cntr(struct ibv_comp_cntr *comp_cntr, uint64_t value)
 {
 	return EOPNOTSUPP;
 }
@@ -623,6 +679,7 @@ const struct verbs_context_ops verbs_dummy_ops = {
 	close_xrcd,
 	cq_event,
 	create_ah,
+	create_comp_cntr,
 	create_counters,
 	create_cq,
 	create_cq_ex,
@@ -640,6 +697,7 @@ const struct verbs_context_ops verbs_dummy_ops = {
 	dealloc_td,
 	dereg_mr,
 	destroy_ah,
+	destroy_comp_cntr,
 	destroy_counters,
 	destroy_cq,
 	destroy_flow,
@@ -657,6 +715,8 @@ const struct verbs_context_ops verbs_dummy_ops = {
 	import_dm,
 	import_mr,
 	import_pd,
+	inc_comp_cntr,
+	inc_err_comp_cntr,
 	modify_cq,
 	modify_flow_action_esp,
 	modify_qp,
@@ -670,6 +730,8 @@ const struct verbs_context_ops verbs_dummy_ops = {
 	post_send,
 	post_srq_ops,
 	post_srq_recv,
+	qp_attach_comp_cntr,
+	query_comp_cntr_caps,
 	query_device_ex,
 	query_ece,
 	query_port,
@@ -678,7 +740,9 @@ const struct verbs_context_ops verbs_dummy_ops = {
 	query_qp_data_in_order,
 	query_rt_values,
 	query_srq,
+	read_comp_cntr,
 	read_counters,
+	read_err_comp_cntr,
 	reg_dm_mr,
 	reg_dmabuf_mr,
 	reg_mr,
@@ -686,7 +750,9 @@ const struct verbs_context_ops verbs_dummy_ops = {
 	req_notify_cq,
 	rereg_mr,
 	resize_cq,
+	set_comp_cntr,
 	set_ece,
+	set_err_comp_cntr,
 	unimport_dm,
 	unimport_mr,
 	unimport_pd,
@@ -758,6 +824,7 @@ void verbs_set_ops(struct verbs_context *vctx,
 	SET_PRIV_OP(ctx, create_ah);
 	SET_PRIV_OP(ctx, create_cq);
 	SET_PRIV_OP_IC(vctx, create_cq_ex);
+	SET_PRIV_OP_IC(vctx, create_comp_cntr);
 	SET_OP2(vctx, ibv_create_flow, create_flow);
 	SET_OP(vctx, create_flow_action_esp);
 	SET_PRIV_OP(ctx, create_qp);
@@ -773,6 +840,7 @@ void verbs_set_ops(struct verbs_context *vctx,
 	SET_OP(vctx, destroy_counters);
 	SET_PRIV_OP(ctx, dereg_mr);
 	SET_PRIV_OP(ctx, destroy_ah);
+	SET_PRIV_OP_IC(vctx, destroy_comp_cntr);
 	SET_PRIV_OP(ctx, destroy_cq);
 	SET_OP2(vctx, ibv_destroy_flow, destroy_flow);
 	SET_OP(vctx, destroy_flow_action);
@@ -789,6 +857,8 @@ void verbs_set_ops(struct verbs_context *vctx,
 	SET_PRIV_OP_IC(vctx, import_dm);
 	SET_PRIV_OP_IC(vctx, import_mr);
 	SET_PRIV_OP_IC(vctx, import_pd);
+	SET_PRIV_OP_IC(vctx, inc_comp_cntr);
+	SET_PRIV_OP_IC(vctx, inc_err_comp_cntr);
 	SET_OP(vctx, modify_cq);
 	SET_OP(vctx, modify_flow_action_esp);
 	SET_PRIV_OP(ctx, modify_qp);
@@ -802,6 +872,8 @@ void verbs_set_ops(struct verbs_context *vctx,
 	SET_OP(ctx, post_send);
 	SET_OP(vctx, post_srq_ops);
 	SET_OP(ctx, post_srq_recv);
+	SET_PRIV_OP_IC(vctx, qp_attach_comp_cntr);
+	SET_PRIV_OP_IC(ctx, query_comp_cntr_caps);
 	SET_OP(vctx, query_device_ex);
 	SET_PRIV_OP_IC(vctx, query_ece);
 	SET_PRIV_OP_IC(ctx, query_port);
@@ -809,7 +881,9 @@ void verbs_set_ops(struct verbs_context *vctx,
 	SET_PRIV_OP(ctx, query_qp);
 	SET_PRIV_OP_IC(ctx, query_qp_data_in_order);
 	SET_OP(vctx, query_rt_values);
+	SET_PRIV_OP_IC(vctx, read_comp_cntr);
 	SET_OP(vctx, read_counters);
+	SET_PRIV_OP_IC(vctx, read_err_comp_cntr);
 	SET_PRIV_OP(ctx, query_srq);
 	SET_OP(vctx, reg_dm_mr);
 	SET_PRIV_OP_IC(vctx, reg_dmabuf_mr);
@@ -818,7 +892,9 @@ void verbs_set_ops(struct verbs_context *vctx,
 	SET_OP(ctx, req_notify_cq);
 	SET_PRIV_OP(ctx, rereg_mr);
 	SET_PRIV_OP(ctx, resize_cq);
+	SET_PRIV_OP_IC(vctx, set_comp_cntr);
 	SET_PRIV_OP_IC(vctx, set_ece);
+	SET_PRIV_OP_IC(vctx, set_err_comp_cntr);
 	SET_PRIV_OP_IC(vctx, unimport_dm);
 	SET_PRIV_OP_IC(vctx, unimport_mr);
 	SET_PRIV_OP_IC(vctx, unimport_pd);

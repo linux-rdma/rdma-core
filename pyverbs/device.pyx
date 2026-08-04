@@ -9,6 +9,7 @@ which returns a DeviceAttr object.
 import weakref
 
 from .pyverbs_error import PyverbsRDMAError, PyverbsError
+from pyverbs.comp_cntr cimport CompCntr
 from pyverbs.cq cimport CQEX, CQ, CompChannel
 from .pyverbs_error import PyverbsUserError
 from pyverbs.base import PyverbsRDMAErrno
@@ -119,6 +120,7 @@ cdef class Context(PyverbsCM):
         self.pps = weakref.WeakSet()
         self.sched_nodes = weakref.WeakSet()
         self.sched_leafs = weakref.WeakSet()
+        self.comp_cntrs = weakref.WeakSet()
         self.dr_domains = weakref.WeakSet()
         self.wqs = weakref.WeakSet()
         self.rwq_ind_tbls = weakref.WeakSet()
@@ -185,7 +187,8 @@ cdef class Context(PyverbsCM):
                             self.crypto_logins, self.rwq_ind_tbls, self.wqs,
                             self.ccs, self.cqs, self.dms, self.pds, self.xrcds,
                             self.vars, self.sched_leafs, self.sched_nodes,
-                            self.dr_domains, self.event_channels, self.dmahs])
+                            self.dr_domains, self.event_channels, self.dmahs,
+                            self.comp_cntrs])
             rc = v.ibv_close_device(self.context)
             if rc != 0:
                 raise PyverbsRDMAErrno(f'Failed to close device {self.name}')
@@ -227,6 +230,17 @@ cdef class Context(PyverbsCM):
             raise PyverbsRDMAError('Failed to query EX device {name}'.
                                    format(name=self.name), rc)
         return dev_attr_ex
+
+    def query_comp_cntr_caps(self):
+        """
+        Query completion counter capabilities.
+        :return: CompCntrCaps object
+        """
+        caps = CompCntrCaps()
+        rc = v.ibv_query_comp_cntr_caps(self.context, &caps.caps)
+        if rc != 0:
+            raise PyverbsRDMAError('Failed to query comp_cntr caps', rc)
+        return caps
 
     def query_pkey(self, unsigned int port_num, int index):
         cdef uint16_t pkey
@@ -366,6 +380,8 @@ cdef class Context(PyverbsCM):
             self.rwq_ind_tbls.add(obj)
         elif isinstance(obj, DMAHandle):
             self.dmahs.add(obj)
+        elif isinstance(obj, CompCntr):
+            self.comp_cntrs.add(obj)
         else:
             raise PyverbsError('Unrecognized object type')
 
@@ -747,6 +763,21 @@ cdef class DeviceAttrEx(PyverbsObject):
     @property
     def phys_port_cnt_ex(self):
         return self.dev_attr.phys_port_cnt_ex
+
+
+cdef class CompCntrCaps(PyverbsObject):
+    """Completion counter capabilities."""
+    @property
+    def max_counters(self):
+        return self.caps.max_counters
+
+    @property
+    def max_value(self):
+        return self.caps.max_value
+
+    @property
+    def supported_qp_attach_ops(self):
+        return self.caps.supported_qp_attach_ops
 
 
 cdef class AllocDmAttr(PyverbsObject):

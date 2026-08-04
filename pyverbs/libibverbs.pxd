@@ -247,6 +247,22 @@ cdef extern from 'infiniband/verbs.h':
     cdef struct ibv_poll_cq_attr:
         unsigned int    comp_mask
 
+    cdef struct ibv_comp_cntr_caps:
+        unsigned long   max_value
+        unsigned int    max_counters
+        unsigned int    supported_qp_attach_ops
+
+    cdef struct ibv_comp_cntr:
+        ibv_context     *context
+        unsigned int    handle
+        unsigned long   comp_count_max_value
+        unsigned long   err_count_max_value
+
+    cdef struct ibv_comp_cntr_init_attr:
+        unsigned int    comp_mask
+        unsigned int    type
+        unsigned int    flags
+
     cdef struct ibv_wc_tm_info:
         unsigned long   tag
         unsigned int    priv
@@ -512,6 +528,10 @@ cdef extern from 'infiniband/verbs.h':
         ibv_qp_type     qp_type;
         unsigned int    events_completed;
 
+    cdef struct ibv_qp_attach_comp_cntr_attr:
+        unsigned int    comp_mask
+        unsigned int    op_mask
+
     cdef struct ibv_parent_domain_init_attr:
         ibv_pd          *pd;
         uint32_t        comp_mask;
@@ -756,6 +776,17 @@ cdef extern from 'infiniband/verbs.h':
     unsigned int ibv_wc_read_flow_tag(ibv_cq_ex *cq)
     void ibv_wc_read_tm_info(ibv_cq_ex *cq, ibv_wc_tm_info *tm_info)
     unsigned long ibv_wc_read_completion_wallclock_ns(ibv_cq_ex *cq)
+    int ibv_query_comp_cntr_caps(ibv_context *context,
+                                 ibv_comp_cntr_caps *caps)
+    ibv_comp_cntr *ibv_create_comp_cntr(ibv_context *context,
+                                        ibv_comp_cntr_init_attr *attr)
+    int ibv_destroy_comp_cntr(ibv_comp_cntr *comp_cntr)
+    int ibv_set_comp_cntr(ibv_comp_cntr *comp_cntr, unsigned long value)
+    int ibv_set_err_comp_cntr(ibv_comp_cntr *comp_cntr, unsigned long value)
+    int ibv_inc_comp_cntr(ibv_comp_cntr *comp_cntr, unsigned long amount)
+    int ibv_inc_err_comp_cntr(ibv_comp_cntr *comp_cntr, unsigned long amount)
+    int ibv_read_comp_cntr(ibv_comp_cntr *comp_cntr, unsigned long *value)
+    int ibv_read_err_comp_cntr(ibv_comp_cntr *comp_cntr, unsigned long *value)
     ibv_ah *ibv_create_ah(ibv_pd *pd, ibv_ah_attr *attr)
     int ibv_init_ah_from_wc(ibv_context *context, uint8_t port_num,
                             ibv_wc *wc, ibv_grh *grh, ibv_ah_attr *ah_attr)
@@ -770,6 +801,8 @@ cdef extern from 'infiniband/verbs.h':
     int ibv_query_qp(ibv_qp *qp, ibv_qp_attr *attr, int attr_mask,
                      ibv_qp_init_attr *init_attr)
     int ibv_destroy_qp(ibv_qp *qp)
+    int ibv_qp_attach_comp_cntr(ibv_qp *qp, ibv_comp_cntr *comp_cntr,
+                                ibv_qp_attach_comp_cntr_attr *attr)
     int ibv_post_recv(ibv_qp *qp, ibv_recv_wr *wr, ibv_recv_wr **bad_wr)
     int ibv_post_send(ibv_qp *qp, ibv_send_wr *wr, ibv_send_wr **bad_wr)
     int ibv_bind_mw(ibv_qp *qp, ibv_mw *mw, ibv_mw_bind *mw_bind)

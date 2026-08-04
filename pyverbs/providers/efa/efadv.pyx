@@ -6,12 +6,17 @@ cimport pyverbs.providers.efa.libefa as dv
 
 from pyverbs.addr cimport GID
 from pyverbs.base import PyverbsRDMAErrno, PyverbsRDMAError
+from pyverbs.base cimport PyverbsCM
+from pyverbs.comp_cntr cimport CompCntrInitAttr, CompCntr
 from pyverbs.cq cimport CQEX, CqInitAttrEx
+from pyverbs.device cimport Context
 from pyverbs.libibverbs_enums import ibv_qp_attr_mask
 cimport pyverbs.libibverbs as v
+from pyverbs.mr cimport MR
 from pyverbs.pd cimport PD
 from pyverbs.qp cimport QP, QPEx, QPInitAttr, QPInitAttrEx
-from pyverbs.mr cimport MR
+from libc.string cimport memset
+from libc.stdint cimport uintptr_t, uint8_t
 
 
 def dev_cap_to_str(flags):
@@ -21,6 +26,8 @@ def dev_cap_to_str(flags):
             dve.EFADV_DEVICE_ATTR_CAPS_CQ_WITH_SGID: 'CQ entries with source GID',
             dve.EFADV_DEVICE_ATTR_CAPS_RDMA_WRITE: 'RDMA Write',
             dve.EFADV_DEVICE_ATTR_CAPS_UNSOLICITED_WRITE_RECV: 'Unsolicited RDMA Write receive',
+            dve.EFADV_DEVICE_ATTR_CAPS_CQ_WITH_EXT_MEM_DMABUF: 'CQ with external memory',
+            dve.EFADV_DEVICE_ATTR_CAPS_COMP_CNTR: 'Completion Counters',
     }
     return bitmask_to_str(flags, l)
 
@@ -408,3 +415,56 @@ cdef class EfaDVRQDepthAttr(PyverbsObject):
     @max_recv_sge.setter
     def max_recv_sge(self, val):
         self.rq_depth_attr.max_recv_sge = val
+
+
+cdef class EfaCompCntrInitAttr(PyverbsObject):
+    """Represents efadv_comp_cntr_init_attr struct."""
+    cdef dv.efadv_comp_cntr_init_attr attr
+
+    def __init__(self, comp_ext_mem_ptr=None, err_ext_mem_ptr=None):
+        super().__init__()
+        memset(&self.attr, 0, sizeof(self.attr))
+        if comp_ext_mem_ptr is not None:
+            self.attr.flags |= dve.EFADV_COMP_CNTR_INIT_WITH_COMP_EXTERNAL_MEM
+            self.attr.comp_cntr_ext_mem.type = dve.EFADV_MEMORY_LOCATION_VA
+            self.attr.comp_cntr_ext_mem.ptr = <uint8_t *><uintptr_t>comp_ext_mem_ptr
+        if err_ext_mem_ptr is not None:
+            self.attr.flags |= dve.EFADV_COMP_CNTR_INIT_WITH_ERR_EXTERNAL_MEM
+            self.attr.err_cntr_ext_mem.type = dve.EFADV_MEMORY_LOCATION_VA
+            self.attr.err_cntr_ext_mem.ptr = <uint8_t *><uintptr_t>err_ext_mem_ptr
+
+    def set_comp_ext_mem_va(self, uintptr_t ptr):
+        """Set completion counter external memory VA."""
+        self.attr.flags |= dve.EFADV_COMP_CNTR_INIT_WITH_COMP_EXTERNAL_MEM
+        self.attr.comp_cntr_ext_mem.type = dve.EFADV_MEMORY_LOCATION_VA
+        self.attr.comp_cntr_ext_mem.ptr = <uint8_t *>ptr
+
+    def set_err_ext_mem_va(self, uintptr_t ptr):
+        """Set error counter external memory VA."""
+        self.attr.flags |= dve.EFADV_COMP_CNTR_INIT_WITH_ERR_EXTERNAL_MEM
+        self.attr.err_cntr_ext_mem.type = dve.EFADV_MEMORY_LOCATION_VA
+        self.attr.err_cntr_ext_mem.ptr = <uint8_t *>ptr
+
+
+cdef class EfaCompCntr(CompCntr):
+    """EFA-specific Completion Counter with external memory support."""
+    def __init__(self, Context ctx not None, CompCntrInitAttr attr not None,
+                 EfaCompCntrInitAttr efa_attr=None):
+        """Create an EFA completion counter.
+
+        :param ctx: Device context.
+        :param attr: Completion counter init attributes.
+        :param efa_attr: EFA-specific init attributes (optional).
+        """
+        PyverbsCM.__init__(self)
+        if efa_attr is None:
+            efa_attr = EfaCompCntrInitAttr()
+        self.comp_cntr = dv.efadv_create_comp_cntr(
+            ctx.context, &attr.attr, &efa_attr.attr, sizeof(efa_attr.attr))
+        if self.comp_cntr == NULL:
+            raise PyverbsRDMAErrno('Failed to create EFA comp_cntr')
+        self.ctx = ctx
+        ctx.add_ref(self)
+
+    def __dealloc__(self):
+        self.close()
