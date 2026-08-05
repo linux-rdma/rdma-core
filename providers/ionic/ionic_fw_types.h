@@ -6,6 +6,12 @@
 #ifndef IONIC_FW_TYPES_H
 #define IONIC_FW_TYPES_H
 
+#include <linux/types.h>
+
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 #define IONIC_EXP_DBELL_SZ 8
 
 /* common to all versions */
@@ -257,5 +263,9 @@ enum ionic_v2_op {
 	IONIC_V2_OP_LOCAL_INV           = 0x7,
 	IONIC_V2_OP_BIND_MW             = 0x8,
 };
+
+#ifdef __cplusplus
+}
+#endif
 
 #endif /* IONIC_FW_TYPES_H */

@@ -12,6 +12,25 @@
 #ifdef __cplusplus
 extern "C" {
 #endif
+/**
+ * ionic_dv_is_ionic_ctx - Test if context belongs to ionic provider.
+ */
+bool ionic_dv_is_ionic_ctx(struct ibv_context *ibctx);
+
+/**
+ * ionic_dv_is_ionic_pd - Test if pd belongs to ionic provider.
+ */
+bool ionic_dv_is_ionic_pd(struct ibv_pd *ibpd);
+
+/**
+ * ionic_dv_is_ionic_cq - Test if cq belongs to ionic provider.
+ */
+bool ionic_dv_is_ionic_cq(struct ibv_cq *ibcq);
+
+/**
+ * ionic_dv_is_ionic_qp - Test if qp belongs to ionic provider.
+ */
+bool ionic_dv_is_ionic_qp(struct ibv_qp *ibqp);
 
 /**
  * ionic_dv_ctx_get_udma_count - Get number of udma pipelines.
@@ -45,6 +64,26 @@ uint8_t ionic_dv_pd_get_udma_mask(struct ibv_pd *ibpd);
 int ionic_dv_pd_set_udma_mask(struct ibv_pd *ibpd, uint8_t udma_mask);
 
 /**
+ * ionic_dv_cq_get_udma_mask - Get mask of udma pipeline ids of completion queue.
+ */
+uint8_t ionic_dv_cq_get_udma_mask(struct ibv_cq *ibcq);
+
+/**
+ * ionic_dv_qp_get_udma_idx - Get udma pipeline id of queue pair.
+ */
+uint8_t ionic_dv_qp_get_udma_idx(struct ibv_qp *ibqp);
+
+/**
+ * ionic_dv_pd_set_expdb_mask - Specify expdb mask.
+ *
+ * Queues associated with this pd will attempt to have expdb on for WQE sizes
+ * other than default (and supported by the NIC).
+ *
+ * @mask - IONIC_EXPDB_* bitmap
+ */
+int ionic_dv_pd_set_expdb_mask(struct ibv_pd *ibpd, uint8_t mask);
+
+/**
  * ionic_dv_pd_set_sqcmb - Specify send queue preference for controller memory bar.
  *
  * Send queues associated with this pd will use the controller memory bar according to
@@ -67,6 +106,139 @@ int ionic_dv_pd_set_sqcmb(struct ibv_pd *ibpd, bool enable, bool expdb, bool req
  * @require - Require preferences to be met, no fallback.
  */
 int ionic_dv_pd_set_rqcmb(struct ibv_pd *ibpd, bool enable, bool expdb, bool require);
+
+/**
+ * ionic_dv_qp_set_gda - Enable or disable GPU-Direct Async (GDA) mode.
+ *
+ * In GDA mode, when the application calls ibv_post_send() or ibv_post_recv(), the
+ * provider writes WQEs in the descriptor ring without ringing the doorbell.
+ *
+ * To ring the doorbell, after posting the work the application should query to get the
+ * doorbell data, and later write that data to the memory mapped doorbell register.
+ *
+ * See also: ionic_dv_get_ctx()
+ * See also: ionic_dv_qp_get_send_dbell_data()
+ * See also: ionic_dv_qp_get_recv_dbell_data()
+ *
+ * @ibqp - Set GDA mode for this queue pair.
+ * @enable_send - Enable GDA mode for the send queue.
+ * @enable_recv - Enable GDA mode for the recv queue.
+ */
+int ionic_dv_qp_set_gda(struct ibv_qp *ibqp, bool enable_send, bool enable_recv);
+
+/**
+ * ionic_dv_qp_get_send_dbell_data - Get send queue doorbell data.
+ *
+ * In GDA mode, when the application calls ibv_post_send() the provider writes WQEs in
+ * the descriptor ring without ringing the doorbell.  The application should query the
+ * doorbell data immediately after posting the work.  The application requests the
+ * GPU to fill the source buffers of the data transfer with the result of computation.
+ * The application requests the GPU to write the doorbell data to the memory mapped
+ * doorbell register immediately when the computation is complete, triggering the data
+ * transfer.
+ *
+ * It is important that the GPU ring the doorbell in sequential order.  If work requests
+ * are posted in batches A, B, and C, with respective doorbell data, the data path must
+ * not write B or C before A, and must not write C before B.  It is ok to skip writing a
+ * doorbell, like writing only C, which will trigger the data transfer for all of the
+ * work up to that point in the sequence.
+ *
+ * @ibqp - Get send doorbell data for this queue pair.
+ * @dbdata - Output parameter for doorbell data.
+ */
+int ionic_dv_qp_get_send_dbell_data(struct ibv_qp *ibqp, uint64_t *dbdata);
+
+/**
+ * ionic_dv_qp_get_recv_dbell_data - Get recv queue doorbell data.
+ *
+ * In GDA mode, when the application calls ibv_post_recv() the provider writes WQEs in
+ * the descriptor ring without ringing the doorbell.  After polling recv completions, the
+ * application can immediately re-post the receive buffers without ringing the doorbell.
+ * The application should query the doorbell data immediately after posting the buffers.
+ * The application requests the GPU consume the data from the receive buffers.  The
+ * application requests the GPU to write the doorbell data to the memory mapped doorbell
+ * register immediately after the received data is consumed, making the buffers available
+ * for the next data transfer.
+ *
+ * It is important that the GPU ring the doorbell in sequential order.  If work requests
+ * are posted in batches A, B, and C, with respective doorbell data, the data path must
+ * not write B or C before A, and must not write C before B.  It is ok to skip writing a
+ * doorbell, like writing only C, which will make buffers available up to that point in
+ * the sequence.
+ *
+ * @ibqp - Get recv doorbell data for this queue pair.
+ * @dbdata - Output parameter for doorbell data.
+ */
+int ionic_dv_qp_get_recv_dbell_data(struct ibv_qp *ibqp, uint64_t *dbdata);
+
+/** struct ionic_dv_ctx - Context information for gpu-initiated rdma. */
+struct ionic_dv_ctx {
+	void			*db_page;
+	uint64_t		*db_ptr;
+	uint8_t			sq_qtype;
+	uint8_t			rq_qtype;
+	uint8_t			cq_qtype;
+};
+
+/** struct ionic_dv_queue - Queue information for gpu-initiated rdma. */
+struct ionic_dv_queue {
+	void			*ptr;
+	size_t			size;
+	uint64_t		db_val;
+	uint16_t		mask;
+	uint8_t			depth_log2;
+	uint8_t			stride_log2;
+};
+
+/** struct ionic_dv_cq - CQ information for gpu-initiated rdma. */
+struct ionic_dv_cq {
+	struct ionic_dv_queue	q;
+};
+
+/** struct ionic_dv_qp - QP information for gpu-initiated rdma. */
+struct ionic_dv_qp {
+	struct ionic_dv_queue	rq;
+	struct ionic_dv_queue	sq;
+};
+
+/**
+ * ionic_dv_get_ctx - Extract context information for gpu-initiated rdma.
+ */
+int ionic_dv_get_ctx(struct ionic_dv_ctx *dvctx, struct ibv_context *ibctx);
+
+/**
+ * ionic_dv_get_cq - Extract cq information for gpu-initiated rdma.
+ */
+int ionic_dv_get_cq(struct ionic_dv_cq *dvcq, struct ibv_cq *ibcq, uint8_t udma_idx);
+
+/**
+ * ionic_dv_get_qp - Extract qp information for gpu-initiated rdma.
+ */
+int ionic_dv_get_qp(struct ionic_dv_qp *dvqp, struct ibv_qp *ibqp);
+
+enum ionic_cq_init_attr_mask {
+	IONIC_CQ_INIT_ATTR_MASK_FLAGS	= 1 << 0,
+};
+
+enum ionic_cq_init_attr_flags {
+	IONIC_CQ_INIT_ATTR_CCQE	= 1 << 0,
+};
+
+struct ionic_cq_init_attr_ex {
+	uint32_t	    comp_mask;
+	uint32_t	    flags;
+};
+
+/**
+ * ionic_dv_create_cq_ex - Create an IBV CQ with vendor-specific attributes.
+ *
+ * @ibctx - Context CQ will be attached to.
+ * @ex - IBV attributes to create the CQ with.
+ * @ionic_ex - Vendor-specific attributes to create the CQ with.
+ */
+struct ibv_cq_ex *ionic_dv_create_cq_ex(struct ibv_context *ibctx,
+					struct ibv_cq_init_attr_ex *ex,
+					struct ionic_cq_init_attr_ex *ionic_ex);
 
 #ifdef __cplusplus
 }
