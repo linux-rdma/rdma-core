@@ -476,6 +476,7 @@ void ibv_free_buf(struct ibv_buf *buf)
  * The IBV_REG_MR_MASK_BUF bit is consumed here and replaced by the masks the
  * lower layers understand.
  */
+/* Return 0 on success, or -1 on an invalid attr combination with errno set to EINVAL. */
 static int fill_mr_init_attr_from_buf(struct ibv_pd *pd,
 				      struct ibv_mr_init_attr *mr_init_attr)
 {

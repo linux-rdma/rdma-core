@@ -46,7 +46,7 @@ with this MR is invalid.
 
 # RETURN VALUE
 
-**ibv_alloc_null_mr()** returns a pointer to the allocated MR, or NULL if the request fails.
+**ibv_alloc_null_mr()** returns a pointer to the allocated MR, or NULL if the request fails, and errno is set to indicate the reason.
 
 # SEE ALSO
 

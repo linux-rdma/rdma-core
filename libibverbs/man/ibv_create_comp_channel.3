@@ -24,7 +24,7 @@ destroys the completion event channel
 .I channel\fR.
 .SH "RETURN VALUE"
 .B ibv_create_comp_channel()
-returns a pointer to the created completion event channel, or NULL if the request fails.
+returns a pointer to the created completion event channel, or NULL if the request fails, and errno is set to indicate the reason.
 .PP
 .B ibv_destroy_comp_channel()
 returns 0 on success, or the value of errno on failure (which indicates the failure reason).

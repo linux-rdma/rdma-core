@@ -784,6 +784,10 @@ int ibv_cmd_read_counters(struct verbs_counters *vcounters,
 			  uint32_t ncounters,
 			  uint32_t flags,
 			  struct ibv_command_buffer *link);
+/*
+ * Adjust fork protection for the given range. Return 0 on success, or a
+ * non-zero value on failure with errno set to indicate the reason.
+ */
 int ibv_dontfork_range(void *base, size_t size);
 int ibv_dofork_range(void *base, size_t size);
 int ibv_cmd_alloc_dm(struct ibv_context *ctx,

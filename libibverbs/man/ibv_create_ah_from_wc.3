@@ -45,7 +45,7 @@ and the Global Routing Header (GRH) structure
 returns 0 on success, and \-1 on error.
 .PP
 .B ibv_create_ah_from_wc()
-returns a pointer to the created AH, or NULL if the request fails.
+returns a pointer to the created AH, or NULL if the request fails, and errno is set to indicate the reason.
 .SH "NOTES"
 The filled structure
 .I ah_attr

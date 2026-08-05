@@ -153,6 +153,11 @@ deregisters the MR
 .SH "RETURN VALUE"
 .B ibv_reg_mr() / ibv_reg_mr_iova() / ibv_reg_dmabuf_mr() / ibv_reg_mr_ex()
 returns a pointer to the registered MR, or NULL if the request fails.
+On failure
+.B errno
+is set to indicate the reason (for example
+.B EINVAL
+for an invalid combination of arguments).
 The local key (\fBL_Key\fR) field
 .B lkey
 is used as the lkey field of struct ibv_sge when posting buffers with

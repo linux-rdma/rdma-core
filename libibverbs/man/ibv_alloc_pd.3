@@ -22,7 +22,7 @@ deallocates the PD
 .I pd\fR.
 .SH "RETURN VALUE"
 .B ibv_alloc_pd()
-returns a pointer to the allocated PD, or NULL if the request fails.
+returns a pointer to the allocated PD, or NULL if the request fails, and errno is set to indicate the reason.
 .PP
 .B ibv_dealloc_pd()
 returns 0 on success, or the value of errno on failure (which indicates the failure reason).

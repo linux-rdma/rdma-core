@@ -168,7 +168,7 @@ uint32_t priv; /* opaque user data from TMH */
 
 .SH "RETURN VALUE"
 .B ibv_create_cq_ex()
-returns a pointer to the CQ, or NULL if the request fails.
+returns a pointer to the CQ, or NULL if the request fails, and errno is set to indicate the reason.
 .SH "NOTES"
 .B ibv_create_cq_ex()
 may create a CQ with size greater than or equal to the requested
