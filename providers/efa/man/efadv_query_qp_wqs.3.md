@@ -35,7 +35,8 @@ struct efadv_wq_attr {
 	uint32_t num_entries;
 	uint32_t *doorbell;
 	uint32_t max_batch;
-	uint8_t reserved[4];
+	uint16_t caps;
+	uint8_t reserved[2];
 };
 ```
 
@@ -59,6 +60,14 @@ struct efadv_wq_attr {
 
 *max_batch*
 :	Maximum batch size for queue submissions.
+
+*caps*
+:	Work queue capabilities:
+
+	EFADV_WQ_CAPS_64_BIT_REQ_ID
+		Work queue supports posting requests with 64-bit IDs.
+		When set, the associated completion queue is guaranteed
+		to return 64-bit request IDs as well.
 
 # RETURN VALUE
 

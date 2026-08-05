@@ -134,6 +134,7 @@ struct efa_wq {
 	int phase;
 	pthread_spinlock_t wqlock;
 	bool need_lock;
+	bool req_id_64_bit;
 
 	uint32_t *db;
 	uint16_t sub_cq_idx;
