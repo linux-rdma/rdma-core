@@ -706,7 +706,11 @@ class NVCX_DMA_Complex(NVCX_Complex):
         if self.cx_pf.numa_node is not None:
             res["numa_node"] = self.cx_pf.numa_node
         if self.nvmes:
-            res["nvme_bdf"] = str(next(iter(self.nvmes)).bdf)
+            nvme_bdfs = [
+                str(pdev.bdf) for pdev in sorted(self.nvmes, key=lambda x: x.bdf)
+            ]
+            res["nvme_bdf"] = nvme_bdfs[0]
+            res["nvme_bdfs"] = nvme_bdfs
 
         for pdev in sorted(
             itertools.chain(self.cx_pfs, [self.nvgpu, self.cx_dma], self.nvmes),
