@@ -797,6 +797,8 @@ add_subdirectory(kernel-boot)
 add_subdirectory(kernel-headers)
 if (CMAKE_SYSTEM_NAME STREQUAL "FreeBSD")
   add_subdirectory(freebsd-headers)
+  # We need to add an additional -I flag to all generated .pc files
+  set(PC_FREEBSD_CFLAGS "-I\${includedir}/linuxapi")
 endif()
 # Libraries
 add_subdirectory(libibumad)
