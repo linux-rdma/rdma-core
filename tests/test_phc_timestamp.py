@@ -7,14 +7,13 @@ import time
 import os
 import errno
 
-from pyverbs.libibverbs_enums import IBV_WC_EX_WITH_COMPLETION_TIMESTAMP, \
-    IBV_WC_EX_WITH_COMPLETION_TIMESTAMP_WALLCLOCK
+from pyverbs.libibverbs_enums import ibv_qp_type, ibv_wc_status, ibv_wr_opcode, ibv_create_cq_wc_flags, \
+    IBV_WC_STANDARD_FLAGS
 from tests.base import RCResources, RDMATestCase
 from pyverbs.pyverbs_error import PyverbsRDMAError
 from pyverbs.cq import CqInitAttrEx, CQEX
 from pyverbs.qp import QPInitAttr
 from pyverbs.cq import PollCqAttr
-import pyverbs.libibverbs_enums as e
 import tests.utils as u
 
 GIGA = 1000000000
@@ -66,7 +65,7 @@ def timestamp_res_cls(base_class):
             Create an Extended CQ.
             :param timestamp: If set, the timestamp type to use.
             """
-            wc_flags = e.IBV_WC_STANDARD_FLAGS
+            wc_flags = IBV_WC_STANDARD_FLAGS
             if timestamp:
                 wc_flags |= timestamp
             cia = CqInitAttrEx(cqe=self.num_msgs, wc_flags=wc_flags)
@@ -113,8 +112,8 @@ class TimeStampTest(RDMATestCase):
         only verifies that polling succeeds; value validation is done by the
         real-time variant.
         """
-        self.qp_type = e.IBV_QPT_RC
-        self.send_ts = self.recv_ts = IBV_WC_EX_WITH_COMPLETION_TIMESTAMP
+        self.qp_type = ibv_qp_type.IBV_QPT_RC
+        self.send_ts = self.recv_ts = ibv_create_cq_wc_flags.IBV_WC_EX_WITH_COMPLETION_TIMESTAMP
         self.create_players(timestamp_res_cls(RCResources), **self.resource_arg)
         self.ts_traffic()
 
@@ -124,8 +123,8 @@ class TimeStampTest(RDMATestCase):
         The timestamp is returned in nanoseconds and validated against the
         live PHC read from /dev/ptpN.
         """
-        self.qp_type = e.IBV_QPT_RC
-        self.send_ts = self.recv_ts = IBV_WC_EX_WITH_COMPLETION_TIMESTAMP_WALLCLOCK
+        self.qp_type = ibv_qp_type.IBV_QPT_RC
+        self.send_ts = self.recv_ts = ibv_create_cq_wc_flags.IBV_WC_EX_WITH_COMPLETION_TIMESTAMP_WALLCLOCK
         self.create_players(timestamp_res_cls(RCResources), **self.resource_arg)
         self.ts_traffic()
         self.verify_ts(self.client.timestamp / GIGA, self.client.read_phc())
@@ -162,11 +161,11 @@ class TimeStampTest(RDMATestCase):
             raise PyverbsRDMAError('Failed to poll CQEX - Got timeout')
         if ret != 0:
             raise PyverbsRDMAError('Failed to poll CQEX')
-        if cqex.status != e.IBV_WC_SUCCESS:
+        if cqex.status != ibv_wc_status.IBV_WC_SUCCESS:
             raise PyverbsRDMAError(f'Completion status is {cqex.status}')
-        if ts_type == IBV_WC_EX_WITH_COMPLETION_TIMESTAMP:
+        if ts_type == ibv_create_cq_wc_flags.IBV_WC_EX_WITH_COMPLETION_TIMESTAMP:
             ts = cqex.read_timestamp()
-        if ts_type == IBV_WC_EX_WITH_COMPLETION_TIMESTAMP_WALLCLOCK:
+        if ts_type == ibv_create_cq_wc_flags.IBV_WC_EX_WITH_COMPLETION_TIMESTAMP_WALLCLOCK:
             ts = cqex.read_completion_wallclock_ns()
         cqex.end_poll()
         return ts
@@ -178,6 +177,6 @@ class TimeStampTest(RDMATestCase):
         s_recv_wr = u.get_recv_wr(self.server)
         u.post_recv(self.server, s_recv_wr)
         c_send_wr, _ = u.get_send_elements(self.client, False)
-        u.send(self.client, c_send_wr, e.IBV_WR_SEND, False, 0)
+        u.send(self.client, c_send_wr, ibv_wr_opcode.IBV_WR_SEND, False, 0)
         self.client.timestamp = self.poll_cq_ex_ts(self.client.scq, ts_type=self.send_ts)
         self.server.timestamp = self.poll_cq_ex_ts(self.server.rcq, ts_type=self.recv_ts)
