@@ -7,9 +7,17 @@ publish_internal_headers(util
   iba_types.h
   )
 
-rdma_library(ibmad libibmad.map
+if (CMAKE_SYSTEM_NAME STREQUAL "Linux")
   # See Documentation/versioning.md
-  5 5.5.${PACKAGE_VERSION}
+  set(SOVER 5 5.5.${PACKAGE_VERSION})
+endif()
+
+if (CMAKE_SYSTEM_NAME STREQUAL "FreeBSD")
+  set(SOVER 100 100.5.${PACKAGE_VERSION})
+endif()
+
+rdma_library(ibmad libibmad.map
+  ${SOVER}
   bm.c
   cc.c
   dump.c
