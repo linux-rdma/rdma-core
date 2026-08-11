@@ -100,8 +100,22 @@ function(rdma_set_library_map DEST VERSION_SCRIPT)
     LINK_DEPENDS ${VERSION_SCRIPT})
 endfunction()
 
+# Add DSO_VERSION_MAJOR_OFFSET to the major version in the variables named
+# SOVERSION_VAR and VERSION_VAR, which hold the Linux shared library versions,
+# see Documentation/versioning.md
+function(rdma_dso_version SOVERSION_VAR VERSION_VAR)
+  if (DSO_VERSION_MAJOR_OFFSET)
+    math(EXPR MAJOR "${${SOVERSION_VAR}} + ${DSO_VERSION_MAJOR_OFFSET}")
+    string(REGEX REPLACE "^[0-9]+" "${MAJOR}" NEW_VERSION "${${VERSION_VAR}}")
+    set(${SOVERSION_VAR} ${MAJOR} PARENT_SCOPE)
+    set(${VERSION_VAR} "${NEW_VERSION}" PARENT_SCOPE)
+  endif()
+endfunction()
+
 # Basic function to produce a standard libary with a GNU LD version script.
 function(rdma_library DEST VERSION_SCRIPT SOVERSION VERSION)
+  rdma_dso_version(SOVERSION VERSION)
+
   # Create a static library
   if (ENABLE_STATIC)
     add_library(${DEST}-static STATIC ${ARGN})
@@ -138,6 +152,8 @@ endfunction()
 # other convections. The system library is symlinked into the
 # VERBS_PROVIDER_DIR so it can be dlopened as a provider as well.
 function(rdma_shared_provider DEST VERSION_SCRIPT SOVERSION VERSION)
+  rdma_dso_version(SOVERSION VERSION)
+
   # Installed driver file
   file(WRITE "${CMAKE_CURRENT_BINARY_DIR}/${DEST}.driver" "driver ${DEST}\n")
   install(FILES "${CMAKE_CURRENT_BINARY_DIR}/${DEST}.driver" DESTINATION "${CONFIG_DIR}")

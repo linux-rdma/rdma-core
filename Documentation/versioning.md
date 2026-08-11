@@ -85,6 +85,18 @@ The version number is broken up into three fields:
 This version is encoded into the filename `build/lib/libibumad.so.3.1.11` and
 a symlink from `libibumad.so.3` to `build/lib/libibumad.so.3.1.11` is created.
 
+On FreeBSD, a complication exists because some previous versions of
+the same libraries as provided by rdma-core, were imported into the
+base system.  The shared libraries versions, as provided by DT_SONAME
+and the file name, must be different between the legacy base version
+and newer libraries from rdma-core, so that consumers linked to the
+specific library get the expected library loaded at runtime.  We
+arbitrarily chose to add '100' to the major version component to
+designate rdma-core objects, e.g. libibumad is built as
+`libibumad.so.103.1.11`.  The CMakeLists.txt files specify the Linux
+versions, rdma_library() and rdma_shared_provider() add the
+DSO_VERSION_MAJOR_OFFSET from the top-level CMakeLists.txt.
+
 ## Shared Library Symbol Versions
 
 Symbol versions are a linker technique that lets the library author provide

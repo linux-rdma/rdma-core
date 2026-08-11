@@ -90,6 +90,13 @@ set(PACKAGE_VERSION "67.0")
 #   debian/libibverbs1.symbols
 set(IBVERBS_PABI_VERSION "65")
 set(IBVERBS_PROVIDER_SUFFIX "-rdmav${IBVERBS_PABI_VERSION}.so")
+# Added to the major version of the shared libraries, CMakeLists.txt files
+# specify the Linux versions. See Documentation/versioning.md
+if (CMAKE_SYSTEM_NAME STREQUAL "FreeBSD")
+  set(DSO_VERSION_MAJOR_OFFSET 100)
+else()
+  set(DSO_VERSION_MAJOR_OFFSET 0)
+endif()
 
 #-------------------------
 # Basic standard paths
