@@ -105,8 +105,10 @@ __be32 *mlx5_alloc_dbrec(struct mlx5_context *context, struct ibv_pd *pd,
 				   mparent_domain->pd_context, 8, 8,
 				   MLX5DV_RES_TYPE_DBR);
 
-		if (db == IBV_ALLOCATOR_USE_DEFAULT)
+		if (db == IBV_ALLOCATOR_USE_DEFAULT) {
+			db = NULL;
 			goto default_alloc;
+		}
 
 		if (!db)
 			return NULL;
