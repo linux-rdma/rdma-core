@@ -377,7 +377,7 @@ struct ibv_cq *bnxt_re_create_cq(struct ibv_context *ibvctx, int ncqe,
 
 	memset(&resp, 0, sizeof(resp));
 	if (ibv_cmd_create_cq(ibvctx, ncqe, channel, vec,
-			      &cq->ibvcq, &cmd.ibv_cmd, sizeof(cmd),
+			      &cq->verbs_cq.cq, &cmd.ibv_cmd, sizeof(cmd),
 			      &resp.ibv_resp, sizeof(resp)))
 		goto cmdfail;
 
@@ -405,7 +405,7 @@ struct ibv_cq *bnxt_re_create_cq(struct ibv_context *ibvctx, int ncqe,
 	list_head_init(&cq->rfhead);
 	list_head_init(&cq->prev_cq_head);
 
-	return &cq->ibvcq;
+	return &cq->verbs_cq.cq;
 cmdfail:
 	bnxt_re_free_mem(cq->mem);
 fail:
@@ -423,10 +423,10 @@ fail:
  */
 static void bnxt_re_resize_cq_complete(struct bnxt_re_cq *cq)
 {
-	struct bnxt_re_context *cntx = to_bnxt_re_context(cq->ibvcq.context);
+	struct bnxt_re_context *cntx = to_bnxt_re_context(cq->verbs_cq.cq.context);
 	struct ibv_wc tmp_wc;
 
-	ibv_cmd_poll_cq(&cq->ibvcq, 1, &tmp_wc);
+	ibv_cmd_poll_cq(&cq->verbs_cq.cq, 1, &tmp_wc);
 	bnxt_re_free_mem(cq->mem);
 
 	cq->mem = cq->resize_mem;
