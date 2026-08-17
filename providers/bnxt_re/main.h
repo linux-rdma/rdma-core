@@ -91,7 +91,7 @@ struct bnxt_re_pd {
 };
 
 struct bnxt_re_cq {
-	struct ibv_cq ibvcq;
+	struct verbs_cq verbs_cq;
 	uint32_t cqid;
 	struct bnxt_re_context *cntx;
 	struct bnxt_re_queue *cqq;
@@ -341,7 +341,7 @@ static inline struct bnxt_re_pd *to_bnxt_re_pd(struct ibv_pd *ibvpd)
 
 static inline struct bnxt_re_cq *to_bnxt_re_cq(struct ibv_cq *ibvcq)
 {
-	return container_of(ibvcq, struct bnxt_re_cq, ibvcq);
+	return container_of(ibvcq, struct bnxt_re_cq, verbs_cq.cq);
 }
 
 static inline struct bnxt_re_qp *to_bnxt_re_qp(struct ibv_qp *ibvqp)
