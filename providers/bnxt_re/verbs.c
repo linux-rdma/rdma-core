@@ -117,8 +117,10 @@ static int bnxt_re_map_db_page(struct ibv_context *ibvctx,
 
 int bnxt_re_get_toggle_mem(struct ibv_context *ibvctx,
 			   struct bnxt_re_mmap_info *minfo,
+			   uint32_t obj_handle,
 			   uint32_t *page_handle)
 {
+	struct bnxt_re_context *cntx = to_bnxt_re_context(ibvctx);
 	DECLARE_COMMAND_BUFFER(cmd,
 			       BNXT_RE_OBJECT_GET_TOGGLE_MEM,
 			       BNXT_RE_METHOD_GET_TOGGLE_MEM,
@@ -127,15 +129,21 @@ int bnxt_re_get_toggle_mem(struct ibv_context *ibvctx,
 	int ret;
 
 	handle = fill_attr_out_obj(cmd, BNXT_RE_TOGGLE_MEM_HANDLE);
-	fill_attr_const_in(cmd, BNXT_RE_TOGGLE_MEM_TYPE, minfo->type);
-	fill_attr_in(cmd, BNXT_RE_TOGGLE_MEM_RES_ID, &minfo->res_id, sizeof(minfo->res_id));
-	fill_attr_out_ptr(cmd, BNXT_RE_TOGGLE_MEM_MMAP_PAGE,  &minfo->alloc_offset);
+	if (BNXT_RE_TOGGLE_MEM_UOBJ_EN(cntx)) {
+		if (minfo->type == BNXT_RE_CQ_TOGGLE_MEM)
+			fill_attr_in_obj(cmd, BNXT_RE_TOGGLE_MEM_CQ_HANDLE, obj_handle);
+		else
+			fill_attr_in_obj(cmd, BNXT_RE_TOGGLE_MEM_SRQ_HANDLE, obj_handle);
+	} else {
+		fill_attr_const_in(cmd, BNXT_RE_TOGGLE_MEM_TYPE, minfo->type);
+		fill_attr_in(cmd, BNXT_RE_TOGGLE_MEM_RES_ID,
+			     &minfo->res_id, sizeof(minfo->res_id));
+	}
+	fill_attr_out_ptr(cmd, BNXT_RE_TOGGLE_MEM_MMAP_PAGE, &minfo->alloc_offset);
 	fill_attr_out_ptr(cmd, BNXT_RE_TOGGLE_MEM_MMAP_LENGTH, &minfo->alloc_size);
 	fill_attr_out_ptr(cmd, BNXT_RE_TOGGLE_MEM_MMAP_OFFSET, &minfo->pg_offset);
 
-
 	ret = execute_ioctl(ibvctx, cmd);
-
 	if (ret)
 		return ret;
 	if (page_handle)
@@ -389,10 +397,10 @@ struct ibv_cq *bnxt_re_create_cq(struct ibv_context *ibvctx, int ncqe,
 	cq->rand.seed = cq->cqid;
 
 	if (resp.comp_mask & BNXT_RE_CQ_TOGGLE_PAGE_SUPPORT) {
-
 		minfo.type = BNXT_RE_CQ_TOGGLE_MEM;
 		minfo.res_id = resp.cqid;
-		ret = bnxt_re_get_toggle_mem(ibvctx, &minfo, &cq->mem_handle);
+		ret = bnxt_re_get_toggle_mem(ibvctx, &minfo, cq->ibvcq.handle,
+					     &cq->mem_handle);
 		if (ret)
 			goto cmdfail;
 		cq->toggle_map = mmap(NULL, minfo.alloc_size, PROT_READ,
@@ -2843,7 +2851,8 @@ struct ibv_srq *bnxt_re_create_srq(struct ibv_pd *ibvpd,
 	if (resp.comp_mask & BNXT_RE_SRQ_TOGGLE_PAGE_SUPPORT) {
 		minfo.type = BNXT_RE_SRQ_TOGGLE_MEM;
 		minfo.res_id = resp.srqid;
-		ret = bnxt_re_get_toggle_mem(ibvpd->context, &minfo, &srq->mem_handle);
+		ret = bnxt_re_get_toggle_mem(ibvpd->context, &minfo,
+					     srq->ibvsrq.handle, &srq->mem_handle);
 		if (ret)
 			goto fail;
 		srq->toggle_map = mmap(NULL, minfo.alloc_size, PROT_READ,
