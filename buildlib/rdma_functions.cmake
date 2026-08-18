@@ -57,7 +57,7 @@ function(rdma_create_symlink LINK_CONTENT DEST)
 
   # Newer versions of cmake can use "${CMAKE_COMMAND}" "-E" "create_symlink"
   # however it is broken weirdly on older versions.
-  execute_process(COMMAND "ln" "-Tsf"
+  execute_process(COMMAND "ln" "-sf"
     "${LINK_CONTENT}" "${DEST}" RESULT_VARIABLE retcode)
   if(NOT "${retcode}" STREQUAL "0")
     message(FATAL_ERROR "Failed to create symlink in ${DEST}")

@@ -8,9 +8,17 @@ publish_headers(infiniband
   umad_types.h
   )
 
-rdma_library(ibumad libibumad.map
+if (CMAKE_SYSTEM_NAME STREQUAL "Linux")
   # See Documentation/versioning.md
-  3 3.4.${PACKAGE_VERSION}
+  set(SOVER 3 3.4.${PACKAGE_VERSION})
+endif()
+
+if (CMAKE_SYSTEM_NAME STREQUAL "FreeBSD")
+  set(SOVER 100 100.4.${PACKAGE_VERSION})
+endif()
+
+rdma_library(ibumad libibumad.map
+  ${SOVER}
   sysfs.c
   umad.c
   umad_str.c

@@ -3,12 +3,20 @@
 # find_package helper to detect symbol version support in the compiler and
 # linker. If supported then LDSYMVER_MODE will be set to GNU
 
+if (CMAKE_SYSTEM_NAME STREQUAL "FreeBSD")
+  set(GLOBAL_SYMBOLS_BIN "
+		environ;
+		__progname;
+  ")
+endif()
+
 # Basic sample GNU style map file
 file(WRITE "${CMAKE_CURRENT_BINARY_DIR}/test.map" "
 IBVERBS_1.0 {
         global:
                 ibv_get_device_list;
-        local: *;
+		${GLOBAL_SYMBOLS_BIN}
+	local:	*;
 };
 
 IBVERBS_1.1 {

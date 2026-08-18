@@ -33,6 +33,11 @@
 #define _GNU_SOURCE
 #include <config.h>
 
+#ifdef __FreeBSD__
+#define EPOLL_SHIM_DISABLE_WRAPPER_MACROS
+#include <sys/param.h>
+#endif
+
 #include <sys/types.h>
 #include <sys/socket.h>
 #include <sys/epoll.h>
@@ -69,6 +74,8 @@ ssize_t sendfile64(int out_fd, int in_fd, off64_t *offset64, size_t count);
 #endif
 #endif
 
+struct sf_hdtr;
+
 struct socket_calls {
 	int (*socket)(int domain, int type, int protocol);
 	int (*bind)(int socket, const struct sockaddr *addr, socklen_t addrlen);
@@ -103,9 +110,14 @@ struct socket_calls {
 #endif
 	int (*dup)(int oldfd);
 	int (*dup2)(int oldfd, int newfd);
+#if defined __linux__
 	ssize_t (*sendfile)(int out_fd, int in_fd, off_t *offset, size_t count);
 #if RDMA_PRELOAD_WRAP_LFS64
 	ssize_t (*sendfile64)(int out_fd, int in_fd, off64_t *offset64, size_t count);
+#endif
+#elif defined __FreeBSD__
+	int (*sendfile)(int in_fd, int out_fd, off_t offset, size_t count,
+			struct sf_hdtr *hdtr, off_t *sbytes, int flags);
 #endif
 	int (*fxstat)(int ver, int fd, struct stat *buf);
 };
@@ -159,6 +171,13 @@ static void free_config(void)
 
 	free(config);
 }
+
+#ifdef __FreeBSD__
+#include <libgen.h>
+
+static char program_invocation_short_name_buf[256];
+static char *program_invocation_short_name;
+#endif
 
 /*
  * Config file format:
@@ -391,18 +410,8 @@ static void getenv_options(void)
 		fork_support = atoi(var);
 }
 
-static void init_preload(void)
+static void init_preload_act(void)
 {
-	static int init;
-
-	/* Quick check without lock */
-	if (init)
-		return;
-
-	pthread_mutex_lock(&mut);
-	if (init)
-		goto out;
-
 	real.socket = dlsym(RTLD_NEXT, "socket");
 	real.bind = dlsym(RTLD_NEXT, "bind");
 	real.listen = dlsym(RTLD_NEXT, "listen");
@@ -464,9 +473,18 @@ static void init_preload(void)
 
 	getenv_options();
 	scan_config();
-	init = 1;
-out:
-	pthread_mutex_unlock(&mut);
+#ifdef __FreeBSD__
+	strlcpy(program_invocation_short_name_buf, getprogname(),
+	    sizeof(program_invocation_short_name_buf));
+	program_invocation_short_name = basename(program_invocation_short_name_buf);
+#endif
+}
+
+static void init_preload(void)
+{
+	static pthread_once_t init_preload_ctrl = PTHREAD_ONCE_INIT;
+
+	pthread_once(&init_preload_ctrl, init_preload_act);
 }
 
 /*
@@ -1159,8 +1177,12 @@ int fcntl(int socket, int cmd, ... /* arg */)
 	case F_GETFD:
 	case F_GETFL:
 	case F_GETOWN:
+#ifdef F_GETSIG
 	case F_GETSIG:
+#endif
+#ifdef F_GETLEASE
 	case F_GETLEASE:
+#endif
 		ret = (fd_get(socket, &fd) == fd_rsocket) ?
 			rfcntl(fd, cmd) : real.fcntl(fd, cmd);
 		break;
@@ -1169,9 +1191,15 @@ int fcntl(int socket, int cmd, ... /* arg */)
 	case F_SETFD:
 	case F_SETFL:
 	case F_SETOWN:
+#ifdef F_SETSIG
 	case F_SETSIG:
+#endif
+#ifdef F_SETLEASE
 	case F_SETLEASE:
+#endif
+#ifdef F_NOTIFY
 	case F_NOTIFY:
+#endif
 		lparam = va_arg(args, long);
 		ret = (fd_get(socket, &fd) == fd_rsocket) ?
 			rfcntl(fd, cmd, lparam) : real.fcntl(fd, cmd, lparam);
@@ -1291,6 +1319,51 @@ int dup2(int oldfd, int newfd)
 	return newfd;
 }
 
+#if defined __FreeBSD__
+int sendfile(int in_fd, int out_fd, off_t offset, size_t count,
+    struct sf_hdtr *hdtr, off_t *sbytes, int flags)
+{
+	void *file_addr;
+	struct stat st;
+	int fd;
+	size_t map_len;
+	ssize_t ret;
+	uintptr_t file_addr_a;
+
+	if (fd_get(out_fd, &fd) != fd_rsocket) {
+		return real.sendfile(in_fd, out_fd, offset, count, hdtr,
+		    sbytes, flags);
+	}
+	if (hdtr != NULL || flags != 0) {
+		errno = EOPNOTSUPP;
+		return -1;
+	}
+	if (count == 0) {
+		if (fstat(in_fd, &st) == -1)
+			return -1;
+		count = offset >= st.st_size ? 0 : st.st_size - offset;
+	}
+	if (count == 0) {
+		if (sbytes != NULL)
+			*sbytes = 0;
+		return 0;
+	}
+	map_len = round_page((offset & PAGE_MASK) + count);
+	file_addr = mmap(NULL, map_len, PROT_READ, MAP_PRIVATE, in_fd,
+	    trunc_page(offset));
+	if (file_addr == MAP_FAILED)
+		return -1;
+	file_addr_a = (uintptr_t)file_addr;
+	file_addr_a += offset & PAGE_MASK; /* GCC extension */
+	ret = rwrite(fd, (void *)file_addr_a, count);
+	munmap(file_addr, map_len);
+	if (ret < 0)
+		return -1;
+	if (sbytes != NULL)
+		*sbytes = ret;
+	return 0;
+}
+#elif defined __linux__
 ssize_t sendfile(int out_fd, int in_fd, off_t *offset, size_t count)
 {
 	void *file_addr;
@@ -1310,6 +1383,9 @@ ssize_t sendfile(int out_fd, int in_fd, off_t *offset, size_t count)
 	munmap(file_addr, count);
 	return ret;
 }
+#else
+#error "Port me"
+#endif
 
 #if RDMA_PRELOAD_WRAP_LFS64
 ssize_t sendfile64(int out_fd, int in_fd, off64_t *offset64, size_t count)
