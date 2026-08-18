@@ -102,6 +102,9 @@
 #define udma_to_device_barrier() asm volatile("fence ow,ow" ::: "memory")
 #elif defined(__mips__)
 #define udma_to_device_barrier() asm volatile("sync" ::: "memory")
+#elif defined(__e2k__)
+#include <e2kbuiltin.h>
+#define udma_to_device_barrier() __builtin_ia32_mfence()
 #else
 #error No architecture specific memory barrier defines found!
 #endif
@@ -140,6 +143,8 @@
 #define udma_from_device_barrier() asm volatile("fence ir,ir" ::: "memory")
 #elif defined(__mips__)
 #define udma_from_device_barrier() asm volatile("sync" ::: "memory")
+#elif defined(__e2k__)
+#define udma_from_device_barrier() __builtin_ia32_lfence()
 #else
 #error No architecture specific memory barrier defines found!
 #endif
@@ -213,6 +218,8 @@
 #define mmio_flush_writes() s390_pciwb()
 #elif defined(__mips__)
 #define mmio_flush_writes() asm volatile("sync" ::: "memory")
+#elif defined(__e2k__)
+#define mmio_flush_writes() __builtin_ia32_sfence()
 #else
 #error No architecture specific memory barrier defines found!
 #endif
