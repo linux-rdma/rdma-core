@@ -8,6 +8,7 @@ rdma_man_pages(
   ibv_alloc_parent_domain.3
   ibv_alloc_pd.3
   ibv_alloc_td.3
+  ibv_alloc_user_buf.3.md
   ibv_asyncwatch.1
   ibv_attach_counters_point_flow.3.md
   ibv_attach_mcast.3.md
@@ -93,6 +94,7 @@ rdma_alias_man_pages(
   ibv_alloc_buf.3 ibv_free_buf.3
   ibv_alloc_buf.3 ibv_reg_buf_mr.3
   ibv_alloc_buf.3 ibv_export_buf_dmabuf_fd.3
+  ibv_alloc_user_buf.3 ibv_free_user_buf.3
   ibv_alloc_dm.3 ibv_free_dm.3
   ibv_alloc_dm.3 ibv_reg_dm_mr.3
   ibv_alloc_dm.3 ibv_memcpy_to_dm.3
