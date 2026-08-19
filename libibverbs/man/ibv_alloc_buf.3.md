@@ -109,6 +109,7 @@ parent domain as the *pd* argument to **ibv_alloc_buf()** and
 # SEE ALSO
 
 **ibv_alloc_parent_domain**(3),
+**ibv_alloc_user_buf**(3),
 **ibv_reg_mr**(3),
 **ibv_reg_mr_ex**(3),
 **ibv_reg_dmabuf_mr**(3)
