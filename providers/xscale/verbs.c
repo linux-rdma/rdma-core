@@ -1005,6 +1005,9 @@ static struct ibv_qp *create_qp(struct ibv_context *context,
 	if (ctx->atomic_cap)
 		qp->atomics_enabled = 1;
 
+	qp->get_ece = (ctx->rdma_proto_mode == RDMA_PROTO_VEROCE) ? VEROCE_PROFILE_P3 : 0;
+	qp->profile = XSC_VEROCE_INIT_PROFILE;
+
 	attr->cap.max_send_wr = qp->sq.max_post;
 	attr->cap.max_recv_wr = qp->rq.max_post;
 	attr->cap.max_recv_sge = qp->rq.max_gs;
@@ -1211,12 +1214,23 @@ int xsc_modify_qp(struct ibv_qp *qp, struct ibv_qp_attr *attr,
 		   int attr_mask)
 {
 	struct ibv_modify_qp cmd = {};
+	struct xsc_modify_qp cmd_ex = {};
+	struct xsc_modify_qp_ex_resp resp = {};
 	struct xsc_qp *xqp = to_xqp(qp);
+	struct xsc_context *ctx = to_xctx(qp->context);
 	int ret;
 
 	xsc_dbg(to_xctx(qp->context)->dbg_fp, XSC_DBG_QP, "\n");
-	ret = ibv_cmd_modify_qp(qp, attr, attr_mask,
-				&cmd, sizeof(cmd));
+	if (!xqp->profile && ctx->rdma_proto_mode == RDMA_PROTO_VEROCE &&
+	    attr_mask & IBV_QP_STATE && attr->qp_state == IBV_QPS_RTR) {
+		cmd_ex.profile = xqp->profile;
+		ret = ibv_cmd_modify_qp_ex(qp, attr, attr_mask, &cmd_ex.ibv_cmd,
+					   sizeof(cmd_ex), &resp.ibv_resp,
+					   sizeof(resp));
+	} else {
+		ret = ibv_cmd_modify_qp(qp, attr, attr_mask,
+					&cmd, sizeof(cmd));
+	}
 
 
 	if (!ret && (attr_mask & IBV_QP_STATE) &&
@@ -1246,6 +1260,8 @@ int xsc_modify_qp(struct ibv_qp *qp, struct ibv_qp_attr *attr,
 		xsc_unlock_cqs(qp);
 	}
 
+	if (xqp->profile != XSC_VEROCE_INIT_PROFILE)
+		xqp->get_ece = xqp->profile;
 	return ret;
 }
 
@@ -1394,4 +1410,40 @@ int xscdv_devx_exp_post_send(struct ibv_qp *ibqp,
 			struct xscdv_exp_send_wr **bad_wr)
 {
 	return xsc_post_send_mask_atomic(ibqp, wr, bad_wr);
+}
+
+int xsc_set_ece(struct ibv_qp *qp, struct ibv_ece *ece)
+{
+	struct xsc_context *ctx = to_xctx(qp->context);
+	struct xsc_qp *xqp = to_xqp(qp);
+	uint32_t vid = ece->vendor_id & 0xfffff;
+	uint32_t l_profile = ctx->rdma_proto_mode == RDMA_PROTO_VEROCE ? VEROCE_PROFILE_P3 : 0;
+	uint32_t profile = min(l_profile, (ece->options >> 24) & 0xF);
+
+	if (ece->comp_mask) {
+		errno = EINVAL;
+		return errno;
+	}
+
+	if (vid != VEROCE_VENDOR_ID) {
+		errno = EINVAL;
+		return errno;
+	}
+
+	xqp->profile = profile;
+	xqp->set_ece = 1;
+	return 0;
+}
+
+int xsc_query_ece(struct ibv_qp *qp, struct ibv_ece *ece)
+{
+	struct xsc_qp *xqp = to_xqp(qp);
+	uint32_t profile = xqp->get_ece << 24;
+
+	if (!xqp->set_ece)
+		xqp->profile = 0;
+	ece->vendor_id = VEROCE_VENDOR_ID;
+	ece->options = profile;
+	ece->comp_mask = 0;
+	return 0;
 }

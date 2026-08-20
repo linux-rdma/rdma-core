@@ -37,6 +37,7 @@ struct xsc_modify_qp {
 	struct ibv_modify_qp_ex		ibv_cmd;
 	__u32				comp_mask;
 	struct xsc_ib_burst_info	burst_info;
+	__u32				profile;
 };
 
 #endif /* XSC_ABI_H */

@@ -58,6 +58,9 @@ static const struct verbs_context_ops xsc_ctx_common_ops = {
 	.create_qp_ex = xsc_create_qp_ex,
 	.post_send = xsc_post_send,
 	.post_recv = xsc_post_recv,
+
+	.query_ece = xsc_query_ece,
+	.set_ece = xsc_set_ece,
 };
 
 static void open_debug_file(struct xsc_context *ctx)
@@ -328,6 +331,7 @@ static struct verbs_context *xsc_alloc_context(struct ibv_device *ibdev,
 	context->send_ds_shift = xsc_ilog2(resp.send_ds_num);
 	context->recv_ds_num = resp.recv_ds_num;
 	context->recv_ds_shift = xsc_ilog2(resp.recv_ds_num);
+	context->rdma_proto_mode = resp.rdma_proto_mode;
 
 	xsc_dbg(context->dbg_fp, XSC_DBG_CTX,
 		"max_num_qps:%u, max_sq_desc_sz:%u max_rq_desc_sz:%u\n",

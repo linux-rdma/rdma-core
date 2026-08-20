@@ -137,6 +137,8 @@ struct xsc_spinlock {
 };
 
 #define XSC_PCI_VENDOR_ID		0x1f67
+#define VEROCE_VENDOR_ID		0x1e93
+#define XSC_VEROCE_INIT_PROFILE		0x10
 
 #define XSC_MC_PF_DEV_ID		0x1011
 #define XSC_MC_VF_DEV_ID		0x1012
@@ -155,6 +157,18 @@ struct xsc_spinlock {
 #define XSC_MV_SOC_PF_DEV_ID		0x1153
 
 #define XSC_MULTI_SQ_DB_STEP	16
+
+enum {
+	RDMA_PROTO_ROCEV2,
+	RDMA_PROTO_VEROCE,
+};
+
+enum veroce_profile {
+	VEROCE_PROFILE_P0,
+	VEROCE_PROFILE_P1,
+	VEROCE_PROFILE_P2,
+	VEROCE_PROFILE_P3
+};
 
 #define NAME_BUFFER_SIZE	64
 #define	MAX_OPCODE		IBV_WR_ATOMIC_WRITE
@@ -202,6 +216,7 @@ struct xsc_context {
 	uint32_t			tx_multidb_base;
 	void				*mdb_base;
 	uint32_t			tx_mdb_idx;
+	uint32_t			rdma_proto_mode;
 	uint32_t			wr2msg[MAX_OPCODE + 1];
 	uint32_t			msg2cqe[XSC_MSG_OPCODE_MAX][2][2];
 	uint32_t			hw_feature_flag;
@@ -366,6 +381,9 @@ struct xsc_qp {
 	uint32_t			rqn;
 	uint32_t			sqn;
 	unsigned int			err_occurred;
+	uint32_t			profile;
+	uint32_t			get_ece;
+	bool				set_ece;
 	bool				has_trig_cq_evt;
 };
 
@@ -520,6 +538,9 @@ int xsc_err_state_qp(struct ibv_qp *qp, enum ibv_qp_state cur_state,
 int xsc_qp_fill_wr_pfns(struct xsc_context *ctx,
 			struct xsc_qp *xqp,
 			const struct ibv_qp_init_attr_ex *attr);
+
+int xsc_set_ece(struct ibv_qp *qp, struct ibv_ece *ece);
+int xsc_query_ece(struct ibv_qp *qp, struct ibv_ece *ece);
 
 static inline int xsc_spin_lock(struct xsc_spinlock *lock)
 {

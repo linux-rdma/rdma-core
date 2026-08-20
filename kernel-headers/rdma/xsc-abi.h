@@ -30,6 +30,7 @@ struct xsc_ib_alloc_ucontext_resp {
 	__aligned_u64	cqm_armdb;
 	__u32	send_ds_num;
 	__u32	recv_ds_num;
+	__u32	rdma_proto_mode;
 	__u32	resv;
 };
 
@@ -84,11 +85,14 @@ struct xsc_ib_burst_info {
 struct xsc_ib_modify_qp {
 	__u32			   comp_mask;
 	struct xsc_ib_burst_info  burst_info;
+	__u32			   profile;
 };
 
 struct xsc_ib_modify_qp_resp {
 	__u32	response_length;
 	__u32	dctn;
+	__u32   profile;
+	__u32   reserved;
 };
 
 enum xsc_ib_mmap_cmd {
