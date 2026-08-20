@@ -154,6 +154,8 @@ struct xsc_spinlock {
 #define XSC_MV_HOST_VF_DEV_ID		0x1152
 #define XSC_MV_SOC_PF_DEV_ID		0x1153
 
+#define XSC_MULTI_SQ_DB_STEP	16
+
 #define NAME_BUFFER_SIZE	64
 #define	MAX_OPCODE		IBV_WR_ATOMIC_WRITE
 
@@ -567,5 +569,9 @@ static inline void *xsc_get_send_wqe(struct xsc_qp *qp, int n)
 {
 	return qp->sq_start + (n << qp->sq.wqe_shift);
 }
+
+int xsc_post_send_mask_atomic(struct ibv_qp *ibqp,
+			struct xscdv_exp_send_wr *wr,
+			struct xscdv_exp_send_wr **bad_wr);
 
 #endif /* XSC_H */

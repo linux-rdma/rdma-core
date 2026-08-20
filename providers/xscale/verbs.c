@@ -1286,3 +1286,112 @@ int xsc_query_device_ex(struct ibv_context *context,
 
 	return 0;
 }
+
+struct ibv_qp *xscdv_devx_create_qp(struct ibv_context *context,
+				    struct ibv_qp_init_attr_ex *attr,
+				    struct xscdv_devx_umem_in *umem_in)
+{
+	return create_qp(context, attr, NULL, umem_in);
+}
+
+int xscdv_devx_destroy_qp(struct ibv_qp *ibqp)
+{
+	return xsc_destroy_qp(ibqp);
+}
+
+struct ibv_cq *xscdv_devx_create_cq(struct ibv_context *context,
+				    const struct ibv_cq_init_attr_ex *cq_attr,
+				    struct xscdv_devx_umem_in *umem_in)
+{
+	struct ibv_cq_ex *xcq;
+
+	xcq = create_cq(context, cq_attr, XSC_CQ_FLAGS_EXTENDED, NULL, umem_in);
+
+	return xcq ? ibv_cq_ex_to_cq(xcq) : NULL;
+}
+
+int xscdv_devx_destroy_cq(struct ibv_cq *cq)
+{
+	return xsc_destroy_cq(cq);
+}
+
+struct xscdv_devx_uar *xscdv_devx_alloc_uar(struct ibv_context *context, uint32_t flags)
+{
+	struct xscdv_devx_uar *uar = NULL;
+	struct xsc_context *xsc_ctx = to_xctx(context);
+
+	uar = calloc(1, sizeof(*uar));
+
+	if (!uar) {
+		xsc_err("alloc uar failed!\n");
+		return NULL;
+	}
+
+	uar->cq_db = xsc_ctx->cqm_reg_va +
+		(xsc_ctx->cqm_next_cid_reg & (xsc_ctx->page_size - 1));
+	uar->cq_armdb = xsc_ctx->cqm_armdb_va +
+		(xsc_ctx->cqm_armdb & (xsc_ctx->page_size - 1));
+	uar->sq_db = xsc_ctx->sqm_reg_va +
+		(xsc_ctx->qpm_tx_db & (xsc_ctx->page_size - 1));
+	uar->rq_db = xsc_ctx->rqm_reg_va +
+		(xsc_ctx->qpm_rx_db & (xsc_ctx->page_size - 1));
+
+	return uar;
+}
+
+void xscdv_devx_free_uar(struct xscdv_devx_uar *dv_devx_uar)
+{
+	if (dv_devx_uar)
+		free(dv_devx_uar);
+}
+
+struct xscdv_devx_sq_uar *xscdv_devx_alloc_sq_uar(struct ibv_context *context, uint32_t qpn)
+{
+	struct xscdv_devx_sq_uar *uar = NULL;
+	struct xsc_context *xsc_ctx = to_xctx(context);
+
+	uar = calloc(1, sizeof(*uar));
+
+	if (!uar) {
+		xsc_err("alloc uar failed!\n");
+		return NULL;
+	}
+
+	if (xsc_ctx->multidb_num) {
+		uar->sq_db = xsc_ctx->mdb_base +
+			(xsc_ctx->tx_multidb_base & (xsc_ctx->page_size - 1)) +
+			(qpn & (xsc_ctx->multidb_num - 1)) * XSC_MULTI_SQ_DB_STEP;
+		uar->dedicated = 1;
+	} else {
+		uar->sq_db = xsc_ctx->sqm_reg_va +
+			(xsc_ctx->qpm_tx_db & (xsc_ctx->page_size - 1));
+	}
+
+	return uar;
+}
+
+void xscdv_devx_free_sq_uar(struct xscdv_devx_sq_uar *uar)
+{
+	if (uar)
+		free(uar);
+}
+
+int xscdv_devx_modify_qp(struct ibv_qp *qp, struct ibv_qp_attr *attr,
+			 int attr_mask)
+{
+	return xsc_modify_qp(qp, attr, attr_mask);
+}
+
+uint32_t xscdv_devx_get_device_id(struct ibv_qp *qp)
+{
+	struct xsc_context *ctx = to_xctx(qp->context);
+
+	return ctx->device_id;
+}
+
+int xscdv_devx_exp_post_send(struct ibv_qp *ibqp,
+			struct xscdv_exp_send_wr *wr,
+			struct xscdv_exp_send_wr **bad_wr)
+{
+	return xsc_post_send_mask_atomic(ibqp, wr, bad_wr);
+}

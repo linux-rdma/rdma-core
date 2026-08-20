@@ -1020,3 +1020,253 @@ int xsc_err_state_qp(struct ibv_qp *qp, enum ibv_qp_state cur_state,
 	}
 	return 0;
 }
+
+int xsc_post_send_mask_atomic(struct ibv_qp *ibqp,
+			struct xscdv_exp_send_wr *wr,
+			struct xscdv_exp_send_wr **bad_wr)
+{
+	struct xsc_qp *qp = to_xqp(ibqp);
+	void *seg;
+	struct xsc_send_wqe_ctrl_seg *ctrl;
+	struct xsc_wqe_data_seg *data_seg;
+	struct xscdv_wqe_atomic_32_masked_cs_seg *mask_32_cs;
+	struct xscdv_wqe_atomic_32_masked_fa_seg *mask_32_fa;
+	struct xscdv_wqe_atomic_64_masked_cs_seg *mask_64_cs_seg0;
+	struct xscdv_wqe_atomic_64_masked_cs_seg *mask_64_cs_seg1;
+	struct xscdv_wqe_atomic_64_masked_fa_seg *mask_64_fa;
+	struct xsc_context *ctx = to_xctx(ibqp->context);
+	int nreq;
+	int err = 0;
+	int i;
+	unsigned int idx;
+	unsigned int seg_index = 1;
+	unsigned int msg_len = 0;
+	uint64_t cmp_val;
+	uint64_t swap_val;
+	uint64_t cmp_mask;
+	uint64_t swap_mask;
+	uint64_t add_val;
+	uint64_t field_boundary;
+
+	if (unlikely(ibqp->state < IBV_QPS_RTS)) {
+		xsc_dbg(to_xctx(ibqp->context)->dbg_fp, XSC_DBG_QP_SEND,
+				"qp state is %u, should not post send\n", ibqp->state);
+		err = EINVAL;
+		*bad_wr = wr;
+		return err;
+	}
+
+	xsc_spin_lock(&qp->sq.lock);
+
+	for (nreq = 0; wr; ++nreq, wr = wr->next) {
+		seg_index = 1;
+		msg_len = 0;
+		if (unlikely(wr->opcode < 0 ||
+			wr->opcode > XSCDV_MSG_OPCODE_RDMA_ATOMIC_4B_MSK_FETCH_AND_ADD)) {
+			xsc_dbg(to_xctx(ibqp->context)->dbg_fp, XSC_DBG_QP_SEND,
+					"bad opcode %d\n", wr->opcode);
+			err = EINVAL;
+			*bad_wr = wr;
+			goto out;
+		}
+
+		if (unlikely(xsc_wq_overflow(&qp->sq, nreq,
+					      to_xcq(qp->ibv_qp->send_cq)))) {
+			xsc_dbg(to_xctx(ibqp->context)->dbg_fp, XSC_DBG_QP_SEND,
+					"send work queue overflow\n");
+			err = ENOMEM;
+			*bad_wr = wr;
+			goto out;
+		}
+
+		if (unlikely(wr->num_sge > qp->sq.max_gs)) {
+			xsc_dbg(to_xctx(ibqp->context)->dbg_fp, XSC_DBG_QP_SEND,
+					"max gs exceeded %d (max = %d)\n",
+					wr->num_sge, qp->sq.max_gs);
+			err = ENOMEM;
+			*bad_wr = wr;
+			goto out;
+		}
+
+		idx = qp->sq.cur_post & (qp->sq.wqe_cnt - 1);
+		clear_send_wqe(idx, qp);
+		ctrl = seg = xsc_get_send_wqe(qp, idx);
+		ctrl->data0 |= FIELD_PREP(XSC_SWQE_CTRL_SEG_DS_DATA_NUM_MASK, 0) |
+			       FIELD_PREP(XSC_SWQE_CTRL_SEG_WITH_IMMDT_MASK, 0);
+		xsc_hw_set_wqe_id(ctx->device_id, ctrl,
+			qp->sq.cur_post << (qp->sq.wqe_shift - XSC_BASE_WQE_SHIFT));
+		ctrl->data1 |= FIELD_PREP(XSC_SWQE_CTRL_SEG_SE_MASK,
+					  wr->send_flags & IBV_SEND_SOLICITED ? 1 : 0) |
+			       FIELD_PREP(XSC_SWQE_CTRL_SEG_CE_MASK,
+					  qp->sq_signal_bits ?
+					  1 : (wr->send_flags & IBV_SEND_SIGNALED ? 1 : 0)) |
+			       FIELD_PREP(XSC_SWQE_CTRL_SEG_IN_LINE_MASK,
+					  wr->send_flags & IBV_SEND_INLINE ? 1 : 0) |
+			       FIELD_PREP(XSC_SWQE_CTRL_SEG_FENCE_MODE_MASK,
+					  wr->send_flags & IBV_SEND_FENCE ? 1 : 0) |
+			       FIELD_PREP(XSC_SWQE_CTRL_SEG_MASK_MASK, 0);
+		for (i = 0; i < wr->num_sge; ++i) {
+			if (likely(wr->sg_list[i].length))
+				msg_len += wr->sg_list[i].length;
+		}
+		ctrl->msg_len = msg_len;
+
+		if (unlikely(!qp->atomics_enabled)) {
+			xsc_dbg(to_xctx(ibqp->context)->dbg_fp, XSC_DBG_QP_SEND,
+				"atomic operations are not supported\n");
+			err = EOPNOTSUPP;
+			*bad_wr = wr;
+			goto out;
+		}
+
+		switch (ibqp->qp_type) {
+		case IBV_QPT_RC:
+			switch (wr->opcode) {
+			case XSCDV_MSG_OPCODE_RDMA_ATOMIC_8B_MSK_CMP_AND_SWAP:
+				ctrl->msg_len = 32;
+				ctrl->data1 |= FIELD_PREP(XSC_SWQE_CTRL_SEG_IN_LINE_MASK, 1);
+				data_seg = get_seg_wqe(ctrl, seg_index);
+				data_seg->mkey = wr->ext_op.masked_atomics.rkey;
+				data_seg->va = wr->ext_op.masked_atomics.remote_addr;
+				data_seg->data0 |= FIELD_PREP(XSC_WQE_DATA_SEG_LENGTH_MASK, 8);
+				seg_index++;
+
+				data_seg = get_seg_wqe(ctrl, seg_index);
+				set_data_seg_with_value(qp,
+							data_seg,
+							wr->sg_list[0].addr,
+							wr->sg_list[0].lkey,
+							8);
+				seg_index++;
+
+				mask_64_cs_seg0 = get_seg_wqe(ctrl, seg_index);
+				swap_val = wr->ext_op.masked_atomics.wr_data.inline_data.op.cmp_swap.swap_val;
+				cmp_val = wr->ext_op.masked_atomics.wr_data.inline_data.op.cmp_swap.compare_val;
+				mask_64_cs_seg0->swap_add = RD_BE_64(swap_val);
+				mask_64_cs_seg0->compare = RD_BE_64(cmp_val);
+				seg_index++;
+
+				mask_64_cs_seg1 = get_seg_wqe(ctrl, seg_index);
+				swap_mask = wr->ext_op.masked_atomics.wr_data.inline_data.op.cmp_swap.swap_mask;
+				cmp_mask = wr->ext_op.masked_atomics.wr_data.inline_data.op.cmp_swap.compare_mask;
+				mask_64_cs_seg1->swap_add = RD_BE_64(swap_mask);
+				mask_64_cs_seg1->compare = RD_BE_64(cmp_mask);
+				seg_index++;
+
+				break;
+			case XSCDV_MSG_OPCODE_RDMA_ATOMIC_8B_MSK_FETCH_AND_ADD:
+				ctrl->msg_len = 16;
+				ctrl->data1 |= FIELD_PREP(XSC_SWQE_CTRL_SEG_IN_LINE_MASK, 1);
+				data_seg = get_seg_wqe(ctrl, seg_index);
+				data_seg->mkey = wr->ext_op.masked_atomics.rkey;
+				data_seg->va = wr->ext_op.masked_atomics.remote_addr;
+				data_seg->data0 |= FIELD_PREP(XSC_WQE_DATA_SEG_LENGTH_MASK, 8);
+				seg_index++;
+
+				data_seg = get_seg_wqe(ctrl, seg_index);
+				set_data_seg_with_value(qp,
+							data_seg,
+							wr->sg_list[0].addr,
+							wr->sg_list[0].lkey,
+							8);
+				seg_index++;
+
+				mask_64_fa = get_seg_wqe(ctrl, seg_index);
+				add_val = wr->ext_op.masked_atomics.wr_data.inline_data.op.fetch_add.add_val;
+				field_boundary = wr->ext_op.masked_atomics.wr_data.inline_data.op.fetch_add.field_boundary;
+				mask_64_fa->add_data = RD_BE_64(add_val);
+				mask_64_fa->field_boundary = RD_BE_64(field_boundary);
+				seg_index++;
+				break;
+			case XSCDV_MSG_OPCODE_RDMA_ATOMIC_4B_MSK_CMP_AND_SWAP:
+				ctrl->msg_len = 16;
+				ctrl->data1 |= FIELD_PREP(XSC_SWQE_CTRL_SEG_IN_LINE_MASK, 1);
+				data_seg = get_seg_wqe(ctrl, seg_index);
+				data_seg->mkey = wr->ext_op.masked_atomics.rkey;
+				data_seg->va = wr->ext_op.masked_atomics.remote_addr;
+				data_seg->data0 |= FIELD_PREP(XSC_WQE_DATA_SEG_LENGTH_MASK, 4);
+				seg_index++;
+
+				data_seg = get_seg_wqe(ctrl, seg_index);
+				set_data_seg_with_value(qp,
+							data_seg,
+							wr->sg_list[0].addr,
+							wr->sg_list[0].lkey,
+							4);
+				seg_index++;
+
+				mask_32_cs = get_seg_wqe(ctrl, seg_index);
+				swap_val = wr->ext_op.masked_atomics.wr_data.inline_data.op.cmp_swap.swap_val;
+				cmp_val = wr->ext_op.masked_atomics.wr_data.inline_data.op.cmp_swap.compare_val;
+				swap_mask = wr->ext_op.masked_atomics.wr_data.inline_data.op.cmp_swap.swap_mask;
+				cmp_mask = wr->ext_op.masked_atomics.wr_data.inline_data.op.cmp_swap.compare_mask;
+				mask_32_cs->swap_data = RD_BE_32((uint32_t)swap_val);
+				mask_32_cs->compare_data = RD_BE_32((uint32_t)cmp_val);
+				mask_32_cs->swap_mask = RD_BE_32((uint32_t)swap_mask);
+				mask_32_cs->compare_mask = RD_BE_32((uint32_t)cmp_mask);
+				seg_index++;
+
+				break;
+			case XSCDV_MSG_OPCODE_RDMA_ATOMIC_4B_MSK_FETCH_AND_ADD:
+				ctrl->msg_len = 8;
+				ctrl->data1 |= FIELD_PREP(XSC_SWQE_CTRL_SEG_IN_LINE_MASK, 1);
+				data_seg = get_seg_wqe(ctrl, seg_index);
+				data_seg->mkey = wr->ext_op.masked_atomics.rkey;
+				data_seg->va = wr->ext_op.masked_atomics.remote_addr;
+				data_seg->data0 |= FIELD_PREP(XSC_WQE_DATA_SEG_LENGTH_MASK, 4);
+				seg_index++;
+
+				data_seg = get_seg_wqe(ctrl, seg_index);
+				set_data_seg_with_value(qp,
+							data_seg,
+							wr->sg_list[0].addr,
+							wr->sg_list[0].lkey,
+							4);
+				seg_index++;
+
+				mask_32_fa = get_seg_wqe(ctrl, seg_index);
+				add_val = wr->ext_op.masked_atomics.wr_data.inline_data.op.fetch_add.add_val;
+				field_boundary = wr->ext_op.masked_atomics.wr_data.inline_data.op.fetch_add.field_boundary;
+				mask_32_fa->add_data = RD_BE_32((uint32_t)add_val);
+				mask_32_fa->field_boundary = RD_BE_32((uint32_t)field_boundary);
+				mask_32_fa->reserved = 0;
+				seg_index++;
+				break;
+			default:
+				printf("debug: opcode:%u NOT supported\n", wr->opcode);
+				err = EPERM;
+				*bad_wr = wr;
+				goto out;
+			}
+			break;
+		default:
+			xsc_dbg(to_xctx(ibqp->context)->dbg_fp, XSC_DBG_QP_SEND,
+					"qp type:%u NOT supported\n", ibqp->qp_type);
+			err = EPERM;
+			*bad_wr = wr;
+			goto out;
+		}
+
+		ctrl->msg_opcode = wr->opcode;
+		if (ctrl->msg_len == 0) {
+			ctrl->data0 |= FIELD_PREP(XSC_SWQE_CTRL_SEG_DS_DATA_NUM_MASK, 0);
+			clear_send_wqe_except_ctrl(idx, qp);
+		}
+		ctrl->data0 |= FIELD_PREP(XSC_SWQE_CTRL_SEG_DS_DATA_NUM_MASK, seg_index - 1);
+		qp->sq.wrid[idx] = wr->wr_id;
+		qp->sq.wqe_head[idx] = qp->sq.head + nreq;
+		qp->sq.cur_post += 1;
+		if (FIELD_GET(XSC_SWQE_CTRL_SEG_CE_MASK, ctrl->data1))
+			qp->sq.need_flush[idx] = 1;
+		qp->sq.wr_opcode[idx] = wr->opcode;
+
+		if (unlikely(xsc_debug_mask & XSC_DBG_QP_SEND))
+			dump_wqe(0, idx, qp);
+	}
+
+out:
+	xsc_post_send_db(qp, nreq);
+	xsc_spin_unlock(&qp->sq.lock);
+
+	return err;
+}
