@@ -336,6 +336,9 @@ pci_device_types = {
     PCI_DEVICE_CLASS(0x060400): "bridge",  # Generic PCI-PCI bridge / Root Port
 }
 
+# USP/DSP hops in an NVCX complex, between an RP and a CX NIC / DMA / GPU.
+NVCX_SWITCH_TYPES = {"cx_switch", "bridge"}
+
 
 dump_ignored = [
     PCI_DEVICE_CLASS(0x060000),  # Generic system peripheral
@@ -401,7 +404,11 @@ class PCIDevice(object):
         """Do more expensive parsing operations"""
         if self.device_type == "cx_nic" or self.device_type == "cx_dma":
             self.vpd_v3, self.vpd_name, self.vpd_sn = parse_vpd(self.sysfs_device.vpd)
-        if "switch" in self.device_type or self.device_type.endswith("_rp"):
+        if (
+            "switch" in self.device_type
+            or self.device_type.endswith("_rp")
+            or self.device_type == "bridge"
+        ):
             self.has_acs = self.get_acs_ctrl() is not None
         if self.device_type == "cx_nic":
             self.has_ats = has_ats_cap(self.sysfs_device.config)
@@ -665,9 +672,9 @@ class NVCX_DMA_Complex(NVCX_Complex):
 
         for pdev in self.cx_dma.iterupstream_path():
             if pdev in common_path:
-                assert pdev.device_type == "cx_switch"
+                assert pdev.device_type in NVCX_SWITCH_TYPES
                 for i in pdev.children:
-                    assert i.device_type == "cx_switch"
+                    assert i.device_type in NVCX_SWITCH_TYPES
                 return pdev
 
     def compute_acs(self, _: Optional[bool]) -> Dict[PCIDevice, str]:
@@ -700,6 +707,12 @@ class NVCX_DMA_Complex(NVCX_Complex):
             if not pdev.parent:
                 assert pdev.has_acs
                 acs[pdev] = "xx111x0"
+
+        # Enable ACS for the rest of the devices in the complex.
+        for ep in itertools.chain({self.nvgpu}, self.cx_pfs, self.nvmes):
+            for pdev in ep.iterupstream_path():
+                if pdev not in acs and pdev.has_acs:
+                    acs[pdev] = kernel_acs_isolated(pdev.device_type)
 
         return acs
 
@@ -821,40 +834,29 @@ class NVCX_Inline_Complex(NVCX_Complex):
         if virt is None:
             raise TopoUnexpectedError("Could not determine virt mode")
 
+        acs: Dict[PCIDevice, str] = {}
         if virt:
-            return {
-                # The DSPs of the NICs which are not DD in the shared switch should
-                # have the following enabled:
-                # bit-6 : ACS Direct Translated P2P
-                # bit-4 : ACS Upstream Forwarding
-                # bit-3 : ACS P2P Completion Redirect
-                # bit-2 : ACS P2P Request Redirect
-                # bit-0 : ACS Source Validation
-                **{dsp: "1x111x1" for dsp in self.cx_pf_dsp},
-                # The DSPs of the GPU in the shared switch and the RP of the NIC/GPU
-                # should have the following enabled, matching the kernel default:
-                # bit-4 : ACS Upstream Forwarding
-                # bit-3 : ACS P2P Completion Redirect
-                # bit-2 : ACS P2P Request Redirect
-                # bit-0 : ACS Source Validation
-                **{
-                    dsp: kernel_acs_isolated(dsp.device_type)
-                    for dsp in self.nvgpu_dsps
-                },
-                self.root_port: kernel_acs_isolated(self.root_port.device_type),
-            }
-        else:
-            return {
-                # The DSPs of both the NIC and GPU in the shared switch and
-                # RPs of the NIC/GPU should have the following disabled:
-                # bit-4 : ACS Upstream Forwarding
-                # bit-3 : ACS P2P Completion Redirect
-                # bit-2 : ACS P2P Request Redirect
-                # bit-0 : ACS Source Validation
-                **{dsp: "xx000x0" for dsp in self.cx_pf_dsp},
-                **{dsp: "xx000x0" for dsp in self.nvgpu_dsps},
-                self.root_port: "xx000x0",
-            }
+            # The DSPs of the NICs which are not DD in the shared switch should
+            # have the following enabled:
+            # bit-6 : ACS Direct Translated P2P
+            # bit-4 : ACS Upstream Forwarding
+            # bit-3 : ACS P2P Completion Redirect
+            # bit-2 : ACS P2P Request Redirect
+            # bit-0 : ACS Source Validation
+            acs = {dsp: "1x111x1" for dsp in self.cx_pf_dsp}
+
+        # Remaining ACS-capable bridges on the NIC/GPU paths:
+        # virt: match kernel default (ACS isolated)
+        # no-virt: disable ACS
+        leftover = (
+            kernel_acs_isolated if virt else lambda _: "xx000x0"
+        )
+        for ep in itertools.chain(self.nvgpus, self.cx_topo.pfs):
+            for pdev in ep.iterupstream_path():
+                if pdev not in acs and pdev.has_acs:
+                    acs[pdev] = leftover(pdev.device_type)
+
+        return acs
 
     def to_dict(self) -> Dict[str, Any]:
         res: Dict[str, Any] = {}
@@ -1094,10 +1096,10 @@ class NVCX_NUMA_Complex(NVCX_Complex):
         return res[:-1]
 
 
-def check_parent(pdev: PCIDevice, parent_type: str):
+def check_parent(pdev: PCIDevice, parent_types: Set[str]):
     if not pdev or not pdev.parent:
         return None
-    if pdev.parent.device_type != parent_type:
+    if pdev.parent.device_type not in parent_types:
         return None
     return pdev.parent
 
@@ -1146,16 +1148,12 @@ class PCITopo(object):
         ):
             return self.TopoType.NUMA
 
-        found = {
-            "cx_switch": False,
-            "nvgpu": False,
-            "cx_nic": False,
-        }
-        for pdev in self.devices.values():
-            if pdev.device_type not in found.keys():
-                continue
-            found[pdev.device_type] = True
-        if all(found.values()):
+        types = {pdev.device_type for pdev in self.devices.values()}
+        if (
+            types & NVCX_SWITCH_TYPES
+            and "nvgpu" in types
+            and "cx_nic" in types
+        ):
             return self.TopoType.INLINE
 
         raise TopoNotSupportedError()
@@ -1201,7 +1199,11 @@ class PCITopo(object):
 
     def __get_nvcx_complex(self, cx_dma: PCIDevice):
         """Match the topology for the switch complex using a CX DMA function and a
-        single GPU. It has two nested switches:
+        single GPU. The GPU and DMA share a switch. The GPU may hang off that
+        switch directly, or behind an extra nested switch:
+
+        RP --> SW -> CX_DMA
+                  -> GPU
 
         RP --> SW -> CX_DMA
                   -> SW -> GPU
@@ -1218,40 +1220,34 @@ class PCITopo(object):
             )
 
         # Path from the DMA to the root port
-        cx_dma_dsp = check_parent(cx_dma, "cx_switch")
-        cx_usp = check_parent(cx_dma_dsp, "cx_switch")
-        grace_rp = check_parent(cx_usp, "grace_rp")
-        if not grace_rp:
+        dma_dsp = check_parent(cx_dma, NVCX_SWITCH_TYPES)
+        shared_usp = check_parent(dma_dsp, NVCX_SWITCH_TYPES)
+        rp = check_parent(shared_usp, {"grace_rp", "generic_rp"})
+        if not rp:
             raise TopoUnexpectedError(
                 f"CX DMA function {cx_dma} has an unrecognized upstream path"
             )
 
         # Path from the GPU to the root port
         nvgpus = [
-            pdev for pdev in grace_rp.iterdownstream() if pdev.device_type == "nvgpu"
+            pdev for pdev in rp.iterdownstream() if pdev.device_type == "nvgpu"
         ]
         if len(nvgpus) != 1:
             raise TopoUnexpectedError(f"CX DMA function {cx_dma} does not have a nearby GPU")
         nvgpu = nvgpus[0]
-        nvgpu_dsp2 = check_parent(nvgpu, "cx_switch")
-        nvgpu_usp2 = check_parent(nvgpu_dsp2, "cx_switch")
-        nvgpu_dsp1 = check_parent(nvgpu_usp2, "cx_switch")
-        if cx_usp != check_parent(nvgpu_dsp1, "cx_switch"):
+        if check_parent(nvgpu, NVCX_SWITCH_TYPES) is None:
             raise TopoNotSupportedError(
                 f"CX DMA function {cx_dma} has an unrecognized upstream path from the GPU"
             )
 
         # Sanity check there is nothing unexpected in the topology
-        alldevs = {
-            cx_dma,
-            cx_dma_dsp,
-            cx_usp,
-            nvgpu,
-            nvgpu_dsp2,
-            nvgpu_usp2,
-            nvgpu_dsp1,
-        }
-        topodevs = set(grace_rp.iterdownstream())
+        alldevs = {cx_dma, nvgpu}
+        for pdev in (cx_dma, nvgpu):
+            for ancestor in pdev.iterupstream_path():
+                alldevs.add(ancestor)
+                if ancestor == shared_usp:
+                    break
+        topodevs = set(rp.iterdownstream())
         if alldevs != topodevs:
             raise TopoUnexpectedError(
                 f"CX DMA function {cx_dma} has unexpected PCI devices in the topology"
@@ -1262,33 +1258,47 @@ class PCITopo(object):
     def __get_nvcx_inline_complex(self, nvgpu: PCIDevice):
         """Match the topology for the inline complex using one or more GPUs and
         CX NICs.
+        The GPUs and NICs share a switch. The GPUs may hang off that switch
+        directly, or behind an extra nested switch:
+
+        RP --> SW -> CX_NIC
+                  -> GPU
 
         RP --> SW -> CX_NIC
                   -> SW -> GPU
         """
         assert nvgpu.device_type == "nvgpu"
 
-        nvgpu_dsp2 = check_parent(nvgpu, "cx_switch")
-        nvgpu_usp2 = check_parent(nvgpu_dsp2, "cx_switch")
-        nvgpu_dsp1 = check_parent(nvgpu_usp2, "cx_switch")
-        shared_usp1 = check_parent(nvgpu_dsp1, "cx_switch")
-        if not shared_usp1:
+        if check_parent(nvgpu, NVCX_SWITCH_TYPES) is None:
             raise TopoNotSupportedError(
                 f"GPU {nvgpu.bdf} has an unrecognized upstream path"
             )
 
-        for pdev in shared_usp1.iterupstream_path():
+        # Lowest ancestor that also has a CX NIC downstream is the shared USP.
+        shared_usp = None
+        for pdev in nvgpu.iterupstream_path():
+            if pdev.device_type not in NVCX_SWITCH_TYPES:
+                continue
+            if any(d.device_type == "cx_nic" for d in pdev.iterdownstream()):
+                shared_usp = pdev
+                break
+        if not shared_usp:
+            raise TopoNotSupportedError(
+                f"GPU {nvgpu.bdf} has an unrecognized upstream path"
+            )
+
+        for pdev in shared_usp.iterupstream_path():
             if pdev.device_type.endswith("_rp"):
                 root_port = pdev
                 break
         else:
             raise TopoUnexpectedError(
-                f"Could not find root port for shared USP {shared_usp1.bdf}"
+                f"Could not find root port for shared USP {shared_usp.bdf}"
             )
 
         cx_pfs = {
             pdev
-            for pdev in shared_usp1.iterdownstream()
+            for pdev in shared_usp.iterdownstream()
             if pdev.device_type == "cx_nic"
         }
 
@@ -1297,11 +1307,11 @@ class PCITopo(object):
 
         nvgpus = {
             pdev
-            for pdev in shared_usp1.iterdownstream()
+            for pdev in shared_usp.iterdownstream()
             if pdev.device_type == "nvgpu"
         }
 
-        return NVCX_Inline_Complex(root_port, shared_usp1, cx_pfs, nvgpus)
+        return NVCX_Inline_Complex(root_port, shared_usp, cx_pfs, nvgpus)
 
     def __get_nvcx_numa_complex(self, numa_node: int):
         """Match the topology for the NUMA complex.
