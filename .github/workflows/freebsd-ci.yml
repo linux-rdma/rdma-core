@@ -29,7 +29,7 @@ jobs:
           prepare: |
             uname -a
             pkg install -y gcc cmake ninja python3 bash libepoll-shim \
-                libudev-devd pkgconf lang/cython
+                linuxapi libudev-devd pkgconf lang/cython
 
           run: |
             bash build-freebsd.sh

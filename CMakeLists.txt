@@ -549,6 +549,13 @@ FIND_PACKAGE (Threads REQUIRED)
 
 FIND_PACKAGE(PkgConfig REQUIRED)
 
+if (CMAKE_SYSTEM_NAME STREQUAL "FreeBSD")
+  find_package(linuxapi REQUIRED)
+  include_directories(BEFORE ${linuxapi_INCLUDE_DIR})
+  # We need to add an additional -I flag to all generated .pc files
+  set(PC_FREEBSD_CFLAGS "-I${linuxapi_INCLUDE_DIR}")
+endif()
+
 # libnl
 if (NOT DEFINED ENABLE_RESOLVE_NEIGH)
   set(ENABLE_RESOLVE_NEIGH "ON" CACHE BOOL "Enable internal resolution of neighbours for Etherent")
@@ -795,11 +802,6 @@ add_subdirectory(util/tests)
 add_subdirectory(Documentation)
 add_subdirectory(kernel-boot)
 add_subdirectory(kernel-headers)
-if (CMAKE_SYSTEM_NAME STREQUAL "FreeBSD")
-  add_subdirectory(freebsd-headers)
-  # We need to add an additional -I flag to all generated .pc files
-  set(PC_FREEBSD_CFLAGS "-I\${includedir}/linuxapi")
-endif()
 # Libraries
 add_subdirectory(libibumad)
 add_subdirectory(libibumad/man)
