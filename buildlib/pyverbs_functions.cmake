@@ -61,6 +61,13 @@ function(rdma_cython_module PY_MODULE LINKER_FLAGS)
 endfunction()
 
 function(rdma_python_module PY_MODULE)
+  if(NOT EXISTS "${CMAKE_CURRENT_SOURCE_DIR}/__version__.py.in")
+    message(FATAL_ERROR "Can't generate python module ${PY_MODULE} version, need ${CMAKE_CURRENT_SOURCE_DIR}/__version__.py.in")
+  endif()
+  configure_file("${CMAKE_CURRENT_SOURCE_DIR}/__version__.py.in"
+    "${BUILD_PYTHON}/${PY_MODULE}/__version__.py" @ONLY)
+  install(FILES "${BUILD_PYTHON}/${PY_MODULE}/__version__.py"
+    DESTINATION ${CMAKE_INSTALL_PYTHON_ARCH_LIB}/${PY_MODULE})
   foreach(PY_FILE ${ARGN})
     get_filename_component(LINK "${CMAKE_CURRENT_SOURCE_DIR}/${PY_FILE}" ABSOLUTE)
     rdma_create_symlink("${LINK}" "${BUILD_PYTHON}/${PY_MODULE}/${PY_FILE}")
