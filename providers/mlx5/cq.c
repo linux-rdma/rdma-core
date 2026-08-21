@@ -1842,7 +1842,7 @@ void __mlx5_cq_clean(struct mlx5_cq *cq, uint32_t rsn, struct mlx5_srq *srq)
 	 * that match our QP by copying older entries on top of them.
 	 */
 	cqe_version = (to_mctx(cq->verbs_cq.cq.context))->cqe_version;
-	while ((int) --prod_index - (int) cq->cons_index >= 0) {
+	while (prod_index-- != cq->cons_index) {
 		cqe = get_cqe(cq, prod_index & cq->verbs_cq.cq.cqe);
 		cqe64 = (cq->cqe_sz == 64) ? cqe : cqe + 64;
 		if (free_res_cqe(cqe64, rsn, srq, cqe_version)) {
