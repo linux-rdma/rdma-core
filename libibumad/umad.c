@@ -148,6 +148,12 @@ static unsigned is_smi_disabled(umad_port_t *port)
 	return (be32toh(port->capmask) & CAPMASK_IS_SM_DISABLED);
 }
 
+static bool is_ib_link_layer(const umad_port_t *port)
+{
+	return !strcmp(port->link_layer, "InfiniBand") ||
+	       !strcmp(port->link_layer, "IB");
+}
+
 static int release_port(umad_port_t * port)
 {
 	free(port->pkeys);
@@ -1453,7 +1459,7 @@ static int count_ports_by_guid(char legacy_ca_names[][UMAD_CA_NAME_LEN], size_t 
 			umad_port_t *p_port = curr_ca.ports[p_idx];
 			size_t count_idx = 0;
 
-			if (!p_port)
+			if (!p_port || !is_ib_link_layer(p_port))
 				continue;
 
 			if (find_port_guid_count(counts, max, p_port->port_guid, &count_idx)) {
@@ -1518,7 +1524,8 @@ int umad_get_smi_gsi_pairs(struct umad_ca_pair cas[], size_t max)
 			umad_port_t *p_port = curr_ca.ports[p_idx];
 			uint8_t guid_count = 0;
 
-			if (!p_port || !p_port->port_guid)
+			if (!p_port || !p_port->port_guid ||
+			    !is_ib_link_layer(p_port))
 				continue;
 
 			guid_count = get_port_guid_count(curr_ca.ports[p_idx]->port_guid,
