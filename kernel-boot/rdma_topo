@@ -1010,7 +1010,7 @@ class NVCX_NUMA_Complex(NVCX_Complex):
 
     def __check_ats(self) -> bool:
         result = True
-        for cx_pf in self.cx_topo.pfs:
+        for cx_pf in sorted(self.cx_topo.pfs, key=lambda x: x.bdf):
             if cx_pf.has_ats:
                 check_fail(
                     f"ATS capability for {cx_pf.device_type} {cx_pf.bdf} is available"
