@@ -48,6 +48,10 @@ struct manadv_rwq {
 	void		*db_page;
 };
 
+struct manadv_pd {
+	uint32_t	pdn;
+};
+
 struct manadv_obj {
 	struct {
 		struct ibv_qp		*in;
@@ -63,6 +67,11 @@ struct manadv_obj {
 		struct ibv_wq		*in;
 		struct manadv_rwq	*out;
 	} rwq;
+
+	struct {
+		struct ibv_pd		*in;
+		struct manadv_pd	*out;
+	} pd;
 };
 ```
 
@@ -74,6 +83,7 @@ enum manadv_obj_type {
 	MANADV_OBJ_QP   = 1 << 0,
 	MANADV_OBJ_CQ   = 1 << 1,
 	MANADV_OBJ_RWQ  = 1 << 2,
+	MANADV_OBJ_PD   = 1 << 3,
 };
 ```
 # RETURN VALUE
