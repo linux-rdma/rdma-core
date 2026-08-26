@@ -284,6 +284,25 @@ static inline int advance_send_completions(struct mana_qp *qp, uint32_t psn,
 	return produced;
 }
 
+static inline int handle_requester_cqe(struct mana_qp *qp, struct gdma_cqe *cqe, struct ibv_wc *wc)
+{
+	struct mana_gdma_queue *send_queue = mana_ib_get_sreq(qp);
+	struct shadow_wqe_header *wqe;
+	int produced = 0;
+
+	while (!produced && (wqe = shadow_queue_get_next_to_consume(&qp->shadow_sq)) != NULL) {
+		send_queue->cons_idx += wqe->posted_wqe_size_in_bu;
+		send_queue->cons_idx &= GDMA_QUEUE_OFFSET_MASK;
+		if (wqe->flags != MANA_NO_SIGNAL_WC) {
+			fill_verbs_from_shadow_wqe(qp, wc, wqe);
+			produced++;
+		}
+		shadow_queue_advance_consumer(&qp->shadow_sq);
+	}
+
+	return produced;
+}
+
 static inline int handle_rc_requester_cqe(struct mana_qp *qp, struct gdma_cqe *cqe,
 					  struct ibv_wc *wc, int nwc, bool *consumed)
 {
@@ -443,6 +462,8 @@ static inline int mana_handle_cqe(struct mana_context *ctx, struct gdma_cqe *cqe
 		return handle_error_cqe(qp, cqe, wc, nwc, consumed);
 	else if (cqe->rdma_cqe.cqe_type == CQE_TYPE_ARMED_CMPL)
 		return handle_rc_requester_cqe(qp, cqe, wc, nwc, consumed);
+	else if (cqe->is_sq && cqe->rdma_cqe.cqe_type == CQE_TYPE_UD_SEND)
+		return handle_requester_cqe(qp, cqe, wc);
 	else
 		return handle_responder_cqe(qp, cqe, wc);
 }
