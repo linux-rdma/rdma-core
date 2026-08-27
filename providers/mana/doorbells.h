@@ -87,6 +87,16 @@ static inline void gdma_arm_normal_cqe(struct mana_gdma_queue *wq, uint32_t psn)
 	mmio_flush_writes();
 }
 
+/* Has HW already produced the CQE at this index? Owner bits are written by HW,
+ * so a match proves idx < cur_cqe. Only meaningful for idx >= cq->head.
+ */
+static inline bool gdma_cq_idx_produced(struct mana_cq *cq, uint32_t idx)
+{
+	struct gdma_cqe *cqe = ((struct gdma_cqe *)cq->buf) + (idx % cq->cqe);
+
+	return cqe->owner_bits == ((idx / cq->cqe) & CQ_OWNER_MASK);
+}
+
 static inline void gdma_ring_cq_doorbell(struct mana_cq *cq, uint8_t arm)
 {
 	union gdma_doorbell_entry e;
@@ -94,8 +104,14 @@ static inline void gdma_ring_cq_doorbell(struct mana_cq *cq, uint8_t arm)
 	uint32_t max_credit = cq->cqe << (GDMA_CQE_OWNER_BITS - 1);
 
 	if (cq->poll_credit >= max_credit) {
-		// To address the use-case of ibv that re-arms the CQ without polling
-		cq->poll_credit++;
+		// To address the use-case of ibv that re-arms the CQ without polling.
+		// (prod_idx + poll_credit - max_credit) is the index last given to HW,
+		// so only claim the next one once HW has produced it. Nothing produced
+		// implies no notification fired, so the CQ is still armed.
+		if (gdma_cq_idx_produced(cq, prod_idx + cq->poll_credit - max_credit))
+			cq->poll_credit++;
+		else
+			return;
 	} else {
 		// Set index of already polled CQE for unarm
 		cq->poll_credit = max_credit - (arm ? 0 : 1);
