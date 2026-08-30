@@ -36,6 +36,7 @@
 #include <stdlib.h>
 #include <unistd.h>
 #include <arpa/inet.h>
+#include <sys/socket.h>
 
 #include <infiniband/umad.h>
 #include <infiniband/mad.h>

@@ -9,6 +9,7 @@
 #include <stdlib.h>
 #include <stdbool.h>
 
+#include <netinet/in.h>
 #if HAVE_WORKING_IF_H
 #include <net/if.h>
 #endif
