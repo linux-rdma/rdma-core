@@ -1,5 +1,5 @@
 rdma_shared_provider(ionic libionic.map
-	1 1.0.${PACKAGE_VERSION}
+	1 1.1.${PACKAGE_VERSION}
 	ionic.c
 	ionic_verbs.c
 	ionic_memory.c
