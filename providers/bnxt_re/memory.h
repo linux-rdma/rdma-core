@@ -130,7 +130,7 @@ static inline uint32_t bnxt_re_is_que_empty(struct bnxt_re_queue *que)
 	return que->tail == que->head;
 }
 
-static inline void bnxt_re_incr_tail(struct bnxt_re_queue *que, uint8_t cnt)
+static inline void bnxt_re_incr_tail(struct bnxt_re_queue *que, uint32_t cnt)
 {
 	que->tail += cnt;
 	if (que->tail >= que->depth) {
