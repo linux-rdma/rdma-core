@@ -563,7 +563,8 @@ void __mthca_cq_clean(struct mthca_cq *cq, uint32_t qpn, struct mthca_srq *srq)
 	 * Now sweep backwards through the CQ, removing CQ entries
 	 * that match our QP by copying older entries on top of them.
 	 */
-	while ((int) --prod_index - (int) cq->cons_index >= 0) {
+	while (prod_index != cq->cons_index) {
+		--prod_index;
 		cqe = get_cqe(cq, prod_index & cq->ibv_cq.cqe);
 		if (cqe->my_qpn == htobe32(qpn)) {
 			if (srq && is_recv_cqe(cqe))
