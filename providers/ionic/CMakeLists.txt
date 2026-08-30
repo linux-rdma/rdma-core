@@ -1,5 +1,5 @@
 rdma_shared_provider(ionic libionic.map
-	1 1.0.${PACKAGE_VERSION}
+	1 1.1.${PACKAGE_VERSION}
 	ionic.c
 	ionic_verbs.c
 	ionic_memory.c
@@ -9,6 +9,7 @@ rdma_shared_provider(ionic libionic.map
 
 publish_headers(infiniband
 	ionic_dv.h
+	ionic_fw_types.h
 )
 
 rdma_pkg_config("ionic" "libibverbs" "${CMAKE_THREAD_LIBS_INIT}")

@@ -10,3 +10,21 @@ IONIC_1.0 {
 		ionic_dv_pd_set_rqcmb;
 	local: *;
 };
+
+IONIC_1.1 {
+	global:
+		ionic_dv_is_ionic_ctx;
+		ionic_dv_is_ionic_pd;
+		ionic_dv_is_ionic_cq;
+		ionic_dv_is_ionic_qp;
+		ionic_dv_cq_get_udma_mask;
+		ionic_dv_qp_get_udma_idx;
+		ionic_dv_pd_set_expdb_mask;
+		ionic_dv_qp_set_gda;
+		ionic_dv_qp_get_send_dbell_data;
+		ionic_dv_qp_get_recv_dbell_data;
+		ionic_dv_get_ctx;
+		ionic_dv_get_cq;
+		ionic_dv_get_qp;
+		ionic_dv_create_cq_ex;
+} IONIC_1.0;
