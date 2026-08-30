@@ -470,6 +470,38 @@ void ibv_free_buf(struct ibv_buf *buf)
 	get_ops(buf->pd->context)->free_buf(buf);
 }
 
+struct ibv_buf *ibv_alloc_user_buf(struct ibv_pd *pd, void *addr, size_t size,
+				   int dmabuf_fd)
+{
+	struct ibv_buf *buf;
+	int ret;
+
+	ret = ibv_dontfork_range(addr, size);
+	if (ret) {
+		errno = ret;
+		return NULL;
+	}
+
+	buf = calloc(1, sizeof(*buf));
+	if (!buf) {
+		errno = ENOMEM;
+		ibv_dofork_range(addr, size);
+		return NULL;
+	}
+
+	if (dmabuf_fd != -1)
+		ibv_buf_init_dmabuf(buf, pd, addr, size, dmabuf_fd);
+	else
+		ibv_buf_init(buf, pd, addr, size);
+	return buf;
+}
+
+void ibv_free_user_buf(struct ibv_buf *buf)
+{
+	ibv_dofork_range(buf->addr, buf->size);
+	free(buf);
+}
+
 /*
  * Translate an ibv_buf handle into the concrete mr_init_attr fields so the
  * registration can proceed through the regular addr-based or fd-based path.

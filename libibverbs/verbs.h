@@ -3356,6 +3356,36 @@ struct ibv_mr *ibv_reg_buf_mr(struct ibv_pd *pd, struct ibv_buf *buf,
 			      void *addr, size_t length, int access);
 
 /**
+ * ibv_alloc_user_buf - Associate an ibv_buf with application-owned memory
+ * @pd: Protection domain the buffer is associated with
+ * @addr: Application-owned virtual address of the buffer
+ * @size: Buffer size in bytes
+ * @dmabuf_fd: DMA-buf file descriptor, or -1 for plain virtual memory
+ *
+ * Unlike ibv_alloc_buf(), the memory is owned by the caller; it is not
+ * allocated here and is not freed by ibv_free_user_buf(). It must
+ * remain valid for as long as the returned handle is in use.
+ *
+ * The returned handle is meant for providers that accept a struct
+ * ibv_buf directly without registering an MR (e.g. driver-specific
+ * control-buffer descriptors).
+ *
+ * Returns a buffer handle on success, or NULL on failure with errno set.
+ */
+struct ibv_buf *ibv_alloc_user_buf(struct ibv_pd *pd, void *addr, size_t size,
+				   int dmabuf_fd);
+
+/**
+ * ibv_free_user_buf - Release a handle created by ibv_alloc_user_buf
+ * @buf: Handle from ibv_alloc_user_buf()
+ *
+ * Does not free the underlying memory; only the ibv_buf handle and
+ * its bookkeeping (e.g. fork protection for VA-backed buffers) are
+ * released.
+ */
+void ibv_free_user_buf(struct ibv_buf *buf);
+
+/**
  * ibv_alloc_dmah - Allocate a dma handle
  */
 struct ibv_dmah *ibv_alloc_dmah(struct ibv_context *context,

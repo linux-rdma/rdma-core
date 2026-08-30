@@ -50,6 +50,7 @@
 #include <util/util.h>
 #include <infiniband/driver.h>
 #include <util/udma_barrier.h>
+#include <infiniband/bnxt_re-hsi.h>
 
 #include "bnxt_re-abi.h"
 #include "memory.h"
@@ -89,8 +90,13 @@ struct bnxt_re_pd {
 	uint32_t pdid;
 };
 
+enum bnxt_dv_cq_flags {
+	BNXT_DV_CQ_FLAGS_NONE = 0,
+	BNXT_DV_CQ_FLAGS_VALID = 0x1,
+};
+
 struct bnxt_re_cq {
-	struct ibv_cq ibvcq;
+	struct verbs_cq verbs_cq;
 	uint32_t cqid;
 	struct bnxt_re_context *cntx;
 	struct bnxt_re_queue *cqq;
@@ -109,6 +115,8 @@ struct bnxt_re_cq {
 	uint8_t resize_tog;
 	bool deffered_db_sup;
 	uint32_t hw_cqes;
+	struct ibv_buf *cq_buf;
+	int dv_cq_flags;
 };
 
 struct bnxt_re_push_buffer {
@@ -233,6 +241,7 @@ struct bnxt_re_qp {
 	uint8_t qptyp;
 	struct bnxt_re_mem *mem;
 	struct bnxt_re_wr_send_qp wr_sq;
+	struct bnxt_re_dpi dv_dpi;
 };
 
 struct bnxt_re_mr {
@@ -340,7 +349,7 @@ static inline struct bnxt_re_pd *to_bnxt_re_pd(struct ibv_pd *ibvpd)
 
 static inline struct bnxt_re_cq *to_bnxt_re_cq(struct ibv_cq *ibvcq)
 {
-	return container_of(ibvcq, struct bnxt_re_cq, ibvcq);
+	return container_of(ibvcq, struct bnxt_re_cq, verbs_cq.cq);
 }
 
 static inline struct bnxt_re_qp *to_bnxt_re_qp(struct ibv_qp *ibvqp)
