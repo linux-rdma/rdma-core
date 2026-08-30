@@ -1,0 +1,164 @@
+/* SPDX-License-Identifier: GPL-2.0 */
+/*
+ * Copyright (c) 2021 - 2022, Shanghai Yunsilicon Technology Co., Ltd.
+ * All rights reserved.
+ */
+
+#ifndef XSC_USER_IOCTL_CMDS_H
+#define XSC_USER_IOCTL_CMDS_H
+
+#include <linux/types.h>
+#include <rdma/ib_user_ioctl_cmds.h>
+
+enum xsc_ib_create_flow_action_attrs {
+	/* This attribute belong to the driver namespace */
+	XSC_IB_ATTR_CREATE_FLOW_ACTION_FLAGS = (1U << UVERBS_ID_NS_SHIFT),
+};
+
+enum xsc_ib_alloc_dm_attrs {
+	XSC_IB_ATTR_ALLOC_DM_RESP_START_OFFSET = (1U << UVERBS_ID_NS_SHIFT),
+	XSC_IB_ATTR_ALLOC_DM_RESP_PAGE_INDEX,
+};
+
+enum xsc_ib_devx_methods {
+	XSC_IB_METHOD_DEVX_OTHER  = (1U << UVERBS_ID_NS_SHIFT),
+	XSC_IB_METHOD_DEVX_QUERY_UAR,
+	XSC_IB_METHOD_DEVX_QUERY_EQN,
+};
+
+enum  xsc_ib_devx_other_attrs {
+	XSC_IB_ATTR_DEVX_OTHER_CMD_IN = (1U << UVERBS_ID_NS_SHIFT),
+	XSC_IB_ATTR_DEVX_OTHER_CMD_OUT,
+};
+
+enum xsc_ib_devx_obj_create_attrs {
+	XSC_IB_ATTR_DEVX_OBJ_CREATE_HANDLE = (1U << UVERBS_ID_NS_SHIFT),
+	XSC_IB_ATTR_DEVX_OBJ_CREATE_CMD_IN,
+	XSC_IB_ATTR_DEVX_OBJ_CREATE_CMD_OUT,
+};
+
+enum  xsc_ib_devx_query_uar_attrs {
+	XSC_IB_ATTR_DEVX_QUERY_UAR_USER_IDX = (1U << UVERBS_ID_NS_SHIFT),
+	XSC_IB_ATTR_DEVX_QUERY_UAR_DEV_IDX,
+};
+
+enum xsc_ib_devx_obj_destroy_attrs {
+	XSC_IB_ATTR_DEVX_OBJ_DESTROY_HANDLE = (1U << UVERBS_ID_NS_SHIFT),
+};
+
+enum xsc_ib_devx_obj_modify_attrs {
+	XSC_IB_ATTR_DEVX_OBJ_MODIFY_HANDLE = (1U << UVERBS_ID_NS_SHIFT),
+	XSC_IB_ATTR_DEVX_OBJ_MODIFY_CMD_IN,
+	XSC_IB_ATTR_DEVX_OBJ_MODIFY_CMD_OUT,
+};
+
+enum xsc_ib_devx_obj_query_attrs {
+	XSC_IB_ATTR_DEVX_OBJ_QUERY_HANDLE = (1U << UVERBS_ID_NS_SHIFT),
+	XSC_IB_ATTR_DEVX_OBJ_QUERY_CMD_IN,
+	XSC_IB_ATTR_DEVX_OBJ_QUERY_CMD_OUT,
+};
+
+enum  xsc_ib_devx_query_eqn_attrs {
+	XSC_IB_ATTR_DEVX_QUERY_EQN_USER_VEC = (1U << UVERBS_ID_NS_SHIFT),
+	XSC_IB_ATTR_DEVX_QUERY_EQN_DEV_EQN,
+};
+
+enum xsc_ib_devx_obj_methods {
+	XSC_IB_METHOD_DEVX_OBJ_CREATE = (1U << UVERBS_ID_NS_SHIFT),
+	XSC_IB_METHOD_DEVX_OBJ_DESTROY,
+	XSC_IB_METHOD_DEVX_OBJ_MODIFY,
+	XSC_IB_METHOD_DEVX_OBJ_QUERY,
+};
+
+enum xsc_ib_devx_umem_reg_attrs {
+	XSC_IB_ATTR_DEVX_UMEM_REG_HANDLE = (1U << UVERBS_ID_NS_SHIFT),
+	XSC_IB_ATTR_DEVX_UMEM_REG_ADDR,
+	XSC_IB_ATTR_DEVX_UMEM_REG_LEN,
+	XSC_IB_ATTR_DEVX_UMEM_REG_ACCESS,
+	XSC_IB_ATTR_DEVX_UMEM_REG_OUT_ID,
+};
+
+enum xsc_ib_devx_umem_dereg_attrs {
+	XSC_IB_ATTR_DEVX_UMEM_DEREG_HANDLE = (1U << UVERBS_ID_NS_SHIFT),
+};
+
+enum xsc_ib_devx_umem_methods {
+	XSC_IB_METHOD_DEVX_UMEM_REG = (1U << UVERBS_ID_NS_SHIFT),
+	XSC_IB_METHOD_DEVX_UMEM_DEREG,
+};
+
+enum xsc_ib_objects {
+	XSC_IB_OBJECT_DEVX = (1U << UVERBS_ID_NS_SHIFT),
+	XSC_IB_OBJECT_DEVX_OBJ,
+	XSC_IB_OBJECT_DEVX_UMEM,
+	XSC_IB_OBJECT_FLOW_MATCHER,
+};
+
+enum xsc_ib_flow_matcher_create_attrs {
+	XSC_IB_ATTR_FLOW_MATCHER_CREATE_HANDLE = (1U << UVERBS_ID_NS_SHIFT),
+	XSC_IB_ATTR_FLOW_MATCHER_MATCH_MASK,
+	XSC_IB_ATTR_FLOW_MATCHER_FLOW_TYPE,
+	XSC_IB_ATTR_FLOW_MATCHER_MATCH_CRITERIA,
+	XSC_IB_ATTR_FLOW_MATCHER_FLOW_FLAGS,
+};
+
+enum xsc_ib_flow_matcher_destroy_attrs {
+	XSC_IB_ATTR_FLOW_MATCHER_DESTROY_HANDLE = (1U << UVERBS_ID_NS_SHIFT),
+};
+
+enum xsc_ib_flow_matcher_methods {
+	XSC_IB_METHOD_FLOW_MATCHER_CREATE = (1U << UVERBS_ID_NS_SHIFT),
+	XSC_IB_METHOD_FLOW_MATCHER_DESTROY,
+};
+
+#define XSC_IB_DW_MATCH_PARAM 0x80
+
+struct xsc_ib_match_params {
+	__u32	match_params[XSC_IB_DW_MATCH_PARAM];
+};
+
+enum xsc_ib_flow_type {
+	XSC_IB_FLOW_TYPE_NORMAL,
+	XSC_IB_FLOW_TYPE_SNIFFER,
+	XSC_IB_FLOW_TYPE_ALL_DEFAULT,
+	XSC_IB_FLOW_TYPE_MC_DEFAULT,
+};
+
+enum xsc_ib_create_flow_attrs {
+	XSC_IB_ATTR_CREATE_FLOW_HANDLE = (1U << UVERBS_ID_NS_SHIFT),
+	XSC_IB_ATTR_CREATE_FLOW_MATCH_VALUE,
+	XSC_IB_ATTR_CREATE_FLOW_DEST_QP,
+	XSC_IB_ATTR_CREATE_FLOW_DEST_DEVX,
+	XSC_IB_ATTR_CREATE_FLOW_MATCHER,
+	XSC_IB_ATTR_CREATE_FLOW_ARR_FLOW_ACTIONS,
+	XSC_IB_ATTR_CREATE_FLOW_TAG,
+};
+
+enum xsc_ib_destoy_flow_attrs {
+	XSC_IB_ATTR_DESTROY_FLOW_HANDLE = (1U << UVERBS_ID_NS_SHIFT),
+};
+
+enum xsc_ib_flow_methods {
+	XSC_IB_METHOD_CREATE_FLOW = (1U << UVERBS_ID_NS_SHIFT),
+	XSC_IB_METHOD_DESTROY_FLOW,
+};
+
+enum xsc_ib_flow_action_methods {
+	XSC_IB_METHOD_FLOW_ACTION_CREATE_MODIFY_HEADER = (1U << UVERBS_ID_NS_SHIFT),
+	XSC_IB_METHOD_FLOW_ACTION_CREATE_PACKET_REFORMAT,
+};
+
+enum xsc_ib_create_flow_action_create_modify_header_attrs {
+	XSC_IB_ATTR_CREATE_MODIFY_HEADER_HANDLE = (1U << UVERBS_ID_NS_SHIFT),
+	XSC_IB_ATTR_CREATE_MODIFY_HEADER_ACTIONS_PRM,
+	XSC_IB_ATTR_CREATE_MODIFY_HEADER_FT_TYPE,
+};
+
+enum xsc_ib_create_flow_action_create_packet_reformat_attrs {
+	XSC_IB_ATTR_CREATE_PACKET_REFORMAT_HANDLE = (1U << UVERBS_ID_NS_SHIFT),
+	XSC_IB_ATTR_CREATE_PACKET_REFORMAT_TYPE,
+	XSC_IB_ATTR_CREATE_PACKET_REFORMAT_FT_TYPE,
+	XSC_IB_ATTR_CREATE_PACKET_REFORMAT_DATA_BUF,
+};
+
+#endif
