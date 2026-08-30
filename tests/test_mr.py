@@ -317,9 +317,11 @@ class MWTest(RDMATestCase):
         # Poll the bind MW WR.
         u.poll_cq(self.server.cq)
         u.poll_cq(self.client.cq)
-        self.server.rkey = client_send_wr.rkey
+        self.assertEqual(self.client.mw.rkey, client_send_wr.rkey)
+        self.assertEqual(self.server.mw.rkey, server_send_wr.rkey)
+        self.server.rkey = self.client.mw.rkey
         self.server.raddr = self.client.mr.buf
-        self.client.rkey = server_send_wr.rkey
+        self.client.rkey = self.server.mw.rkey
         self.client.raddr = self.server.mr.buf
 
     def invalidate_mw_type1(self):
