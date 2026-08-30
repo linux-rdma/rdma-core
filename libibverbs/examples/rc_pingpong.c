@@ -64,6 +64,7 @@ static int validate_buf;
 static int use_dm;
 static int allow_cc_unprotected;
 static int use_new_send;
+static int use_unordered;
 
 struct pingpong_context {
 	struct ibv_context	*context;
@@ -444,6 +445,9 @@ static struct pingpong_context *pp_init_ctx(struct ibv_device *ib_dev, int size,
 			access_flags |= IBV_ACCESS_ZERO_BASED;
 		}
 	}
+
+	if (use_unordered)
+		access_flags |= IBV_ACCESS_UNORDERED;
 
 	ctx->buf = ibv_alloc_buf(ctx->pd, size, &ctx->ibv_buf);
 	if (!ctx->buf) {
@@ -832,6 +836,7 @@ static void usage(const char *argv0)
 	printf("  -N, --new_send            use new post send WR API\n");
 	printf("  -U, --allow-cc-unprotected  allow allocation of unprotected/shared\n"
 	       "                            memory on CoCo guests\n");
+	printf("  -W, --weak-ordering        use weak (unordered) memory access\n");
 }
 
 int main(int argc, char *argv[])
@@ -883,10 +888,11 @@ int main(int argc, char *argv[])
 			{ .name = "dm",       .has_arg = 0, .val = 'j' },
 			{ .name = "new_send", .has_arg = 0, .val = 'N' },
 			{ .name = "allow-cc-unprotected", .has_arg = 0, .val = 'U' },
+			{ .name = "weak-ordering",    .has_arg = 0, .val = 'W' },
 			{}
 		};
 
-		c = getopt_long(argc, argv, "p:d:i:s:m:r:n:l:eg:oOPtcjNU",
+		c = getopt_long(argc, argv, "p:d:i:s:m:r:n:l:eg:oOPtcjNUW",
 				long_options, NULL);
 
 		if (c == -1)
@@ -972,6 +978,10 @@ int main(int argc, char *argv[])
 
 		case 'U':
 			allow_cc_unprotected = 1;
+			break;
+
+		case 'W':
+			use_unordered = 1;
 			break;
 
 		default:
