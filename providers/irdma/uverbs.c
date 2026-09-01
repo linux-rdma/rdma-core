@@ -753,7 +753,7 @@ static struct ibv_cq_ex *ucreate_cq(struct ibv_context *context,
 		ret = __irdma_alloc_buf(pd, IRDMA_DB_SHADOW_AREA_SIZE, IRDMA_HW_PAGE_SIZE, &iwucq->shadow_buf);
 		if (ret) {
 			errno = ret;
-			goto err_dereg_mr
+			goto err_dereg_mr;
 		}
 		info.shadow_area = iwucq->shadow_buf.ibv_buf.addr;
 
@@ -783,9 +783,25 @@ static struct ibv_cq_ex *ucreate_cq(struct ibv_context *context,
 	cmd.user_cq_buf = (__u64)((uintptr_t)info.cq_base);
 	cmd.user_shadow_area = (__u64)((uintptr_t)info.shadow_area);
 
-	ret = ibv_cmd_create_cq_ex(context, attr_ex, NULL, &iwucq->verbs_cq,
-				   &cmd.ibv_cmd, sizeof(cmd), &resp.ibv_resp,
-				   sizeof(resp), 0);
+	{
+		DECLARE_COMMAND_BUFFER(driver_attrs, UVERBS_OBJECT_CQ,
+				       UVERBS_METHOD_CQ_CREATE, 2);
+
+		struct ib_uverbs_buffer_desc cq_buf_desc = {};
+		struct ib_uverbs_buffer_desc shadow_desc = {};
+
+		fill_attr_in_buf_umem(driver_attrs, UVERBS_ATTR_CREATE_CQ_BUF_UMEM,
+				      &cq_buf_desc, &iwucq->cq_buf.ibv_buf, NULL, 0);
+
+		if (uk_attrs->feature_flags & IRDMA_FEATURE_CQ_RESIZE) {
+			fill_attr_in_buf_umem(driver_attrs, IRDMA_IB_ATTR_CREATE_CQ_SHADOW_BUF_UMEM,
+					      &shadow_desc, &iwucq->shadow_buf.ibv_buf, NULL, 0);
+		}
+
+		ret = ibv_cmd_create_cq_ex2(context, attr_ex, NULL, &iwucq->verbs_cq,
+					    &cmd.ibv_cmd, sizeof(cmd), &resp.ibv_resp,
+					    sizeof(resp), 0, driver_attrs);
+	}
 	attr_ex->cqe = ncqe;
 	if (ret) {
 		errno = ret;
@@ -807,12 +823,13 @@ static struct ibv_cq_ex *ucreate_cq(struct ibv_context *context,
 
 err_dereg_shadow:
 	ibv_cmd_dereg_mr(&iwucq->vmr);
-	if (iwucq->vmr_shadow_area.ibv_mr.handle) {
-		ibv_cmd_dereg_mr(&iwucq->vmr_shadow_area);
-		irdma_free_hw_buf(info.shadow_area, IRDMA_HW_PAGE_SIZE);
+	if (uk_attrs->feature_flags & IRDMA_FEATURE_CQ_RESIZE) {
+		if (iwucq->vmr_shadow_area.ibv_mr.handle)
+			ibv_cmd_dereg_mr(&iwucq->vmr_shadow_area);
+		__irdma_free_buf(&iwucq->shadow_buf);
 	}
 err_dereg_mr:
-	irdma_free_hw_buf(info.cq_base, total_size);
+	__irdma_free_buf(&iwucq->cq_buf);
 err_cq_base:
 	pthread_spin_destroy(&iwucq->lock);
 
