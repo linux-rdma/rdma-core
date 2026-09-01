@@ -1613,9 +1613,9 @@ static int irdma_vmapped_qp(struct irdma_uqp *iwuqp, struct ibv_pd *pd,
 			    struct irdma_qp_uk_init_info *info,
 			    bool legacy_mode)
 {
-	struct irdma_ucreate_qp cmd = {};
+	struct irdma_ucreate_qp_ex cmd = {};
 	size_t sqsize, rqsize, totalqpsize;
-	struct irdma_ucreate_qp_resp resp = {};
+	struct irdma_ucreate_qp_ex_resp resp = {};
 	struct irdma_ureg_mr reg_mr_cmd = {};
 	struct ib_uverbs_reg_mr_resp reg_mr_resp = {};
 	long os_pgsz = IRDMA_HW_PAGE_SIZE;
@@ -1662,9 +1662,30 @@ static int irdma_vmapped_qp(struct irdma_uqp *iwuqp, struct ibv_pd *pd,
 	cmd.user_wqe_bufs = (__u64)((uintptr_t)info->sq);
 	cmd.user_compl_ctx = (__u64)(uintptr_t)&iwuqp->qp;
 
-	ret = ibv_cmd_create_qp(pd, &iwuqp->verbs_qp.qp, attr, &cmd.ibv_cmd,
-				sizeof(cmd), &resp.ibv_resp,
-				sizeof(struct irdma_ucreate_qp_resp));
+	{
+		struct ib_uverbs_buffer_desc qp_buf_umem_desc = {};
+		DECLARE_COMMAND_BUFFER(driver_attrs, UVERBS_OBJECT_QP,
+				       UVERBS_METHOD_QP_CREATE, 1);
+
+		fill_attr_in_buf_umem(driver_attrs, UVERBS_ATTR_CREATE_QP_BUF_UMEM,
+				      &qp_buf_umem_desc, &iwuqp->sq_buf.ibv_buf, NULL, 0);
+
+		struct ibv_qp_init_attr_ex attr_ex = {
+			.qp_context = attr->qp_context,
+			.send_cq = attr->send_cq,
+			.recv_cq = attr->recv_cq,
+			.srq = attr->srq,
+			.cap = attr->cap,
+			.qp_type = attr->qp_type,
+			.sq_sig_all = attr->sq_sig_all,
+			.comp_mask = IBV_QP_INIT_ATTR_PD,
+			.pd = pd,
+		};
+
+		ret = ibv_cmd_create_qp_ex2(pd->context, &iwuqp->verbs_qp, &attr_ex,
+					    &cmd.ibv_cmd, sizeof(cmd), &resp.ibv_resp,
+					    sizeof(resp), driver_attrs);
+	}
 	if (ret)
 		goto err_qp;
 
