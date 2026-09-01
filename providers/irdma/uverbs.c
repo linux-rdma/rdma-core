@@ -525,9 +525,9 @@ struct ibv_srq *irdma_ucreate_srq(struct ibv_pd *pd,
 {
 	struct ib_uverbs_reg_mr_resp reg_mr_resp = {};
 	struct irdma_srq_uk_init_info info = {};
-	struct irdma_ucreate_srq_resp resp = {};
+	struct irdma_ucreate_srq_ex_resp resp = {};
 	struct irdma_ureg_mr reg_mr_cmd = {};
-	struct irdma_ucreate_srq cmd = {};
+	struct irdma_ucreate_srq_ex cmd = {};
 	struct irdma_uk_attrs *uk_attrs;
 	struct irdma_uvcontext *iwvctx;
 	struct irdma_usrq *iwusrq;
@@ -593,8 +593,25 @@ struct ibv_srq *irdma_ucreate_srq(struct ibv_pd *pd,
 
 	cmd.user_srq_buf = (__u64)((uintptr_t)info.srq);
 	cmd.user_shadow_area = (__u64)((uintptr_t)info.shadow_area);
-	ret = ibv_cmd_create_srq(pd, &iwusrq->v_srq.srq, initattr, &cmd.ibv_cmd,
-				 sizeof(cmd), &resp.ibv_resp, sizeof(resp));
+
+	{
+		struct ib_uverbs_buffer_desc srq_buf_desc = {};
+		struct ibv_srq_init_attr_ex attr_ex = {
+			.srq_context = initattr->srq_context,
+			.attr = initattr->attr,
+			.pd = pd,
+			.comp_mask = IBV_SRQ_INIT_ATTR_PD,
+		};
+		DECLARE_COMMAND_BUFFER(driver_attrs, UVERBS_OBJECT_SRQ,
+				       UVERBS_METHOD_SRQ_CREATE, 1);
+
+		fill_attr_in_buf_umem(driver_attrs, UVERBS_ATTR_CREATE_SRQ_BUF_UMEM,
+				      &srq_buf_desc, &iwusrq->srq_buf.ibv_buf, NULL, 0);
+
+		ret = ibv_cmd_create_srq_ex2(pd->context, &iwusrq->v_srq, &attr_ex,
+					     &cmd.ibv_cmd, sizeof(cmd), &resp.ibv_resp,
+					     sizeof(resp), driver_attrs);
+	}
 	if (ret)
 		goto err_create_srq;
 
@@ -617,7 +634,7 @@ err_create_srq:
 	if (iwusrq->vmr.ibv_mr.context)
 		ibv_cmd_dereg_mr(&iwusrq->vmr);
 err_cmd_reg:
-	irdma_free_hw_buf(info.srq, total_size);
+	__irdma_free_buf(&iwusrq->srq_buf);
 err_sges:
 	pthread_spin_destroy(&iwusrq->lock);
 err_lock:
