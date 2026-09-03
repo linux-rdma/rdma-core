@@ -214,7 +214,8 @@ struct mana_qp *mana_get_qp(struct mana_context *ctx, uint32_t qid, bool is_sq)
 	return qp_table[tbl_idx].table[tbl_off];
 }
 
-static uint32_t get_queue_size(struct ibv_qp_init_attr *attr, enum user_queue_types type)
+static uint32_t get_queue_size(struct ibv_qp_init_attr *attr, enum user_queue_types type,
+			       bool rollback_sq)
 {
 	uint32_t size = 0;
 	uint32_t sges = 0;
@@ -247,7 +248,7 @@ static uint32_t get_queue_size(struct ibv_qp_init_attr *attr, enum user_queue_ty
 		return 0;
 	}
 
-	if (attr->qp_type == IBV_QPT_RC && type == USER_RNIC_SEND_QUEUE_REQUESTER)
+	if (rollback_sq && type == USER_RNIC_SEND_QUEUE_REQUESTER)
 		size += sizeof(struct mana_ib_rollback_shared_mem);
 
 	return size;
@@ -366,6 +367,11 @@ static struct ibv_qp *mana_create_qp_rnic(struct ibv_pd *ibpd,
 	pthread_spin_init(&qp->rq_lock, PTHREAD_PROCESS_PRIVATE);
 	qp->sq_sig_all = attr->sq_sig_all;
 
+	/* The software rollback region is only needed when fixed-size-WQE is unavailable */
+	qp->rollback_sq = attr->qp_type == IBV_QPT_RC &&
+			  !((ctx->comp_mask & MANA_IB_UCNTX_RC_SQ_POW2_SUPPORT) &&
+			    (ctx->comp_mask & MANA_IB_UCNTX_RC_EXT_SUPPORT));
+
 	if (create_shadow_queue(&qp->shadow_sq, attr->cap.max_send_wr,
 				sizeof(struct rnic_sq_shadow_wqe))) {
 		verbs_err(verbs_get_ctx(ibpd->context), "Failed to alloc sq shadow queue\n");
@@ -382,7 +388,7 @@ static struct ibv_qp *mana_create_qp_rnic(struct ibv_pd *ibpd,
 
 	for (i = 0; i < USER_RNIC_QUEUE_TYPE_MAX; ++i) {
 		qp->rnic_qp.queues[i].db_page = ctx->db_page;
-		qp->rnic_qp.queues[i].size = get_queue_size(attr, i);
+		qp->rnic_qp.queues[i].size = get_queue_size(attr, i, qp->rollback_sq);
 		qp->rnic_qp.queues[i].buffer = mana_alloc_mem(qp->rnic_qp.queues[i].size);
 
 		if (qp->rnic_qp.queues[i].size != 0 && !qp->rnic_qp.queues[i].buffer) {
