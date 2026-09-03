@@ -68,7 +68,7 @@ struct gdma_sge {
 struct rdma_recv_oob {
 	uint32_t psn_start:24;
 	uint32_t reserved1:8;
-	uint32_t psn_range:24;
+	uint32_t msn:24;
 	uint32_t reserved2:8;
 }; /* HW DATA */
 
