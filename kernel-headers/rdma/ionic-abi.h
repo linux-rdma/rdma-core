@@ -106,7 +106,7 @@ struct ionic_srq_req {
 };
 
 struct ionic_srq_resp {
-	__u32 qpid;
+	__u32 srqid;
 	__u8 rq_cmb;
 	__u8 udma_idx;
 	__u8 rsvd[2];
