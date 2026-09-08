@@ -1067,7 +1067,7 @@ class PCITopo(object):
         virt: Optional[bool] = None,
         autodetect_virt: bool = True,
     ):
-        if sysfs_dump:
+        if sysfs_dump is not None:
             sysfs_devices = self.__parse_dump(sysfs_dump)
         else:
             sysfs_devices = [SysfsDevice(fn) for fn in os.listdir(DEVDIR)]
@@ -1346,14 +1346,17 @@ class PCITopo(object):
         return acs
 
 
-def add_sysfs_dump_argument(parser):
+def add_sysfs_dump_argument(parser, help_note: Optional[str] = None):
+    help_text = "Use a file produced by the rdma_topo dump command as input"
+    if help_note:
+        help_text = f"{help_text}. {help_note}"
     parser.add_argument(
         "-F",
         "--sysfs-dump-file",
         action="store",
         default=None,
         dest="sysfs_dump",
-        help="Use a file produced by the rdma_topo dump command as input",
+        help=help_text,
     )
 
 
@@ -1448,6 +1451,7 @@ def args_write_grub_acs(parser):
         help="Grub dropin file to use for the kernel command line",
     )
     add_virt_argument(parser)
+    add_sysfs_dump_argument(parser, help_note="Requires -n/--dry-run")
 
 
 def cmd_write_grub_acs(args):
@@ -1459,7 +1463,7 @@ def cmd_write_grub_acs(args):
     removed. This command is intended for Debian style systems with a
     /etc/default/grub.d and update-grub command."""
     try:
-        topo = PCITopo(None, args.virt)
+        topo = PCITopo(args.sysfs_dump, args.virt)
     except TopoNotSupportedError as e:
         if args.dry_run:
             raise
@@ -1516,6 +1520,7 @@ def args_setpci_acs(parser):
         help="Output the setpci commands to stdout and make no changes",
     )
     add_virt_argument(parser)
+    add_sysfs_dump_argument(parser, help_note="Requires -n/--dry-run")
 
 
 def cmd_setpci_acs(args):
@@ -1528,7 +1533,7 @@ def cmd_setpci_acs(args):
     NOTE: In this configuration unprivileged userspace can trigger platform RAS
     failures, use with caution!
     """
-    topo = PCITopo(None, args.virt)
+    topo = PCITopo(args.sysfs_dump, args.virt)
     acs = topo.compute_acs()
     cmds: List[List[str]] = []
     for pdev, acs in sorted(acs.items(), key=lambda x: x[0].bdf):
@@ -1676,6 +1681,14 @@ operation, this tool helps users generate ACS settings for the local system.
 
     # argparse will set 'func' to the cmd_* that executes this command
     args = parser.parse_args()
+    if (
+        getattr(args, "sysfs_dump", None) is not None
+        and hasattr(args, "dry_run")
+        and not args.dry_run
+    ):
+        parser.error(
+            f"-F/--sysfs-dump-file requires -n/--dry-run for sub-command '{args.command}'"
+        )
     try:
         args.func(args)
     except CommandError as e:
