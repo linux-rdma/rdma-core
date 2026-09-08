@@ -12,6 +12,7 @@ from __future__ import annotations
 import contextlib
 import io
 import os
+import shlex
 import sys
 import tempfile
 import types
@@ -63,10 +64,16 @@ import rdma_topo
 
 from rdma_topo import (
     PCIBDF,
+    GrubbyBackend,
     NVCX_Topo,
     TopoUnexpectedError,
     UpdateGrubBackend,
+    acs_cmdline_subopt,
     grub_dropin_content,
+    merge_pci_param,
+    parse_grubby_info,
+    select_cmdline_backend,
+    split_cmdline,
     update_file,
 )
 
@@ -741,3 +748,390 @@ class TestUpdateGrubBackend:
                 assert UpdateGrubBackend(out).remove(dry_run=True) is True
             assert os.path.exists(out)
             assert buf.getvalue() == f"rm {out}\n"
+
+
+# ---------------------------------------------------------------------------
+# acs_cmdline_subopt / split_cmdline / parse_grubby_info / merge_pci_param
+# ---------------------------------------------------------------------------
+
+
+class TestAcsCmdlineSubopt:
+    def test_exact_value(self):
+        assert acs_cmdline_subopt(ACS_ARG) == f"config_acs='{ACS_ARG}'"
+
+    def test_single_quoted(self):
+        # Not unquoted: grub truncates the value at the first ';' and every
+        # device after the first is silently left unconfigured.
+        # Not double quoted: grubby copies the value into the double quoted
+        # GRUB_CMDLINE_LINUX of /etc/default/grub, and nested double quotes
+        # end that assignment early, corrupting the file.
+        subopt = acs_cmdline_subopt(ACS_ARG)
+        assert subopt.startswith("config_acs='")
+        assert subopt.endswith("'")
+        assert '"' not in subopt
+
+
+class TestSplitCmdline:
+    def test_plain(self):
+        assert split_cmdline("ro quiet") == ["ro", "quiet"]
+
+    def test_keeps_single_quoted_section_together(self):
+        assert split_cmdline("ro pci=config_acs='a;b' quiet") == [
+            "ro",
+            "pci=config_acs='a;b'",
+            "quiet",
+        ]
+
+    def test_keeps_double_quoted_section_together(self):
+        assert split_cmdline('ro pci=config_acs="a;b" quiet') == [
+            "ro",
+            'pci=config_acs="a;b"',
+            "quiet",
+        ]
+
+    def test_quoted_whitespace_stays_in_one_token(self):
+        assert split_cmdline("ro x='a b' quiet") == ["ro", "x='a b'", "quiet"]
+
+    def test_empty(self):
+        assert split_cmdline("") == []
+
+    def test_repeated_whitespace(self):
+        assert split_cmdline("  ro   quiet ") == ["ro", "quiet"]
+
+
+GRUBBY_INFO = """index=0
+kernel="/boot/vmlinuz-6.12.0-211.2.1.el10_2.x86_64"
+args="ro crashkernel=1G-4G:192M rhgb quiet $tuned_params"
+root="/dev/mapper/rhel-root"
+initrd="/boot/initramfs-6.12.0-211.2.1.el10_2.x86_64.img"
+title="Red Hat Enterprise Linux (6.12.0-211.2.1.el10_2.x86_64) 10.2"
+id="61cf8d21-0"
+index=1
+kernel="/boot/vmlinuz-0-rescue"
+args="ro quiet"
+root="/dev/mapper/rhel-root"
+initrd="/boot/initramfs-0-rescue.img"
+title="Red Hat Enterprise Linux (0-rescue) 10.2"
+id="61cf8d21-1"
+"""
+
+
+class TestParseGrubbyInfo:
+    def test_entry_count(self):
+        assert len(parse_grubby_info(GRUBBY_INFO)) == 2
+
+    def test_strips_quotes(self):
+        entry = parse_grubby_info(GRUBBY_INFO)[0]
+        assert entry["kernel"] == "/boot/vmlinuz-6.12.0-211.2.1.el10_2.x86_64"
+        assert entry["args"] == "ro crashkernel=1G-4G:192M rhgb quiet $tuned_params"
+
+    def test_second_entry(self):
+        assert parse_grubby_info(GRUBBY_INFO)[1]["kernel"] == "/boot/vmlinuz-0-rescue"
+
+    def test_without_index_lines(self):
+        out = 'kernel="/boot/vmlinuz-a"\nargs="ro"\nkernel="/boot/vmlinuz-b"\nargs="quiet"\n'
+        entries = parse_grubby_info(out)
+        assert [e["kernel"] for e in entries] == ["/boot/vmlinuz-a", "/boot/vmlinuz-b"]
+        assert [e["args"] for e in entries] == ["ro", "quiet"]
+
+    def test_empty(self):
+        assert parse_grubby_info("") == []
+
+    def test_entry_without_args(self):
+        entries = parse_grubby_info('index=0\nkernel="/boot/vmlinuz-a"\n')
+        assert entries[0].get("args", "") == ""
+
+
+class TestMergePciParam:
+    def test_add_to_empty(self):
+        assert merge_pci_param([], "config_acs='x'") == "pci=config_acs='x'"
+
+    def test_keeps_other_subopts(self):
+        assert (
+            merge_pci_param(["pci=realloc"], "config_acs='x'")
+            == "pci=realloc,config_acs='x'"
+        )
+
+    def test_replaces_existing_config_acs(self):
+        assert (
+            merge_pci_param(["pci=config_acs='old'"], "config_acs='new'")
+            == "pci=config_acs='new'"
+        )
+
+    def test_replaces_config_acs_and_keeps_the_rest(self):
+        assert (
+            merge_pci_param(["pci=realloc,config_acs='old'"], "config_acs='new'")
+            == "pci=realloc,config_acs='new'"
+        )
+
+    def test_remove_keeps_other_subopts(self):
+        assert merge_pci_param(["pci=realloc,config_acs='x'"], None) == "pci=realloc"
+
+    def test_remove_last_subopt_gives_none(self):
+        assert merge_pci_param(["pci=config_acs='x'"], None) is None
+
+    def test_nothing_at_all_gives_none(self):
+        assert merge_pci_param([], None) is None
+
+    def test_bare_pci_token(self):
+        assert merge_pci_param(["pci"], None) is None
+
+
+# ---------------------------------------------------------------------------
+# GrubbyBackend
+# ---------------------------------------------------------------------------
+
+KERNEL_A = "/boot/vmlinuz-a"
+KERNEL_B = "/boot/vmlinuz-b"
+SUBOPT = f"config_acs='{ACS_ARG}'"
+
+
+@contextlib.contextmanager
+def quiet():
+    """Swallow the informational output of a non dry-run apply/remove."""
+    with contextlib.redirect_stdout(io.StringIO()):
+        yield
+
+
+class FakeGrubby:
+    """Stand-in for grubby, modelling that it matches arguments by name on
+    both the --args and the --remove-args paths."""
+
+    def __init__(self, entries, apply_changes: bool = True):
+        self.entries = [{"kernel": k, "args": a} for k, a in entries]
+        self.apply_changes = apply_changes
+        self.calls: List[List[str]] = []
+
+    def check_output(self, cmd, text=False):
+        assert cmd == ["grubby", "--info", "ALL"], cmd
+        out = []
+        for i, entry in enumerate(self.entries):
+            out.append(f"index={i}")
+            out.append(f'kernel="{entry["kernel"]}"')
+            out.append(f'args="{entry["args"]}"')
+            out.append('initrd="/boot/initramfs.img"')
+            out.append('title="Linux"')
+        return "\n".join(out) + "\n"
+
+    def check_call(self, cmd):
+        self.calls.append(list(cmd))
+        assert cmd[0] == "grubby" and cmd[1] == "--update-kernel"
+        target, op, value = cmd[2], cmd[3], cmd[4]
+        if not self.apply_changes:
+            return
+        name = value.split("=", 1)[0]
+        for entry in self.entries:
+            if target != "ALL" and target != entry["kernel"]:
+                continue
+            tokens = [
+                token
+                for token in split_cmdline(entry["args"])
+                if token != name and not token.startswith(name + "=")
+            ]
+            if op == "--args":
+                tokens.append(value)
+            entry["args"] = " ".join(tokens)
+
+    def install(self):
+        return mock.patch.multiple(
+            rdma_topo.subprocess,
+            check_output=self.check_output,
+            check_call=self.check_call,
+        )
+
+
+class TestGrubbyBackend:
+    def test_apply_emits_expected_argv(self):
+        fake = FakeGrubby([(KERNEL_A, "ro quiet"), (KERNEL_B, "ro quiet")])
+        with fake.install(), quiet():
+            GrubbyBackend().apply(ACS_ARG, dry_run=False)
+        assert fake.calls == [
+            ["grubby", "--update-kernel", "ALL", "--args", f"pci={SUBOPT}"]
+        ]
+
+    def test_apply_uses_space_separated_options(self):
+        # grubby-bls only matches '--args VALUE', '--args=VALUE' is rejected
+        fake = FakeGrubby([(KERNEL_A, "ro")])
+        with fake.install(), quiet():
+            GrubbyBackend().apply(ACS_ARG, dry_run=False)
+        assert all("=" not in arg for arg in fake.calls[0][:4:2])
+        assert fake.calls[0][3] == "--args"
+
+    def test_apply_is_idempotent(self):
+        fake = FakeGrubby([(KERNEL_A, "ro"), (KERNEL_B, "ro")])
+        with fake.install(), quiet():
+            GrubbyBackend().apply(ACS_ARG, dry_run=False)
+            assert len(fake.calls) == 1
+            GrubbyBackend().apply(ACS_ARG, dry_run=False)
+            assert len(fake.calls) == 1
+
+    def test_apply_preserves_other_pci_args(self):
+        fake = FakeGrubby([(KERNEL_A, "ro pci=realloc")])
+        with fake.install(), quiet():
+            GrubbyBackend().apply(ACS_ARG, dry_run=False)
+        assert fake.calls[0][4] == f"pci=realloc,{SUBOPT}"
+        assert "pci=realloc" in fake.entries[0]["args"]
+
+    def test_apply_replaces_a_stale_value(self):
+        fake = FakeGrubby([(KERNEL_A, "ro pci=config_acs='xx000x0@0000:00:00.0'")])
+        with fake.install(), quiet():
+            GrubbyBackend().apply(ACS_ARG, dry_run=False)
+        assert fake.entries[0]["args"] == f"ro pci={SUBOPT}"
+
+    def test_apply_uses_all_when_only_some_entries_need_changing(self):
+        # ALL is the only form that also updates /etc/kernel/cmdline, which is
+        # what newly installed kernels inherit, so it must be preferred even
+        # when one entry is already correct.
+        fake = FakeGrubby([(KERNEL_A, f"ro pci={SUBOPT}"), (KERNEL_B, "ro")])
+        with fake.install(), quiet():
+            GrubbyBackend().apply(ACS_ARG, dry_run=False)
+        assert fake.calls == [
+            ["grubby", "--update-kernel", "ALL", "--args", f"pci={SUBOPT}"]
+        ]
+
+    def test_apply_per_entry_when_entries_want_different_values(self):
+        fake = FakeGrubby([(KERNEL_A, "ro pci=realloc"), (KERNEL_B, "ro")])
+        with fake.install(), quiet():
+            GrubbyBackend().apply(ACS_ARG, dry_run=False)
+        assert fake.calls == [
+            ["grubby", "--update-kernel", KERNEL_A, "--args", f"pci=realloc,{SUBOPT}"],
+            ["grubby", "--update-kernel", KERNEL_B, "--args", f"pci={SUBOPT}"],
+        ]
+        assert fake.entries[0]["args"] == f"ro pci=realloc,{SUBOPT}"
+        assert fake.entries[1]["args"] == f"ro pci={SUBOPT}"
+
+    def test_apply_verification_failure_raises(self):
+        fake = FakeGrubby([(KERNEL_A, "ro")], apply_changes=False)
+        with fake.install():
+            with pytest.raises(rdma_topo.CommandError, match="did not set"):
+                GrubbyBackend().apply(ACS_ARG, dry_run=False)
+
+    def test_apply_dry_run_prints_and_calls_nothing(self):
+        fake = FakeGrubby([(KERNEL_A, "ro")])
+        buf = io.StringIO()
+        with fake.install():
+            with contextlib.redirect_stdout(buf):
+                GrubbyBackend().apply(ACS_ARG, dry_run=True)
+        assert fake.calls == []
+        # The printed command must be copy paste safe, parsing it back as a
+        # shell command has to give exactly the argv that would have run.
+        assert shlex.split(buf.getvalue().strip()) == [
+            "grubby",
+            "--update-kernel",
+            "ALL",
+            "--args",
+            f"pci={SUBOPT}",
+        ]
+
+    def test_dry_run_with_nothing_to_do_prints_a_comment(self):
+        fake = FakeGrubby([(KERNEL_A, f"ro pci={SUBOPT}")])
+        buf = io.StringIO()
+        with fake.install():
+            with contextlib.redirect_stdout(buf):
+                GrubbyBackend().apply(ACS_ARG, dry_run=True)
+        assert buf.getvalue().startswith("#")
+        assert fake.calls == []
+
+    def test_remove_drops_only_our_subopt(self):
+        fake = FakeGrubby([(KERNEL_A, f"ro pci=realloc,{SUBOPT}")])
+        with fake.install(), quiet():
+            assert GrubbyBackend().remove(dry_run=False) is True
+        assert fake.calls[0][3:] == ["--args", "pci=realloc"]
+        assert fake.entries[0]["args"] == "ro pci=realloc"
+
+    def test_remove_uses_remove_args_when_nothing_else_is_left(self):
+        fake = FakeGrubby([(KERNEL_A, f"ro pci={SUBOPT}")])
+        with fake.install(), quiet():
+            assert GrubbyBackend().remove(dry_run=False) is True
+        assert fake.calls[0][3:] == ["--remove-args", "pci"]
+        assert fake.entries[0]["args"] == "ro"
+
+    def test_remove_with_nothing_set_returns_false(self):
+        fake = FakeGrubby([(KERNEL_A, "ro quiet")])
+        with fake.install(), quiet():
+            assert GrubbyBackend().remove(dry_run=False) is False
+        assert fake.calls == []
+
+    def test_whitespace_in_existing_value_is_refused(self):
+        fake = FakeGrubby([(KERNEL_A, "ro pci=config_acs='a; b'")])
+        with fake.install():
+            with pytest.raises(rdma_topo.CommandError, match="whitespace"):
+                GrubbyBackend().apply(ACS_ARG, dry_run=False)
+
+    def test_missing_grubby_raises_command_error(self):
+        def missing(cmd, text=False):
+            raise FileNotFoundError(2, "No such file or directory", "grubby")
+
+        with mock.patch.object(rdma_topo.subprocess, "check_output", missing):
+            with pytest.raises(rdma_topo.CommandError, match="Could not run grubby"):
+                GrubbyBackend().apply(ACS_ARG, dry_run=True)
+
+    def test_grubby_failure_raises_command_error(self):
+        def failing(cmd, text=False):
+            raise rdma_topo.subprocess.CalledProcessError(1, cmd)
+
+        with mock.patch.object(rdma_topo.subprocess, "check_output", failing):
+            with pytest.raises(rdma_topo.CommandError, match="exit code 1"):
+                GrubbyBackend().apply(ACS_ARG, dry_run=True)
+
+    def test_no_boot_entries_raises_command_error(self):
+        fake = FakeGrubby([])
+        with fake.install():
+            with pytest.raises(rdma_topo.CommandError, match="did not return any boot entry"):
+                GrubbyBackend().apply(ACS_ARG, dry_run=True)
+
+
+# ---------------------------------------------------------------------------
+# select_cmdline_backend
+# ---------------------------------------------------------------------------
+
+
+@contextlib.contextmanager
+def fake_system(has_grub_dropin_dir: bool, commands: List[str]):
+    with mock.patch.object(
+        rdma_topo.os.path, "isdir", lambda p: has_grub_dropin_dir
+    ), mock.patch.object(
+        rdma_topo.shutil, "which", lambda c: f"/usr/sbin/{c}" if c in commands else None
+    ):
+        yield
+
+
+class TestSelectCmdlineBackend:
+    def test_debian_selects_update_grub(self):
+        with fake_system(True, ["update-grub"]):
+            backend = select_cmdline_backend("auto", None)
+        assert isinstance(backend, UpdateGrubBackend)
+        assert backend.output == rdma_topo.DEFAULT_GRUB_DROPIN
+
+    def test_rhel_selects_grubby(self):
+        with fake_system(False, ["grubby"]):
+            assert isinstance(select_cmdline_backend("auto", None), GrubbyBackend)
+
+    def test_update_grub_wins_when_both_are_present(self):
+        with fake_system(True, ["update-grub", "grubby"]):
+            assert isinstance(select_cmdline_backend("auto", None), UpdateGrubBackend)
+
+    def test_neither_raises(self):
+        with fake_system(False, []):
+            with pytest.raises(rdma_topo.CommandError, match="Could not determine"):
+                select_cmdline_backend("auto", None)
+
+    def test_explicit_output_forces_update_grub(self):
+        with fake_system(False, ["grubby"]):
+            backend = select_cmdline_backend("auto", "/tmp/acs.cfg")
+        assert isinstance(backend, UpdateGrubBackend)
+        assert backend.output == "/tmp/acs.cfg"
+
+    def test_explicit_backend_overrides_detection(self):
+        with fake_system(True, ["update-grub"]):
+            assert isinstance(select_cmdline_backend("grubby", None), GrubbyBackend)
+
+    def test_output_with_grubby_raises(self):
+        with fake_system(False, ["grubby"]):
+            with pytest.raises(rdma_topo.CommandError, match="--output"):
+                select_cmdline_backend("grubby", "/tmp/acs.cfg")
+
+    def test_forced_update_grub_uses_the_default_path(self):
+        with fake_system(False, ["grubby"]):
+            backend = select_cmdline_backend("update-grub", None)
+        assert backend.output == rdma_topo.DEFAULT_GRUB_DROPIN

@@ -12,6 +12,8 @@ import itertools
 import json
 import os
 import re
+import shlex
+import shutil
 import subprocess
 import sys
 import tempfile
@@ -1433,6 +1435,11 @@ def update_file(fn: str, new_content: str):
     return True
 
 
+GRUB_DROPIN_DIR = "/etc/default/grub.d"
+DEFAULT_GRUB_DROPIN = os.path.join(GRUB_DROPIN_DIR, "config-acs.cfg")
+GRUBBY = "grubby"
+
+
 def compute_acs_arg(topo: PCITopo) -> str:
     """Build the pci=config_acs= value for the topology. Devices that already
     have the kernel default ACS settings are omitted."""
@@ -1505,32 +1512,239 @@ class UpdateGrubBackend(KernelCmdlineBackend):
         return True
 
 
+def acs_cmdline_subopt(acs_arg: str) -> str:
+    """The pci= sub option setting the ACS values.
+
+    The value is single quoted because ';' separates commands in the grub
+    config language, an unquoted value is silently truncated at the first ';'.
+    Single quotes rather than double quotes because grubby copies the value
+    verbatim into the double quoted GRUB_CMDLINE_LINUX of /etc/default/grub,
+    where nested double quotes would end the assignment early."""
+    return f"config_acs='{acs_arg}'"
+
+
+def split_cmdline(cmdline: str) -> List[str]:
+    """Split a kernel command line into arguments, keeping quoted sections
+    together and keeping the quotes"""
+    return re.findall(r"""(?:[^\s"']|"[^"]*"|'[^']*')+""", cmdline)
+
+
+def parse_grubby_info(out: str) -> List[Dict[str, str]]:
+    """Parse the boot entries from the output of grubby --info"""
+    # A new entry starts at 'index=', or at 'kernel=' for grubby versions that
+    # do not print an index.
+    start = "index" if re.search(r"^index=", out, re.MULTILINE) else "kernel"
+    entries: List[Dict[str, str]] = []
+    for line in out.splitlines():
+        key, sep, value = line.partition("=")
+        if not sep:
+            continue
+        if key == start:
+            entries.append({})
+        if not entries:
+            continue
+        if len(value) >= 2 and value[0] == '"' and value[-1] == '"':
+            value = value[1:-1]
+        entries[-1][key] = value
+    return [entry for entry in entries if "kernel" in entry]
+
+
+def merge_pci_param(tokens: List[str], subopt: Optional[str]) -> Optional[str]:
+    """Build the pci= argument that replaces the existing pci= arguments.
+
+    grubby matches arguments by name, so all the pci= sub options have to be
+    kept together in a single argument or adding ours would drop the others.
+    Returns None when no pci= argument is needed at all."""
+    subopts = [
+        part
+        for token in tokens
+        for part in token[len("pci=") :].split(",")
+        if part and not part.startswith("config_acs=")
+    ]
+    if subopt is not None:
+        subopts.append(subopt)
+    if not subopts:
+        return None
+    return "pci=" + ",".join(subopts)
+
+
+class GrubbyBackend(KernelCmdlineBackend):
+    """Red Hat style systems with a grubby command"""
+
+    name = "grubby"
+
+    def __info(self) -> List[Dict[str, str]]:
+        cmd = [GRUBBY, "--info", "ALL"]
+        try:
+            out = subprocess.check_output(cmd, text=True)
+        except FileNotFoundError:
+            raise CommandError(f"Could not run {GRUBBY}, it is required to set the kernel command line on this system")
+        except subprocess.CalledProcessError as e:
+            raise CommandError(f"'{' '.join(cmd)}' failed with exit code {e.returncode}")
+
+        entries = parse_grubby_info(out)
+        if not entries:
+            raise CommandError(f"'{' '.join(cmd)}' did not return any boot entry, cannot set the kernel command line")
+        return entries
+
+    def __commands(
+        self, target: str, has_old: bool, new: Optional[str]
+    ) -> List[List[str]]:
+        cmd = [GRUBBY, "--update-kernel", target]
+        if new is not None:
+            # grubby matches arguments by name, --args replaces any existing
+            # pci= argument on its own.
+            return [cmd + ["--args", new]]
+        if has_old:
+            return [cmd + ["--remove-args", "pci"]]
+        return []
+
+    def __plan(self, subopt: Optional[str]) -> List[List[str]]:
+        """Build the grubby commands that set the ACS parameter to subopt, or
+        remove it when subopt is None. Entries that already have the wanted
+        value contribute nothing, so an unchanged system plans no commands."""
+        entries = self.__info()
+        wanted = []
+        for entry in entries:
+            old = [
+                token
+                for token in split_cmdline(entry.get("args", ""))
+                if token == "pci" or token.startswith("pci=")
+            ]
+            for token in old:
+                if any(c.isspace() for c in token):
+                    raise CommandError(f"Cannot safely change the kernel argument {token} of {entry['kernel']}, it contains whitespace. Remove it with grubby --remove-args and try again.")
+
+            wanted.append((entry, old, merge_pci_param(old, subopt)))
+
+        changed = [
+            (entry, old, new)
+            for entry, old, new in wanted
+            if old != ([new] if new is not None else [])
+        ]
+        if not changed:
+            return []
+
+        # When every entry wants the same value, update them in one go. ALL is
+        # the only form that also updates /etc/kernel/cmdline, which is what
+        # newly installed kernels inherit, so it is worth using even when only
+        # some of the entries need changing.
+        if len({new for _, _, new in wanted}) == 1:
+            has_old = any(old for _, old, _ in wanted)
+            return self.__commands("ALL", has_old, wanted[0][2])
+
+        cmds: List[List[str]] = []
+        for entry, old, new in changed:
+            cmds.extend(self.__commands(entry["kernel"], bool(old), new))
+        return cmds
+
+    def __run(self, cmds: List[List[str]], dry_run: bool) -> None:
+        if dry_run:
+            for cmd in cmds:
+                print(" ".join(shlex.quote(arg) for arg in cmd))
+            return
+
+        for cmd in cmds:
+            try:
+                subprocess.check_call(cmd)
+            except subprocess.CalledProcessError as e:
+                raise CommandError(f"'{' '.join(cmd)}' failed with exit code {e.returncode}")
+
+    def __verify(self, subopt: Optional[str]) -> None:
+        """Quoting and argument matching vary between grubby versions, check
+        that the boot entries really ended up with the wanted value."""
+        if not self.__plan(subopt):
+            return
+        if subopt is None:
+            raise CommandError(f"{GRUBBY} did not remove the ACS settings from every boot entry")
+        raise CommandError(f"{GRUBBY} did not set pci={subopt} on every boot entry, the ACS settings will not take effect")
+
+    def apply(self, acs_arg: str, dry_run: bool) -> None:
+        subopt = acs_cmdline_subopt(acs_arg)
+        cmds = self.__plan(subopt)
+        self.__run(cmds, dry_run)
+        if dry_run:
+            if not cmds:
+                print("# the kernel command line already has the wanted ACS settings")
+            return
+        self.__verify(subopt)
+        if cmds:
+            print("Boot entries updated, the ACS settings take effect after the next reboot")
+
+    def remove(self, dry_run: bool) -> bool:
+        cmds = self.__plan(None)
+        self.__run(cmds, dry_run)
+        if dry_run:
+            if not cmds:
+                print("# the kernel command line has no ACS settings to remove")
+            return bool(cmds)
+        if cmds:
+            self.__verify(None)
+        return bool(cmds)
+
+
+def select_cmdline_backend(backend: str, output: Optional[str]) -> KernelCmdlineBackend:
+    """Pick the mechanism used to set the kernel command line on this system.
+
+    Detection is by capability rather than by distribution, it is what decides
+    whether the operation can work at all and it keeps working in containers
+    and on derivative distributions."""
+    if backend == UpdateGrubBackend.name:
+        return UpdateGrubBackend(output or DEFAULT_GRUB_DROPIN)
+
+    if backend == GrubbyBackend.name:
+        if output is not None:
+            raise CommandError(f"--output is only supported by the {UpdateGrubBackend.name} backend")
+        return GrubbyBackend()
+
+    # An explicitly given dropin path is an unambiguous statement of intent.
+    if output is not None:
+        return UpdateGrubBackend(output)
+    # Debian wins ties so that an incidentally installed grubby cannot change
+    # the behaviour on systems that work today.
+    if os.path.isdir(GRUB_DROPIN_DIR) and shutil.which("update-grub"):
+        return UpdateGrubBackend(DEFAULT_GRUB_DROPIN)
+    if shutil.which(GRUBBY):
+        return GrubbyBackend()
+    raise CommandError(f"Could not determine how to set the kernel command line, neither a {GRUB_DROPIN_DIR} directory with an update-grub command nor a {GRUBBY} command was found. Use --backend to select one explicitly.")
+
+
 def args_write_grub_acs(parser):
     parser.add_argument(
         "-n",
         "--dry-run",
         action="store_true",
         dest="dry_run",
-        help="Output the grub configuration to stdout and make no changes",
+        help="Output the changes that would be made to stdout and make no changes",
     )
     parser.add_argument(
         "--output",
         action="store",
-        default="/etc/default/grub.d/config-acs.cfg",
-        help="Grub dropin file to use for the kernel command line",
+        default=None,
+        help=f"Grub dropin file to use for the kernel command line, only for the {UpdateGrubBackend.name} backend (default {DEFAULT_GRUB_DROPIN})",
+    )
+    parser.add_argument(
+        "--backend",
+        action="store",
+        default="auto",
+        choices=["auto", UpdateGrubBackend.name, GrubbyBackend.name],
+        help="How to set the kernel command line. The default auto-detects whichever of update-grub or grubby the system uses.",
     )
     add_virt_argument(parser)
 
 
 def cmd_write_grub_acs(args):
-    """Generate a grub dropin file to have the kernel commandline set the
-    required ACS flags during system boot. This is the recommended way to
-    configure ACS on systems but requires a compatible kernel.
+    """Set the kernel commandline to have the required ACS flags applied
+    during system boot. This is the recommended way to configure ACS on
+    systems but requires a compatible kernel.
 
-    If the system does not have any need of ACS flags the dropin file will be
-    removed. This command is intended for Debian style systems with a
-    /etc/default/grub.d and update-grub command."""
-    backend = UpdateGrubBackend(args.output)
+    On Debian style systems, with a /etc/default/grub.d directory and an
+    update-grub command, a grub dropin file is written. On Red Hat style
+    systems the boot entries are updated with grubby.
+
+    If the system does not have any need of ACS flags the settings will be
+    removed."""
+    backend = select_cmdline_backend(args.backend, args.output)
 
     try:
         topo = PCITopo(None, args.virt)
@@ -1539,13 +1753,15 @@ def cmd_write_grub_acs(args):
             raise
         if backend.remove(dry_run=False):
             raise CommandError(
-                (f"Found ACS drop-in file {args.output} but the system does "
-                 "not have a supported topology. File deleted."),
+                ("Found ACS kernel command line settings but the system does "
+                 "not have a supported topology. Settings removed."),
                 CommandError.Level.WARNING,
             )
         return
 
     backend.apply(compute_acs_arg(topo), args.dry_run)
+
+cmd_write_grub_acs.__aliases__ = ("write-boot-acs",)
 
 
 # -------------------------------------------------------------------
