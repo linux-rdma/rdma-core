@@ -1998,6 +1998,12 @@ cdef class Mlx5UMEM(PyverbsCM):
         if self.addr:
             return <uintptr_t><void*>self.addr
 
+    @umem_addr.setter
+    def umem_addr(self, addr):
+        if not self.is_user_addr and self.addr != NULL:
+            raise PyverbsUserError('Cannot override the address of an internally allocated UMEM')
+        self.addr = <void*><uintptr_t>addr
+        self.is_user_addr = True
 
 cdef class Mlx5Cqe64(PyverbsObject):
     def __init__(self, addr):

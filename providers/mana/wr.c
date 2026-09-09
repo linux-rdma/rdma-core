@@ -191,6 +191,7 @@ int mana_post_recv(struct ibv_qp *ibqp, struct ibv_recv_wr *wr,
 {
 	switch (ibqp->qp_type) {
 	case IBV_QPT_RC:
+	case IBV_QPT_UC:
 		return mana_ib_post_recv(ibqp, wr, bad);
 	default:
 		verbs_err(verbs_get_ctx(ibqp->context), "QPT not supported %d\n", ibqp->qp_type);
@@ -350,7 +351,7 @@ mana_ib_post_send_request(struct mana_qp *qp, struct ibv_send_wr *wr,
 			       &send_oob, oob_sge, num_sge, MTU_SIZE(qp->mtu), flags, &gdma_wqe);
 	if (ret) {
 		verbs_err(verbs_get_ctx(qp->ibqp.qp.context),
-			  "rc post send error, ret %d\n", ret);
+			  "post send error, ret %d\n", ret);
 		goto cleanup;
 	}
 
@@ -430,6 +431,7 @@ int mana_post_send(struct ibv_qp *ibqp, struct ibv_send_wr *wr,
 {
 	switch (ibqp->qp_type) {
 	case IBV_QPT_RC:
+	case IBV_QPT_UC:
 		return mana_ib_post_send(ibqp, wr, bad);
 	default:
 		verbs_err(verbs_get_ctx(ibqp->context), "QPT not supported %d\n", ibqp->qp_type);

@@ -21,9 +21,10 @@
 #include "mana.h"
 
 DECLARE_DRV_CMD(mana_alloc_ucontext, IB_USER_VERBS_CMD_GET_CONTEXT, empty,
-		empty);
+		mana_ib_alloc_ucontext_resp);
 
-DECLARE_DRV_CMD(mana_alloc_pd, IB_USER_VERBS_CMD_ALLOC_PD, empty, empty);
+DECLARE_DRV_CMD(mana_alloc_pd, IB_USER_VERBS_CMD_ALLOC_PD, mana_ib_alloc_pd,
+		mana_ib_alloc_pd_resp);
 
 static const struct verbs_match_ent hca_table[] = {
 	VERBS_DRIVER_ID(RDMA_DRIVER_MANA),
@@ -114,19 +115,34 @@ int mana_query_port(struct ibv_context *context, uint8_t port,
 	return ibv_cmd_query_port(context, port, attr, &cmd, sizeof(cmd));
 }
 
-struct ibv_pd *mana_alloc_pd(struct ibv_context *context)
+struct ibv_pd *mana_alloc_pd_ex(struct ibv_context *context, uint32_t flags)
 {
-	struct ibv_alloc_pd cmd;
-	struct mana_alloc_pd_resp resp;
+	struct mana_context *mctx = to_mctx(context);
+	struct mana_alloc_pd cmd = {};
+	struct mana_ib_alloc_pd *cmd_drv = &cmd.drv_payload;
+	struct mana_alloc_pd_resp resp = {};
+	size_t cmd_size = sizeof(cmd.ibv_cmd); /* v0 size */
 	struct mana_pd *pd;
 	int ret;
+
+	if ((flags & MANADV_PD_FLAGS_SHORT_PDN) &&
+	    !(mctx->comp_mask & MANA_IB_UCNTX_ALLOC_PDN_SUPPORT)) {
+		errno = EOPNOTSUPP;
+		return NULL;
+	}
 
 	pd = calloc(1, sizeof(*pd));
 	if (!pd)
 		return NULL;
 
-	ret = ibv_cmd_alloc_pd(context, &pd->ibv_pd, &cmd, sizeof(cmd),
-			       &resp.ibv_resp, sizeof(resp));
+	if (mctx->comp_mask & MANA_IB_UCNTX_ALLOC_PDN_SUPPORT)
+		cmd_size = sizeof(cmd); /* v1 size */
+
+	if (flags & MANADV_PD_FLAGS_SHORT_PDN)
+		cmd_drv->comp_mask |= MANA_IB_PD_SHORT_PDN;
+
+	ret = ibv_cmd_alloc_pd(context, &pd->ibv_pd, &cmd.ibv_cmd, cmd_size,
+			      &resp.ibv_resp, sizeof(resp));
 	if (ret) {
 		verbs_err(verbs_get_ctx(context), "Failed to allocate PD\n");
 		errno = ret;
@@ -134,7 +150,14 @@ struct ibv_pd *mana_alloc_pd(struct ibv_context *context)
 		return NULL;
 	}
 
+	pd->pdn = resp.pdn;
+
 	return &pd->ibv_pd;
+}
+
+static struct ibv_pd *mana_alloc_pd(struct ibv_context *context)
+{
+	return mana_alloc_pd_ex(context, 0);
 }
 
 struct ibv_pd *
@@ -452,7 +475,7 @@ static struct verbs_context *mana_alloc_context(struct ibv_device *ibdev,
 {
 	int ret, i;
 	struct mana_context *context;
-	struct mana_alloc_ucontext_resp resp;
+	struct mana_alloc_ucontext_resp resp = {};
 	struct ibv_get_context cmd;
 
 	context = verbs_init_and_alloc_context(ibdev, cmd_fd, context, ibv_ctx,
@@ -467,6 +490,8 @@ static struct verbs_context *mana_alloc_context(struct ibv_device *ibdev,
 		errno = ret;
 		goto free_ctx;
 	}
+
+	context->comp_mask = resp.drv_payload.comp_mask;
 
 	verbs_set_ops(&context->ibv_ctx, &mana_ctx_ops);
 

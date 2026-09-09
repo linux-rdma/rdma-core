@@ -165,7 +165,7 @@ struct ibv_cq *mana_create_cq(struct ibv_context *context, int cqe,
 
 	cmd_drv = &cmd.drv_payload;
 	cmd_drv->buf_addr = (uintptr_t)cq->buf;
-	cmd_drv->flags = flags;
+	cmd_drv->comp_mask = flags;
 	resp.cqid = UINT32_MAX;
 
 	ret = ibv_cmd_create_cq(context, cq->cqe, channel, comp_vector,
@@ -278,6 +278,25 @@ static inline int advance_send_completions(struct mana_qp *qp, uint32_t psn,
 				  shadow_wqe->header.posted_wqe_size_in_bu;
 		mana_ib_update_shared_mem_left_offset(qp, offset & GDMA_QUEUE_OFFSET_MASK);
 
+		shadow_queue_advance_consumer(&qp->shadow_sq);
+	}
+
+	return produced;
+}
+
+static inline int handle_requester_cqe(struct mana_qp *qp, struct gdma_cqe *cqe, struct ibv_wc *wc)
+{
+	struct mana_gdma_queue *send_queue = mana_ib_get_sreq(qp);
+	struct shadow_wqe_header *wqe;
+	int produced = 0;
+
+	while (!produced && (wqe = shadow_queue_get_next_to_consume(&qp->shadow_sq)) != NULL) {
+		send_queue->cons_idx += wqe->posted_wqe_size_in_bu;
+		send_queue->cons_idx &= GDMA_QUEUE_OFFSET_MASK;
+		if (wqe->flags != MANA_NO_SIGNAL_WC) {
+			fill_verbs_from_shadow_wqe(qp, wc, wqe);
+			produced++;
+		}
 		shadow_queue_advance_consumer(&qp->shadow_sq);
 	}
 
@@ -443,6 +462,8 @@ static inline int mana_handle_cqe(struct mana_context *ctx, struct gdma_cqe *cqe
 		return handle_error_cqe(qp, cqe, wc, nwc, consumed);
 	else if (cqe->rdma_cqe.cqe_type == CQE_TYPE_ARMED_CMPL)
 		return handle_rc_requester_cqe(qp, cqe, wc, nwc, consumed);
+	else if (cqe->is_sq && cqe->rdma_cqe.cqe_type == CQE_TYPE_UD_SEND)
+		return handle_requester_cqe(qp, cqe, wc);
 	else
 		return handle_responder_cqe(qp, cqe, wc);
 }

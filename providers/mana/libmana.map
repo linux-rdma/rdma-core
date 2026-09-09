@@ -6,3 +6,8 @@ MANA_1.0 {
 		manadv_init_obj;
 	local: *;
 };
+
+MANA_1.1 {
+	global:
+		manadv_alloc_pd;
+} MANA_1.0;

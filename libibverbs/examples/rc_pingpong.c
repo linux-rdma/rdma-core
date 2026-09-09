@@ -261,17 +261,29 @@ static struct pingpong_dest *pp_server_exch_dest(struct pingpong_context *ctx,
 		return NULL;
 	}
 
-	for (t = res; t; t = t->ai_next) {
-		sockfd = socket(t->ai_family, t->ai_socktype, t->ai_protocol);
-		if (sockfd >= 0) {
-			n = 1;
+	/*
+	 * Prefer binding an IPv6 wildcard ([::]) so IPv6 clients can reach
+	 * the control channel; with the Linux-default dual-stack [::]
+	 * socket, IPv4 clients are accepted as well.  Fall back to the IPv4
+	 * wildcard (0.0.0.0) when IPv6 is not available on this host.
+	 */
+	for (int i = 0; i < 2 && sockfd < 0; i++) {
+		int family = i ? AF_INET : AF_INET6;
 
-			setsockopt(sockfd, SOL_SOCKET, SO_REUSEADDR, &n, sizeof n);
+		for (t = res; t; t = t->ai_next) {
+			if (t->ai_family != family)
+				continue;
 
-			if (!bind(sockfd, t->ai_addr, t->ai_addrlen))
-				break;
-			close(sockfd);
-			sockfd = -1;
+			sockfd = socket(t->ai_family, t->ai_socktype, t->ai_protocol);
+			if (sockfd >= 0) {
+				n = 1;
+				setsockopt(sockfd, SOL_SOCKET, SO_REUSEADDR, &n, sizeof(n));
+
+				if (!bind(sockfd, t->ai_addr, t->ai_addrlen))
+					break;
+				close(sockfd);
+				sockfd = -1;
+			}
 		}
 	}
 
