@@ -152,6 +152,8 @@ function(rdma_shared_provider DEST VERSION_SCRIPT SOVERSION VERSION)
   # Create a static provider library
   if (ENABLE_STATIC)
     add_library(${DEST}-static STATIC ${ARGN})
+    # LTTng tracepoint headers re-#include themselves by quoted name
+    target_include_directories(${DEST}-static PUBLIC ".")
     rdma_public_static_lib(${DEST} ${DEST}-static ${VERSION_SCRIPT})
   endif()
 
@@ -198,6 +200,8 @@ function(rdma_provider DEST)
   # Create a static provider library
   if (ENABLE_STATIC)
     add_library(${DEST} STATIC ${ARGN})
+    # LTTng tracepoint headers re-#include themselves by quoted name
+    target_include_directories(${DEST} PUBLIC ".")
     rdma_public_static_lib("${DEST}-rdmav${IBVERBS_PABI_VERSION}" ${DEST} ${BUILDLIB}/provider.map)
   endif()
 
