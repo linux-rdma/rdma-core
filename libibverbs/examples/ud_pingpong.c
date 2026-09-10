@@ -54,6 +54,7 @@ enum {
 
 static int page_size;
 static int validate_buf;
+static int use_unordered;
 
 struct pingpong_context {
 	struct ibv_context	*context;
@@ -296,6 +297,7 @@ static struct pingpong_context *pp_init_ctx(struct ibv_device *ib_dev, int size,
 					    int rx_depth, int port,
 					    int use_event)
 {
+	int access_flags = IBV_ACCESS_LOCAL_WRITE;
 	struct pingpong_context *ctx;
 
 	ctx = malloc(sizeof *ctx);
@@ -352,7 +354,9 @@ static struct pingpong_context *pp_init_ctx(struct ibv_device *ib_dev, int size,
 		goto clean_comp_channel;
 	}
 
-	ctx->mr = ibv_reg_mr(ctx->pd, ctx->buf, size + 40, IBV_ACCESS_LOCAL_WRITE);
+	if (use_unordered)
+		access_flags |= IBV_ACCESS_UNORDERED;
+	ctx->mr = ibv_reg_mr(ctx->pd, ctx->buf, size + 40, access_flags);
 	if (!ctx->mr) {
 		fprintf(stderr, "Couldn't register MR\n");
 		goto clean_pd;
@@ -549,6 +553,7 @@ static void usage(const char *argv0)
 	printf("  -e, --events           sleep on CQ events (default poll)\n");
 	printf("  -g, --gid-idx=<gid index> local port gid index\n");
 	printf("  -c, --chk              validate received buffer\n");
+	printf("  -W, --weak-ordering    use weak (unordered) memory access\n");
 }
 
 int main(int argc, char *argv[])
@@ -590,10 +595,11 @@ int main(int argc, char *argv[])
 			{ .name = "events",   .has_arg = 0, .val = 'e' },
 			{ .name = "gid-idx",  .has_arg = 1, .val = 'g' },
 			{ .name = "chk",      .has_arg = 0, .val = 'c' },
+			{ .name = "weak-ordering",    .has_arg = 0, .val = 'W' },
 			{}
 		};
 
-		c = getopt_long(argc, argv, "p:d:i:s:r:n:l:eg:c", long_options,
+		c = getopt_long(argc, argv, "p:d:i:s:r:n:l:eg:cW", long_options,
 				NULL);
 		if (c == -1)
 			break;
@@ -645,6 +651,10 @@ int main(int argc, char *argv[])
 
 		case 'c':
 			validate_buf = 1;
+			break;
+
+		case 'W':
+			use_unordered = 1;
 			break;
 
 		default:
