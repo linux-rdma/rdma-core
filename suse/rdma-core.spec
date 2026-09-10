@@ -45,6 +45,7 @@ Group:          Productivity/Networking/Other
 %define mlx5_so_major   1
 %define ibnetdisc_major 5
 %define mad_major       5
+%define xscale_so_major 1
 
 %define  efa_lname    libefa%{efa_so_major}
 %define  hns_lname    libhns%{hns_so_major}
@@ -55,6 +56,7 @@ Group:          Productivity/Networking/Other
 %define  mana_lname   libmana%{mana_so_major}
 %define  mlx4_lname   libmlx4-%{mlx4_so_major}
 %define  mlx5_lname   libmlx5-%{mlx5_so_major}
+%define  xscale_lname   libxscale-%{xscale_so_major}
 
 %ifnarch s390 %arm
 %define dma_coherent 1
@@ -169,6 +171,7 @@ Requires:       %{ionic_lname} = %{version}-%{release}
 Requires:       %{mana_lname} = %{version}-%{release}
 Requires:       %{mlx4_lname} = %{version}-%{release}
 Requires:       %{mlx5_lname} = %{version}-%{release}
+Requires:       %{xscale_lname} = %{version}-%{release}
 %endif
 Requires:       rsocket = %{version}-%{release}
 
@@ -215,6 +218,7 @@ Obsoletes:      libmlx5-rdmav2 < %{version}-%{release}
 Obsoletes:      libmthca-rdmav2 < %{version}-%{release}
 Obsoletes:      libocrdma-rdmav2 < %{version}-%{release}
 Obsoletes:      librxe-rdmav2 < %{version}-%{release}
+Obsoletes:      libxscale-rdmav2 < %{version}-%{release}
 %if 0%{?dma_coherent}
 Requires:       %{efa_lname} = %{version}-%{release}
 Requires:       %{hns_lname} = %{version}-%{release}
@@ -222,6 +226,7 @@ Requires:       %{ionic_lname} = %{version}-%{release}
 Requires:       %{mana_lname} = %{version}-%{release}
 Requires:       %{mlx4_lname} = %{version}-%{release}
 Requires:       %{mlx5_lname} = %{version}-%{release}
+Requires:       %{xscale_lname} = %{version}-%{release}
 %endif
 # Recommended packages for rxe
 Recommends:     iproute2
@@ -251,6 +256,7 @@ Device-specific plug-in ibverbs userspace drivers are included:
 - librxe: A software implementation of the RoCE protocol
 - libsiw: A software implementation of the iWarp protocol
 - libvmw_pvrdma: VMware paravirtual RDMA device
+- libxscale: Yunsilicon RDMA Device
 
 %package -n %verbs_lname
 Summary:        Ibverbs runtime library
@@ -301,6 +307,13 @@ Group:          System/Libraries
 
 %description -n %mlx5_lname
 This package contains the mlx5 runtime library.
+
+%package -n %xscale_lname
+Summary:        Yunsilicon xscale runtime library
+Group:          System/Libraries
+
+%description -n %xscale_lname
+This package contains the Yunsilicon xscale runtime library.
 
 %package    -n libibnetdisc%{ibnetdisc_major}
 Summary:        Infiniband Net Discovery runtime library
@@ -536,6 +549,7 @@ rm -rf %{buildroot}/%{_sbindir}/srp_daemon.sh
 %ldconfig_scriptlets -n %mana_lname
 %ldconfig_scriptlets -n %mlx4_lname
 %ldconfig_scriptlets -n %mlx5_lname
+%ldconfig_scriptlets -n %xscale_lname
 %ldconfig_scriptlets -n %umad_lname
 %ldconfig_scriptlets -n %rdmacm_lname
 %ldconfig_scriptlets -n libibnetdisc%{ibnetdisc_major}
@@ -735,6 +749,9 @@ done
 
 %files -n %mlx5_lname
 %{_libdir}/libmlx5*.so.*
+
+%files -n %xscale_lname
+%{_libdir}/libxscale*.so.*
 %endif
 
 %files -n libibverbs-utils
