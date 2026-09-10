@@ -105,3 +105,15 @@ int ionic_dv_pd_set_rqcmb(struct ibv_pd *ibpd, bool enable, bool expdb, bool req
 
 	return 0;
 }
+
+struct ibv_qp *ionic_dv_create_qp_ex(struct ibv_context *ibctx,
+				     struct ibv_qp_init_attr_ex *ex,
+				     struct ionic_dv_qp_init_attr_ex *ionic_ex)
+{
+	if (!is_ionic_ctx(ibctx)) {
+		errno = EINVAL;
+		return NULL;
+	}
+
+	return ionic_create_qp_ex_common(ibctx, ex, ionic_ex);
+}
