@@ -28,6 +28,7 @@ libibverbs.so.1 libibverbs1 #MINVER#
  ibv_alloc_dmah@IBVERBS_1.15 59
  ibv_alloc_pd@IBVERBS_1.0 1.1.6
  ibv_alloc_pd@IBVERBS_1.1 1.1.6
+ ibv_alloc_user_buf@IBVERBS_1.19 65
  ibv_attach_mcast@IBVERBS_1.0 1.1.6
  ibv_attach_mcast@IBVERBS_1.1 1.1.6
  ibv_close_device@IBVERBS_1.0 1.1.6
@@ -73,6 +74,7 @@ libibverbs.so.1 libibverbs1 #MINVER#
  ibv_free_buf@IBVERBS_1.17 64
  ibv_free_device_list@IBVERBS_1.0 1.1.6
  ibv_free_device_list@IBVERBS_1.1 1.1.6
+ ibv_free_user_buf@IBVERBS_1.19 65
  ibv_get_async_event@IBVERBS_1.0 1.1.6
  ibv_get_async_event@IBVERBS_1.1 1.1.6
  ibv_get_cq_event@IBVERBS_1.0 1.1.6
