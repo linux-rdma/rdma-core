@@ -549,6 +549,13 @@ FIND_PACKAGE (Threads REQUIRED)
 
 FIND_PACKAGE(PkgConfig REQUIRED)
 
+if (CMAKE_SYSTEM_NAME STREQUAL "FreeBSD")
+  find_package(linuxapi REQUIRED)
+  include_directories(BEFORE ${linuxapi_INCLUDE_DIR})
+  # We need to add an additional -I flag to all generated .pc files
+  set(PC_FREEBSD_CFLAGS "-I${linuxapi_INCLUDE_DIR}")
+endif()
+
 # libnl
 if (NOT DEFINED ENABLE_RESOLVE_NEIGH)
   set(ENABLE_RESOLVE_NEIGH "ON" CACHE BOOL "Enable internal resolution of neighbours for Etherent")
@@ -564,13 +571,15 @@ else()
   set(NL_LIBRARIES "")
   RDMA_DoFixup(0 "netlink/attr.h")
   RDMA_DoFixup(0 "netlink/msg.h")
-  RDMA_DoFixup(0 "netlink/netlink.h")
   RDMA_DoFixup(0 "netlink/object-api.h")
   RDMA_DoFixup(0 "netlink/route/link.h")
   RDMA_DoFixup(0 "netlink/route/link/vlan.h")
   RDMA_DoFixup(0 "netlink/route/neighbour.h")
-  RDMA_DoFixup(0 "netlink/route/route.h")
   RDMA_DoFixup(0 "netlink/route/rtnl.h")
+  if (CMAKE_SYSTEM_NAME STREQUAL "Linux")
+    RDMA_DoFixup(0 "netlink/netlink.h")
+    RDMA_DoFixup(0 "netlink/route/route.h")
+  endif()
 endif()
 
 # Older stuff blows up if these headers are included together

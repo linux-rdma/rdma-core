@@ -605,7 +605,16 @@ static int do_madvise(void *addr, size_t length, int advice,
 	int ret;
 	void *p;
 
+#if !defined INHERIT_COPY
 	ret = madvise(addr, length, advice);
+#else
+	if (advice == MADV_DOFORK || advice == MADV_DONTFORK) {
+		ret = minherit(addr, length, advice == MADV_DOFORK ?
+		    INHERIT_COPY : INHERIT_NONE);
+	} else {
+		ret = madvise(addr, length, advice);
+	}
+#endif
 
 	if (!ret || advice == MADV_DONTFORK)
 		return ret;
@@ -614,8 +623,12 @@ static int do_madvise(void *addr, size_t length, int advice,
 		/* if MADV_DOFORK failed we will try to remove VM_DONTCOPY
 		 * flag from each page
 		 */
+#if !defined INHERIT_COPY
 		for (p = addr; p < addr + length; p += range_page_size)
 			madvise(p, range_page_size, MADV_DOFORK);
+#else
+		minherit(addr, length, INHERIT_COPY);
+#endif
 	}
 
 	return 0;
