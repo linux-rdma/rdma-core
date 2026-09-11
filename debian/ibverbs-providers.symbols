@@ -224,3 +224,19 @@ libionic.so.1 ibverbs-providers #MINVER#
  ionic_dv_pd_set_udma_mask@IONIC_1.0 59
  ionic_dv_pd_set_sqcmb@IONIC_1.0 59
  ionic_dv_pd_set_rqcmb@IONIC_1.0 59
+ IONIC_1.1@IONIC_1.1 65
+ ionic_dv_is_ionic_ctx@IONIC_1.1 65
+ ionic_dv_is_ionic_pd@IONIC_1.1 65
+ ionic_dv_is_ionic_cq@IONIC_1.1 65
+ ionic_dv_is_ionic_qp@IONIC_1.1 65
+ ionic_dv_cq_get_udma_mask@IONIC_1.1 65
+ ionic_dv_qp_get_udma_idx@IONIC_1.1 65
+ ionic_dv_pd_set_expdb_mask@IONIC_1.1 65
+ ionic_dv_qp_set_gda@IONIC_1.1 65
+ ionic_dv_qp_get_send_dbell_data@IONIC_1.1 65
+ ionic_dv_qp_get_recv_dbell_data@IONIC_1.1 65
+ ionic_dv_get_ctx@IONIC_1.1 65
+ ionic_dv_get_cq@IONIC_1.1 65
+ ionic_dv_get_qp@IONIC_1.1 65
+ ionic_dv_create_cq_ex@IONIC_1.1 65
+
