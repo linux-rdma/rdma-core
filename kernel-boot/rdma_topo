@@ -779,13 +779,13 @@ class NVCX_Inline_Complex(NVCX_Complex):
         root_port: PCIDevice,
         shared_usp: PCIDevice,
         cx_pfs: Set[PCIDevice],
-        nvgpu: PCIDevice,
+        nvgpus: Set[PCIDevice],
     ):
         self.root_port = root_port
         self.cx_topo = NVCX_Topo(cx_pfs)
-        self.nvgpu = nvgpu
+        self.nvgpus = nvgpus
         self.cx_pf_dsp: Set[PCIDevice] = set()
-        self.nvgpu_dsp = None
+        self.nvgpu_dsps: Set[PCIDevice] = set()
 
         for dsp in shared_usp.children:
             for pdev in dsp.iterdownstream():
@@ -793,16 +793,12 @@ class NVCX_Inline_Complex(NVCX_Complex):
                     self.cx_pf_dsp.add(dsp)
                     break
                 if pdev.device_type == "nvgpu":
-                    if self.nvgpu_dsp is not None:
-                        raise TopoNotSupportedError(
-                            f"Multiple GPU DSPs under the same shared switch"
-                        )
-                    self.nvgpu_dsp = dsp
+                    self.nvgpu_dsps.add(dsp)
                     break
 
         if len(self.cx_pf_dsp) == 0:
             raise TopoUnexpectedError(f"CX NIC DSP not found in the topology")
-        if not self.nvgpu_dsp:
+        if len(self.nvgpu_dsps) == 0:
             raise TopoUnexpectedError(f"GPU DSP not found in the topology")
 
     @property
@@ -817,8 +813,9 @@ class NVCX_Inline_Complex(NVCX_Complex):
         for dsp in self.cx_pf_dsp:
             if not dsp.has_acs:
                 raise TopoUnexpectedError(f"CX NIC DSP {dsp.bdf} lacks ACS")
-        if not self.nvgpu_dsp.has_acs:
-            raise TopoUnexpectedError(f"GPU DSP {self.nvgpu_dsp.bdf} lacks ACS")
+        for dsp in self.nvgpu_dsps:
+            if not dsp.has_acs:
+                raise TopoUnexpectedError(f"GPU DSP {dsp.bdf} lacks ACS")
         if not self.root_port.has_acs:
             raise TopoUnexpectedError(f"Root port {self.root_port.bdf} lacks ACS")
         if virt is None:
@@ -840,7 +837,10 @@ class NVCX_Inline_Complex(NVCX_Complex):
                 # bit-3 : ACS P2P Completion Redirect
                 # bit-2 : ACS P2P Request Redirect
                 # bit-0 : ACS Source Validation
-                self.nvgpu_dsp: kernel_acs_isolated(self.nvgpu_dsp.device_type),
+                **{
+                    dsp: kernel_acs_isolated(dsp.device_type)
+                    for dsp in self.nvgpu_dsps
+                },
                 self.root_port: kernel_acs_isolated(self.root_port.device_type),
             }
         else:
@@ -852,15 +852,19 @@ class NVCX_Inline_Complex(NVCX_Complex):
                 # bit-2 : ACS P2P Request Redirect
                 # bit-0 : ACS Source Validation
                 **{dsp: "xx000x0" for dsp in self.cx_pf_dsp},
-                self.nvgpu_dsp: "xx000x0",
+                **{dsp: "xx000x0" for dsp in self.nvgpu_dsps},
                 self.root_port: "xx000x0",
             }
 
     def to_dict(self) -> Dict[str, Any]:
-        res = {
-            "gpu_bdf": str(self.nvgpu.bdf),
-            "subsystems": {},
-        }
+        res: Dict[str, Any] = {}
+        if len(self.nvgpus) == 1:
+            res["gpu_bdf"] = str(next(iter(self.nvgpus)).bdf)
+        else:
+            res["gpu_bdfs"] = [
+                str(gpu.bdf) for gpu in sorted(self.nvgpus, key=lambda x: x.bdf)
+            ]
+        res["subsystems"] = {}
         res.update(self.cx_topo.to_dict())
         devname = self.cx_topo.primary_pf.vpd_name
         if devname:
@@ -870,7 +874,7 @@ class NVCX_Inline_Complex(NVCX_Complex):
             res["numa_node"] = numa_node
 
         for pdev in sorted(
-            itertools.chain(self.cx_topo.pfs, [self.nvgpu]),
+            itertools.chain(self.cx_topo.pfs, self.nvgpus),
             key=lambda x: x.bdf,
         ):
             subsys = pdev.get_subsystems()
@@ -900,35 +904,35 @@ class NVCX_Inline_Complex(NVCX_Complex):
         )
 
     def __check_iommu_group(self, virt: bool) -> bool:
-        def check_one(pf: PCIDevice, virt: bool) -> bool:
+        def check_one(pf: PCIDevice, nvgpu: PCIDevice, virt: bool) -> bool:
             cxpf = f"{pf.device_type} {pf.bdf}"
-            nvgpu = f"{self.nvgpu.device_type} {self.nvgpu.bdf}"
-            prefix = f"Kernel iommu_group for {cxpf} and {nvgpu}"
+            gpu = f"{nvgpu.device_type} {nvgpu.bdf}"
+            prefix = f"Kernel iommu_group for {cxpf} and {gpu}"
 
-            equal = f"equal {pf.iommu_group} == {self.nvgpu.iommu_group}"
-            not_equal = f"not equal {pf.iommu_group} != {self.nvgpu.iommu_group}"
+            equal = f"equal {pf.iommu_group} == {nvgpu.iommu_group}"
+            not_equal = f"not equal {pf.iommu_group} != {nvgpu.iommu_group}"
 
             if virt:
                 if pf.iommu_group is None:
                     check_fail(f"Kernel iommu_group is missing for {cxpf}")
                     return False
 
-                if self.nvgpu.iommu_group is None:
-                    check_fail(f"Kernel iommu_group is missing for {nvgpu}")
+                if nvgpu.iommu_group is None:
+                    check_fail(f"Kernel iommu_group is missing for {gpu}")
                     return False
 
-                if pf.iommu_group == self.nvgpu.iommu_group:
+                if pf.iommu_group == nvgpu.iommu_group:
                     check_fail(f"{prefix} are {equal}")
                     return False
 
                 check_ok(f"{prefix} are {not_equal}")
                 return True
             else:
-                if pf.iommu_group is None and self.nvgpu.iommu_group is None:
+                if pf.iommu_group is None and nvgpu.iommu_group is None:
                     check_ok(f"{prefix} are not set")
                     return True
 
-                if pf.iommu_group != self.nvgpu.iommu_group:
+                if pf.iommu_group != nvgpu.iommu_group:
                     check_fail(f"{prefix} are {not_equal}")
                     return False
 
@@ -937,7 +941,8 @@ class NVCX_Inline_Complex(NVCX_Complex):
 
         return all(
             [
-                check_one(pf, virt)
+                check_one(pf, nvgpu, virt)
+                for nvgpu in sorted(self.nvgpus, key=lambda x: x.bdf)
                 for pf in sorted(self.cx_topo.pfs, key=lambda x: x.bdf)
             ]
         )
@@ -954,7 +959,10 @@ class NVCX_Inline_Complex(NVCX_Complex):
         if topo_str_key != "":
             res = f"{topo_str_key}, "
 
-        res += f"GPU={self.nvgpu.bdf}\n"
+        gpu_bdfs = ";".join(
+            str(gpu.bdf) for gpu in sorted(self.nvgpus, key=lambda x: x.bdf)
+        )
+        res += f"GPU={gpu_bdfs}\n"
 
         devname = self.primary_nic.vpd_name
         if devname:
@@ -966,8 +974,9 @@ class NVCX_Inline_Complex(NVCX_Complex):
         res += f"{self.cx_topo.topo_str()}\n"
 
         subsystems: Dict[str, Set[str]] = collections.defaultdict(set)
-        for k, v in self.nvgpu.get_subsystems().items():
-            subsystems[k].update(v)
+        for nvgpu in self.nvgpus:
+            for k, v in nvgpu.get_subsystems().items():
+                subsystems[k].update(v)
         res += print_list("DRM device", subsystems["drm"])
         res += print_list("NVMe device", subsystems["nvme"])
 
@@ -1251,7 +1260,8 @@ class PCITopo(object):
         return NVCX_DMA_Complex(cx_pfs, cx_dma, nvgpu)
 
     def __get_nvcx_inline_complex(self, nvgpu: PCIDevice):
-        """Match the topology for the inline complex using a GPU and a CX NIC.
+        """Match the topology for the inline complex using one or more GPUs and
+        CX NICs.
 
         RP --> SW -> CX_NIC
                   -> SW -> GPU
@@ -1285,7 +1295,13 @@ class PCITopo(object):
         if len(cx_pfs) == 0:
             raise TopoUnexpectedError(f"GPU {nvgpu} does not have a nearby CX NIC")
 
-        return NVCX_Inline_Complex(root_port, shared_usp1, cx_pfs, nvgpu)
+        nvgpus = {
+            pdev
+            for pdev in shared_usp1.iterdownstream()
+            if pdev.device_type == "nvgpu"
+        }
+
+        return NVCX_Inline_Complex(root_port, shared_usp1, cx_pfs, nvgpus)
 
     def __get_nvcx_numa_complex(self, numa_node: int):
         """Match the topology for the NUMA complex.
@@ -1332,10 +1348,12 @@ class PCITopo(object):
                     nvcx = self.__get_nvcx_complex(pdev)
                     self.nvcxs.append(nvcx)
         elif self.type == self.TopoType.INLINE:
+            matched_nvgpus: Set[PCIDevice] = set()
             for pdev in self.devices.values():
-                if pdev.device_type == "nvgpu":
+                if pdev.device_type == "nvgpu" and pdev not in matched_nvgpus:
                     nvcx = self.__get_nvcx_inline_complex(pdev)
                     self.nvcxs.append(nvcx)
+                    matched_nvgpus.update(nvcx.nvgpus)
         elif self.type == self.TopoType.NUMA:
             numa_nodes = {
                 pdev.numa_node
