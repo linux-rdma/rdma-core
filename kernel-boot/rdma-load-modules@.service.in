@@ -11,11 +11,6 @@ Before=initrd.target
 # Do not execute concurrently with an ongoing shutdown
 Conflicts=shutdown.target
 Before=shutdown.target
-# Partially support distro network setup scripts that run after
-# systemd-modules-load.service but before sysinit.target, eg a classic network
-# setup script. Run them after modules have loaded.
-Wants=network-pre.target
-Before=network-pre.target
 # Orders all kernel module startup before rdma-hw.target can become ready
 Before=rdma-hw.target
 
