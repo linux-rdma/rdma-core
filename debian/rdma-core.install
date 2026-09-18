@@ -11,6 +11,7 @@ etc/rdma/modules/roce.conf
 lib/systemd/system/iwpmd.service
 lib/systemd/system/rdma-hw.target
 lib/systemd/system/rdma-load-modules@.service
+lib/systemd/system/rdma-load-modules@.service.d
 lib/systemd/system/rdma-ndd.service
 lib/udev/rdma_rename
 lib/udev/rules.d/60-rdma-ndd.rules
