@@ -645,6 +645,7 @@ done
 %{_modprobedir}/truescale.conf
 %{_unitdir}/rdma-hw.target
 %{_unitdir}/rdma-load-modules@.service
+%{_unitdir}/rdma-load-modules@.service.d/
 %dir %{dracutlibdir}
 %dir %{dracutlibdir}/modules.d
 %dir %{dracutlibdir}/modules.d/50rdma
