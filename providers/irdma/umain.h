@@ -87,7 +87,6 @@ struct irdma_ucq {
 	bool skip_sol;
 	int comp_vector;
 	uint32_t report_rtt;
-	struct irdma_uqp *uqp;
 	struct irdma_cq_uk cq;
 	struct list_head resize_list;
 	/* for extended CQ completion fields */
