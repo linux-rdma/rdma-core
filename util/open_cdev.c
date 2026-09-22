@@ -30,6 +30,7 @@
  * SOFTWARE.
  */
 #define _GNU_SOURCE
+#include <errno.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <sys/stat.h>
@@ -55,6 +56,7 @@ static int open_cdev_internal(const char *path, dev_t cdev)
 	if (fstat(fd, &st) || !S_ISCHR(st.st_mode) ||
 	    (cdev != 0 && st.st_rdev != cdev)) {
 		close(fd);
+		errno = ENOENT;
 		return -1;
 	}
 	return fd;
@@ -134,13 +136,22 @@ err_mem:
 int open_cdev(const char *devname_hint, dev_t cdev)
 {
 	char *devpath;
-	int fd;
+	int fd, err;
 
 	if (asprintf(&devpath, RDMA_CDEV_DIR "/%s", devname_hint) < 0)
 		return -1;
+	errno = 0;
 	fd = open_cdev_internal(devpath, cdev);
+	err = errno;
 	free(devpath);
-	if (fd == -1 && cdev != 0)
-		return open_cdev_robust(devname_hint, cdev);
+	if (fd == -1 && cdev != 0 && err == ENOENT) {
+		fd = open_cdev_robust(devname_hint, cdev);
+		/*
+		 * Report why the node could not be opened, not why the
+		 * fallback failed.
+		 */
+		if (fd == -1)
+			errno = err;
+	}
 	return fd;
 }
