@@ -326,6 +326,7 @@ pci_device_types = {
     PCI_VDEVICE("MELLANOX", 0x1021): "cx_nic",  # ConnectX-7
     PCI_VDEVICE("MELLANOX", 0x1023): "cx_nic",  # ConnectX-8
     PCI_VDEVICE("MELLANOX", 0x1025): "cx_nic",  # ConnectX-9
+    PCI_VDEVICE("MELLANOX", 0x101E): "cx_vnic",  # ConnectX-* VF
     PCI_VDEVICE("MELLANOX", 0xA2DC): "bf3_nic",  # BlueField-3
     PCI_VDEVICE("MELLANOX", 0x2100): "cx_dma",  # ConnectX-8 DMA Controller
     PCI_VDEVICE("MELLANOX", 0x197B): "bf3_switch",  # USP/DSP of a BF3 switch
@@ -338,6 +339,8 @@ pci_device_types = {
 
 # USP/DSP hops in an NVCX complex, between an RP and a CX NIC / DMA / GPU.
 NVCX_SWITCH_TYPES = {"cx_switch", "bridge"}
+
+CX_NIC_TYPES = {"cx_nic", "cx_vnic"}
 
 
 dump_ignored = [
@@ -400,9 +403,13 @@ class PCIDevice(object):
         self.children: Set[PCIDevice] = set()
         self.has_ats = False
 
+    @property
+    def is_vf(self) -> bool:
+        return self.device_type == "cx_vnic"
+
     def finish_loading(self):
         """Do more expensive parsing operations"""
-        if self.device_type == "cx_nic" or self.device_type == "cx_dma":
+        if self.device_type in CX_NIC_TYPES or self.device_type == "cx_dma":
             self.vpd_v3, self.vpd_name, self.vpd_sn = parse_vpd(self.sysfs_device.vpd)
         if (
             "switch" in self.device_type
@@ -410,7 +417,7 @@ class PCIDevice(object):
             or self.device_type == "bridge"
         ):
             self.has_acs = self.get_acs_ctrl() is not None
-        if self.device_type == "cx_nic":
+        if self.device_type in CX_NIC_TYPES:
             self.has_ats = has_ats_cap(self.sysfs_device.config)
 
     def iterdownstream(self) -> Generator[PCIDevice, None, None]:
@@ -451,40 +458,64 @@ class NVCX_Topo:
             assert len(fns) > 0
             self.fns = fns
             self.parent = min(fns, key=lambda fn: fn.bdf).parent
-            self.vpd_sn = min(fns, key=lambda fn: fn.bdf).vpd_sn
+            sns = {fn.vpd_sn for fn in fns if fn.vpd_sn}
+            if len(sns) > 1:
+                raise TopoUnexpectedError(
+                    "All functions of a NIC must have the same VPD SN"
+                )
+            self.vpd_sn = next(iter(sns)) if sns else None
             if not all(fn.parent == self.parent for fn in fns):
-                raise TopoUnexpectedError("All PFs of a NIC must have the same parent")
-            if not all(fn.vpd_sn == self.vpd_sn for fn in fns):
-                raise TopoUnexpectedError("All PFs of a NIC must have the same VPD SN")
+                raise TopoUnexpectedError(
+                    "All functions of a NIC must have the same parent"
+                )
 
         @property
         def primary_fn(self) -> PCIDevice:
             return min(self.fns, key=lambda fn: fn.bdf)
 
+        def pfs(self) -> List[PCIDevice]:
+            return sorted(
+                (fn for fn in self.fns if not fn.is_vf), key=lambda x: x.bdf
+            )
+
+        def vfs(self) -> List[PCIDevice]:
+            return sorted((fn for fn in self.fns if fn.is_vf), key=lambda x: x.bdf)
+
         def to_dict(self) -> Dict[str, Any]:
-            return {
+            res: Dict[str, Any] = {
                 "parent_bdf": str(self.parent.bdf) if self.parent else "UNKNOWN",
                 "ats": self.primary_fn.has_ats,
-                "pf_bdfs": [
-                    str(fn.bdf) for fn in sorted(self.fns, key=lambda fn: fn.bdf)
-                ],
             }
+            pfs = self.pfs()
+            vfs = self.vfs()
+            if pfs:
+                res["pf_bdfs"] = [str(fn.bdf) for fn in pfs]
+            if vfs:
+                res["vf_bdfs"] = [str(fn.bdf) for fn in vfs]
+            return res
 
         def str_single_fn(self) -> str:
             res = ""
             res += f"\tNIC ATS: {yesno(self.primary_fn.has_ats)}\n"
             subsystems: Dict[str, Set[str]] = collections.defaultdict(set)
-            for fn in self.fns:
+            vf_subsystems: Dict[str, Set[str]] = collections.defaultdict(set)
+            for fn in self.pfs():
                 for k, v in fn.get_subsystems().items():
                     subsystems[k].update(v)
+            for fn in self.vfs():
+                for k, v in fn.get_subsystems().items():
+                    vf_subsystems[k].update(v)
             res += print_list("RDMA device", subsystems["infiniband"])
+            res += print_list("RDMA device VF", vf_subsystems["infiniband"])
             res += print_list("Net device", subsystems["net"])
+            res += print_list("Net device VF", vf_subsystems["net"])
             return res[:-1]
 
         def __str__(self) -> str:
             parent_bdf = self.parent.bdf if self.parent else "UNKNOWN"
             res = f"RDMA NIC Parent={parent_bdf}\n"
-            res += print_list("NIC PCI device", [str(fn.bdf) for fn in self.fns])
+            res += print_list("NIC PCI device", [str(fn.bdf) for fn in self.pfs()])
+            res += print_list("NIC PCI VF", [str(fn.bdf) for fn in self.vfs()])
             res += self.str_single_fn()
             return res
 
@@ -518,8 +549,27 @@ class NVCX_Topo:
         assert len(fns) > 0
 
         fns_by_sn: Dict[Optional[str], Set[PCIDevice]] = collections.defaultdict(set)
+        orphans: List[PCIDevice] = []
+        # VFs usually have no VPD, so they have no vpd_sn. Map each parent of a
+        # function that does have a serial to that serial, then attach orphans
+        # to the NIC/board with the same parent. Unmatched orphans stay in the
+        # None (UNKNOWN) board.
+        sn_by_parent: Dict[Optional[PCIDevice], str] = {}
         for fn in fns:
-            fns_by_sn[fn.vpd_sn].add(fn)
+            if fn.vpd_sn:
+                fns_by_sn[fn.vpd_sn].add(fn)
+                existing_sn = sn_by_parent.get(fn.parent)
+                if existing_sn is not None and existing_sn != fn.vpd_sn:
+                    raise TopoUnexpectedError(
+                        "Multiple VPD SNs under the same NIC parent"
+                    )
+                sn_by_parent[fn.parent] = fn.vpd_sn
+            else:
+                orphans.append(fn)
+
+        for fn in orphans:
+            sn = sn_by_parent.get(fn.parent)
+            fns_by_sn[sn].add(fn)
 
         boards = set()
         for board_fns in fns_by_sn.values():
@@ -547,10 +597,13 @@ class NVCX_Topo:
 
     def to_dict(self) -> Dict[str, Any]:
         if len(self.fns) == 1:
-            return {
-                "rdma_nic_pf_bdf": str(next(iter(self.fns)).bdf),
-                "rdma_nic_ats": next(iter(self.fns)).has_ats,
-            }
+            fn = next(iter(self.fns))
+            res: Dict[str, Any] = {"rdma_nic_ats": fn.has_ats}
+            if fn.is_vf:
+                res["rdma_nic_vf_bdf"] = str(fn.bdf)
+            else:
+                res["rdma_nic_pf_bdf"] = str(fn.bdf)
+            return res
 
         return {
             "rdma_nic_boards": [board.to_dict() for board in self.boards]
@@ -577,14 +630,22 @@ class NVCX_Complex(ABC):
     @property
     @abstractmethod
     def primary_nic(self) -> PCIDevice:
-        """Primary ConnectX PF for this complex."""
+        """Primary ConnectX NIC function for this complex."""
         pass
 
     @property
     @abstractmethod
     def fns(self) -> Set[PCIDevice]:
-        """All ConnectX PFs for this complex."""
+        """All ConnectX NIC functions for this complex."""
         pass
+
+    def pfs(self) -> List[PCIDevice]:
+        """Physical ConnectX NIC functions, sorted by BDF."""
+        return sorted((fn for fn in self.fns if not fn.is_vf), key=lambda x: x.bdf)
+
+    def vfs(self) -> List[PCIDevice]:
+        """Virtual ConnectX NIC functions, sorted by BDF."""
+        return sorted((fn for fn in self.fns if fn.is_vf), key=lambda x: x.bdf)
 
     @abstractmethod
     def compute_acs(self, virt: Optional[bool]) -> Dict[PCIDevice, str]:
@@ -624,9 +685,9 @@ class NVCX_Complex(ABC):
 
 
 class NVCX_DMA_Complex(NVCX_Complex):
-    """Hold the related PCI functions together. A complex includes a CX PF, a CX
-    DMA function, an GPU and related PCI switches in the DMA function
-    segment."""
+    """Hold the related PCI functions together. A DMA complex includes CX NIC
+    functions, a CX DMA function, a GPU and related PCI switches in the DMA
+    function segment."""
 
     def __init__(self, cx_fns: Set[PCIDevice], cx_dma: PCIDevice, nvgpu: PCIDevice):
         self.cx_fns = cx_fns - {cx_dma}
@@ -659,7 +720,7 @@ class NVCX_DMA_Complex(NVCX_Complex):
 
     @property
     def fns(self) -> Set[PCIDevice]:
-        return {self.cx_fn}
+        return self.cx_fns
 
     def __find_shared_usp(self) -> PCIDevice:
         """Find the USP that is shared by both devices, the immediate downstream
@@ -717,12 +778,16 @@ class NVCX_DMA_Complex(NVCX_Complex):
         return acs
 
     def to_dict(self) -> Dict[str, Any]:
-        res = {
-            "rdma_nic_pf_bdf": str(self.cx_fn.bdf),
-            "rdma_dma_bdf": str(self.cx_dma.bdf),
-            "gpu_bdf": str(self.nvgpu.bdf),
-            "subsystems": {},
-        }
+        pfs = self.pfs()
+        vfs = self.vfs()
+        res: Dict[str, Any] = {}
+        if pfs:
+            res["rdma_nic_pf_bdf"] = str(pfs[0].bdf)
+        if vfs:
+            res["rdma_nic_vf_bdfs"] = [str(fn.bdf) for fn in vfs]
+        res["rdma_dma_bdf"] = str(self.cx_dma.bdf)
+        res["gpu_bdf"] = str(self.nvgpu.bdf)
+        res["subsystems"] = {}
         devname = self.cx_fn.vpd_name
         if devname:
             res["rdma_nic_vpd_name"] = self.cx_fn.vpd_name
@@ -755,15 +820,23 @@ class NVCX_DMA_Complex(NVCX_Complex):
         if self.cx_fn.numa_node is not None:
             res += f"\tNUMA Node: {self.cx_fn.numa_node}\n"
 
-        if len(self.cx_fns):
-            res += print_list("NIC PCI device", [str(I.bdf) for I in self.cx_fns])
+        pfs = self.pfs()
+        vfs = self.vfs()
+        res += print_list("NIC PCI device", [str(fn.bdf) for fn in pfs])
+        res += print_list("NIC PCI VF", [str(fn.bdf) for fn in vfs])
 
         subsystems: Dict[str, Set[str]] = collections.defaultdict(set)
-        for pdev in itertools.chain(self.cx_fns, [self.nvgpu, self.cx_dma], self.nvmes):
+        vf_subsystems: Dict[str, Set[str]] = collections.defaultdict(set)
+        for pdev in itertools.chain(pfs, [self.nvgpu, self.cx_dma], self.nvmes):
             for k, v in pdev.get_subsystems().items():
                 subsystems[k].update(v)
+        for pdev in vfs:
+            for k, v in pdev.get_subsystems().items():
+                vf_subsystems[k].update(v)
         res += print_list("RDMA device", subsystems["infiniband"])
+        res += print_list("RDMA device VF", vf_subsystems["infiniband"])
         res += print_list("Net device", subsystems["net"])
+        res += print_list("Net device VF", vf_subsystems["net"])
         res += print_list("DRM device", subsystems["drm"])
         res += print_list("NVMe device", subsystems["nvme"])
 
@@ -802,7 +875,7 @@ class NVCX_Inline_Complex(NVCX_Complex):
 
         for dsp in shared_usp.children:
             for pdev in dsp.iterdownstream():
-                if pdev.device_type == "cx_nic":
+                if pdev.device_type in CX_NIC_TYPES:
                     self.cx_nic_dsp.add(dsp)
                     break
                 if pdev.device_type == "nvgpu":
@@ -1152,7 +1225,7 @@ class PCITopo(object):
         if (
             types & NVCX_SWITCH_TYPES
             and "nvgpu" in types
-            and "cx_nic" in types
+            and types & CX_NIC_TYPES
         ):
             return self.TopoType.INLINE
 
@@ -1212,11 +1285,11 @@ class PCITopo(object):
         if not cx_dma.vpd_v3:
             raise TopoUnexpectedError(f"CX DMA function {cx_dma} does not have a VPD V3 UUID")
 
-        # The DMA and PF are matched using the UUID from the VPD
+        # The DMA and NIC functions are matched using the UUID from the VPD
         cx_fns = self.vpd_v3s.get(cx_dma.vpd_v3)
         if cx_fns is None:
             raise TopoUnexpectedError(
-                f"CX DMA function {cx_dma} does not have a matching PF, V3 UUID matching failed"
+                f"CX DMA function {cx_dma} does not have a matching NIC function, V3 UUID matching failed"
             )
 
         # Path from the DMA to the root port
@@ -1279,7 +1352,7 @@ class PCITopo(object):
         for pdev in nvgpu.iterupstream_path():
             if pdev.device_type not in NVCX_SWITCH_TYPES:
                 continue
-            if any(d.device_type == "cx_nic" for d in pdev.iterdownstream()):
+            if any(d.device_type in CX_NIC_TYPES for d in pdev.iterdownstream()):
                 shared_usp = pdev
                 break
         if not shared_usp:
@@ -1299,7 +1372,7 @@ class PCITopo(object):
         cx_fns = {
             pdev
             for pdev in shared_usp.iterdownstream()
-            if pdev.device_type == "cx_nic"
+            if pdev.device_type in CX_NIC_TYPES
         }
 
         if len(cx_fns) == 0:
@@ -1321,7 +1394,7 @@ class PCITopo(object):
         cx_fns = [
             pdev
             for pdev in self.devices.values()
-            if pdev.numa_node == numa_node and pdev.device_type == "cx_nic"
+            if pdev.numa_node == numa_node and pdev.device_type in CX_NIC_TYPES
         ]
         nvgpus = [
             pdev

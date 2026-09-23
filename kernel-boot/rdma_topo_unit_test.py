@@ -76,6 +76,7 @@ def make_dev(
     dev.vpd_sn = vpd_sn
     dev.parent = parent
     dev.has_ats = has_ats
+    dev.is_vf = False
     dev.get_subsystems.return_value = subsystems or {}
     return dev
 
