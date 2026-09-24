@@ -3,3 +3,5 @@ usr/include/infiniband/mad_osd.h
 usr/lib/*/libibmad*.a
 usr/lib/*/libibmad*.so
 usr/lib/*/pkgconfig/libibmad.pc
+usr/share/man/man3/sa_key_get.3
+usr/share/man/man3/sa_key_set.3

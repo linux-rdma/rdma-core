@@ -832,6 +832,7 @@ add_subdirectory(providers/rxe/man)
 add_subdirectory(providers/siw)
 
 add_subdirectory(libibmad)
+add_subdirectory(libibmad/man)
 add_subdirectory(libibnetdisc)
 add_subdirectory(libibnetdisc/man)
 add_subdirectory(infiniband-diags)
