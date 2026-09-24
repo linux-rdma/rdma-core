@@ -111,14 +111,13 @@ int sa_query(struct sa_handle * h, uint8_t method,
 	rpc.mask = comp_mask;
 	rpc.datasz = datasz;
 	rpc.dataoffs = IB_SA_DATA_OFFS;
+	rpc.mkey = sm_key;
 
 	umad = calloc(1, len + umad_size());
 	if (!umad)
 		IBPANIC("cannot alloc mem for umad: %s\n", strerror(errno));
 
 	mad_build_pkt(umad, &rpc, &h->dport, NULL, data);
-
-	mad_set_field64(umad_get_mad(umad), 0, IB_SA_MKEY_F, sm_key);
 
 	if (ibdebug > 1)
 		xdump(stdout, "SA Request:\n", umad_get_mad(umad), len);

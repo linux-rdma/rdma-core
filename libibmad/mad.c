@@ -123,8 +123,12 @@ void *mad_encode(void *buf, ib_rpc_t * rpc, ib_dr_path_t * drpath, void *data)
 	mad_set_field(buf, 0, IB_MAD_ATTRID_F, rpc->attr.id);
 	mad_set_field(buf, 0, IB_MAD_ATTRMOD_F, rpc->attr.mod);
 
-	/* words 7,8 */
-	mad_set_field64(buf, 0, IB_MAD_MKEY_F, rpc->mkey);
+	if ((rpc->mgtclass & 0xff) == IB_SA_CLASS)
+		/* The SA SM_Key follows the RMPP header. */
+		mad_set_field64(buf, 0, IB_SA_MKEY_F, rpc->mkey);
+	else
+		/* The SMP M_Key follows the common MAD header. */
+		mad_set_field64(buf, 0, IB_MAD_MKEY_F, rpc->mkey);
 
 	if ((rpc->mgtclass & 0xff) == IB_SMI_DIRECT_CLASS) {
 		/* word 9 */
