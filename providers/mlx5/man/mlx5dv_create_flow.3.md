@@ -71,6 +71,8 @@ struct mlx5dv_flow_action_attr {
 		Action is dropping the matched packet.
 	MLX5DV_FLOW_ACTION_COUNTERS_DEVX_WITH_OFFSET
 		The DEVX bulk counter object and its counter offset for the matched packets.
+	MLX5DV_FLOW_ACTION_ALLOW
+		Explicitly allow the matched packet to continue processing.
 
 *qp*
 :	QP passed, to be used with *type* *MLX5DV_FLOW_ACTION_DEST_IBV_QP*.
