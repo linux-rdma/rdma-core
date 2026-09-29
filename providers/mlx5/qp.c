@@ -492,6 +492,7 @@ static inline int copy_eth_inline_headers(struct ibv_qp *ibqp,
 	return 0;
 }
 
+#undef ALIGN
 #define ALIGN(x, log_a) ((((x) + (1 << (log_a)) - 1)) & ~((1 << (log_a)) - 1))
 
 static inline __be16 get_klm_octo(int nentries)

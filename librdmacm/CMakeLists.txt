@@ -9,9 +9,17 @@ publish_headers(infiniband
   ib.h
   )
 
-rdma_library(rdmacm librdmacm.map
+if (CMAKE_SYSTEM_NAME STREQUAL "Linux")
   # See Documentation/versioning.md
-  1 1.5.${PACKAGE_VERSION}
+  set(SOVER 1 1.5.${PACKAGE_VERSION})
+endif()
+
+if (CMAKE_SYSTEM_NAME STREQUAL "FreeBSD")
+  set(SOVER 100 100.5.${PACKAGE_VERSION})
+endif()
+
+rdma_library(rdmacm librdmacm.map
+  ${SOVER}
   acm.c
   addrinfo.c
   cma.c
@@ -49,3 +57,9 @@ if (ENABLE_STATIC)
   endif()
 endif()
 rdma_pkg_config("rdmacm" "${REQUIRES}libibverbs" "${CMAKE_THREAD_LIBS_INIT}")
+
+if (CMAKE_SYSTEM_NAME STREQUAL "FreeBSD")
+  find_package(epoll-shim REQUIRED)
+  target_link_libraries(rdmacm PRIVATE epoll-shim::epoll-shim)
+  target_link_libraries(rspreload PRIVATE epoll-shim::epoll-shim)
+endif()

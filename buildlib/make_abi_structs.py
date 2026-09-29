@@ -19,10 +19,33 @@ sources the data directly from the kernel headers instead of manually copying.""
 import re;
 import functools;
 import sys;
+import os;
 
-def in_struct(ln,FO,nesting=0):
+sysname=sys.argv[3]
+
+def cpre_sysname():
+    mapping = {"Linux": "__linux__", "FreeBSD": "__FreeBSD__"}
+    try:
+        return mapping[sysname]
+    except KeyError:
+        raise NotImplementedError(sysname)
+
+def in_struct(ln,FO,nesting=0,wait_for_endif=False,skip=False):
     """Copy a top level structure over to the #define output, keeping track of
     nested structures."""
+    if wait_for_endif:
+        g = re.match(r"#endif", ln)
+        if g != None:
+            return functools.partial(in_struct,nesting=nesting,wait_for_endif=False,skip=False)
+    g = re.match(r"#ifdef\s+(\S+)",ln)
+    if g != None:
+        ifdefsym = g.group(1)
+        if ifdefsym == cpre_sysname():
+            return functools.partial(in_struct,nesting=nesting,wait_for_endif=True,skip=False)
+        return functools.partial(in_struct,nesting=nesting,wait_for_endif=True,skip=True)
+    if skip:
+        return functools.partial(in_struct,nesting=nesting,wait_for_endif=wait_for_endif,skip=skip)
+
     if nesting == 0:
         if re.match(r"(}.*);",ln):
             FO.write(ln[:-1] + "\n\n");
@@ -31,11 +54,11 @@ def in_struct(ln,FO,nesting=0):
     FO.write(ln + " \\\n");
 
     if ln == "struct {" or ln == "union {":
-        return functools.partial(in_struct,nesting=nesting+1);
+        return functools.partial(in_struct,nesting=nesting+1,wait_for_endif=wait_for_endif,skip=skip);
 
     if re.match(r"}.*;",ln):
-        return functools.partial(in_struct,nesting=nesting-1);
-    return functools.partial(in_struct,nesting=nesting);
+        return functools.partial(in_struct,nesting=nesting-1,wait_for_endif=wait_for_endif,skip=skip);
+    return functools.partial(in_struct,nesting=nesting,wait_for_endif=wait_for_endif,skip=skip);
 
 def find_struct(ln,FO):
     """Look for the start of a top level structure"""

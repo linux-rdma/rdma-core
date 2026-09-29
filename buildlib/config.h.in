@@ -13,7 +13,11 @@
 // FIXME: Remove this, The cmake version hard-requires new style CLOEXEC support
 #define STREAM_CLOEXEC "e"
 
+#if defined __linux__
 #define RDMA_CDEV_DIR "/dev/infiniband"
+#elif defined __FreeBSD__
+#define RDMA_CDEV_DIR "/dev"
+#endif
 
 #define IBV_CONFIG_DIR "@CONFIG_DIR@"
 #define RS_CONF_DIR "@CMAKE_INSTALL_FULL_SYSCONFDIR@/rdma/rsocket"

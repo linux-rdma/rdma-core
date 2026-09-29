@@ -8,4 +8,4 @@ Version: @PC_VERSION@
 Libs: -L${libdir} -l@PC_LIB_NAME@ @PC_RPATH@
 Libs.private: @PC_LIB_PRIVATE@
 Requires.private: @PC_REQUIRES_PRIVATE@
-Cflags: -I${includedir}
+Cflags: -I${includedir} @PC_FREEBSD_CFLAGS@
