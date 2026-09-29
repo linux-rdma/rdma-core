@@ -92,11 +92,13 @@ Specified in which flow table type, the matcher will store the flow rules:
 	MLX5DV_FLOW_TABLE_TYPE_RDMA_TX: Specified this matcher will store egress RDMA flow rules.
 	MLX5DV_FLOW_TABLE_TYPE_RDMA_TRANSPORT_RX: Specified this matcher will store RDMA transport domain flow rules.
 	MLX5DV_FLOW_TABLE_TYPE_RDMA_TRANSPORT_TX: Specified this matcher will store RDMA transport domain flow rules.
+	MLX5DV_FLOW_TABLE_TYPE_NIC_RX_CLASS: Specified this matcher will store ingress RDMA classification rules.
 
 ## *ib_port*
-Specified to which vport attach the matcher, this is valid and required only when creating the steering RDMA transport domain flow table:
+Specified to which vport attach the matcher, this is valid and required only when creating the steering RDMA transport domain flow table or the RDMA classification flow table:
 	MLX5DV_FLOW_TABLE_TYPE_RDMA_TRANSPORT_RX
 	MLX5DV_FLOW_TABLE_TYPE_RDMA_TRANSPORT_TX
+	MLX5DV_FLOW_TABLE_TYPE_NIC_RX_CLASS
 
 # RETURN VALUE
 
