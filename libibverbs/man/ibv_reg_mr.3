@@ -67,17 +67,16 @@ Create an on-demand paging MR
 Huge pages are guaranteed to be used for this MR, applicable with IBV_ACCESS_ON_DEMAND in explicit mode only
 .TP
 .B IBV_ACCESS_RELAXED_ORDERING\fR
-This setting allows the NIC to relax the order that data is transferred between the
-network and the target memory region.  Relaxed ordering allows network initiated
-writes (such as incoming message send or RDMA write operations) to reach memory
-in an arbitrary order.  This can improve the performance of some applications.
-However, relaxed ordering has the following impact: RDMA write-after-write message
-order is no longer guaranteed.  (Send messages will still match posted receive buffers
-in order.)  Back-to-back network writes that target the same memory region
-leave the region in an unknown state.  Relaxed ordering does not change completion
-semantics, such as data visibility.  That is, a completion still ensures that all
-data is visible, including data from prior transfers.  Relaxed ordered operations
-will also not bypass atomic operations.
+Allow network-initiated writes to reach memory in an arbitrary order.
+See
+.B ORDERING SEMANTICS
+below.
+.TP
+.B IBV_ACCESS_UNORDERED\fR
+Allow network-initiated writes and reads to reach memory in an arbitrary order.
+See
+.B ORDERING SEMANTICS
+below.
 .PP
 If
 .B IBV_ACCESS_REMOTE_WRITE
@@ -93,12 +92,12 @@ To create an implicit ODP MR, IBV_ACCESS_ON_DEMAND should be set, addr should be
 .PP
 If
 .B IBV_ACCESS_HUGETLB
-is set, then application awares that for this MR all pages are huge and must promise it will never do anything to break huge pages.
+is set, then application is aware that for this MR all pages are huge and must promise it will never do anything to break huge pages.
 .PP
 .B ibv_reg_mr_iova()
-ibv_reg_mr_iova is the same as the normal reg_mr, except that the user is
+ibv_reg_mr_iova is the same as ibv_reg_mr(), except that the user is
 allowed to specify the virtual base address of the MR when accessed through
-a lkey or rkey. The offset in the memory region is computed as 'addr +
+an lkey or rkey. The offset in the memory region is computed as 'addr +
 (iova - hca_va)'. Specifying 0 for hca_va has the same effect as
 IBV_ACCESS_ZERO_BASED.
 .PP
@@ -113,19 +112,19 @@ The dma-buf is identified by the file descriptor
 .I fd\fR.
 The argument
 .I iova
-specifies the virtual base address of the MR when accessed through a lkey or rkey.
+specifies the virtual base address of the MR when accessed through an lkey or rkey.
 It must have the same page offset as
 .I offset\fR.
 The argument
 .I access
 describes the desired memory protection attributes; it is similar to the ibv_reg_mr case except that only the following flags are supported:
-.B IBV_ACCESS_LOCAL_WRITE, IBV_ACCESS_REMOTE_WRITE, IBV_ACCESS_REMOTE_READ, IBV_ACCESS_REMOTE_ATOMIC, IBV_ACCESS_RELAXED_ORDERING.
+.B IBV_ACCESS_LOCAL_WRITE, IBV_ACCESS_REMOTE_WRITE, IBV_ACCESS_REMOTE_READ, IBV_ACCESS_REMOTE_ATOMIC, IBV_ACCESS_RELAXED_ORDERING, IBV_ACCESS_UNORDERED.
 .PP
 .B ibv_reg_mr_ex()
-ibv_reg_mr_ex is a an API that enables all the variants of the other ibv_reg_mr_xxx() that desecibed in that man page.
+ibv_reg_mr_ex is an API that enables all the variants of the other ibv_reg_mr_xxx() described in this man page.
 It has the
 .I mr_init_attr->comp_mask
-field to let application mark which fields are applicable.
+field to let the application mark which fields are applicable.
 In addition, it includes the
 .I mr_init_attr->dmah
 which can be used to include an ibv_dmah object that will be used for that MR.
@@ -150,6 +149,68 @@ The other fields on the input pointer have the same meaning as of the fields tha
 .B ibv_dereg_mr()
 deregisters the MR
 .I mr\fR.
+.SH "ORDERING SEMANTICS"
+The ordering semantics described below apply to the InfiniBand transport, including RoCEv1 and RoCEv2.
+Other transports may define their own ordering semantics.
+Absent any ordering access flags, a request is ordered after a prior request that writes
+the same memory: write-after-write and read-after-write ordering to the same bytes are
+maintained.
+Write-after-read ordering is not guaranteed; a write may be applied before a prior read
+of the same bytes completes.
+.PP
+Work requests complete in the order they were posted, independent of the order in which
+they executed, and a fenced work request blocks until all prior requests have completed.
+.PP
+The order in which data writes within a single message reach memory is not guaranteed;
+overlapping data segments within one message may be applied in any order.
+.PP
+Data placed by an operation is guaranteed present only once a completing event has occurred.
+.PP
+Beyond the guarantees above, the strongest ordering the NIC and platform support is used,
+which may be weaker or stronger than required; many NICs and platforms additionally place
+the writes of a single message in ascending address order, though this is not guaranteed.
+.PP
+These flags allow relaxing the default ordering:
+.TP
+.B IBV_ACCESS_RELAXED_ORDERING
+Lets the device use relaxed memory access (for example, the PCIe Relaxed Ordering
+attribute) when writing to a region.
+Write-after-write ordering to the same memory is no longer maintained:
+back-to-back writes to overlapping bytes, and writes belonging to different messages,
+may reach memory in any order.
+This applies to any write the device makes into the region, including the data returned
+by an RDMA READ into a local target buffer.
+It also removes any intra-message write ordering a platform may have provided,
+so \(lqpolling on the last byte\(rq of incoming data no longer guarantees that the
+rest of the data is present.
+Read-after-write ordering to the same memory is still maintained.
+.TP
+.B IBV_ACCESS_UNORDERED
+Follows and extends
+.BR IBV_ACCESS_RELAXED_ORDERING .
+In addition, it drops read-after-write ordering: a read from the region may be applied
+before a prior write to the same bytes, so a read that overlaps an in-flight write may
+observe the data from before or after that write.
+This lets the device issue gather reads (when assembling an outgoing SEND or RDMA WRITE
+payload, or when serving a remote RDMA READ) without stalling behind in-flight writes
+to the same region.
+.PP
+Neither flag changes completion semantics.
+Completion still guarantees that all data for the completed operation and for all prior
+operations is visible in memory.
+Applications must therefore rely on completions, rather than on inspecting the target
+memory, to determine when a transfer has landed.
+.PP
+These flags do not change ordering with respect to atomic operations at the responder.
+On the requestor side, the return data of an atomic operation is placed into the local region
+like any other write and is subject to the same relaxation.
+.PP
+The flags are optional hints to the device and driver.
+A device that does not support the requested flag may ignore it and enforce strong ordering,
+and a device that does not support
+.B IBV_ACCESS_UNORDERED
+may downgrade it to
+.BR IBV_ACCESS_RELAXED_ORDERING.
 .SH "RETURN VALUE"
 .B ibv_reg_mr() / ibv_reg_mr_iova() / ibv_reg_dmabuf_mr() / ibv_reg_mr_ex()
 returns a pointer to the registered MR, or NULL if the request fails.
@@ -161,7 +222,7 @@ for an invalid combination of arguments).
 The local key (\fBL_Key\fR) field
 .B lkey
 is used as the lkey field of struct ibv_sge when posting buffers with
-ibv_post_* verbs, and the the remote key (\fBR_Key\fR)
+ibv_post_* verbs, and the remote key (\fBR_Key\fR)
 field
 .B rkey
 is used by remote processes to perform Atomic and RDMA operations.  The remote process places this
