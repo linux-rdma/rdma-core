@@ -3,6 +3,10 @@ rdma_subst_install(FILES rdma-load-modules@.service.in
   RENAME rdma-load-modules@.service
   PERMISSIONS OWNER_WRITE OWNER_READ GROUP_READ WORLD_READ)
 
+install(FILES rdma-load-modules-network-pre.conf
+  RENAME "10-network-pre.conf"
+  DESTINATION "${CMAKE_INSTALL_SYSTEMD_SERVICEDIR}/rdma-load-modules@.service.d/")
+
 rdma_subst_install(FILES "rdma-hw.target.in"
   RENAME "rdma-hw.target"
   DESTINATION "${CMAKE_INSTALL_SYSTEMD_SERVICEDIR}"
