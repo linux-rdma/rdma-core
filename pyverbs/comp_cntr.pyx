@@ -3,6 +3,7 @@
 
 #cython: language_level=3
 
+from libc.stdint cimport uint64_t
 from pyverbs.base import PyverbsRDMAErrno, PyverbsRDMAError
 from pyverbs.device cimport Context
 cimport pyverbs.libibverbs as v
@@ -81,7 +82,7 @@ cdef class CompCntr(PyverbsCM):
 
     def read(self):
         """Read and return the current completion count."""
-        cdef unsigned long value = 0
+        cdef uint64_t value = 0
         rc = v.ibv_read_comp_cntr(self.comp_cntr, &value)
         if rc:
             raise PyverbsRDMAError('Failed to read comp_cntr', rc)
@@ -89,7 +90,7 @@ cdef class CompCntr(PyverbsCM):
 
     def read_err(self):
         """Read and return the current error count."""
-        cdef unsigned long value = 0
+        cdef uint64_t value = 0
         rc = v.ibv_read_err_comp_cntr(self.comp_cntr, &value)
         if rc:
             raise PyverbsRDMAError('Failed to read_err comp_cntr', rc)

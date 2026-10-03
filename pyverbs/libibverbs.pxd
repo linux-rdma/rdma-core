@@ -785,8 +785,8 @@ cdef extern from 'infiniband/verbs.h':
     int ibv_set_err_comp_cntr(ibv_comp_cntr *comp_cntr, unsigned long value)
     int ibv_inc_comp_cntr(ibv_comp_cntr *comp_cntr, unsigned long amount)
     int ibv_inc_err_comp_cntr(ibv_comp_cntr *comp_cntr, unsigned long amount)
-    int ibv_read_comp_cntr(ibv_comp_cntr *comp_cntr, unsigned long *value)
-    int ibv_read_err_comp_cntr(ibv_comp_cntr *comp_cntr, unsigned long *value)
+    int ibv_read_comp_cntr(ibv_comp_cntr *comp_cntr, uint64_t *value)
+    int ibv_read_err_comp_cntr(ibv_comp_cntr *comp_cntr, uint64_t *value)
     ibv_ah *ibv_create_ah(ibv_pd *pd, ibv_ah_attr *attr)
     int ibv_init_ah_from_wc(ibv_context *context, uint8_t port_num,
                             ibv_wc *wc, ibv_grh *grh, ibv_ah_attr *ah_attr)
