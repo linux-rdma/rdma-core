@@ -1501,9 +1501,6 @@ static int irdma_vmapped_qp(struct irdma_uqp *iwuqp, struct ibv_pd *pd,
 				      verbs_cq.cq);
 	iwuqp->recv_cq = container_of(attr->recv_cq, struct irdma_ucq,
 				      verbs_cq.cq);
-	iwuqp->send_cq->uqp = iwuqp;
-	iwuqp->recv_cq->uqp = iwuqp;
-
 	return 0;
 err_qp:
 	ibv_cmd_dereg_mr(&iwuqp->vmr);
