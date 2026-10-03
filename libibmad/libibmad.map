@@ -168,3 +168,8 @@ IBMAD_1.5 {
 		mad_rpc_close_port2;
 } IBMAD_1.4;
 
+IBMAD_1.6 {
+	global:
+		sa_key_get;
+		sa_key_set;
+} IBMAD_1.5;

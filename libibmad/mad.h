@@ -1612,6 +1612,8 @@ int ib_path_query(ibmad_gid_t srcgid, ibmad_gid_t destgid, ib_portid_t *sm_id,
 		  void *buf) __attribute__((deprecated));
 
 /* sa.c new interface */
+void sa_key_set(struct ibmad_port *srcport, uint64_t key);
+uint64_t sa_key_get(const struct ibmad_port *srcport);
 uint8_t *sa_rpc_call(const struct ibmad_port *srcport, void *rcvbuf,
 		     ib_portid_t *portid, ib_sa_call_t *sa, unsigned timeout);
 int ib_path_query_via(const struct ibmad_port *srcport, ibmad_gid_t srcgid,

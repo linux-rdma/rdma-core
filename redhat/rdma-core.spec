@@ -471,6 +471,7 @@ fi
 %{_mandir}/man3/ibv_*
 %{_mandir}/man3/ionic_dv*
 %{_mandir}/man3/rdma*
+%{_mandir}/man3/sa_key*
 %{_mandir}/man3/umad*
 %{_mandir}/man3/*_to_ibv_rate.*
 %{_mandir}/man7/rdma_cm.*

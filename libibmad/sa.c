@@ -41,6 +41,16 @@
 #undef DEBUG
 #define DEBUG 	if (ibdebug)	IBWARN
 
+void sa_key_set(struct ibmad_port *srcport, uint64_t key)
+{
+	srcport->sa_key = key;
+}
+
+uint64_t sa_key_get(const struct ibmad_port *srcport)
+{
+	return srcport->sa_key;
+}
+
 uint8_t *sa_rpc_call(const struct ibmad_port *ibmad_port, void *rcvbuf,
 		     ib_portid_t * portid, ib_sa_call_t * sa, unsigned timeout)
 {
@@ -64,6 +74,7 @@ uint8_t *sa_rpc_call(const struct ibmad_port *ibmad_port, void *rcvbuf,
 	rpc.datasz = IB_SA_DATA_SIZE;
 	rpc.dataoffs = IB_SA_DATA_OFFS;
 	rpc.trid = sa->trid;
+	rpc.mkey = ibmad_port->sa_key;
 
 	portid->qp = 1;
 	if (!portid->qkey)

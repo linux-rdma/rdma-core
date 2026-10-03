@@ -41,6 +41,7 @@ struct ibmad_port {
 	int class_agents[MAX_CLASS];	/* class2agent mapper */
 	int timeout, retries;
 	uint64_t smp_mkey;
+	uint64_t sa_key;
 };
 
 extern struct ibmad_port *ibmp;
