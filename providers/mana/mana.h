@@ -138,6 +138,8 @@ struct mana_qp {
 
 	enum ibv_mtu mtu;
 	int sq_sig_all;
+	/* Requester SQ carries a software rollback region */
+	bool rollback_sq;
 
 	struct shadow_queue shadow_rq;
 	struct shadow_queue shadow_sq;
