@@ -32,6 +32,7 @@ is included:
  - rdma_rxe.ko
  - siw.ko
  - vmw_pvrdma.ko
+ - xsc_ib.ko
 
 Additional service daemons are provided for:
  - srp_daemon (ib_srp.ko)
