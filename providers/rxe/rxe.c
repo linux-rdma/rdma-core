@@ -557,6 +557,10 @@ static int rxe_poll_cq(struct ibv_cq *ibcq, int ne, struct ibv_wc *wc)
 
 	pthread_spin_lock(&cq->lock);
 	q = cq->queue;
+	if (!q) {
+		pthread_spin_unlock(&cq->lock);
+		return -1;
+	}
 
 	for (npolled = 0; npolled < ne; ++npolled, ++wc) {
 		if (queue_empty(q))
