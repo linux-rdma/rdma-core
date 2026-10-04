@@ -1058,12 +1058,13 @@ void dr_ste_copy_param(uint8_t match_criteria,
 		       uint64_t *mask_buf, size_t mask_sz, bool clear)
 {
 	uint8_t *data = (uint8_t *)mask_buf;
-	char tail_param[DEVX_ST_SZ_BYTES(dr_match_param)] = {};
+	char tail_param[DEVX_ST_SZ_BYTES(dr_match_param)];
 	size_t param_location;
 	void *buff;
 
-	if (match_criteria & DR_MATCHER_CRITERIA_OUTER) {
+	if ((match_criteria & DR_MATCHER_CRITERIA_OUTER) && mask_sz) {
 		if (mask_sz < DEVX_ST_SZ_BYTES(dr_match_spec)) {
+			memset(tail_param, 0, sizeof(tail_param));
 			memcpy(tail_param, data, mask_sz);
 			buff = tail_param;
 		} else {
@@ -1073,79 +1074,91 @@ void dr_ste_copy_param(uint8_t match_criteria,
 	}
 	param_location = DEVX_ST_SZ_BYTES(dr_match_spec);
 
-	if (match_criteria & DR_MATCHER_CRITERIA_MISC) {
-		if (mask_sz < param_location +
-		    DEVX_ST_SZ_BYTES(dr_match_set_misc)) {
+	if ((match_criteria & DR_MATCHER_CRITERIA_MISC) &&
+	    (mask_sz > param_location)) {
+		if (mask_sz >=
+		    param_location + DEVX_ST_SZ_BYTES(dr_match_set_misc)) {
+			buff = data + param_location;
+		} else {
+			memset(tail_param, 0, sizeof(tail_param));
 			memcpy(tail_param, data + param_location,
 			       mask_sz - param_location);
 			buff = tail_param;
-		} else {
-			buff = data + param_location;
 		}
 		dr_ste_copy_mask_misc(buff, &set_param->misc, clear);
 	}
 	param_location += DEVX_ST_SZ_BYTES(dr_match_set_misc);
 
-	if (match_criteria & DR_MATCHER_CRITERIA_INNER) {
-		if (mask_sz < param_location +
-		    DEVX_ST_SZ_BYTES(dr_match_spec)) {
+	if ((match_criteria & DR_MATCHER_CRITERIA_INNER) &&
+	    (mask_sz > param_location)) {
+		if (mask_sz >=
+		    param_location + DEVX_ST_SZ_BYTES(dr_match_spec)) {
+			buff = data + param_location;
+		} else {
+			memset(tail_param, 0, sizeof(tail_param));
 			memcpy(tail_param, data + param_location,
 			       mask_sz - param_location);
 			buff = tail_param;
-		} else {
-			buff = data + param_location;
 		}
 		dr_ste_copy_mask_spec(buff, &set_param->inner, clear);
 	}
 	param_location += DEVX_ST_SZ_BYTES(dr_match_spec);
 
-	if (match_criteria & DR_MATCHER_CRITERIA_MISC2) {
-		if (mask_sz < param_location +
-		    DEVX_ST_SZ_BYTES(dr_match_set_misc2)) {
+	if ((match_criteria & DR_MATCHER_CRITERIA_MISC2) &&
+	    (mask_sz > param_location)) {
+		if (mask_sz >=
+		    param_location + DEVX_ST_SZ_BYTES(dr_match_set_misc2)) {
+			buff = data + param_location;
+		} else {
+			memset(tail_param, 0, sizeof(tail_param));
 			memcpy(tail_param, data + param_location,
 			       mask_sz - param_location);
 			buff = tail_param;
-		} else {
-			buff = data + param_location;
 		}
 		dr_ste_copy_mask_misc2(buff, &set_param->misc2, clear);
 	}
 	param_location += DEVX_ST_SZ_BYTES(dr_match_set_misc2);
 
-	if (match_criteria & DR_MATCHER_CRITERIA_MISC3) {
-		if (mask_sz < param_location +
-		    DEVX_ST_SZ_BYTES(dr_match_set_misc3)) {
+	if ((match_criteria & DR_MATCHER_CRITERIA_MISC3) &&
+	    (mask_sz > param_location)) {
+		if (mask_sz >=
+		    param_location + DEVX_ST_SZ_BYTES(dr_match_set_misc3)) {
+			buff = data + param_location;
+		} else {
+			memset(tail_param, 0, sizeof(tail_param));
 			memcpy(tail_param, data + param_location,
 			       mask_sz - param_location);
 			buff = tail_param;
-		} else {
-			buff = data + param_location;
 		}
 		dr_ste_copy_mask_misc3(buff, &set_param->misc3, clear);
 	}
 	param_location += DEVX_ST_SZ_BYTES(dr_match_set_misc3);
 
-	if (match_criteria & DR_MATCHER_CRITERIA_MISC4) {
-		if (mask_sz < param_location +
-		    DEVX_ST_SZ_BYTES(dr_match_set_misc4)) {
+	if ((match_criteria & DR_MATCHER_CRITERIA_MISC4) &&
+	    (mask_sz > param_location)) {
+		if (mask_sz >=
+		    param_location + DEVX_ST_SZ_BYTES(dr_match_set_misc4)) {
+			buff = data + param_location;
+		} else {
+			memset(tail_param, 0, sizeof(tail_param));
 			memcpy(tail_param, data + param_location,
 			       mask_sz - param_location);
 			buff = tail_param;
-		} else {
-			buff = data + param_location;
 		}
 		dr_ste_copy_mask_misc4(buff, &set_param->misc4, clear);
 	}
 	param_location += DEVX_ST_SZ_BYTES(dr_match_set_misc4);
 
-	if (match_criteria & DR_MATCHER_CRITERIA_MISC5) {
-		if (mask_sz < param_location +
-		    DEVX_ST_SZ_BYTES(dr_match_set_misc5)) {
+	if ((match_criteria & DR_MATCHER_CRITERIA_MISC5) &&
+	    (mask_sz > param_location)) {
+		if (mask_sz >=
+		    param_location + DEVX_ST_SZ_BYTES(dr_match_set_misc5)) {
+			buff = data + param_location;
+		} else {
+			memset(tail_param, 0, sizeof(tail_param));
 			memcpy(tail_param, data + param_location,
 			       mask_sz - param_location);
 			buff = tail_param;
-		} else {
-			buff = data + param_location;
 		}
 		dr_ste_copy_mask_misc5(buff, &set_param->misc5, clear);
 	}
