@@ -330,9 +330,9 @@ static int set_data_inl_seg(struct mlx5_qp *qp, struct ibv_send_wr *wr,
 {
 	struct mlx5_wqe_inline_seg *seg;
 	void *addr;
-	int len;
+	uint32_t len;
 	int i;
-	int inl = 0;
+	uint64_t inl = 0;
 	void *qend = qp->sq.qend;
 	int copy;
 	int offset = sg_copy_ptr->offset;
