@@ -1095,7 +1095,7 @@ static void wr_set_inline_data_list(struct ibv_qp_ex *ibqp, size_t num_buf,
 	while (num_buf--) {
 		length = buf_list->length;
 
-		if (tot_length + length > qp->sq.max_inline) {
+		if (length > qp->sq.max_inline - tot_length) {
 			qp->err = ENOSPC;
 			return;
 		}
