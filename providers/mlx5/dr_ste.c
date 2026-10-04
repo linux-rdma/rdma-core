@@ -1166,8 +1166,9 @@ void dr_ste_copy_param(uint8_t match_criteria,
 	if (match_criteria & DR_MATCHER_CRITERIA_MISC) {
 		if (mask_sz < param_location +
 		    DEVX_ST_SZ_BYTES(dr_match_set_misc)) {
-			memcpy(tail_param, data + param_location,
-			       mask_sz - param_location);
+			if (mask_sz > param_location)
+				memcpy(tail_param, data + param_location,
+				       mask_sz - param_location);
 			buff = tail_param;
 		} else {
 			buff = data + param_location;
@@ -1179,8 +1180,9 @@ void dr_ste_copy_param(uint8_t match_criteria,
 	if (match_criteria & DR_MATCHER_CRITERIA_INNER) {
 		if (mask_sz < param_location +
 		    DEVX_ST_SZ_BYTES(dr_match_spec)) {
-			memcpy(tail_param, data + param_location,
-			       mask_sz - param_location);
+			if (mask_sz > param_location)
+				memcpy(tail_param, data + param_location,
+				       mask_sz - param_location);
 			buff = tail_param;
 		} else {
 			buff = data + param_location;
@@ -1192,8 +1194,9 @@ void dr_ste_copy_param(uint8_t match_criteria,
 	if (match_criteria & DR_MATCHER_CRITERIA_MISC2) {
 		if (mask_sz < param_location +
 		    DEVX_ST_SZ_BYTES(dr_match_set_misc2)) {
-			memcpy(tail_param, data + param_location,
-			       mask_sz - param_location);
+			if (mask_sz > param_location)
+				memcpy(tail_param, data + param_location,
+				       mask_sz - param_location);
 			buff = tail_param;
 		} else {
 			buff = data + param_location;
@@ -1205,8 +1208,9 @@ void dr_ste_copy_param(uint8_t match_criteria,
 	if (match_criteria & DR_MATCHER_CRITERIA_MISC3) {
 		if (mask_sz < param_location +
 		    DEVX_ST_SZ_BYTES(dr_match_set_misc3)) {
-			memcpy(tail_param, data + param_location,
-			       mask_sz - param_location);
+			if (mask_sz > param_location)
+				memcpy(tail_param, data + param_location,
+				       mask_sz - param_location);
 			buff = tail_param;
 		} else {
 			buff = data + param_location;
@@ -1218,8 +1222,9 @@ void dr_ste_copy_param(uint8_t match_criteria,
 	if (match_criteria & DR_MATCHER_CRITERIA_MISC4) {
 		if (mask_sz < param_location +
 		    DEVX_ST_SZ_BYTES(dr_match_set_misc4)) {
-			memcpy(tail_param, data + param_location,
-			       mask_sz - param_location);
+			if (mask_sz > param_location)
+				memcpy(tail_param, data + param_location,
+				       mask_sz - param_location);
 			buff = tail_param;
 		} else {
 			buff = data + param_location;
@@ -1231,8 +1236,9 @@ void dr_ste_copy_param(uint8_t match_criteria,
 	if (match_criteria & DR_MATCHER_CRITERIA_MISC5) {
 		if (mask_sz < param_location +
 		    DEVX_ST_SZ_BYTES(dr_match_set_misc5)) {
-			memcpy(tail_param, data + param_location,
-			       mask_sz - param_location);
+			if (mask_sz > param_location)
+				memcpy(tail_param, data + param_location,
+				       mask_sz - param_location);
 			buff = tail_param;
 		} else {
 			buff = data + param_location;
