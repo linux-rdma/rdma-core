@@ -29,13 +29,31 @@ to bypass the libibverbs API.
 The direct include of ionic_dv.h together with linkage to the ionic library
 will allow usage of this new interface.
 
+## Provider Detection
+
+Applications that may run on different RDMA providers can use
+**ionic_dv_is_ionic_ctx**(3), **ionic_dv_is_ionic_pd**(3),
+**ionic_dv_is_ionic_cq**(3), and **ionic_dv_is_ionic_qp**(3)
+to test whether a given verbs object belongs to the ionic provider
+before calling ionic-specific direct verbs.
+
 ## UDMA Pipelines
 
 Ionic devices expose multiple UDMA pipelines. Queues can be assigned to
 specific pipelines by setting a UDMA mask on the protection domain before
 creating queues. Use **ionic_dv_ctx_get_udma_count**(3) and
 **ionic_dv_ctx_get_udma_mask**(3) to query the available pipelines, and
-**ionic_dv_pd_set_udma_mask**(3) to restrict queue placement.
+**ionic_dv_pd_set_udma_mask**(3) to restrict queue placement. After
+creating queues, use **ionic_dv_cq_get_udma_mask**(3) to query the UDMA
+mask assigned to a completion queue, and **ionic_dv_qp_get_udma_idx**(3)
+to query the UDMA pipeline index assigned to a queue pair.
+
+## Express Doorbell
+
+Express doorbell optimizations can reduce doorbell overhead for certain
+WQE sizes. By default, only 64-byte WQE express doorbell is enabled.
+Use **ionic_dv_pd_set_expdb_mask**(3) to enable express doorbell for
+additional WQE sizes on a protection domain.
 
 ## Controller Memory Bar (CMB)
 
@@ -45,14 +63,48 @@ may also be enabled. Use **ionic_dv_pd_set_sqcmb**(3) and
 **ionic_dv_pd_set_rqcmb**(3) to configure CMB preferences on a protection
 domain before creating queues.
 
+## GPU-Direct Async (GDA)
+
+GPU-Direct Async mode allows GPU-initiated RDMA operations. When GDA is
+enabled on a queue pair, posting work requests writes WQEs without ringing
+the doorbell. The GPU can then ring the doorbell directly by writing
+doorbell data to the memory mapped doorbell register.
+
+Use **ionic_dv_qp_set_gda**(3) to enable GDA mode on a queue pair.
+After posting work, use **ionic_dv_qp_get_send_dbell_data**(3) and
+**ionic_dv_qp_get_recv_dbell_data**(3) to obtain the doorbell data.
+Use **ionic_dv_get_ctx**(3), **ionic_dv_get_cq**(3), and
+**ionic_dv_get_qp**(3) to extract queue information for direct GPU
+access.
+
+## Extended CQ Creation
+
+Use **ionic_dv_create_cq_ex**(3) to create a completion queue with
+vendor-specific attributes. This extends the standard **ibv_create_cq_ex**
+interface with ionic-specific options such as compact CQE (CCQE) mode.
+
 # SEE ALSO
 
+**ionic_dv_is_ionic_ctx**(3),
+**ionic_dv_is_ionic_pd**(3),
+**ionic_dv_is_ionic_cq**(3),
+**ionic_dv_is_ionic_qp**(3),
 **ionic_dv_ctx_get_udma_count**(3),
 **ionic_dv_ctx_get_udma_mask**(3),
 **ionic_dv_pd_get_udma_mask**(3),
 **ionic_dv_pd_set_udma_mask**(3),
+**ionic_dv_cq_get_udma_mask**(3),
+**ionic_dv_qp_get_udma_idx**(3),
+**ionic_dv_pd_set_expdb_mask**(3),
 **ionic_dv_pd_set_sqcmb**(3),
 **ionic_dv_pd_set_rqcmb**(3),
+**ionic_dv_qp_set_gda**(3),
+**ionic_dv_qp_get_send_dbell_data**(3),
+**ionic_dv_qp_get_recv_dbell_data**(3),
+**ionic_dv_get_ctx**(3),
+**ionic_dv_get_cq**(3),
+**ionic_dv_get_qp**(3),
+**ionic_dv_create_cq_ex**(3),
 **verbs**(7)
 
 # AUTHORS

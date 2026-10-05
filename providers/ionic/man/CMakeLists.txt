@@ -1,9 +1,23 @@
 rdma_man_pages(
   ionicdv.7.md
+  ionic_dv_is_ionic_ctx.3.md
+  ionic_dv_is_ionic_pd.3.md
+  ionic_dv_is_ionic_cq.3.md
+  ionic_dv_is_ionic_qp.3.md
   ionic_dv_ctx_get_udma_count.3.md
   ionic_dv_ctx_get_udma_mask.3.md
   ionic_dv_pd_get_udma_mask.3.md
   ionic_dv_pd_set_udma_mask.3.md
+  ionic_dv_cq_get_udma_mask.3.md
+  ionic_dv_qp_get_udma_idx.3.md
+  ionic_dv_pd_set_expdb_mask.3.md
   ionic_dv_pd_set_sqcmb.3.md
   ionic_dv_pd_set_rqcmb.3.md
+  ionic_dv_qp_set_gda.3.md
+  ionic_dv_qp_get_send_dbell_data.3.md
+  ionic_dv_qp_get_recv_dbell_data.3.md
+  ionic_dv_get_ctx.3.md
+  ionic_dv_get_cq.3.md
+  ionic_dv_get_qp.3.md
+  ionic_dv_create_cq_ex.3.md
 )
