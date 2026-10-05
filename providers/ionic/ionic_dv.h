@@ -68,6 +68,34 @@ int ionic_dv_pd_set_sqcmb(struct ibv_pd *ibpd, bool enable, bool expdb, bool req
  */
 int ionic_dv_pd_set_rqcmb(struct ibv_pd *ibpd, bool enable, bool expdb, bool require);
 
+enum ionic_dv_qp_init_attr_mask {
+	IONIC_DV_QP_INIT_ATTR_MASK_FLAGS		= (1 << 0),
+};
+
+enum ionic_dv_qp_init_attr_flags {
+	IONIC_DV_CREATE_QP_TYPE_RCCL		= 1 << 16,
+	IONIC_DV_CREATE_QP_RCCL_DATA		= 1 << 17,
+	IONIC_DV_CREATE_QP_RCCL_RDFENCE		= 1 << 18,
+	IONIC_DV_CREATE_QP_RCCL_RX_OFFLOAD	= 1 << 19,
+	IONIC_DV_CREATE_QP_RCCL_RCQ			= 1 << 24,
+};
+
+struct ionic_dv_qp_init_attr_ex {
+	uint64_t comp_mask;
+	uint32_t ionic_flags;
+};
+
+/**
+ * ionic_dv_create_qp_ex - Create a queue pair with ionic-specific attributes.
+ *
+ * @ibctx - Device context.
+ * @ex - Standard QP init attributes.
+ * @ionic_ex - Ionic-specific QP init attributes (transport mode, rcq paths).
+ */
+struct ibv_qp *ionic_dv_create_qp_ex(struct ibv_context *ibctx,
+				     struct ibv_qp_init_attr_ex *ex,
+				     struct ionic_dv_qp_init_attr_ex *ionic_ex);
+
 #ifdef __cplusplus
 }
 #endif
