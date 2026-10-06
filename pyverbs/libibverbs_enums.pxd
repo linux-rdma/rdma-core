@@ -472,6 +472,7 @@ cdef extern from '<infiniband/verbs.h>':
     cpdef enum ibv_qp_create_send_ops_flags:
         IBV_QP_EX_WITH_RDMA_WRITE
         IBV_QP_EX_WITH_RDMA_WRITE_WITH_IMM
+        IBV_QP_EX_WITH_RDMA_WRITE64_WITH_IMM
         IBV_QP_EX_WITH_SEND
         IBV_QP_EX_WITH_SEND_WITH_IMM
         IBV_QP_EX_WITH_RDMA_READ
