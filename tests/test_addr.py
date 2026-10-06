@@ -5,7 +5,7 @@ import unittest
 import errno
 
 from pyverbs.pyverbs_error import PyverbsError, PyverbsRDMAError
-from tests.base import PyverbsAPITestCase
+from tests.base import PyverbsAPITestCase, is_uet_ru_device
 from pyverbs.addr import AHAttr, AH
 import pyverbs.device as d
 from pyverbs.libibverbs_enums import ibv_port_state, IBV_LINK_LAYER_ETHERNET, IBV_LINK_LAYER_INFINIBAND
@@ -54,6 +54,8 @@ class AHTest(PyverbsAPITestCase):
         """
         Verify that AH can't be created without GRH in RoCE
         """
+        if is_uet_ru_device(self.ctx):
+            raise unittest.SkipTest('RoCE address handles do not apply to UET RU')
         self.verify_link_layer_ether(self.ctx)
         self.verify_state(self.ctx)
         pd = PD(self.ctx)

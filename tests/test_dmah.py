@@ -5,7 +5,6 @@ from pyverbs.libibverbs_enums import ibv_access_flags, ibv_wr_opcode, ibv_odp_tr
     ibv_tph_mem_type
 from tests.base import PyverbsAPITestCase, RCResources, RDMATestCase
 from pyverbs.pyverbs_error import PyverbsError, PyverbsRDMAError
-import pyverbs.device as d
 from pyverbs.pd import PD
 from pyverbs.mr import MREx, DMAHandle
 from pyverbs.qp import QPAttr
@@ -16,65 +15,58 @@ class DMAHandleTest(PyverbsAPITestCase):
     @u.skip_unsupported
     def test_dmah_with_mrex(self):
         """Verify DMAHandle can be used during MREx registration."""
-        with d.Context(name=self.dev_name) as ctx:
-            with PD(ctx) as pd:
-                attr = u.create_dmah_init_attr()
-                with DMAHandle(ctx, attr) as dmah:
-                    length = u.get_mr_length()
-                    access = ibv_access_flags.IBV_ACCESS_LOCAL_WRITE
-                    with MREx(pd, length, access, dmah=dmah) as mr:
-                        pass
+        with PD(self.ctx) as pd:
+            attr = u.create_dmah_init_attr()
+            with DMAHandle(self.ctx, attr) as dmah:
+                length = u.get_mr_length()
+                access = ibv_access_flags.IBV_ACCESS_LOCAL_WRITE
+                with MREx(pd, length, access, dmah=dmah) as mr:
+                    pass
 
     @u.skip_unsupported
     def test_dmah_invalid_ph(self):
         """Verify DMAHandle with invalid PH value, max ph value is 3."""
-        with d.Context(name=self.dev_name) as ctx:
-            with PD(ctx) as pd:
-                attr = u.create_dmah_init_attr(ph=4)
-                with self.assertRaises(PyverbsError):
-                    DMAHandle(ctx, attr)
+        with PD(self.ctx) as pd:
+            attr = u.create_dmah_init_attr(ph=4)
+            with self.assertRaises(PyverbsError):
+                DMAHandle(self.ctx, attr)
 
     @u.skip_unsupported
     def test_dmah_persistent_memory(self):
         """Attempt to create DMAHandle targeting persistent memory."""
-        with d.Context(name=self.dev_name) as ctx:
-            attr = u.create_dmah_init_attr(tph_mem_type=ibv_tph_mem_type.IBV_TPH_MEM_TYPE_PM)
-            with DMAHandle(ctx, attr):
-                pass
+        attr = u.create_dmah_init_attr(tph_mem_type=ibv_tph_mem_type.IBV_TPH_MEM_TYPE_PM)
+        with DMAHandle(self.ctx, attr):
+            pass
 
     @u.skip_unsupported
     def test_dmah_invalid_mem_type(self):
         """Pass an unsupported TPH memory-type and verify provider rejects it."""
-        with d.Context(name=self.dev_name) as ctx:
-            attr = u.create_dmah_init_attr(tph_mem_type=0xFE)
-            with self.assertRaises(PyverbsError):
-                DMAHandle(ctx, attr)
+        attr = u.create_dmah_init_attr(tph_mem_type=0xFE)
+        with self.assertRaises(PyverbsError):
+            DMAHandle(self.ctx, attr)
 
     @u.skip_unsupported
     def test_dmah_inval_cpu_id(self):
         """Attempt to create DMAHandle with invalid CPU ID (0xffff). Expect failure."""
-        with d.Context(name=self.dev_name) as ctx:
-            attr = u.create_dmah_init_attr(cpu_id=0xffff, ph=3)
-            with self.assertRaises(PyverbsError):
-                DMAHandle(ctx, attr)
+        attr = u.create_dmah_init_attr(cpu_id=0xffff, ph=3)
+        with self.assertRaises(PyverbsError):
+            DMAHandle(self.ctx, attr)
 
     @u.skip_unsupported
     def test_dmah_mrex_odp_bad_flow(self):
         """Attempt to register ODP-capable MREx with DMAHandle.
         Expect failure since ODP isn't supported with DMAHandle."""
-        with d.Context(name=self.dev_name) as ctx:
-            # Check ODP support; skip if not available
-            odp_cap = (ibv_odp_transport_cap_bits.IBV_ODP_SUPPORT_SEND |
-                       ibv_odp_transport_cap_bits.IBV_ODP_SUPPORT_RECV)
-            u.odp_supported(ctx, 'rc', odp_cap)
-            with PD(ctx) as pd:
-                attr = u.create_dmah_init_attr()
-                dmah = DMAHandle(ctx, attr)
-                with self.assertRaises(PyverbsError):
-                    length = u.get_mr_length()
-                    access = (ibv_access_flags.IBV_ACCESS_LOCAL_WRITE |
-                              ibv_access_flags.IBV_ACCESS_ON_DEMAND)
-                    MREx(pd, length, access, dmah=dmah)
+        odp_cap = (ibv_odp_transport_cap_bits.IBV_ODP_SUPPORT_SEND |
+                   ibv_odp_transport_cap_bits.IBV_ODP_SUPPORT_RECV)
+        u.odp_supported(self.ctx, 'rc', odp_cap)
+        with PD(self.ctx) as pd:
+            attr = u.create_dmah_init_attr()
+            dmah = DMAHandle(self.ctx, attr)
+            with self.assertRaises(PyverbsError):
+                length = u.get_mr_length()
+                access = (ibv_access_flags.IBV_ACCESS_LOCAL_WRITE |
+                          ibv_access_flags.IBV_ACCESS_ON_DEMAND)
+                MREx(pd, length, access, dmah=dmah)
 
 
 class DmaHandleMRExRC(RCResources):

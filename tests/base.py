@@ -12,10 +12,15 @@ import stat
 import json
 import sys
 import os
+from contextlib import contextmanager
 
 from pyverbs.qp import QPCap, QPInitAttrEx, QPInitAttr, QPAttr, QP
 from pyverbs.srq import SRQ, SrqInitAttrEx, SrqInitAttr, SrqAttr
 from pyverbs.pyverbs_error import PyverbsRDMAError, PyverbsError
+try:
+    from pyverbs.providers.cxi.cxidv import LNI
+except ImportError:
+    LNI = None
 from pyverbs.addr import AHAttr, GlobalRoute
 from pyverbs.xrcd import XRCD, XRCDInitAttr
 from pyverbs.device import Context
@@ -45,6 +50,7 @@ MLNX_VENDOR_ID = 0x02c9
 CX3_MLNX_PART_ID = 4099
 CX3Pro_MLNX_PART_ID = 4103
 DCT_KEY = 0xbadc0de
+IBV_DEVICE_RU = 1 << 42
 # Dictionary: vendor_id -> array of part_ids of devices that lack RoCEv2 support
 ROCEV2_UNSUPPORTED_DEVS = {MLNX_VENDOR_ID: [CX3Pro_MLNX_PART_ID,
                                             CX3_MLNX_PART_ID]}
@@ -71,6 +77,35 @@ def is_gid_available(gid_index):
         raise unittest.SkipTest(f'No relevant GID found')
 
 
+def create_ru_lni(ctx):
+    """Create the context LNI required by CXI PD allocation, when supported."""
+    if LNI is None:
+        return None
+    if not ctx.query_device_ex().device_cap_flags_ex & IBV_DEVICE_RU:
+        return None
+    try:
+        return LNI(ctx)
+    except PyverbsRDMAError as ex:
+        if ex.error_code == errno.EOPNOTSUPP:
+            return None
+        raise
+
+
+def is_uet_ru_device(ctx):
+    return bool(ctx.query_device_ex().device_cap_flags_ex & IBV_DEVICE_RU)
+
+
+@contextmanager
+def context_with_ru_lni(dev_name):
+    """Open a test context with the LNI required by CXI PD allocation."""
+    ctx = d.Context(name=dev_name)
+    lni = create_ru_lni(ctx)
+    try:
+        yield ctx
+    finally:
+        ctx.close()
+
+
 class PyverbsAPITestCase(unittest.TestCase):
     def __init__(self, methodName='runTest'):
         super().__init__(methodName)
@@ -78,6 +113,7 @@ class PyverbsAPITestCase(unittest.TestCase):
         self.config = parser.get_config()
         self.dev_name = None
         self.ctx = None
+        self.lni = None
         self.attr = None
         self.attr_ex = None
         self.gid_index = 0
@@ -108,6 +144,7 @@ class PyverbsAPITestCase(unittest.TestCase):
 
     def create_context(self):
         self.ctx = d.Context(name=self.dev_name)
+        self.lni = create_ru_lni(self.ctx)
 
     def set_env_variable(self, var, value):
         """
@@ -342,6 +379,10 @@ class RDMATestCase(unittest.TestCase):
         :param resource_arg: Dict of args that specify the resource specific
                              attributes.
         """
+        with d.Context(name=self.dev_name) as ctx:
+            if is_uet_ru_device(ctx) and not getattr(resource, 'supports_ru', False):
+                raise unittest.SkipTest(
+                    f'{resource.__name__} requires a connected QP, not an RU QP')
         try:
             self.client = resource(**self.dev_info, **resource_arg)
             self.server = resource(**self.dev_info, **resource_arg)
@@ -382,6 +423,9 @@ class RDMACMBaseTest(RDMATestCase):
     """
     def setUp(self):
         super().setUp()
+        with d.Context(name=self.dev_name) as ctx:
+            if is_uet_ru_device(ctx):
+                raise unittest.SkipTest('RDMACM connection tests do not apply to RU QPs')
         if not self.ip_addr:
             raise unittest.SkipTest('Device {} doesn\'t have net interface'
                                     .format(self.dev_name))
@@ -576,11 +620,14 @@ class BaseResources(object, metaclass=SkipTestMeta):
         self.gid_index = gid_index
         self.ib_port = ib_port
         self.ctx = None
+        self.lni = None
+        self.lni = None
         self.create_context()
         self.create_pd()
 
     def create_context(self):
         self.ctx = Context(name=self.dev_name)
+        self.lni = create_ru_lni(self.ctx)
 
     def create_pd(self):
         self.pd = PD(self.ctx)

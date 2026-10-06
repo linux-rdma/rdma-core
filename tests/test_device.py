@@ -12,7 +12,7 @@ import errno
 import os
 
 from pyverbs.pyverbs_error import PyverbsError, PyverbsRDMAError
-from tests.base import PyverbsAPITestCase
+from tests.base import PyverbsAPITestCase, is_uet_ru_device
 from pyverbs.device import Context, DM
 import tests.utils as u
 import pyverbs.device as d
@@ -60,7 +60,7 @@ class DeviceTest(PyverbsAPITestCase):
         for dev in self.get_device_list():
             with d.Context(name=dev.name.decode()) as ctx:
                 attr = ctx.query_device()
-                self.verify_device_attr(attr, dev)
+                self.verify_device_attr(attr, dev, is_uet_ru_device(ctx))
 
     def test_query_pkey(self):
         """
@@ -187,7 +187,7 @@ class DeviceTest(PyverbsAPITestCase):
                                    f'non-existent gid index {no_gid_index}')
 
     @staticmethod
-    def verify_device_attr(attr, device):
+    def verify_device_attr(attr, device, is_ru=False):
         """
         Helper method that verifies correctness of some members of DeviceAttr
         object.
@@ -197,7 +197,8 @@ class DeviceTest(PyverbsAPITestCase):
         """
         if device.node_type != ibv_node_type.IBV_NODE_UNSPECIFIED and device.node_type != ibv_node_type.IBV_NODE_UNKNOWN:
             assert attr.node_guid != 0
-            assert attr.sys_image_guid != 0
+            if not is_ru:
+                assert attr.sys_image_guid != 0
         assert attr.max_mr_size > PAGE_SIZE
         assert attr.page_size_cap >= PAGE_SIZE
         assert attr.vendor_id != 0
@@ -219,7 +220,8 @@ class DeviceTest(PyverbsAPITestCase):
         for dev in self.get_device_list():
             with d.Context(name=dev.name.decode()) as ctx:
                 attr_ex = ctx.query_device_ex()
-                self.verify_device_attr(attr_ex.orig_attr, dev)
+                self.verify_device_attr(attr_ex.orig_attr, dev,
+                                        is_uet_ru_device(ctx))
 
     def test_phys_port_cnt_ex(self):
         """

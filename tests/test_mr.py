@@ -8,7 +8,7 @@ import unittest
 import random
 import errno
 
-from tests.base import PyverbsAPITestCase, RCResources, RDMATestCase
+from tests.base import PyverbsAPITestCase, RCResources, RDMATestCase, context_with_ru_lni
 from pyverbs.pyverbs_error import PyverbsRDMAError, PyverbsError
 from pyverbs.mr import MR, MW, DMMR, DmaBufMR, MWBindInfo, MWBind, MREx
 from pyverbs.mem_alloc import posix_memalign, free
@@ -202,7 +202,7 @@ class MRTest(RDMATestCase):
         """Validate that registering a given MR class with illegal flags fails."""
         bad_flags = [ibv_access_flags.IBV_ACCESS_REMOTE_WRITE,
                      ibv_access_flags.IBV_ACCESS_REMOTE_ATOMIC]
-        with d.Context(name=self.dev_name) as ctx:
+        with context_with_ru_lni(self.dev_name) as ctx:
             with PD(ctx) as pd:
                 for flag in bad_flags:
                     with self.assertRaisesRegex(PyverbsRDMAError, expected_regex):
@@ -222,7 +222,7 @@ class MRTest(RDMATestCase):
 
     def test_reg_mrex_inval_params(self):
         """Verify MREx registration fails when ADDR & FD flags set."""
-        with d.Context(name=self.dev_name) as ctx:
+        with context_with_ru_lni(self.dev_name) as ctx:
             with PD(ctx) as pd:
                 with self.assertRaises(PyverbsRDMAError):
                     MREx(pd, u.get_mr_length(), ibv_access_flags.IBV_ACCESS_LOCAL_WRITE,
@@ -421,7 +421,7 @@ class MWTest(RDMATestCase):
         """
         Verify that trying to create a MW of a wrong type fails
         """
-        with d.Context(name=self.dev_name) as ctx:
+        with context_with_ru_lni(self.dev_name) as ctx:
             with PD(ctx) as pd:
                 try:
                     mw_type = 3

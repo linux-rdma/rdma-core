@@ -13,7 +13,7 @@ import os
 
 from pyverbs.pyverbs_error import PyverbsRDMAError
 from pyverbs.qp import QPAttr, QP, QPRateLimitAttr
-from tests.base import PyverbsAPITestCase, RDMATestCase, RCResources
+from tests.base import PyverbsAPITestCase, RDMATestCase, RCResources, is_uet_ru_device
 import pyverbs.utils as pu
 import pyverbs.device as d
 from pyverbs.libibverbs_enums import ibv_qp_type, ibv_qp_state, ibv_qp_attr_mask, ibv_node_type, \
@@ -27,6 +27,11 @@ class QPTest(PyverbsAPITestCase):
     """
     Test various functionalities of the QP class.
     """
+
+    def setUp(self):
+        super().setUp()
+        if is_uet_ru_device(self.ctx):
+            raise unittest.SkipTest('Connected RC/UC/UD/RAW QP tests do not apply to RU')
 
     def create_qp(self, creator, qp_init_attr, is_ex, with_attr, port_num):
         """

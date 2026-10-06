@@ -29,6 +29,10 @@ from pyverbs.pyverbs_error import PyverbsRDMAError
 from pyverbs.qp import QPCap, QPInitAttrEx, QPEx
 from pyverbs.addr import GID, GlobalRoute, AHAttr
 from pyverbs.ru import Job, JobAttr, JKey, AHAttrEx
+try:
+    from pyverbs.providers.cxi.cxidv import LNI, alloc_pid
+except ImportError:
+    LNI = alloc_pid = None
 import pyverbs.device as d
 from pyverbs.libibverbs_enums import ibv_qp_init_attr_mask, ibv_qp_type, \
     ibv_qp_create_send_ops_flags, ibv_access_flags, ibv_job_attr_mask, \
@@ -104,6 +108,8 @@ class RuAPITestCase(PyverbsAPITestCase):
     def setUp(self):
         super().setUp()
         skip_if_not_ru_dev(self.ctx)
+        if self.lni is None and LNI is not None:
+            self.lni = LNI(self.ctx)
 
 
 class RuRDMATestCase(RDMATestCase):
@@ -137,11 +143,10 @@ class RuResources(TrafficResources):
     A UET player: a job, a job key, and one or more RU queue pairs that reach
     the other player through the job's shared address table.
     """
-    # The JobID is 24 bits on the wire (uet_pkt_hdr.h,
-    # UET_SES_REQ_JOB_ID_MASK). A wider id is accepted at allocation and
-    # then truncated in the header, so the far end answers Bad Job ID.
-    JOB_ID = 0x756574
+    # The kernel ABI currently limits JobIDs to 16 bits.
+    JOB_ID = 0x7564
     INITIATOR_ID = 16
+    supports_ru = True
     MAX_ADDR_ENTRIES = 16
     # Resource indices this test suite owns. A queue pair that shares an
     # index with another receives the other's stragglers, so the two players
@@ -170,14 +175,22 @@ class RuResources(TrafficResources):
              ibv_access_flags.IBV_ACCESS_REMOTE_READ)
         self.job = None
         self.jkey = None
+        self._pid_on_fep = None
         self.player = 0
         self.remote_addr_idx = None
         super().__init__(dev_name, ib_port, gid_index, qp_count=qp_count,
                          msg_size=msg_size)
 
-    def init_resources(self):
-        # the job has to exist before the queue pairs that join it
+    def create_context(self):
+        super().create_context()
+
+    def create_pd(self):
         self.create_job()
+        super().create_pd()
+        self._pid_on_fep = alloc_pid(self.pd)
+        self.jkey = JKey(self.pd, self.job)
+
+    def init_resources(self):
         super().init_resources()
 
     def create_job(self):
@@ -194,7 +207,6 @@ class RuResources(TrafficResources):
             if ex.error_code == errno.EOPNOTSUPP:
                 raise unittest.SkipTest('UET jobs are not supported')
             raise ex
-        self.jkey = JKey(self.pd, self.job)
 
     def res_index(self, qp_idx):
         """
@@ -210,7 +222,7 @@ class RuResources(TrafficResources):
         device-wide by the first protection domain that uses it, so the two
         players - which have a protection domain each - cannot share one.
         """
-        return self.player
+        return self._pid_on_fep
 
     def addr_index(self, qp_idx):
         """
@@ -269,8 +281,9 @@ class RuResources(TrafficResources):
         self.rpsns = rpsns
         self.rqps_num = rqps_num
         self.remote_addr_idx = []
-        gr = GlobalRoute(dgid=ipv4_to_gid(self.local_ip),
-                         flow_label=self.INITIATOR_ID, sgid_index=0,
+        gr = GlobalRoute(dgid=self.ctx.query_gid(self.ib_port, self.gid_index),
+                 flow_label=self.INITIATOR_ID,
+                 sgid_index=self.gid_index,
                          hop_limit=1)
         for qp_idx in range(self.qp_count):
             ah_attr = AHAttr(is_global=1, port_num=self.ib_port, gr=gr)
