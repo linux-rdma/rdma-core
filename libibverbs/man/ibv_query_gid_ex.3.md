@@ -63,7 +63,8 @@ struct ibv_gid_entry {
 
 	*gid_type*
 :			enum ibv_gid_type, can be one of IBV_GID_TYPE_IB, IBV_GID_TYPE_ROCE_V1,
-			IBV_GID_TYPE_ROCE_V2, IBV_GID_TYPE_UET_UDP or IBV_GID_TYPE_UET_IP.
+			IBV_GID_TYPE_ROCE_V2, IBV_GID_TYPE_UET_UDP, IBV_GID_TYPE_UET_IP,
+			or IBV_GID_TYPE_SLINGSHOT_UFH.
 
 	*ndev_ifindex*
 :			The interface index of the net device associated with this GID.

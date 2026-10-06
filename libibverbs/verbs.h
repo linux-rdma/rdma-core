@@ -76,6 +76,7 @@ enum ibv_gid_type {
 	IBV_GID_TYPE_ROCE_V2,
 	IBV_GID_TYPE_UET_UDP,
 	IBV_GID_TYPE_UET_IP,
+	IBV_GID_TYPE_SLINGSHOT_UFH,
 };
 
 struct ibv_gid_entry {
@@ -103,6 +104,7 @@ enum ibv_node_type {
 	IBV_NODE_USNIC,
 	IBV_NODE_USNIC_UDP,
 	IBV_NODE_UNSPECIFIED,
+	IBV_NODE_SLINGSHOT,
 };
 
 enum ibv_transport_type {
@@ -112,6 +114,7 @@ enum ibv_transport_type {
 	IBV_TRANSPORT_USNIC,
 	IBV_TRANSPORT_USNIC_UDP,
 	IBV_TRANSPORT_UNSPECIFIED,
+	IBV_TRANSPORT_SLINGSHOT,
 };
 
 enum ibv_qp_msg_order {
@@ -2546,6 +2549,8 @@ struct verbs_context {
 	int (*remove_addr)(struct ibv_job *job, unsigned int addr_idx);
 	int (*query_addr)(struct ibv_job *job, unsigned int addr_idx,
 			  struct ibv_ah_attr_ex *ah_attr);
+	struct ibv_comp_channel *(*create_comp_channel)(struct ibv_context *context);
+	int (*destroy_comp_channel)(struct ibv_comp_channel *channel);
 	void (*free_buf)(struct ibv_buf *buf);
 	void *(*alloc_buf)(struct ibv_pd *pd, size_t size,
 			   struct ibv_buf **buf);

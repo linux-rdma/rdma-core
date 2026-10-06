@@ -873,6 +873,11 @@ struct ibv_comp_channel *ibv_create_comp_channel(struct ibv_context *context)
 	struct ib_uverbs_create_comp_channel_resp resp = {};
 	struct ibv_comp_channel            *channel;
 
+	/* if the provider doesn't support this, fall back to kernel */
+	channel = get_ops(context)->create_comp_channel(context);
+	if (channel || errno != EOPNOTSUPP)
+		return channel;
+
 	channel = malloc(sizeof *channel);
 	if (!channel)
 		return NULL;
@@ -897,6 +902,12 @@ int ibv_destroy_comp_channel(struct ibv_comp_channel *channel)
 	int ret;
 
 	context = channel->context;
+
+	/* if the provider doesn't support this, fall back to kernel */
+	ret = get_ops(context)->destroy_comp_channel(channel);
+	if (ret != EOPNOTSUPP)
+		return ret;
+
 	pthread_mutex_lock(&context->mutex);
 
 	if (channel->refcnt) {
@@ -1236,6 +1247,8 @@ int ibv_query_gid_type(struct ibv_context *context, uint8_t port_num,
 		*type = IBV_GID_TYPE_SYSFS_UET_UDP;
 	else if (entry.gid_type == IBV_GID_TYPE_UET_IP)
 		*type = IBV_GID_TYPE_SYSFS_UET_IP;
+	else if (entry.gid_type == IBV_GID_TYPE_SLINGSHOT_UFH)
+		*type = IBV_GID_TYPE_SYSFS_SLINGSHOT_UFH;
 	else
 		*type = IBV_GID_TYPE_SYSFS_ROCE_V2;
 

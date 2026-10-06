@@ -173,6 +173,7 @@ enum ibv_gid_type_sysfs {
 	IBV_GID_TYPE_SYSFS_ROCE_V2,
 	IBV_GID_TYPE_SYSFS_UET_UDP,
 	IBV_GID_TYPE_SYSFS_UET_IP,
+	IBV_GID_TYPE_SYSFS_SLINGSHOT_UFH,
 };
 
 enum verbs_query_gid_attr_mask {
@@ -409,6 +410,7 @@ struct verbs_context_ops {
 	struct ibv_cq_ex *(*create_cq_ex)(
 		struct ibv_context *context,
 		struct ibv_cq_init_attr_ex *init_attr);
+	struct ibv_comp_channel *(*create_comp_channel)(struct ibv_context *context);
 	struct ibv_flow *(*create_flow)(struct ibv_qp *qp,
 					struct ibv_flow_attr *flow_attr);
 	struct ibv_flow_action *(*create_flow_action_esp)(struct ibv_context *context,
@@ -437,6 +439,7 @@ struct verbs_context_ops {
 	int (*dealloc_td)(struct ibv_td *td);
 	int (*dereg_mr)(struct verbs_mr *vmr);
 	int (*destroy_ah)(struct ibv_ah *ah);
+	int (*destroy_comp_channel)(struct ibv_comp_channel *channel);
 	int (*destroy_comp_cntr)(struct ibv_comp_cntr *comp_cntr);
 	int (*destroy_counters)(struct ibv_counters *counters);
 	int (*destroy_cq)(struct ibv_cq *cq);

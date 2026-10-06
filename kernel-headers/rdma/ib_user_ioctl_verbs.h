@@ -258,6 +258,7 @@ enum rdma_driver_id {
 	RDMA_DRIVER_ERDMA,
 	RDMA_DRIVER_MANA,
 	RDMA_DRIVER_IONIC,
+	RDMA_DRIVER_CXI,
 };
 
 enum ib_uverbs_gid_type {
@@ -266,6 +267,7 @@ enum ib_uverbs_gid_type {
 	IB_UVERBS_GID_TYPE_ROCE_V2,
 	IB_UVERBS_GID_TYPE_UET_UDP,
 	IB_UVERBS_GID_TYPE_UET_IP,
+	IB_UVERBS_GID_TYPE_SLINGSHOT_UFH,
 };
 
 struct ib_uverbs_gid_entry {

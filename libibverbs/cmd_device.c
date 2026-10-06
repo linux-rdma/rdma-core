@@ -283,11 +283,12 @@ static int query_sysfs_gid(struct ibv_context *context, uint8_t port_num, int in
 #define V2_TYPE "RoCE v2"
 #define UET_UDP_TYPE "UET UDP"
 #define UET_IP_TYPE "UET IP"
+#define SLINGSHOT_UFH_TYPE "SLINGSHOT UFH"
 static int query_sysfs_gid_type(struct ibv_context *context, uint8_t port_num,
 				unsigned int index, enum ibv_gid_type_sysfs *type)
 {
 	struct verbs_device *verbs_device = verbs_get_device(context->device);
-	char buff[11];
+	char buff[16];
 
 	/* Reset errno so that we can rely on its value upon any error flow in
 	 * ibv_read_sysfs_file.
@@ -335,6 +336,8 @@ static int query_sysfs_gid_type(struct ibv_context *context, uint8_t port_num,
 			*type = IBV_GID_TYPE_SYSFS_UET_UDP;
 		} else if (!strcmp(buff, UET_IP_TYPE)) {
 			*type = IBV_GID_TYPE_SYSFS_UET_IP;
+		} else if (!strcmp(buff, SLINGSHOT_UFH_TYPE)) {
+			*type = IBV_GID_TYPE_SYSFS_SLINGSHOT_UFH;
 		} else {
 			errno = ENOTSUP;
 			return -1;
@@ -389,6 +392,8 @@ static int query_sysfs_gid_entry(struct ibv_context *context, uint32_t port_num,
 			entry->gid_type = IBV_GID_TYPE_UET_UDP;
 		} else if (gid_type == IBV_GID_TYPE_SYSFS_UET_IP) {
 			entry->gid_type = IBV_GID_TYPE_UET_IP;
+		} else if (gid_type == IBV_GID_TYPE_SYSFS_SLINGSHOT_UFH) {
+			entry->gid_type = IBV_GID_TYPE_SLINGSHOT_UFH;
 		} else {
 			entry->gid_type = IBV_GID_TYPE_ROCE_V2;
 		}

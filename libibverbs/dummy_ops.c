@@ -210,6 +210,12 @@ static struct ibv_cq_ex *create_cq_ex(struct ibv_context *context,
 	return NULL;
 }
 
+static struct ibv_comp_channel *create_comp_channel(struct ibv_context *context)
+{
+	errno = EOPNOTSUPP;
+	return NULL;
+}
+
 static struct ibv_flow *create_flow(struct ibv_qp *qp,
 				    struct ibv_flow_attr *flow_attr)
 {
@@ -306,6 +312,11 @@ static int dereg_mr(struct verbs_mr *vmr)
 }
 
 static int destroy_ah(struct ibv_ah *ah)
+{
+	return EOPNOTSUPP;
+}
+
+static int destroy_comp_channel(struct ibv_comp_channel *channel)
 {
 	return EOPNOTSUPP;
 }
@@ -784,6 +795,7 @@ const struct verbs_context_ops verbs_dummy_ops = {
 	create_counters,
 	create_cq,
 	create_cq_ex,
+	create_comp_channel,
 	create_flow,
 	create_flow_action_esp,
 	create_jkey,
@@ -800,6 +812,7 @@ const struct verbs_context_ops verbs_dummy_ops = {
 	dealloc_td,
 	dereg_mr,
 	destroy_ah,
+	destroy_comp_channel,
 	destroy_comp_cntr,
 	destroy_counters,
 	destroy_cq,
@@ -939,6 +952,7 @@ void verbs_set_ops(struct verbs_context *vctx,
 	SET_PRIV_OP(ctx, cq_event);
 	SET_PRIV_OP(ctx, create_ah);
 	SET_OP(vctx, create_ah_ex);
+	SET_OP(vctx, create_comp_channel);
 	SET_PRIV_OP(ctx, create_cq);
 	SET_PRIV_OP_IC(vctx, create_cq_ex);
 	SET_PRIV_OP_IC(vctx, create_comp_cntr);
@@ -959,6 +973,7 @@ void verbs_set_ops(struct verbs_context *vctx,
 	SET_OP(vctx, destroy_counters);
 	SET_PRIV_OP(ctx, dereg_mr);
 	SET_PRIV_OP(ctx, destroy_ah);
+	SET_OP(vctx, destroy_comp_channel);
 	SET_PRIV_OP_IC(vctx, destroy_comp_cntr);
 	SET_PRIV_OP(ctx, destroy_cq);
 	SET_OP2(vctx, ibv_destroy_flow, destroy_flow);
