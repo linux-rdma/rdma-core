@@ -18,7 +18,7 @@ dh_params = --with python3 --builddirectory=build-deb
 override_dh_auto_clean:
 	dh_auto_clean
 	rm -rf build-deb
-	for package in ibverbs-providers libibverbs-dev rdma-core; do \
+	for package in ibverbs-providers ibverbs-utils libibverbs-dev rdma-core; do \
 		test ! -e debian/$$package.install.backup || mv debian/$$package.install.backup debian/$$package.install; \
 	done
 
@@ -63,10 +63,10 @@ override_dh_auto_test:
 override_dh_auto_install:
 # Some providers are disabled on architectures that are not able to do coherent DMA
 ifeq (,$(filter-out $(NON_COHERENT_DMA_ARCHS),$(DEB_HOST_ARCH)))
-	for package in ibverbs-providers libibverbs-dev rdma-core; do \
+	for package in ibverbs-providers ibverbs-utils libibverbs-dev rdma-core; do \
 		test -e debian/$$package.install.backup || cp debian/$$package.install debian/$$package.install.backup; \
 	done
-	sed -i '/efa\|hns\|ionic\|mana\|mlx[45]/d' debian/ibverbs-providers.install debian/libibverbs-dev.install debian/rdma-core.install
+	sed -i '/cxi\|efa\|hns\|ionic\|mana\|mlx[45]/d' debian/ibverbs-providers.install debian/ibverbs-utils.install debian/libibverbs-dev.install debian/rdma-core.install
 endif
 	DESTDIR=$(CURDIR)/debian/tmp ninja -C build-deb install
 

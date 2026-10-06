@@ -1,4 +1,6 @@
 usr/include/infiniband/arch.h
+usr/include/infiniband/cxidv.h
+usr/include/infiniband/cxidv_telem.h
 usr/include/infiniband/bnxt_re-hsi.h
 usr/include/infiniband/bnxt_re_dv.h
 usr/include/infiniband/efadv.h
@@ -18,6 +20,8 @@ usr/include/infiniband/verbs.h
 usr/include/infiniband/verbs_api.h
 usr/lib/*/lib*-rdmav*.a
 usr/lib/*/libbnxt_re.a
+usr/lib/*/libcxiverbs.a
+usr/lib/*/libcxiverbs.so
 usr/lib/*/libbnxt_re.so
 usr/lib/*/libefa.a
 usr/lib/*/libefa.so
@@ -34,6 +38,7 @@ usr/lib/*/libmlx4.so
 usr/lib/*/libmlx5.a
 usr/lib/*/libmlx5.so
 usr/lib/*/pkgconfig/libbnxt_re.pc
+usr/lib/*/pkgconfig/libcxiverbs.pc
 usr/lib/*/pkgconfig/libefa.pc
 usr/lib/*/pkgconfig/libhns.pc
 usr/lib/*/pkgconfig/libibverbs.pc

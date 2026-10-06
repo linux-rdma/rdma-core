@@ -258,7 +258,7 @@ cdef class Job(PyverbsCM):
         if fd is not None:
             rc = v.ibv_import_job(context.context, fd, &self.job)
             if rc != 0:
-                raise PyverbsRDMAError('Failed to import job', rc)
+                raise PyverbsRDMAErrno('Failed to import job')
             self._is_imported = True
         else:
             if attr is None:

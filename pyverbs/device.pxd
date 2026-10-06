@@ -13,6 +13,7 @@ cdef class Context(PyverbsCM):
     cdef object name
     cdef add_ref(self, obj)
     cdef object pds
+    cdef object lnis
     cdef object dms
     cdef object ccs
     cdef object cqs

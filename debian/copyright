@@ -151,6 +151,11 @@ Files: providers/cxgb4/*
 Copyright: 2003-2016, Chelsio Communications, Inc.
 License: BSD-MIT or GPL-2
 
+Files: providers/cxi/*
+Copyright: 2018-2020, Cray Inc.
+           2024-2026, Hewlett Packard Enterprise Development LP
+License: BSD-2-clause or GPL-2
+
 Files: providers/efa/*
        pyverbs/providers/efa/*
 Copyright: 2019-2024 Amazon.com, Inc. or its affiliates.

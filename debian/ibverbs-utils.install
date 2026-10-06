@@ -1,3 +1,4 @@
+usr/bin/cxi_telem
 usr/bin/ibv_asyncwatch
 usr/bin/ibv_devices
 usr/bin/ibv_devinfo

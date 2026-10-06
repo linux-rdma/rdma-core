@@ -191,6 +191,7 @@ fast path operations.
 Device-specific plug-in ibverbs userspace drivers are included:
 
 - libcxgb4: Chelsio T4 iWARP HCA
+- libcxiverbs: HPE Cassini Network Adapter
 - libefa: Amazon Elastic Fabric Adapter
 - liberdma: Alibaba Elastic RDMA (iWarp) Adapter
 - libhfi1: Intel Omni-Path HFI
@@ -604,6 +605,9 @@ fi
 %dir %{_sysconfdir}/libibverbs.d
 %dir %{_libdir}/libibverbs
 %{_libdir}/libbnxt_re.so.*
+%{_libdir}/libcxiverbs.so.*
+# cxi_launcher ships with the CXI provider: CXI client programs cannot run without it
+%{_bindir}/cxi_launcher
 %{_libdir}/libefa.so.*
 %{_libdir}/libhns.so.*
 %{_libdir}/libibverbs*.so.*
@@ -618,6 +622,7 @@ fi
 
 %files -n libibverbs-utils
 %{_bindir}/ibv_*
+%{_bindir}/cxi_telem
 %{_mandir}/man1/ibv_*
 
 %files -n ibacm

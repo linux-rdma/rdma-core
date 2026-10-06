@@ -1,0 +1,49 @@
+/* Export symbols should be added below according to
+   Documentation/versioning.md document. */
+CXIVERBS_1.0 {
+	global:
+		cxidv_alloc_svc;
+		cxidv_query_svc;
+		cxidv_get_svc_rsrc_use;
+		cxidv_get_svc_lpr;
+		cxidv_destroy_svc;
+		cxidv_enable_svc;
+		cxidv_svc_is_enabled;
+		cxidv_alloc_lni;
+		cxidv_alloc_cp;
+		cxidv_destroy_cp;
+		cxidv_alloc_ct;
+		cxidv_inbound_wait;
+		cxidv_alloc_ct_writeback;
+		cxidv_destroy_ct;
+		cxidv_alloc_cmdq;
+		cxidv_alloc_trigger_cmdq;
+		cxidv_destroy_cmdq;
+		cxidv_alloc_wait;
+		cxidv_destroy_wait;
+		cxidv_alloc_eq;
+		cxidv_destroy_eq;
+		cxidv_map_csrs;
+		cxidv_unmap_csrs;
+		cxidv_read_csr;
+		cxidv_write_csr;
+		cxidv_write8_csr;
+		cxidv_destroy_lni;
+		cxidv_alloc_pd;
+		cxidv_alloc_pid;
+		cxidv_query_pid;
+		cxidv_query_device;
+		cxidv_mr_from_ibv_mr;
+		cxidv_reg_native_mr;
+		cxidv_cq_from_ibv_cq;
+		cxidv_qp_from_ibv_qp;
+		cxidv_modify_qp_src_id;
+		cxidv_bind_job_tc;
+		cxidv_clear_job_tc;
+		cxidv_set_default_tc;
+		cxidv_query_tcs;
+		cxidv_telem_name;
+		cxidv_telem_lookup;
+		cxidv_telem_get_set;
+	local: *;
+};

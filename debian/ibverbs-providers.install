@@ -1,5 +1,8 @@
 etc/libibverbs.d/
+# cxi_launcher ships with the CXI provider: CXI client programs cannot run without it
+usr/bin/cxi_launcher
 usr/lib/*/libbnxt_re.so.*
+usr/lib/*/libcxiverbs.so.*
 usr/lib/*/libefa.so.*
 usr/lib/*/libhns.so.*
 usr/lib/*/libibverbs/lib*-rdmav*.so

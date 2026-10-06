@@ -1,6 +1,7 @@
 publish_internal_headers(rdma
   rdma/bnxt_re-abi.h
   rdma/cxgb4-abi.h
+  rdma/cxiverbs-abi.h
   rdma/efa-abi.h
   rdma/erdma-abi.h
   rdma/hns-abi.h
@@ -32,6 +33,12 @@ publish_internal_headers(rdma
 publish_internal_headers(rdma/hfi
   rdma/hfi/hfi1_ioctl.h
   rdma/hfi/hfi1_user.h
+  )
+
+# Cassini wire format, shared with the kernel's include/uapi/ethernet/;
+# update alongside kernel-headers/rdma/cxiverbs-abi.h.
+publish_internal_headers(ethernet
+  ethernet/cassini_user_defs.h
   )
 
 publish_internal_headers(linux
@@ -67,6 +74,7 @@ endfunction()
 rdma_kernel_provider_abi(
   rdma/bnxt_re-abi.h
   rdma/cxgb4-abi.h
+  rdma/cxiverbs-abi.h
   rdma/efa-abi.h
   rdma/erdma-abi.h
   rdma/hns-abi.h

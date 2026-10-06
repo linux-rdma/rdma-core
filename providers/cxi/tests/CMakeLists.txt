@@ -1,0 +1,4 @@
+rdma_test_executable(cxi_le_test cxi_le_test.c)
+target_link_libraries(cxi_le_test LINK_PRIVATE cxiverbs ibverbs ${CMAKE_THREAD_LIBS_INIT})
+rdma_test_executable(cxi_launcher_test cxi_launcher_test.c)
+target_link_libraries(cxi_launcher_test LINK_PRIVATE cxiverbs ibverbs)

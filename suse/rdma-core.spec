@@ -34,6 +34,7 @@ Summary:        RDMA core userspace libraries and daemons
 License:        BSD-2-Clause OR GPL-2.0-only
 Group:          Productivity/Networking/Other
 
+%define cxiverbs_so_major 1
 %define efa_so_major    1
 %define hns_so_major    1
 %define ionic_so_major  1
@@ -48,6 +49,7 @@ Group:          Productivity/Networking/Other
 
 %define  bnxt_re_so_major 1
 %define  bnxt_re_lname libbnxt_re%{bnxt_re_so_major}
+%define  cxiverbs_lname libcxiverbs%{cxiverbs_so_major}
 %define  efa_lname    libefa%{efa_so_major}
 %define  hns_lname    libhns%{hns_so_major}
 %define  ionic_lname  libionic%{ionic_so_major}
@@ -166,6 +168,7 @@ Requires:       %{umad_lname} = %{version}-%{release}
 Requires:       %{verbs_lname} = %{version}-%{release}
 %if 0%{?dma_coherent}
 Requires:       %{bnxt_re_lname} = %{version}-%{release}
+Requires:       %{cxiverbs_lname} = %{version}-%{release}
 Requires:       %{efa_lname} = %{version}-%{release}
 Requires:       %{hns_lname} = %{version}-%{release}
 Requires:       %{ionic_lname} = %{version}-%{release}
@@ -220,6 +223,7 @@ Obsoletes:      libocrdma-rdmav2 < %{version}-%{release}
 Obsoletes:      librxe-rdmav2 < %{version}-%{release}
 %if 0%{?dma_coherent}
 Requires:       %{bnxt_re_lname} = %{version}-%{release}
+Requires:       %{cxiverbs_lname} = %{version}-%{release}
 Requires:       %{efa_lname} = %{version}-%{release}
 Requires:       %{hns_lname} = %{version}-%{release}
 Requires:       %{ionic_lname} = %{version}-%{release}
@@ -240,6 +244,7 @@ fast path operations.
 Device-specific plug-in ibverbs userspace drivers are included:
 
 - libcxgb4: Chelsio T4 iWARP HCA
+- libcxiverbs: HPE Cassini Network Adapter
 - libefa: Amazon Elastic Fabric Adapter
 - libhfi1: Intel Omni-Path HFI
 - libhns: HiSilicon Hip08+ SoC
@@ -270,6 +275,13 @@ Group:          System/Libraries
 
 %description -n %bnxt_re_lname
 This package contains the bnxt_re runtime library.
+
+%package -n %cxiverbs_lname
+Summary:        CXIVERBS runtime library
+Group:          System/Libraries
+
+%description -n %cxiverbs_lname
+This package contains the cxiverbs runtime library.
 
 %package -n %efa_lname
 Summary:        EFA runtime library
@@ -542,6 +554,7 @@ rm -rf %{buildroot}/%{_sbindir}/srp_daemon.sh
 
 %ldconfig_scriptlets -n %verbs_lname
 %ldconfig_scriptlets -n %bnxt_re_lname
+%ldconfig_scriptlets -n %cxiverbs_lname
 %ldconfig_scriptlets -n %efa_lname
 %ldconfig_scriptlets -n %hns_lname
 %ldconfig_scriptlets -n %ionic_lname
@@ -723,6 +736,10 @@ done
 %doc %{_docdir}/%{name}-%{version}/tag_matching.md
 %{_mandir}/man7/rxe*
 %{_prefix}/lib/sysusers.d/rdma.conf
+%if 0%{?dma_coherent}
+# cxi_launcher ships with the CXI provider: CXI client programs cannot run without it
+%{_bindir}/cxi_launcher
+%endif
 
 %files -n libibnetdisc%{ibnetdisc_major}
 %{_libdir}/libibnetdisc.so.*
@@ -736,6 +753,9 @@ done
 %if 0%{?dma_coherent}
 %files -n %bnxt_re_lname
 %{_libdir}/libbnxt_re*.so.*
+
+%files -n %cxiverbs_lname
+%{_libdir}/libcxiverbs*.so.*
 
 %files -n %efa_lname
 %{_libdir}/libefa*.so.*
@@ -759,6 +779,9 @@ done
 
 %files -n libibverbs-utils
 %{_bindir}/ibv_*
+%if 0%{?dma_coherent}
+%{_bindir}/cxi_telem
+%endif
 %{_mandir}/man1/ibv_*
 
 %files -n ibacm
