@@ -52,8 +52,14 @@
 #include <time.h>
 #include <inttypes.h>
 #include <endian.h>
+#include <sys/random.h>
 
 #include "pingpong.h"
+#ifdef HAVE_CXIVERBS
+#include <infiniband/cxidv.h>
+
+#include "ru_cxi_launch.h"
+#endif
 
 #include <ccan/minmax.h>
 
@@ -151,6 +157,7 @@ struct ru_cfg {
 	uint64_t imm_data64;
 	int use_event;
 	int validate_buf;
+	bool mtu_set;
 	enum ibv_mtu mtu;
 };
 
@@ -162,6 +169,10 @@ struct ru_exchange_info {
 };
 
 struct ru_context {
+#ifdef HAVE_CXIVERBS
+	struct cxidv_lni *cxi_lni;
+	uint32_t cxi_svc_id;
+#endif
 	struct ru_cfg cfg;
 	struct ibv_job *job;
 	struct ibv_job_key *job_key;
@@ -243,6 +254,10 @@ static void ru_free_res(struct ru_context *ctx)
 		ibv_destroy_qp(ctx->qp);
 		ctx->qp = NULL;
 	}
+	if (ctx->ah) {
+		ibv_destroy_ah(&ctx->ah->ah_base);
+		ctx->ah = NULL;
+	}
 
 	if (ctx->cq) {
 		ibv_destroy_cq(ctx->cq);
@@ -286,6 +301,15 @@ static void ru_free_res(struct ru_context *ctx)
 		ibv_dealloc_pd(ctx->pd);
 		ctx->pd = NULL;
 	}
+#ifdef HAVE_CXIVERBS
+	if (ctx->cxi_lni) {
+		int ret = cxidv_destroy_lni(ctx->cxi_lni);
+
+		if (ret)
+			RU_ERR("Couldn't destroy LNI: %s", strerror(ret));
+		ctx->cxi_lni = NULL;
+	}
+#endif
 
 	if (ctx->channel) {
 		ibv_destroy_comp_channel(ctx->channel);
@@ -338,6 +362,8 @@ static int ru_init_cfg(int argc, char *argv[], struct ru_context *ctx)
 	ctx->cfg.do_rma_ex = false;
 	ctx->cfg.do_rma_ex64 = true;  /* default to rma_ex64 */
 	ctx->cfg.job_id = RU_DEFAULT_JOB_ID;
+	if (getenv("UET_JOB_ID"))
+		ctx->cfg.job_id = strtoul(getenv("UET_JOB_ID"), NULL, 0);
 
 	while (1) {
 		int c;
@@ -402,6 +428,7 @@ static int ru_init_cfg(int argc, char *argv[], struct ru_context *ctx)
 				RU_USAGE(argv[0]);
 				return RU_ERR_RC;
 			}
+			ctx->cfg.mtu_set = true;
 			break;
 		case 'r':
 			ctx->cfg.rx_depth = strtoul(optarg, NULL, 0);
@@ -540,12 +567,9 @@ static int ru_check_dev_caps(struct ru_context *ctx)
 		return RU_ERR_RC;
 	}
 
-	/* the local SGE array is sized at RU_MAX_SGE; the device must accept
-	 * that many SGEs per WR.
-	 */
-	if (attr.orig_attr.max_sge < RU_MAX_SGE) {
-		RU_ERR("RU_MAX_SGE (%d) exceeds device max_sge (%d)",
-		       RU_MAX_SGE, attr.orig_attr.max_sge);
+	if (ctx->cfg.sge > attr.orig_attr.max_sge) {
+		RU_ERR("Requested SGEs (%d) exceed device max_sge (%d)",
+		       ctx->cfg.sge, attr.orig_attr.max_sge);
 		return RU_ERR_RC;
 	}
 
@@ -574,7 +598,7 @@ static int ru_init_ctx(struct ru_context *ctx)
 		ib_dev = *dev_list;
 		if (!ib_dev) {
 			RU_ERR("No IB devices found");
-			return RU_ERR_RC;
+			goto err_free_devices;
 		}
 	} else {
 		int i;
@@ -588,16 +612,24 @@ static int ru_init_ctx(struct ru_context *ctx)
 		ib_dev = dev_list[i];
 		if (!ib_dev) {
 			RU_ERR("IB device %s not found", ctx->cfg.ib_devname);
-			return RU_ERR_RC;
+			goto err_free_devices;
 		}
 	}
+
+#ifdef HAVE_CXIVERBS
+	if (ib_dev->transport_type == IBV_TRANSPORT_SLINGSHOT &&
+	    ru_cxi_relaunch(ibv_get_device_name(ib_dev), ctx->cfg.job_id,
+			    ctx->cfg.ib_port, ctx->cfg.gidx,
+			    ctx->cfg.addr_table ? RU_ADDR_ENTRIES : 0))
+		goto err_free_devices;
+#endif
 
 	page_size = sysconf(_SC_PAGESIZE);
 
 	ctx->buf = memalign(page_size, ctx->cfg.msg_size);
 	if (!ctx->buf) {
 		RU_ERR("Couldn't allocate buffer");
-		return RU_ERR_RC;
+		goto err_free_devices;
 	}
 
 	if (ctx->cfg.client)
@@ -636,8 +668,48 @@ static int ru_init_ctx(struct ru_context *ctx)
 	}
 
 	memcpy(&ctx->src_id, &ctx->gid.raw[12], sizeof(ctx->src_id));
+	if (ctx->context->device->transport_type == IBV_TRANSPORT_SLINGSHOT &&
+	    (ctx->cfg.write32 || ctx->cfg.read32) && !ctx->cfg.user_rkey) {
+		uint32_t key;
 
-	ctx->pd = ibv_alloc_pd(ctx->context);
+		if (getrandom(&key, sizeof(key), 0) != sizeof(key)) {
+			RU_PRINT_ERRNO("Couldn't generate narrow remote key");
+			goto err_exit;
+		}
+		ctx->cfg.user_rkey = true;
+		ctx->cfg.user_rkey_val = key | (1U << 31);
+	}
+
+#ifdef HAVE_CXIVERBS
+	if (ctx->context->device->transport_type == IBV_TRANSPORT_SLINGSHOT) {
+		const char *service = getenv("UET_SERVICE_ID");
+		uint32_t pid;
+		int ret;
+
+		if (!service) {
+			RU_ERR("No service granted; run under cxi_launcher");
+			goto err_exit;
+		}
+		ctx->cxi_svc_id = strtoul(service, NULL, 0);
+		ret = cxidv_alloc_lni(ctx->context, ctx->cxi_svc_id, &ctx->cxi_lni);
+		if (ret) {
+			RU_ERR("Couldn't allocate LNI: %s", strerror(ret));
+			goto err_exit;
+		}
+		ctx->pd = cxidv_alloc_pd(ctx->cxi_lni);
+		if (!ctx->pd)
+			goto err_exit;
+		ret = cxidv_alloc_pid(ctx->pd, ctx->cfg.absolute ? CXIDV_PID_ABSOLUTE : 0, &pid);
+		if (ret) {
+			RU_ERR("Couldn't bind PD PID: %s", strerror(ret));
+			goto err_exit;
+		}
+		ctx->cfg.pid_on_fep = pid;
+	} else
+#endif
+	{
+		ctx->pd = ibv_alloc_pd(ctx->context);
+	}
 	if (!ctx->pd) {
 		RU_PRINT_ERRNO("Couldn't allocate protection domain");
 		goto err_exit;
@@ -654,9 +726,16 @@ static int ru_init_ctx(struct ru_context *ctx)
 		.sgid_index = ctx->cfg.gidx,
 	};
 
-	ctx->job = ibv_alloc_job(ctx->context, &job_attr, NULL);
+	if (getenv("UET_JOB_FD")) {
+		int fd = strtol(getenv("UET_JOB_FD"), NULL, 0);
+
+		if (ibv_import_job(ctx->context, fd, &ctx->job))
+			ctx->job = NULL;
+	} else {
+		ctx->job = ibv_alloc_job(ctx->context, &job_attr, NULL);
+	}
 	if (!ctx->job) {
-		RU_ERR("Couldn't allocate job");
+		RU_PRINT_ERRNO("Couldn't allocate job");
 		goto err_exit;
 	}
 
@@ -816,7 +895,11 @@ static int ru_init_ctx(struct ru_context *ctx)
 	memset(&qp_attr, 0, sizeof(struct ibv_qp_attr));
 	qp_attr.path_mtu = ctx->cfg.mtu;
 	qp_init_attr_ex.qp_attr = &qp_attr;
-	qp_init_attr_ex.qp_attr_mask = IBV_QP_PATH_MTU;
+	qp_init_attr_ex.qp_attr_mask = ctx->cfg.mtu_set ? IBV_QP_PATH_MTU : 0;
+	if (ctx->context->device->transport_type == IBV_TRANSPORT_SLINGSHOT) {
+		qp_attr.port_num = ctx->cfg.ib_port;
+		qp_init_attr_ex.qp_attr_mask |= IBV_QP_PORT;
+	}
 
 	memset(&semantics, 0, sizeof(struct ibv_qp_semantics));
 
@@ -893,12 +976,15 @@ static int ru_init_ctx(struct ru_context *ctx)
 	}
 
 	ctx->mr_attached = true;
+	ibv_free_device_list(dev_list);
 
 	/* the RU QP is created directly in RTS (no INIT/RTR modify) */
 	return RU_SUCCESS_RC;
 
 err_exit:
 	ru_free_res(ctx);
+err_free_devices:
+	ibv_free_device_list(dev_list);
 	return RU_ERR_RC;
 }
 

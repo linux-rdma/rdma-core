@@ -51,8 +51,14 @@
 #include <time.h>
 #include <inttypes.h>
 #include <endian.h>
+#include <stdbool.h>
 
 #include "pingpong.h"
+#ifdef HAVE_CXIVERBS
+#include <infiniband/cxidv.h>
+
+#include "ru_cxi_launch.h"
+#endif
 
 #include <ccan/minmax.h>
 
@@ -92,6 +98,11 @@ struct pingpong_context {
 	union ibv_gid		 gid;
 	struct ibv_comp_channel *channel;
 	struct ibv_pd		*pd;
+#ifdef HAVE_CXIVERBS
+	struct cxidv_lni *cxi_lni;
+	uint32_t cxi_svc_id;
+#endif
+	uint32_t job_id;
 	struct ibv_mr		*mr;
 	struct ibv_job		*job;
 	struct ibv_job_key	*job_key;
@@ -439,13 +450,10 @@ static int pp_check_dev_caps(struct ibv_context *context)
 		return -1;
 	}
 
-	/* The scatter/gather buffer array is sized at PP_MAX_SGE; make sure
-	 * the device can actually accept that many SGEs per WR.
-	 */
-	if (attr.orig_attr.max_sge < PP_MAX_SGE) {
+	if (use_sge > attr.orig_attr.max_sge) {
 		fprintf(stderr,
-			"PP_MAX_SGE (%d) exceeds device max_sge (%d)\n",
-			PP_MAX_SGE, attr.orig_attr.max_sge);
+			"Requested SGEs (%d) exceed device max_sge (%d)\n",
+			use_sge, attr.orig_attr.max_sge);
 		return -1;
 	}
 
@@ -510,7 +518,39 @@ static struct pingpong_context *pp_init_ctx(struct ibv_device *ib_dev, int size,
 		ctx->channel = NULL;
 	}
 
-	ctx->pd = ibv_alloc_pd(ctx->context);
+	ctx->job_id = DEFAULT_JOB_ID;
+	if (getenv("UET_JOB_ID"))
+		ctx->job_id = strtoul(getenv("UET_JOB_ID"), NULL, 0);
+#ifdef HAVE_CXIVERBS
+	if (ib_dev->transport_type == IBV_TRANSPORT_SLINGSHOT) {
+		const char *service = getenv("UET_SERVICE_ID");
+		uint32_t pid;
+		int ret;
+
+		if (!service) {
+			fprintf(stderr, "No service granted; run under cxi_launcher\n");
+			goto clean_comp_channel;
+		}
+		ctx->cxi_svc_id = strtoul(service, NULL, 0);
+		ret = cxidv_alloc_lni(ctx->context, ctx->cxi_svc_id, &ctx->cxi_lni);
+		if (ret) {
+			fprintf(stderr, "Couldn't allocate LNI: %s\n", strerror(ret));
+			goto clean_comp_channel;
+		}
+		ctx->pd = cxidv_alloc_pd(ctx->cxi_lni);
+		if (!ctx->pd)
+			goto clean_comp_channel;
+		ret = cxidv_alloc_pid(ctx->pd, 0, &pid);
+		if (ret) {
+			fprintf(stderr, "Couldn't bind PD PID: %s\n", strerror(ret));
+			goto clean_pd;
+		}
+		pid_on_fep = pid;
+	} else
+#endif
+	{
+		ctx->pd = ibv_alloc_pd(ctx->context);
+	}
 	if (!ctx->pd) {
 		fprintf(stderr, "Couldn't allocate PD\n");
 		goto clean_comp_channel;
@@ -522,13 +562,20 @@ static struct pingpong_context *pp_init_ctx(struct ibv_device *ib_dev, int size,
 				      IBV_JOB_ATTR_MAX_ADDR_ENTRIES |
 				      IBV_JOB_ATTR_PORT_NUM |
 				      IBV_JOB_ATTR_SGID_INDEX),
-			.id = DEFAULT_JOB_ID,
+			.id = ctx->job_id,
 			.max_addr_entries = DEFAULT_ADDR_ENTRIES,
 			.port_num = port,
 			.sgid_index = gidx,
 		};
 
-		ctx->job = ibv_alloc_job(ctx->context, &job_attr, NULL);
+		if (getenv("UET_JOB_FD")) {
+			int fd = strtol(getenv("UET_JOB_FD"), NULL, 0);
+
+			if (ibv_import_job(ctx->context, fd, &ctx->job))
+				ctx->job = NULL;
+		} else {
+			ctx->job = ibv_alloc_job(ctx->context, &job_attr, NULL);
+		}
 		if (!ctx->job) {
 			fprintf(stderr, "Couldn't allocate job\n");
 			goto clean_pd;
@@ -692,6 +739,10 @@ clean_pd:
 	ibv_dealloc_pd(ctx->pd);
 
 clean_comp_channel:
+#ifdef HAVE_CXIVERBS
+	if (ctx->cxi_lni)
+		cxidv_destroy_lni(ctx->cxi_lni);
+#endif
 	if (ctx->channel)
 		ibv_destroy_comp_channel(ctx->channel);
 
@@ -709,6 +760,8 @@ clean_ctx:
 
 static int pp_close_ctx(struct pingpong_context *ctx)
 {
+	int ret = 0;
+
 	if (ibv_destroy_qp(ctx->qp)) {
 		fprintf(stderr, "Couldn't destroy QP\n");
 		return 1;
@@ -747,8 +800,16 @@ static int pp_close_ctx(struct pingpong_context *ctx)
 
 	if (ibv_dealloc_pd(ctx->pd)) {
 		fprintf(stderr, "Couldn't deallocate PD\n");
-		return 1;
+		ret = 1;
 	}
+#ifdef HAVE_CXIVERBS
+	if (ctx->cxi_lni && cxidv_destroy_lni(ctx->cxi_lni)) {
+		fprintf(stderr, "Couldn't destroy LNI\n");
+		ret = 1;
+	}
+#endif
+	if (ret)
+		return ret;
 
 	if (ctx->channel) {
 		if (ibv_destroy_comp_channel(ctx->channel)) {
@@ -1044,6 +1105,8 @@ static void usage(const char *argv0)
 	printf("  -p, --port <port>         listen on/connect to port <port> (default 18515)\n");
 	printf("  -d, --ib-dev <dev>        use IB device <dev> (default first device found)\n");
 	printf("  -i, --ib-port <port>      use port <port> of IB device (default 1)\n");
+	printf("  -j, --job-id <id>         JobID (Slingshot VNI) for this side (default %d)\n",
+	       DEFAULT_JOB_ID);
 	printf("  -s, --size <size>         size of message to exchange (default 4096)\n");
 	printf("  -m, --mtu <size>          path MTU (default 1024, same on both sides)\n");
 	printf("  -r, --rx-depth <dep>      number of receives to post at a time (default 500)\n");
@@ -1099,6 +1162,7 @@ int main(int argc, char *argv[])
 		static struct option long_options[] = {
 			{ .name = "port",     .has_arg = 1, .val = 'p' },
 			{ .name = "ib-dev",   .has_arg = 1, .val = 'd' },
+		{ .name = "job-id",   .has_arg = 1, .val = 'j' },
 			{ .name = "ib-port",  .has_arg = 1, .val = 'i' },
 			{ .name = "size",     .has_arg = 1, .val = 's' },
 			{ .name = "mtu",      .has_arg = 1, .val = 'm' },
@@ -1117,7 +1181,7 @@ int main(int argc, char *argv[])
 			{}
 		};
 
-		c = getopt_long(argc, argv, "p:d:i:s:m:r:n:eg:cNQI:S:L",
+		c = getopt_long(argc, argv, "p:d:i:j:s:m:r:n:eg:cNQI:S:L",
 				long_options, NULL);
 
 		if (c == -1)
@@ -1162,6 +1226,9 @@ int main(int argc, char *argv[])
 			break;
 		case 'g':
 			gidx = strtol(optarg, NULL, 0);
+			break;
+		case 'j':
+			setenv("UET_JOB_ID", optarg, 1);
 			break;
 		case 'c':
 			validate_buf = 1;
@@ -1245,6 +1312,19 @@ int main(int argc, char *argv[])
 		}
 	}
 
+#ifdef HAVE_CXIVERBS
+	if (ib_dev->transport_type == IBV_TRANSPORT_SLINGSHOT) {
+		const char *job = getenv("UET_JOB_ID");
+
+		if (ru_cxi_relaunch(ibv_get_device_name(ib_dev),
+				    job ? strtoul(job, NULL, 0) : DEFAULT_JOB_ID,
+				    ib_port, gidx, 0)) {
+			ibv_free_device_list(dev_list);
+			return 1;
+		}
+	}
+#endif
+
 	ctx = pp_init_ctx(ib_dev, size, rx_depth, ib_port, gidx, use_event,
 			  pid_on_fep, resource_index);
 	if (!ctx)
@@ -1289,8 +1369,11 @@ int main(int argc, char *argv[])
 		rem_dest = pp_server_exch_dest(ctx, ib_port, mtu, port, 0,
 					       &my_dest, gidx);
 
-	if (!rem_dest)
+	if (!rem_dest) {
+		pp_close_ctx(ctx);
+		ibv_free_device_list(dev_list);
 		return 1;
+	}
 
 	inet_ntop(AF_INET6, &rem_dest->gid, gid, sizeof(gid));
 	printf("  remote address: LID 0x%04x, QPN 0x%06x, PSN 0x%06x, GID %s\n",
@@ -1298,8 +1381,12 @@ int main(int argc, char *argv[])
 
 	if (servername) {
 		if (pp_connect_ctx(ctx, ib_port, my_dest.psn, mtu, 0,
-				   rem_dest, gidx))
+				  rem_dest, gidx)) {
+			pp_close_ctx(ctx);
+			ibv_free_device_list(dev_list);
+			free(rem_dest);
 			return 1;
+		}
 	}
 
 	ctx->pending = PINGPONG_RECV_WRID;
@@ -1408,11 +1495,22 @@ int main(int argc, char *argv[])
 		       iters, usec / 1000000., usec / iters);
 
 		if ((!servername) && (validate_buf)) {
+			int invalid = 0;
+
 			for (int i = 0; i < size; i += page_size) {
-				if (ctx->buf[i] != i / page_size % sizeof(char))
+				if (ctx->buf[i] != i / page_size % sizeof(char)) {
 					printf("invalid data in page %d\n",
 					       i / page_size);
+					invalid = 1;
+				}
 			}
+			if (invalid) {
+				pp_close_ctx(ctx);
+				ibv_free_device_list(dev_list);
+				free(rem_dest);
+				return 1;
+			}
+			printf("validate: buffer verified\n");
 		}
 	}
 

@@ -25,6 +25,16 @@ target_link_libraries(ibv_ru_pingpong LINK_PRIVATE ibverbs ibverbs_tools)
 rdma_executable(ibv_ru_rma ru_rma.c)
 target_link_libraries(ibv_ru_rma LINK_PRIVATE ibverbs ibverbs_tools)
 
+# CXI is only built with coherent DMA. The examples run themselves again
+# under cxi_launcher on Slingshot devices.
+if (HAVE_COHERENT_DMA)
+  foreach(ru_example ibv_ru_pingpong ibv_ru_rma)
+    target_link_libraries(${ru_example} LINK_PRIVATE cxiverbs)
+    target_compile_definitions(${ru_example} PRIVATE HAVE_CXIVERBS
+      CXI_LAUNCHER_BINDIR="${CMAKE_INSTALL_FULL_BINDIR}")
+  endforeach()
+endif()
+
 rdma_executable(ibv_srq_pingpong srq_pingpong.c)
 target_link_libraries(ibv_srq_pingpong LINK_PRIVATE ibverbs ibverbs_tools)
 

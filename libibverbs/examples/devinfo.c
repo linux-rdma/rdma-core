@@ -72,6 +72,7 @@ static const char *transport_str(enum ibv_transport_type transport)
 	case IBV_TRANSPORT_USNIC:	return "usNIC";
 	case IBV_TRANSPORT_USNIC_UDP:	return "usNIC UDP";
 	case IBV_TRANSPORT_UNSPECIFIED:	return "unspecified";
+	case IBV_TRANSPORT_SLINGSHOT:	return "Slingshot";
 	default:			return "invalid transport";
 	}
 }
@@ -173,6 +174,7 @@ static const char *gid_type_str(enum ibv_gid_type_sysfs type)
 	case IBV_GID_TYPE_SYSFS_ROCE_V2: return "RoCE v2";
 	case IBV_GID_TYPE_SYSFS_UET_UDP: return "UET UDP";
 	case IBV_GID_TYPE_SYSFS_UET_IP: return "UET IP";
+	case IBV_GID_TYPE_SYSFS_SLINGSHOT_UFH: return "SLINGSHOT UFH";
 	default: return "Invalid gid type";
 	}
 }
