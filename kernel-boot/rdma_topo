@@ -1626,6 +1626,7 @@ def cmd_write_grub_acs(args):
             raise
         if os.path.exists(args.output):
             os.unlink(args.output)
+            run_cmd(["update-grub"])
             raise CommandError(
                 (f"Found ACS drop-in file {args.output} but the system does "
                  "not have a supported topology. File deleted."),
