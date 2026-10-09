@@ -18,6 +18,7 @@
 
 #define INLINE_OOB_SMALL_SIZE 8
 #define INLINE_OOB_LARGE_SIZE 24
+#define INLINE_OOB_EXTRA_LARGE_SIZE 32
 
 #define GDMA_WQE_ALIGNMENT_UNIT_SIZE 32
 
@@ -73,9 +74,21 @@ static inline uint32_t get_wqe_size(uint32_t sge)
 	return align(wqe_size, GDMA_WQE_ALIGNMENT_UNIT_SIZE);
 }
 
-static inline uint32_t get_large_wqe_size(uint32_t sge)
+static inline uint32_t get_large_fixed_wqe_size(uint32_t sge)
 {
-	uint32_t wqe_size = sge * SGE_SIZE + DMA_OOB_SIZE + INLINE_OOB_LARGE_SIZE;
+	uint32_t wqe_size = sge * SGE_SIZE + DMA_OOB_SIZE + INLINE_OOB_EXTRA_LARGE_SIZE;
+
+	return roundup_pow_of_two(wqe_size);
+}
+
+static inline uint32_t get_large_wqe_size(uint32_t sge, uint32_t wqe_size_in_bu)
+{
+	uint32_t wqe_size;
+
+	if (wqe_size_in_bu)
+		return wqe_size_in_bu * GDMA_WQE_ALIGNMENT_UNIT_SIZE;
+
+	wqe_size = sge * SGE_SIZE + DMA_OOB_SIZE + INLINE_OOB_LARGE_SIZE;
 
 	return align(wqe_size, GDMA_WQE_ALIGNMENT_UNIT_SIZE);
 }
@@ -108,6 +121,7 @@ struct mana_gdma_queue {
 	uint32_t size;
 	uint32_t prod_idx;
 	uint32_t cons_idx;
+	uint8_t wqe_size_in_bu;
 
 	void *db_page;
 	void *buffer;
