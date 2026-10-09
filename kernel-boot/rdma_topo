@@ -1580,6 +1580,19 @@ def update_file(fn: str, new_content: str):
     return True
 
 
+def run_cmd(cmd: List[str]):
+    """Run cmd, reporting a failure as a CommandError rather than a
+    traceback."""
+    try:
+        subprocess.check_call(cmd)
+    except FileNotFoundError:
+        raise CommandError(f"Cannot run {cmd[0]}, is it installed?")
+    except OSError as e:
+        raise CommandError(f"Cannot run {cmd[0]}: {e.strerror}")
+    except subprocess.CalledProcessError as e:
+        raise CommandError(f"Command '{' '.join(cmd)}' failed with exit code {e.returncode}")
+
+
 def args_write_grub_acs(parser):
     parser.add_argument(
         "-n",
@@ -1642,7 +1655,7 @@ def cmd_write_grub_acs(args):
     except FileExistsError:
         pass
     if update_file(args.output, grub_conf + "\n"):
-        subprocess.check_call(["update-grub"])
+        run_cmd(["update-grub"])
 
 
 # -------------------------------------------------------------------
@@ -1697,7 +1710,7 @@ def cmd_setpci_acs(args):
             print(" ".join(cmd))
         return
     for cmd in cmds:
-        subprocess.check_call(cmd)
+        run_cmd(cmd)
 
 
 # -------------------------------------------------------------------
