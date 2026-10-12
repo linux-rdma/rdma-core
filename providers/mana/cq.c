@@ -400,6 +400,7 @@ static inline int handle_error_cqe(struct mana_qp *qp, struct gdma_cqe *cqe,
 	struct shadow_queue *queue_with_error;
 	struct shadow_wqe_header *shadow_wqe;
 	struct mana_cq *cq;
+	bool shared_cq;
 	int produced = 0;
 
 	if (is_send_error) {
@@ -437,12 +438,25 @@ static inline int handle_error_cqe(struct mana_qp *qp, struct gdma_cqe *cqe,
 			  struct mana_cq, ibcq);
 
 	mana_qp_move_flush_err(&qp->ibqp.qp);
-	if (is_send_error) {
-		list_add_tail(&cq->send_err_qp_list, &qp->send_err_node);
-		qp->on_err_list_send = true;
-	} else {
-		list_add_tail(&cq->recv_err_qp_list, &qp->recv_err_node);
-		qp->on_err_list_recv = true;
+
+	/*
+	 * The whole QP is now in error. When both queues share this CQ, also
+	 * flush the queue that did not fault, or its WRs never complete.
+	 */
+	shared_cq = qp->ibqp.qp.send_cq == qp->ibqp.qp.recv_cq;
+
+	if (is_send_error || shared_cq) {
+		if (!qp->on_err_list_send) {
+			list_add_tail(&cq->send_err_qp_list, &qp->send_err_node);
+			qp->on_err_list_send = true;
+		}
+	}
+
+	if (!is_send_error || shared_cq) {
+		if (!qp->on_err_list_recv) {
+			list_add_tail(&cq->recv_err_qp_list, &qp->recv_err_node);
+			qp->on_err_list_recv = true;
+		}
 	}
 
 out:
