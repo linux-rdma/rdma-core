@@ -485,3 +485,32 @@ int ibv_cmd_destroy_qp(struct ibv_qp *qp)
 
 	return 0;
 }
+
+/* bind a region to the queue pair that will use it */
+int ibv_cmd_qp_attach_mr(struct ibv_qp *qp, struct ibv_mr *mr)
+{
+	DECLARE_COMMAND_BUFFER(cmd, UVERBS_OBJECT_QP,
+			       UVERBS_METHOD_QP_ATTACH_MR, 2);
+
+	fill_attr_in_obj(cmd, UVERBS_ATTR_QP_ATTACH_MR_QP_HANDLE, qp->handle);
+	fill_attr_in_obj(cmd, UVERBS_ATTR_QP_ATTACH_MR_MR_HANDLE, mr->handle);
+
+	if (execute_ioctl(qp->context, cmd))
+		return errno;
+
+	return 0;
+}
+
+int ibv_cmd_qp_detach_mr(struct ibv_qp *qp, struct ibv_mr *mr)
+{
+	DECLARE_COMMAND_BUFFER(cmd, UVERBS_OBJECT_QP,
+			       UVERBS_METHOD_QP_DETACH_MR, 2);
+
+	fill_attr_in_obj(cmd, UVERBS_ATTR_QP_DETACH_MR_QP_HANDLE, qp->handle);
+	fill_attr_in_obj(cmd, UVERBS_ATTR_QP_DETACH_MR_MR_HANDLE, mr->handle);
+
+	if (execute_ioctl(qp->context, cmd))
+		return errno;
+
+	return 0;
+}
