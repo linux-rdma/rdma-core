@@ -1011,6 +1011,13 @@ struct ibv_rwq_ind_table_init_attr {
 	uint32_t comp_mask;
 };
 
+#define IBV_QPN_UET_PID_ON_FEP_MASK	0x00000fff
+#define IBV_QPN_UET_PID_ON_FEP_SHIFT	0
+#define IBV_QPN_UET_RI_MASK		0x00fff000
+#define IBV_QPN_UET_RI_SHIFT		12
+#define IBV_QPN_UET_RESERVED_MASK	0x7f000000
+#define IBV_QPN_UET_ABSOLUTE_ADDR_BIT	0x80000000
+
 enum ibv_qp_type {
 	IBV_QPT_RC = 2,
 	IBV_QPT_UC,
@@ -1018,6 +1025,7 @@ enum ibv_qp_type {
 	IBV_QPT_RAW_PACKET = 8,
 	IBV_QPT_XRC_SEND = 9,
 	IBV_QPT_XRC_RECV,
+	IBV_QPT_RU,
 	IBV_QPT_DRIVER = 0xff,
 };
 
@@ -1047,6 +1055,10 @@ enum ibv_qp_init_attr_mask {
 	IBV_QP_INIT_ATTR_IND_TABLE	= 1 << 4,
 	IBV_QP_INIT_ATTR_RX_HASH	= 1 << 5,
 	IBV_QP_INIT_ATTR_SEND_OPS_FLAGS = 1 << 6,
+	IBV_QP_INIT_ATTR_QP_ATTR	= 1 << 7,
+	IBV_QP_INIT_ATTR_QP_SEMANTICS	= 1 << 8,
+	IBV_QP_INIT_ATTR_SRC_ID		= 1 << 9,
+	IBV_QP_INIT_ATTR_JKEY		= 1 << 10,
 };
 
 enum ibv_qp_create_flags {
@@ -1101,6 +1113,12 @@ struct ibv_qp_init_attr_ex {
 	uint32_t		source_qpn;
 	/* See enum ibv_qp_create_send_ops_flags */
 	uint64_t send_ops_flags;
+
+	struct ibv_qp_attr	       *qp_attr;
+	int				qp_attr_mask;
+	struct ibv_qp_semantics	       *qp_semantics;
+	uint32_t			src_id;
+	struct ibv_job_key	       *job_key;
 };
 
 enum ibv_qp_open_attr_mask {
