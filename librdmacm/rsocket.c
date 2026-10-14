@@ -322,6 +322,8 @@ struct ds_qp {
 	struct ibv_mr	  *rmr;
 	uint8_t		  *sbuf;
 	uint8_t		  *rbuf;
+	struct ibv_buf	  *sbuf_ibv;
+	struct ibv_buf	  *rbuf_ibv;
 
 	int		  cq_armed;
 };
@@ -360,6 +362,7 @@ struct rsocket {
 			void		  *target_buffer_list;
 			volatile struct rs_sge	  *target_sgl;
 			struct rs_iomap   *target_iomap;
+			struct ibv_buf	  *target_ibv;
 
 			int		  rbuf_msg_index;
 			int		  rbuf_bytes_avail;
@@ -367,11 +370,13 @@ struct rsocket {
 			int		  rbuf_offset;
 			struct ibv_mr	  *rmr;
 			uint8_t		  *rbuf;
+			struct ibv_buf	  *rbuf_ibv;
 
 			int		  sbuf_bytes_avail;
 			struct ibv_mr	  *smr;
 			struct ibv_sge	  ssgl[2];
 			uint8_t		  *sbuf;
+			struct ibv_buf	  *sbuf_ibv;
 		};
 		/* datagram */
 		struct {
@@ -472,25 +477,6 @@ static void read_all(int fd, void *msg, size_t len)
 	// FIXME: if fd is a socket this really needs to handle EINTR and other conditions.
 	ssize_t __attribute__((unused)) rc = read(fd, msg, len);
 	assert(rc == len);
-}
-
-/**
- * Allocates entire pages for registered allocations so that MADV_DONTFORK will
- * not unmap valid memory in the child process when IBV_FORKSAFE is enabled.
- */
-static void *forksafe_alloc(size_t len)
-{
-	long pagesize = sysconf(_SC_PAGESIZE);
-	void *ptr;
-	int ret;
-
-	len = ((len + pagesize - 1) / pagesize) * pagesize;
-	ret = posix_memalign(&ptr, pagesize, len);
-	if (ret)
-		return NULL;
-
-	memset(ptr, 0, len);
-	return ptr;
 }
 
 static uint64_t rs_time_us(void)
@@ -801,21 +787,25 @@ static int rs_init_bufs(struct rsocket *rs)
 	total_sbuf_size = rs->sbuf_size;
 	if (rs->sq_inline < RS_MAX_CTRL_MSG)
 		total_sbuf_size += RS_MAX_CTRL_MSG * RS_QP_CTRL_SIZE;
-	rs->sbuf = forksafe_alloc(total_sbuf_size);
+	rs->sbuf = ibv_alloc_buf(rs->cm_id->pd, total_sbuf_size, &rs->sbuf_ibv);
 	if (!rs->sbuf)
 		return ERR(ENOMEM);
 
-	rs->smr = rdma_reg_msgs(rs->cm_id, rs->sbuf, total_sbuf_size);
+	rs->smr = ibv_reg_buf_mr(rs->cm_id->pd, rs->sbuf_ibv, rs->sbuf,
+				 total_sbuf_size, IBV_ACCESS_LOCAL_WRITE);
 	if (!rs->smr)
 		return -1;
 
 	len = sizeof(*rs->target_sgl) * RS_SGL_SIZE +
 	      sizeof(*rs->target_iomap) * rs->target_iomap_size;
-	rs->target_buffer_list = forksafe_alloc(len);
+	rs->target_buffer_list = ibv_alloc_buf(rs->cm_id->pd, len, &rs->target_ibv);
 	if (!rs->target_buffer_list)
 		return ERR(ENOMEM);
+	memset(rs->target_buffer_list, 0, len);
 
-	rs->target_mr = rdma_reg_write(rs->cm_id, rs->target_buffer_list, len);
+	rs->target_mr = ibv_reg_buf_mr(rs->cm_id->pd, rs->target_ibv,
+				       rs->target_buffer_list, len,
+				       IBV_ACCESS_LOCAL_WRITE | IBV_ACCESS_REMOTE_WRITE);
 	if (!rs->target_mr)
 		return -1;
 
@@ -826,11 +816,13 @@ static int rs_init_bufs(struct rsocket *rs)
 	total_rbuf_size = rs->rbuf_size;
 	if (rs->opts & RS_OPT_MSG_SEND)
 		total_rbuf_size += rs->rq_size * RS_MSG_SIZE;
-	rs->rbuf = forksafe_alloc(total_rbuf_size);
+	rs->rbuf = ibv_alloc_buf(rs->cm_id->pd, total_rbuf_size, &rs->rbuf_ibv);
 	if (!rs->rbuf)
 		return ERR(ENOMEM);
 
-	rs->rmr = rdma_reg_write(rs->cm_id, rs->rbuf, total_rbuf_size);
+	rs->rmr = ibv_reg_buf_mr(rs->cm_id->pd, rs->rbuf_ibv, rs->rbuf,
+				 total_rbuf_size,
+				 IBV_ACCESS_LOCAL_WRITE | IBV_ACCESS_REMOTE_WRITE);
 	if (!rs->rmr)
 		return -1;
 
@@ -850,7 +842,7 @@ static int ds_init_bufs(struct ds_qp *qp)
 	struct ds_smsg *msg;
 	int i;
 
-	qp->sbuf = forksafe_alloc(qp->rs->sbuf_size);
+	qp->sbuf = ibv_alloc_buf(qp->cm_id->pd, qp->rs->sbuf_size, &qp->sbuf_ibv);
 	if (!qp->sbuf)
 		return ERR(ENOMEM);
 
@@ -862,16 +854,20 @@ static int ds_init_bufs(struct ds_qp *qp)
 	}
 	msg->next = NULL;
 
-	qp->rbuf = forksafe_alloc(qp->rs->rbuf_size + sizeof(struct ibv_grh));
+	qp->rbuf = ibv_alloc_buf(qp->cm_id->pd,
+				 qp->rs->rbuf_size + sizeof(struct ibv_grh),
+				 &qp->rbuf_ibv);
 	if (!qp->rbuf)
 		return ERR(ENOMEM);
 
-	qp->smr = rdma_reg_msgs(qp->cm_id, qp->sbuf, qp->rs->sbuf_size);
+	qp->smr = ibv_reg_buf_mr(qp->cm_id->pd, qp->sbuf_ibv, qp->sbuf,
+				 qp->rs->sbuf_size, IBV_ACCESS_LOCAL_WRITE);
 	if (!qp->smr)
 		return -1;
 
-	qp->rmr = rdma_reg_msgs(qp->cm_id, qp->rbuf, qp->rs->rbuf_size +
-						     sizeof(struct ibv_grh));
+	qp->rmr = ibv_reg_buf_mr(qp->cm_id->pd, qp->rbuf_ibv, qp->rbuf,
+				 qp->rs->rbuf_size + sizeof(struct ibv_grh),
+				 IBV_ACCESS_LOCAL_WRITE);
 	if (!qp->rmr)
 		return -1;
 
@@ -1041,13 +1037,13 @@ static void ds_free_qp(struct ds_qp *qp)
 	if (qp->sbuf) {
 		if (qp->smr)
 			rdma_dereg_mr(qp->smr);
-		free(qp->sbuf);
+		ibv_free_buf(qp->sbuf_ibv);
 	}
 
 	if (qp->rbuf) {
 		if (qp->rmr)
 			rdma_dereg_mr(qp->rmr);
-		free(qp->rbuf);
+		ibv_free_buf(qp->rbuf_ibv);
 	}
 
 	if (qp->cm_id) {
@@ -1125,19 +1121,19 @@ static void rs_free(struct rsocket *rs)
 	if (rs->sbuf) {
 		if (rs->smr)
 			rdma_dereg_mr(rs->smr);
-		free(rs->sbuf);
+		ibv_free_buf(rs->sbuf_ibv);
 	}
 
 	if (rs->rbuf) {
 		if (rs->rmr)
 			rdma_dereg_mr(rs->rmr);
-		free(rs->rbuf);
+		ibv_free_buf(rs->rbuf_ibv);
 	}
 
 	if (rs->target_buffer_list) {
 		if (rs->target_mr)
 			rdma_dereg_mr(rs->target_mr);
-		free(rs->target_buffer_list);
+		ibv_free_buf(rs->target_ibv);
 	}
 
 	if (rs->cm_id)
