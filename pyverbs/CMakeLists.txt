@@ -40,6 +40,7 @@ rdma_cython_module(pyverbs ""
   qp.pyx
   spec.pyx
   srq.pyx
+  ru.pyx
   wq.pyx
   wr.pyx
   xrcd.pyx
