@@ -995,6 +995,23 @@ LATEST_SYMVER_FUNC(ibv_create_ah, 1_1, "IBVERBS_1.1",
 	return ah;
 }
 
+struct ibv_ah *ibv_create_ah_ex(struct ibv_pd *pd, struct ibv_ah_attr_ex *attr)
+{
+	struct ibv_ah *ah = get_ops(pd->context)->create_ah_ex(pd, attr);
+
+	if (ah) {
+		ah->context = pd->context;
+		ah->pd      = pd;
+	}
+
+	return ah;
+}
+
+struct ibv_ah_ex *ibv_ah_to_ah_ex(struct ibv_ah *ah)
+{
+	return container_of(ah, struct ibv_ah_ex, ah_base);
+}
+
 int ibv_query_gid_type(struct ibv_context *context, uint8_t port_num,
 		       unsigned int index, enum ibv_gid_type_sysfs *type)
 {

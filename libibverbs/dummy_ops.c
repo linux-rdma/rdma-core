@@ -161,6 +161,13 @@ static struct ibv_ah *create_ah(struct ibv_pd *pd, struct ibv_ah_attr *attr)
 	return NULL;
 }
 
+static struct ibv_ah *create_ah_ex(struct ibv_pd *pd,
+				   struct ibv_ah_attr_ex *attr)
+{
+	errno = EOPNOTSUPP;
+	return NULL;
+}
+
 static struct ibv_comp_cntr *create_comp_cntr(struct ibv_context *context,
 					      struct ibv_comp_cntr_init_attr *attr)
 {
@@ -688,6 +695,7 @@ const struct verbs_context_ops verbs_dummy_ops = {
 	close_xrcd,
 	cq_event,
 	create_ah,
+	create_ah_ex,
 	create_comp_cntr,
 	create_counters,
 	create_cq,
@@ -832,6 +840,7 @@ void verbs_set_ops(struct verbs_context *vctx,
 	SET_OP(vctx, close_xrcd);
 	SET_PRIV_OP(ctx, cq_event);
 	SET_PRIV_OP(ctx, create_ah);
+	SET_OP(vctx, create_ah_ex);
 	SET_PRIV_OP(ctx, create_cq);
 	SET_PRIV_OP_IC(vctx, create_cq_ex);
 	SET_PRIV_OP_IC(vctx, create_comp_cntr);
