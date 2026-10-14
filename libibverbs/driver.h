@@ -496,6 +496,11 @@ struct verbs_context_ops {
 			int attr_mask, struct ibv_qp_init_attr *init_attr);
 	int (*query_qp_data_in_order)(struct ibv_qp *qp, enum ibv_wr_opcode op,
 				      uint32_t flags);
+	int (*query_qp_semantics)(struct ibv_context *context,
+				  enum ibv_qp_type qp_type,
+				  uint32_t port_num, uint8_t sgid_index,
+				  struct ibv_qp_semantics *qp_semantics,
+				  size_t qp_semantic_len);
 	int (*query_rt_values)(struct ibv_context *context,
 			       struct ibv_values_ex *values);
 	int (*query_srq)(struct ibv_srq *srq, struct ibv_srq_attr *srq_attr);

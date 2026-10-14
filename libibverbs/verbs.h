@@ -114,6 +114,60 @@ enum ibv_transport_type {
 	IBV_TRANSPORT_UNSPECIFIED,
 };
 
+enum ibv_qp_msg_order {
+	/* Atomic-Atomic Rd/Wr ordering */
+	IBV_ORDER_ATOMIC_RAR	= (1 << 0),
+	IBV_ORDER_ATOMIC_RAW	= (1 << 1),
+	IBV_ORDER_ATOMIC_WAR	= (1 << 2),
+	IBV_ORDER_ATOMIC_WAW	= (1 << 3),
+	/* RDMA-RDMA Rd/Wr ordering */
+	IBV_ORDER_RDMA_RAR	= (1 << 4),
+	IBV_ORDER_RDMA_RAW	= (1 << 5),
+	IBV_ORDER_RDMA_WAR	= (1 << 6),
+	IBV_ORDER_RDMA_WAW	= (1 << 7),
+	/* Send ordering wrt Atomic and RDMA Rd/Wr */
+	IBV_ORDER_RAS		= (1 << 8),
+	IBV_ORDER_SAR		= (1 << 9),
+	IBV_ORDER_SAS		= (1 << 10),
+	IBV_ORDER_SAW		= (1 << 11),
+	IBV_ORDER_WAS		= (1 << 12),
+	/* Atomic and RDMA Rd/Wr ordering */
+	IBV_ORDER_RAR		= (1 << 13),
+	IBV_ORDER_RAW		= (1 << 14),
+	IBV_ORDER_WAR		= (1 << 15),
+	IBV_ORDER_WAW		= (1 << 16),
+};
+
+enum ibv_qp_use_flags {
+	IBV_QP_USAGE_IMM_DATA_RQ	= (1 << 0),
+};
+
+enum ibv_qp_semantics_mask {
+	IBV_QP_SEMANTICS_MASK_MSG_ORDER	= (1 << 0),
+	IBV_QP_SEMANTICS_MASK_RAW	= (1 << 1),
+	IBV_QP_SEMANTICS_MASK_WAR	= (1 << 2),
+	IBV_QP_SEMANTICS_MASK_WAW	= (1 << 3),
+	IBV_QP_SEMANTICS_MASK_PDU	= (1 << 4),
+	IBV_QP_SEMANTICS_MASK_IMM	= (1 << 5),
+	IBV_QP_SEMANTICS_MASK_USAGE	= (1 << 6),
+};
+
+enum ibv_imm_data_size {
+	IBV_IMM_DATA_SIZE_32 = 32,
+	IBV_IMM_DATA_SIZE_64 = 64,
+};
+
+struct ibv_qp_semantics {
+	uint32_t	comp_mask; /* from enum ibv_qp_semantics_mask */
+	uint32_t	msg_order;
+	uint32_t	max_rdma_raw_size;
+	uint32_t	max_rdma_war_size;
+	uint32_t	max_rdma_waw_size;
+	uint32_t	max_pdu;
+	uint8_t		imm_data_size; /* from enum ibv_imm_data_size */
+	unsigned int	usage_flags;
+};
+
 enum ibv_device_cap_flags {
 	IBV_DEVICE_RESIZE_MAX_WR	= 1,
 	IBV_DEVICE_BAD_PKEY_CNTR	= 1 <<  1,
@@ -2238,6 +2292,11 @@ struct ibv_values_ex {
 
 struct verbs_context {
 	/*  "grows up" - new fields go here */
+	int (*query_qp_semantics)(struct ibv_context *context,
+				  enum ibv_qp_type qp_type,
+				  uint32_t port_num, uint8_t sgid_index,
+				  struct ibv_qp_semantics *qp_semantics,
+				  size_t qp_semantic_len);
 	void (*free_buf)(struct ibv_buf *buf);
 	void *(*alloc_buf)(struct ibv_pd *pd, size_t size,
 			   struct ibv_buf **buf);
@@ -2591,6 +2650,22 @@ int ibv_query_pkey(struct ibv_context *context, uint8_t port_num,
  */
 int ibv_get_pkey_index(struct ibv_context *context, uint8_t port_num,
 		       __be16 pkey);
+
+static inline int ibv_query_qp_semantics(struct ibv_context *context,
+					 enum ibv_qp_type qp_type,
+					 uint32_t port_num, uint8_t sgid_index,
+					 struct ibv_qp_semantics *qp_semantics,
+					 size_t qp_semantic_len)
+{
+	struct verbs_context *vctx = verbs_get_ctx_op(context,
+						      query_qp_semantics);
+
+	if (!vctx)
+		return EOPNOTSUPP;
+
+	return vctx->query_qp_semantics(context, qp_type, port_num, sgid_index,
+					qp_semantics, qp_semantic_len);
+}
 
 /**
  * ibv_alloc_pd - Allocate a protection domain
