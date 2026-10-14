@@ -92,7 +92,7 @@ int ibv_cmd_query_mr(struct ibv_pd *pd, struct verbs_mr *vmr,
 {
 	DECLARE_FBCMD_BUFFER(cmd, UVERBS_OBJECT_MR,
 			     UVERBS_METHOD_QUERY_MR,
-			     4, NULL);
+			     6, NULL);
 	struct ibv_mr *mr = &vmr->ibv_mr;
 	int ret;
 
@@ -103,6 +103,14 @@ int ibv_cmd_query_mr(struct ibv_pd *pd, struct verbs_mr *vmr,
 			  &mr->rkey);
 	fill_attr_out_ptr(cmd, UVERBS_ATTR_QUERY_MR_RESP_LENGTH,
 			  &mr->length);
+
+	/* the wide names, left zero (no wide key) by a kernel without them */
+	mr->lkey64 = 0;
+	mr->rkey64 = 0;
+	fill_attr_out_ptr(cmd, UVERBS_ATTR_QUERY_MR_RESP_LKEY64,
+			  &mr->lkey64);
+	fill_attr_out_ptr(cmd, UVERBS_ATTR_QUERY_MR_RESP_RKEY64,
+			  &mr->rkey64);
 
 	ret = execute_ioctl(pd->context, cmd);
 	if (ret)
@@ -161,8 +169,9 @@ int ibv_cmd_reg_mr_ex(struct ibv_pd *pd, struct verbs_mr *vmr,
 		      struct ibv_mr_init_attr *mr_init_attr)
 {
 	DECLARE_FBCMD_BUFFER(cmdb, UVERBS_OBJECT_MR,
-			     UVERBS_METHOD_REG_MR, 11, NULL);
+			     UVERBS_METHOD_REG_MR, 17, NULL);
 	bool fd_based = (mr_init_attr->comp_mask & IBV_REG_MR_MASK_FD);
+	uint64_t lkey64 = 0, rkey64 = 0;
 	struct ib_uverbs_attr *handle;
 	uint64_t length = mr_init_attr->length;
 	uint32_t lkey, rkey;
@@ -222,6 +231,15 @@ int ibv_cmd_reg_mr_ex(struct ibv_pd *pd, struct verbs_mr *vmr,
 		fill_attr_in_obj(cmdb, UVERBS_ATTR_REG_MR_DMA_HANDLE,
 				 verbs_get_dmah(mr_init_attr->dmah)->handle);
 
+	/* A region's 64-bit names. A wide name belongs to the region, not
+	 * to how it was registered. Only returned when the kernel knows these
+	 * attribute ids.
+	 */
+	attr_optional(fill_attr_out_ptr(cmdb, UVERBS_ATTR_REG_MR_RESP_LKEY64,
+					&lkey64));
+	attr_optional(fill_attr_out_ptr(cmdb, UVERBS_ATTR_REG_MR_RESP_RKEY64,
+					&rkey64));
+
 	switch (execute_ioctl_fallback(pd->context, reg_mr_ex, cmdb, &ret)) {
 	case SUCCESS:
 		break;
@@ -265,6 +283,8 @@ int ibv_cmd_reg_mr_ex(struct ibv_pd *pd, struct verbs_mr *vmr,
 	vmr->ibv_mr.context = pd->context;
 	vmr->ibv_mr.lkey = lkey;
 	vmr->ibv_mr.rkey = rkey;
+	vmr->ibv_mr.lkey64 = lkey64;
+	vmr->ibv_mr.rkey64 = rkey64;
 	if (fd_based)
 		vmr->mr_type = IBV_MR_TYPE_DMABUF_MR;
 	else

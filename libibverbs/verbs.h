@@ -750,6 +750,8 @@ struct ibv_mr {
 	uint32_t		handle;
 	uint32_t		lkey;
 	uint32_t		rkey;
+	uint64_t		lkey64;
+	uint64_t		rkey64;
 };
 
 enum ibv_mr_init_attr_mask {
@@ -1228,7 +1230,8 @@ enum ibv_send_flags {
 	IBV_SEND_SIGNALED	= 1 << 1,
 	IBV_SEND_SOLICITED	= 1 << 2,
 	IBV_SEND_INLINE		= 1 << 3,
-	IBV_SEND_IP_CSUM	= 1 << 4
+	IBV_SEND_IP_CSUM	= 1 << 4,
+	IBV_SEND_SGE64		= 1 << 5,
 };
 
 enum ibv_placement_type {
@@ -1252,6 +1255,12 @@ struct ibv_sge {
 	uint32_t		lkey;
 };
 
+struct ibv_sge64 {
+	uint64_t		addr;
+	uint32_t		length;
+	uint64_t		lkey64;
+};
+
 struct ibv_fd_arr {
 	int *arr;
 	uint32_t count;
@@ -1260,7 +1269,11 @@ struct ibv_fd_arr {
 struct ibv_send_wr {
 	uint64_t		wr_id;
 	struct ibv_send_wr     *next;
-	struct ibv_sge	       *sg_list;
+	/* sg64_list is used when IBV_SEND_SGE64 is set in send_flags */
+	union {
+		struct ibv_sge	       *sg_list;
+		struct ibv_sge64       *sg64_list;
+	};
 	int			num_sge;
 	enum ibv_wr_opcode	opcode;
 	unsigned int		send_flags;
@@ -1311,6 +1324,13 @@ struct ibv_recv_wr {
 	uint64_t		wr_id;
 	struct ibv_recv_wr     *next;
 	struct ibv_sge	       *sg_list;
+	int			num_sge;
+};
+
+struct ibv_recv_wr64 {
+	uint64_t		wr_id;
+	struct ibv_recv_wr64   *next;
+	struct ibv_sge64       *sg_list;
 	int			num_sge;
 };
 
@@ -2345,6 +2365,8 @@ struct ibv_values_ex {
 
 struct verbs_context {
 	/*  "grows up" - new fields go here */
+	int (*post_recv64)(struct ibv_qp *qp, struct ibv_recv_wr64 *wr,
+			   struct ibv_recv_wr64 **bad_wr);
 	struct ibv_ah *(*create_ah_ex)(struct ibv_pd *pd,
 				       struct ibv_ah_attr_ex *attr);
 	int (*query_qp_semantics)(struct ibv_context *context,
@@ -3829,6 +3851,22 @@ static inline int ibv_post_recv(struct ibv_qp *qp, struct ibv_recv_wr *wr,
 				struct ibv_recv_wr **bad_wr)
 {
 	return qp->context->ops.post_recv(qp, wr, bad_wr);
+}
+
+/**
+ * ibv_post_recv64 - Post a list of work requests whose scatter/gather
+ *   elements carry 64-bit LKeys to a receive queue. Supported only on
+ *   devices reporting IBV_DEVICE_KEY64.
+ */
+static inline int ibv_post_recv64(struct ibv_qp *qp, struct ibv_recv_wr64 *wr,
+				  struct ibv_recv_wr64 **bad_wr)
+{
+	struct verbs_context *vctx = verbs_get_ctx_op(qp->context, post_recv64);
+
+	if (!vctx)
+		return EOPNOTSUPP;
+
+	return vctx->post_recv64(qp, wr, bad_wr);
 }
 
 /**
