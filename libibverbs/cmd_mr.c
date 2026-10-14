@@ -171,6 +171,15 @@ int ibv_cmd_reg_mr_ex(struct ibv_pd *pd, struct verbs_mr *vmr,
 	DECLARE_FBCMD_BUFFER(cmdb, UVERBS_OBJECT_MR,
 			     UVERBS_METHOD_REG_MR, 17, NULL);
 	bool fd_based = (mr_init_attr->comp_mask & IBV_REG_MR_MASK_FD);
+	/* Extended registration: a job to bind the region to, a key the
+	 * caller chose, a region carved out of another. None of it fits in
+	 * the write-ABI command, so a request carrying any of it cannot
+	 * fall back to that path.
+	 */
+	bool ext = mr_init_attr->comp_mask & (IBV_REG_MR_MASK_JKEY |
+					      IBV_REG_MR_MASK_RKEY |
+					      IBV_REG_MR_MASK_CUR_MR |
+					      IBV_REG_MR_MASK_DERIVE_CNT);
 	uint64_t lkey64 = 0, rkey64 = 0;
 	struct ib_uverbs_attr *handle;
 	uint64_t length = mr_init_attr->length;
@@ -231,6 +240,47 @@ int ibv_cmd_reg_mr_ex(struct ibv_pd *pd, struct verbs_mr *vmr,
 		fill_attr_in_obj(cmdb, UVERBS_ATTR_REG_MR_DMA_HANDLE,
 				 verbs_get_dmah(mr_init_attr->dmah)->handle);
 
+	if (ext) {
+		uint32_t mr_flags = 0;
+
+		if (mr_init_attr->comp_mask & IBV_REG_MR_MASK_JKEY) {
+			if (!mr_init_attr->job_key) {
+				errno = EINVAL;
+				return EINVAL;
+			}
+
+			fill_attr_in_obj(cmdb, UVERBS_ATTR_REG_MR_JKEY_HANDLE,
+					 mr_init_attr->job_key->handle);
+		}
+
+		if (mr_init_attr->comp_mask & IBV_REG_MR_MASK_CUR_MR) {
+			if (!mr_init_attr->cur_mr ||
+			    (mr_init_attr->cur_mr->pd != pd)) {
+				errno = EINVAL;
+				return EINVAL;
+			}
+
+			fill_attr_in_obj(cmdb,
+					 UVERBS_ATTR_REG_MR_PARENT_MR_HANDLE,
+					 mr_init_attr->cur_mr->handle);
+		}
+
+		if (mr_init_attr->comp_mask & IBV_REG_MR_MASK_DERIVE_CNT)
+			fill_attr_in_uint32(cmdb,
+					    UVERBS_ATTR_REG_MR_DERIVE_CNT,
+					    mr_init_attr->derive_cnt);
+
+		if (mr_init_attr->comp_mask & IBV_REG_MR_MASK_RKEY) {
+			mr_flags |= IB_UVERBS_REG_MR_USER_RKEY;
+			fill_attr_in_uint64(cmdb,
+					    UVERBS_ATTR_REG_MR_REQ_RKEY64,
+					    mr_init_attr->rkey);
+		}
+
+		fill_attr_in_uint32(cmdb, UVERBS_ATTR_REG_MR_FLAGS,
+				    mr_flags);
+	}
+
 	/* A region's 64-bit names. A wide name belongs to the region, not
 	 * to how it was registered. Only returned when the kernel knows these
 	 * attribute ids.
@@ -259,7 +309,7 @@ int ibv_cmd_reg_mr_ex(struct ibv_pd *pd, struct verbs_mr *vmr,
 		struct ibv_reg_mr req;
 		uint64_t hca_va;
 
-		if (fd_based ||
+		if (fd_based || ext ||
 		    (mr_init_attr->comp_mask & IBV_REG_MR_MASK_DMAH)) {
 			errno = EOPNOTSUPP;
 			return EOPNOTSUPP;

@@ -148,6 +148,11 @@ static int attach_mcast(struct ibv_qp *qp, const union ibv_gid *gid,
 	return EOPNOTSUPP;
 }
 
+static int attach_mr(struct ibv_qp *qp, struct ibv_mr *mr)
+{
+	return EOPNOTSUPP;
+}
+
 static int bind_mw(struct ibv_qp *qp, struct ibv_mw *mw,
 		   struct ibv_mw_bind *mw_bind)
 {
@@ -358,6 +363,11 @@ static int destroy_wq(struct ibv_wq *wq)
 
 static int detach_mcast(struct ibv_qp *qp, const union ibv_gid *gid,
 			uint16_t lid)
+{
+	return EOPNOTSUPP;
+}
+
+static int detach_mr(struct ibv_qp *qp, struct ibv_mr *mr)
 {
 	return EOPNOTSUPP;
 }
@@ -758,6 +768,7 @@ const struct verbs_context_ops verbs_dummy_ops = {
 	async_event,
 	attach_counters_point_flow,
 	attach_mcast,
+	attach_mr,
 	bind_mw,
 	close_xrcd,
 	cq_event,
@@ -794,6 +805,7 @@ const struct verbs_context_ops verbs_dummy_ops = {
 	destroy_srq,
 	destroy_wq,
 	detach_mcast,
+	detach_mr,
 	dm_export_dmabuf_fd,
 	export_job,
 	free_buf,
@@ -914,6 +926,7 @@ void verbs_set_ops(struct verbs_context *vctx,
 	SET_OP(vctx, create_counters);
 	SET_PRIV_OP(ctx, async_event);
 	SET_PRIV_OP(ctx, attach_mcast);
+	SET_OP(vctx, attach_mr);
 	SET_OP(ctx, bind_mw);
 	SET_OP(vctx, close_xrcd);
 	SET_PRIV_OP(ctx, cq_event);
@@ -949,6 +962,7 @@ void verbs_set_ops(struct verbs_context *vctx,
 	SET_PRIV_OP(ctx, destroy_srq);
 	SET_OP(vctx, destroy_wq);
 	SET_PRIV_OP(ctx, detach_mcast);
+	SET_OP(vctx, detach_mr);
 	SET_OP(vctx, dm_export_dmabuf_fd);
 	SET_OP(vctx, export_job);
 	SET_OP(vctx, free_buf);

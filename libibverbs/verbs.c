@@ -716,6 +716,14 @@ struct ibv_mr *ibv_reg_mr_ex(struct ibv_pd *pd, struct ibv_mr_init_attr *mr_init
 		attr.dmah = mr_init_attr->dmah;
 	if (comp_mask & IBV_REG_MR_MASK_BUF)
 		attr.buf = mr_init_attr->buf;
+	if (comp_mask & IBV_REG_MR_MASK_JKEY)
+		attr.job_key = mr_init_attr->job_key;
+	if (comp_mask & IBV_REG_MR_MASK_RKEY)
+		attr.rkey = mr_init_attr->rkey;
+	if (comp_mask & IBV_REG_MR_MASK_CUR_MR)
+		attr.cur_mr = mr_init_attr->cur_mr;
+	if (comp_mask & IBV_REG_MR_MASK_DERIVE_CNT)
+		attr.derive_cnt = mr_init_attr->derive_cnt;
 
 	if (attr.comp_mask & IBV_REG_MR_MASK_BUF &&
 	    fill_mr_init_attr_from_buf(pd, &attr))

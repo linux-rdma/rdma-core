@@ -281,6 +281,8 @@ IBVERBS_PRIVATE_@IBVERBS_PABI_VERSION@ {
 		ibv_cmd_post_srq_recv;
 		ibv_cmd_qp_attach_comp_cntr;
 		ibv_cmd_query_comp_cntr_caps;
+		ibv_cmd_qp_attach_mr;
+		ibv_cmd_qp_detach_mr;
 		ibv_cmd_query_context;
 		ibv_cmd_query_device_any;
 		ibv_cmd_query_mr;
