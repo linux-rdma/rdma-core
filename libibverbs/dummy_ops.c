@@ -489,6 +489,15 @@ static int query_qp_data_in_order(struct ibv_qp *qp, enum ibv_wr_opcode op,
 	return 0;
 }
 
+static int query_qp_semantics(struct ibv_context *context,
+			      enum ibv_qp_type qp_type,
+			      uint32_t port_num, uint8_t sgid_index,
+			      struct ibv_qp_semantics *qp_semantics,
+			      size_t qp_semantic_len)
+{
+	return EOPNOTSUPP;
+}
+
 static int query_port(struct ibv_context *context, uint8_t port_num,
 		      struct ibv_port_attr *port_attr)
 {
@@ -738,6 +747,7 @@ const struct verbs_context_ops verbs_dummy_ops = {
 	query_port_speed,
 	query_qp,
 	query_qp_data_in_order,
+	query_qp_semantics,
 	query_rt_values,
 	query_srq,
 	read_comp_cntr,
@@ -880,6 +890,7 @@ void verbs_set_ops(struct verbs_context *vctx,
 	SET_PRIV_OP_IC(ctx, query_port_speed);
 	SET_PRIV_OP(ctx, query_qp);
 	SET_PRIV_OP_IC(ctx, query_qp_data_in_order);
+	SET_OP(vctx, query_qp_semantics);
 	SET_OP(vctx, query_rt_values);
 	SET_PRIV_OP_IC(vctx, read_comp_cntr);
 	SET_OP(vctx, read_counters);
