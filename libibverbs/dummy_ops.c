@@ -489,6 +489,12 @@ static int post_recv(struct ibv_qp *qp, struct ibv_recv_wr *wr,
 	return EOPNOTSUPP;
 }
 
+static int post_recv64(struct ibv_qp *qp, struct ibv_recv_wr64 *wr,
+		       struct ibv_recv_wr64 **bad_wr)
+{
+	return EOPNOTSUPP;
+}
+
 static int post_send(struct ibv_qp *qp, struct ibv_send_wr *wr,
 		     struct ibv_send_wr **bad_wr)
 {
@@ -811,6 +817,7 @@ const struct verbs_context_ops verbs_dummy_ops = {
 	open_xrcd,
 	poll_cq,
 	post_recv,
+	post_recv64,
 	post_send,
 	post_srq_ops,
 	post_srq_recv,
@@ -965,6 +972,7 @@ void verbs_set_ops(struct verbs_context *vctx,
 	SET_OP(vctx, open_xrcd);
 	SET_OP(ctx, poll_cq);
 	SET_OP(ctx, post_recv);
+	SET_OP(vctx, post_recv64);
 	SET_OP(ctx, post_send);
 	SET_OP(vctx, post_srq_ops);
 	SET_OP(ctx, post_srq_recv);

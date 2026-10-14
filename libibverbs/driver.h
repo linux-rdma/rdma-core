@@ -486,6 +486,8 @@ struct verbs_context_ops {
 	int (*poll_cq)(struct ibv_cq *cq, int num_entries, struct ibv_wc *wc);
 	int (*post_recv)(struct ibv_qp *qp, struct ibv_recv_wr *wr,
 			 struct ibv_recv_wr **bad_wr);
+	int (*post_recv64)(struct ibv_qp *qp, struct ibv_recv_wr64 *wr,
+			   struct ibv_recv_wr64 **bad_wr);
 	int (*post_send)(struct ibv_qp *qp, struct ibv_send_wr *wr,
 			 struct ibv_send_wr **bad_wr);
 	int (*post_srq_ops)(struct ibv_srq *srq, struct ibv_ops_wr *op,
