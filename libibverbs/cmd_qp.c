@@ -75,8 +75,10 @@ static int ibv_icmd_create_qp(struct ibv_context *context,
 			      struct ibv_qp_init_attr_ex *attr_ex,
 			      struct ibv_command_buffer *link)
 {
-	DECLARE_FBCMD_BUFFER(cmdb, UVERBS_OBJECT_QP, UVERBS_METHOD_QP_CREATE, 18, link);
+	DECLARE_FBCMD_BUFFER(cmdb, UVERBS_OBJECT_QP,
+			     UVERBS_METHOD_QP_CREATE, 19, link);
 	struct verbs_ex_private *priv = get_priv(context);
+	struct ib_uverbs_ex_modify_qp uqpa = {};
 	struct ib_uverbs_attr *handle;
 	uint32_t qp_num;
 	uint32_t pd_handle;
@@ -239,6 +241,31 @@ static int ibv_icmd_create_qp(struct ibv_context *context,
 			 */
 			create_flags &= ~IBV_QP_CREATE_SOURCE_QPN;
 		}
+	}
+
+	/* The attributes the pair would otherwise be modified with. A
+	 * transport/device that supports RTS during QP creation requires no
+	 * modify step to carry them.
+	 */
+	if (attr_ex->comp_mask & IBV_QP_INIT_ATTR_QP_ATTR) {
+		if (!attr_ex->qp_attr) {
+			errno = EINVAL;
+			return errno;
+		}
+
+		fallback_require_ioctl(cmdb);
+
+		/* The same fields the modify command uses, filled by the
+		 * same code. There is no handle yet and the kernel refuses
+		 * a create that names one.
+		 */
+		copy_modify_qp_fields(0, attr_ex->qp_attr,
+				      attr_ex->qp_attr_mask, &uqpa.base);
+
+		if (attr_ex->qp_attr_mask & IBV_QP_RATE_LIMIT)
+			uqpa.rate_limit = attr_ex->qp_attr->rate_limit;
+
+		fill_attr_in_ptr(cmdb, UVERBS_ATTR_CREATE_QP_ATTR, &uqpa);
 	}
 
 	if (create_flags)
@@ -483,6 +510,7 @@ int ibv_cmd_create_qp_ex2(struct ibv_context *context,
 			     IBV_QP_INIT_ATTR_IND_TABLE |
 			     IBV_QP_INIT_ATTR_RX_HASH |
 			     IBV_QP_INIT_ATTR_SEND_OPS_FLAGS |
+			     IBV_QP_INIT_ATTR_QP_ATTR |
 			     IBV_QP_INIT_ATTR_QP_SEMANTICS |
 			     IBV_QP_INIT_ATTR_SRC_ID |
 			     IBV_QP_INIT_ATTR_JKEY)) {
