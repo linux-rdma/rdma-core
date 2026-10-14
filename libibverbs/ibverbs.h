@@ -93,4 +93,7 @@ int find_sysfs_devs_nl(struct list_head *tmp_sysfs_dev_list);
 
 int try_access_device(const struct verbs_sysfs_dev *sysfs_dev);
 
+void copy_modify_qp_fields(uint32_t qp_handle, struct ibv_qp_attr *attr,
+			   int attr_mask, struct ib_uverbs_modify_qp *cmd);
+
 #endif /* IB_VERBS_H */
