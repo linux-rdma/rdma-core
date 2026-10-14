@@ -82,6 +82,8 @@ cdef extern from 'infiniband/verbs.h':
         unsigned int    handle
         unsigned int    lkey
         unsigned int    rkey
+        uint64_t        lkey64
+        uint64_t        rkey64
 
     cdef struct ibv_buf:
         pass
@@ -152,6 +154,9 @@ cdef extern from 'infiniband/verbs.h':
         ibv_pci_atomic_caps     pci_atomic_caps
         uint32_t                xrc_odp_caps
         uint32_t                phys_port_cnt_ex
+        uint32_t                max_job_ids
+        uint32_t                max_job_keys
+        uint32_t                max_addr_entries
 
     cdef struct ibv_mw:
         ibv_context     *context
@@ -452,6 +457,42 @@ cdef extern from 'infiniband/verbs.h':
         uint8_t  *rx_hash_key
         uint64_t rx_hash_fields_mask
 
+    cdef struct ibv_qp_semantics:
+        unsigned int    comp_mask
+        unsigned int    msg_order
+        unsigned int    max_rdma_raw_size
+        unsigned int    max_rdma_war_size
+        unsigned int    max_rdma_waw_size
+        unsigned int    max_pdu
+        unsigned char   imm_data_size
+        unsigned int    usage_flags
+
+    cdef struct ibv_ah_ex:
+        ibv_ah          ah_base
+        unsigned int    remote_qpn
+
+    cdef struct ibv_ah_attr_ex:
+        ibv_ah_attr     ah_attr
+        unsigned int    remote_qpn
+
+    cdef struct ibv_job:
+        ibv_context     *context
+        void            *user_context
+        unsigned int    handle
+
+    cdef struct ibv_job_attr:
+        unsigned int    comp_mask
+        unsigned int    flags
+        unsigned int    id
+        unsigned int    max_addr_entries
+        unsigned int    port_num
+        unsigned char   sgid_index
+
+    cdef struct ibv_job_key:
+        ibv_pd          *pd
+        unsigned int    handle
+        unsigned int    jkey
+
     cdef struct ibv_qp_init_attr_ex:
         void                *qp_context
         ibv_cq              *send_cq
@@ -469,6 +510,11 @@ cdef extern from 'infiniband/verbs.h':
         ibv_rx_hash_conf    rx_hash_conf
         unsigned int        source_qpn
         unsigned long       send_ops_flags
+        ibv_qp_attr         *qp_attr
+        int                 qp_attr_mask
+        ibv_qp_semantics    *qp_semantics
+        unsigned int        src_id
+        ibv_job_key         *job_key
 
     cdef struct ibv_qp_attr:
         ibv_qp_state    qp_state
@@ -712,6 +758,27 @@ cdef extern from 'infiniband/verbs.h':
     int ibv_get_pkey_index(ibv_context *context, unsigned int port_num, uint16_t pkey)
     ibv_pd *ibv_alloc_pd(ibv_context *context)
     int ibv_dealloc_pd(ibv_pd *pd)
+    ibv_job *ibv_alloc_job(ibv_context *context, ibv_job_attr *attr,
+                           void *user_context)
+    int ibv_dealloc_job(ibv_job *job)
+    int ibv_query_job(ibv_job *job, ibv_job_attr *attr)
+    int ibv_export_job(ibv_job *job, int *fd)
+    int ibv_import_job(ibv_context *context, int fd, ibv_job **job)
+    int ibv_insert_addr(ibv_job *job, ibv_ah_attr_ex *ah_attr,
+                        unsigned int addr_idx, unsigned int flags)
+    int ibv_remove_addr(ibv_job *job, unsigned int addr_idx,
+                        unsigned int flags)
+    int ibv_query_addr(ibv_job *job, unsigned int addr_idx,
+                       ibv_ah_attr_ex *ah_attr, unsigned int flags)
+    ibv_job_key *ibv_create_jkey(ibv_pd *pd, ibv_job *job, unsigned int flags)
+    int ibv_destroy_jkey(ibv_job_key *job_key)
+    int ibv_query_qp_semantics(ibv_context *context, unsigned int qp_type,
+                               unsigned int port_num,
+                               unsigned char sgid_index,
+                               ibv_qp_semantics *qp_semantics,
+                               size_t qp_semantic_len)
+    int ibv_attach_mr(ibv_qp *qp, ibv_mr *mr)
+    int ibv_detach_mr(ibv_qp *qp, ibv_mr *mr)
     ibv_mr *ibv_reg_mr(ibv_pd *pd, void *addr, size_t length, int access)
     ibv_mr *ibv_reg_dmabuf_mr(ibv_pd *pd, uint64_t offset, size_t length,
                               uint64_t iova, int fd, int access)
@@ -836,6 +903,14 @@ cdef extern from 'infiniband/verbs.h':
                       uint8_t ptype, uint8_t level)
     void ibv_wr_atomic_write(ibv_qp_ex *qp, uint32_t rkey,
                              uint64_t remote_addr, const void *atomic_wr)
+    void ibv_wr_rdma_read64(ibv_qp_ex *qp, uint64_t rkey,
+                            uint64_t remote_addr)
+    void ibv_wr_rdma_write64(ibv_qp_ex *qp, uint64_t rkey,
+                             uint64_t remote_addr)
+    void ibv_wr_rdma_write64_imm(ibv_qp_ex *qp, uint64_t rkey,
+                                 uint64_t remote_addr, uint32_t imm_data)
+    void ibv_wr_set_sge64(ibv_qp_ex *qp, uint64_t lkey, uint64_t addr,
+                          uint32_t length)
     void ibv_wr_rdma_read(ibv_qp_ex *qp, uint32_t rkey, uint64_t remote_addr)
     void ibv_wr_rdma_write(ibv_qp_ex *qp, uint32_t rkey, uint64_t remote_addr)
     void ibv_wr_rdma_write_imm(ibv_qp_ex *qp, uint32_t rkey,
@@ -845,6 +920,9 @@ cdef extern from 'infiniband/verbs.h':
     void ibv_wr_send_inv(ibv_qp_ex *qp, uint32_t invalidate_rkey)
     void ibv_wr_send_tso(ibv_qp_ex *qp, void *hdr, uint16_t hdr_sz,
                          uint16_t mss)
+    void ibv_wr_set_ru_addr(ibv_qp_ex *qp, ibv_ah_ex *ah,
+                            unsigned int addr_idx)
+    void ibv_wr_set_job_key(ibv_qp_ex *qp, uint32_t jkey)
     void ibv_wr_set_ud_addr(ibv_qp_ex *qp, ibv_ah *ah, uint32_t remote_qpn,
                             uint32_t remote_qkey)
     void ibv_wr_set_xrc_srqn(ibv_qp_ex *qp, uint32_t remote_srqn)
