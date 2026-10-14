@@ -154,6 +154,14 @@ enum ibv_fork_status {
 #define IBV_DEVICE_RAW_SCATTER_FCS (1ULL << 34)
 #define IBV_DEVICE_PCI_WRITE_END_PADDING (1ULL << 36)
 #define IBV_DEVICE_CC_DMA_BOUNCE (1ULL << 41)
+#define IBV_DEVICE_RU            (1ULL << 42)
+#define IBV_DEVICE_IMM64         (1ULL << 43)
+#define IBV_DEVICE_KEY64         (1ULL << 44)
+#define IBV_DEVICE_USER_RKEY     (1ULL << 45)
+#define IBV_DEVICE_MR_UNRESTRICTED      (1ULL << 46) /* { Device, PD } */
+#define IBV_DEVICE_MR_JOB_RESTRICTED    (1ULL << 47) /* { + JobID } */
+#define IBV_DEVICE_MR_QP_RESTRICTED     (1ULL << 48) /* { + QP } */
+#define IBV_DEVICE_MR_QP_JOB_RESTRICTED (1ULL << 49) /* { + QP, JobID } */
 
 enum ibv_atomic_cap {
 	IBV_ATOMIC_NONE,
@@ -364,6 +372,9 @@ struct ibv_device_attr_ex {
 	struct ibv_pci_atomic_caps pci_atomic_caps;
 	uint32_t xrc_odp_caps;
 	uint32_t phys_port_cnt_ex;
+	uint32_t max_job_ids;
+	uint32_t max_job_keys;
+	uint32_t max_addr_entries;
 };
 
 enum ibv_mtu {
