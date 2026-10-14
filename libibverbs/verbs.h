@@ -867,6 +867,11 @@ struct ibv_ah_attr {
 	uint8_t			port_num;
 };
 
+struct ibv_ah_attr_ex {
+	struct ibv_ah_attr	ah_attr;
+	uint32_t		remote_qpn;
+};
+
 enum ibv_srq_attr_mask {
 	IBV_SRQ_MAX_WR	= 1 << 0,
 	IBV_SRQ_LIMIT	= 1 << 1
@@ -1802,6 +1807,11 @@ struct ibv_ah {
 	uint32_t		handle;
 };
 
+struct ibv_ah_ex {
+	struct ibv_ah		ah_base;
+	uint32_t		remote_qpn;
+};
+
 enum ibv_flow_flags {
 	/* First bit is deprecated and can't be used */
 	IBV_FLOW_ATTR_FLAGS_DONT_TRAP = 1 << 1,
@@ -2292,6 +2302,8 @@ struct ibv_values_ex {
 
 struct verbs_context {
 	/*  "grows up" - new fields go here */
+	struct ibv_ah *(*create_ah_ex)(struct ibv_pd *pd,
+				       struct ibv_ah_attr_ex *attr);
 	int (*query_qp_semantics)(struct ibv_context *context,
 				  enum ibv_qp_type qp_type,
 				  uint32_t port_num, uint8_t sgid_index,
@@ -3799,6 +3811,13 @@ struct ibv_ah *ibv_create_ah_from_wc(struct ibv_pd *pd, struct ibv_wc *wc,
  * ibv_destroy_ah - Destroy an address handle.
  */
 int ibv_destroy_ah(struct ibv_ah *ah);
+
+/**
+ * ibv_create_ah_ex - Create an address handle.
+ */
+struct ibv_ah *ibv_create_ah_ex(struct ibv_pd *pd, struct ibv_ah_attr_ex *attr);
+
+struct ibv_ah_ex *ibv_ah_to_ah_ex(struct ibv_ah *ah);
 
 /**
  * ibv_attach_mcast - Attaches the specified QP to a multicast group.
