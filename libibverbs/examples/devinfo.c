@@ -395,7 +395,11 @@ static void print_device_cap_flags_ex(uint64_t device_cap_flags_ex)
 	uint64_t ex_flags = device_cap_flags_ex & 0xffffffff00000000ULL;
 	uint64_t unknown_flags = ~(IBV_DEVICE_RAW_SCATTER_FCS |
 				   IBV_DEVICE_PCI_WRITE_END_PADDING |
-				   IBV_DEVICE_CC_DMA_BOUNCE);
+				   IBV_DEVICE_CC_DMA_BOUNCE |
+				   IBV_DEVICE_RU |
+				   IBV_DEVICE_IMM64 |
+				   IBV_DEVICE_KEY64 |
+				   IBV_DEVICE_USER_RKEY);
 
 	if (ex_flags & IBV_DEVICE_RAW_SCATTER_FCS)
 		printf("\t\t\t\t\tRAW_SCATTER_FCS\n");
@@ -403,6 +407,14 @@ static void print_device_cap_flags_ex(uint64_t device_cap_flags_ex)
 		printf("\t\t\t\t\tPCI_WRITE_END_PADDING\n");
 	if (ex_flags & IBV_DEVICE_CC_DMA_BOUNCE)
 		printf("\t\t\t\t\tCC_DMA_BOUNCE\n");
+	if (ex_flags & IBV_DEVICE_RU)
+		printf("\t\t\t\t\tIBV_DEVICE_RU\n");
+	if (ex_flags & IBV_DEVICE_IMM64)
+		printf("\t\t\t\t\tIBV_DEVICE_IMM64\n");
+	if (ex_flags & IBV_DEVICE_KEY64)
+		printf("\t\t\t\t\tIBV_DEVICE_KEY64\n");
+	if (ex_flags & IBV_DEVICE_USER_RKEY)
+		printf("\t\t\t\t\tIBV_DEVICE_USER_RKEY\n");
 	if (ex_flags & unknown_flags)
 		printf("\t\t\t\t\tUnknown flags: 0x%" PRIX64 "\n",
 		       ex_flags & unknown_flags);
@@ -649,6 +661,10 @@ static int print_hca_cap(struct ibv_device *ib_dev, uint8_t ib_port)
 			      device_attr.max_dm_size);
 
 		printf("\tnum_comp_vectors:\t\t%d\n", ctx->num_comp_vectors);
+
+		printf("\tmax_job_ids:\t\t\t%u\n", device_attr.max_job_ids);
+		printf("\tmax_job_keys:\t\t\t%u\n", device_attr.max_job_keys);
+		printf("\tmax_addr_entries:\t\t%u\n", device_attr.max_addr_entries);
 	}
 
 	for (port = 1; port <= device_attr.orig_attr.phys_port_cnt; ++port) {
