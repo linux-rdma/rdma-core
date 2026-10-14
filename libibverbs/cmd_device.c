@@ -696,6 +696,15 @@ int ibv_cmd_query_device_any(struct ibv_context *context,
 	if (CAN_COPY(xrc_odp_caps, xrc_odp_caps))
 		attr->xrc_odp_caps = resp->xrc_odp_caps;
 
+	if (CAN_COPY(max_job_ids, max_job_ids))
+		attr->max_job_ids = resp->max_job_ids;
+
+	if (CAN_COPY(max_job_keys, max_job_keys))
+		attr->max_job_keys = resp->max_job_keys;
+
+	if (CAN_COPY(max_addr_entries, max_addr_entries))
+		attr->max_addr_entries = resp->max_addr_entries;
+
 	if (attr_size >= offsetofend(struct ibv_device_attr_ex, phys_port_cnt_ex)) {
 		struct verbs_sysfs_dev *sysfs_dev = verbs_get_device(context->device)->sysfs;
 
