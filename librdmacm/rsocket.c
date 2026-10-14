@@ -1032,11 +1032,16 @@ static void ds_free_qp(struct ds_qp *qp)
 	}
 
 	if (qp->cm_id) {
+		if (qp->dest.ah)
+			ibv_destroy_ah(qp->dest.ah);
 		if (qp->cm_id->qp) {
 			tdelete(&qp->dest.addr, &qp->rs->dest_map, ds_compare_addr);
 			epoll_ctl(qp->rs->epfd, EPOLL_CTL_DEL,
 				  qp->cm_id->recv_cq_channel->fd, NULL);
 			rdma_destroy_qp(qp->cm_id);
+		} else if (qp->cm_id->recv_cq) {
+			ibv_destroy_cq(qp->cm_id->recv_cq);
+			ibv_destroy_comp_channel(qp->cm_id->recv_cq_channel);
 		}
 		rdma_destroy_id(qp->cm_id);
 	}
@@ -1087,6 +1092,20 @@ static void rs_free(struct rsocket *rs)
 	if (rs->rmsg)
 		free(rs->rmsg);
 
+	if (rs->index >= 0)
+		rs_remove(rs);
+
+	if (rs->cm_id) {
+		rs_free_iomappings(rs);
+		if (rs->cm_id->qp) {
+			ibv_ack_cq_events(rs->cm_id->recv_cq, rs->unack_cqe);
+			rdma_destroy_qp(rs->cm_id);
+		} else if (rs->cm_id->recv_cq) {
+			ibv_destroy_cq(rs->cm_id->recv_cq);
+			ibv_destroy_comp_channel(rs->cm_id->recv_cq_channel);
+		}
+	}
+
 	if (rs->sbuf) {
 		if (rs->smr)
 			rdma_dereg_mr(rs->smr);
@@ -1105,17 +1124,8 @@ static void rs_free(struct rsocket *rs)
 		free(rs->target_buffer_list);
 	}
 
-	if (rs->index >= 0)
-		rs_remove(rs);
-
-	if (rs->cm_id) {
-		rs_free_iomappings(rs);
-		if (rs->cm_id->qp) {
-			ibv_ack_cq_events(rs->cm_id->recv_cq, rs->unack_cqe);
-			rdma_destroy_qp(rs->cm_id);
-		}
+	if (rs->cm_id)
 		rdma_destroy_id(rs->cm_id);
-	}
 
 	if (rs->accept_queue[0] > 0 || rs->accept_queue[1] > 0) {
 		close(rs->accept_queue[0]);
@@ -1650,11 +1660,11 @@ static int ds_create_qp(struct rsocket *rs, union socket_addr *src_addr,
 	if (ret)
 		goto err;
 
-	ret = ds_init_bufs(qp);
+	ret = rs_create_cq(rs, qp->cm_id);
 	if (ret)
 		goto err;
 
-	ret = rs_create_cq(rs, qp->cm_id);
+	ret = ds_init_bufs(qp);
 	if (ret)
 		goto err;
 
