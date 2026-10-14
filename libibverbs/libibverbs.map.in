@@ -203,6 +203,8 @@ IBVERBS_1.19 {
 	global:
 		ibv_alloc_user_buf;
 		ibv_free_user_buf;
+		ibv_create_ah_ex;
+		ibv_ah_to_ah_ex;
 } IBVERBS_1.18;
 
 /* If any symbols in this stanza change ABI then the entire staza gets a new symbol

@@ -393,6 +393,8 @@ struct verbs_context_ops {
 	void (*cq_event)(struct ibv_cq *cq);
 	struct ibv_ah *(*create_ah)(struct ibv_pd *pd,
 				    struct ibv_ah_attr *attr);
+	struct ibv_ah *(*create_ah_ex)(struct ibv_pd *pd,
+				       struct ibv_ah_attr_ex *attr);
 	struct ibv_comp_cntr *(*create_comp_cntr)(struct ibv_context *context,
 						  struct ibv_comp_cntr_init_attr *attr);
 	struct ibv_counters *(*create_counters)(struct ibv_context *context,
