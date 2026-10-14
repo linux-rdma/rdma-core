@@ -674,6 +674,10 @@ int ibv_cmd_reg_dmabuf_mr(struct ibv_pd *pd, uint64_t offset, size_t length,
 			  struct ibv_command_buffer *driver);
 int ibv_cmd_qp_attach_mr(struct ibv_qp *qp, struct ibv_mr *mr);
 int ibv_cmd_qp_detach_mr(struct ibv_qp *qp, struct ibv_mr *mr);
+int ibv_cmd_query_qp_semantics(struct ibv_context *ctx,
+			       enum ibv_qp_type qp_type,
+			       struct ibv_qp_semantics *out,
+			       size_t qp_semantic_len);
 int ibv_cmd_reg_mr_ex(struct ibv_pd *pd, struct verbs_mr *vmr,
 		      struct ibv_mr_init_attr *mr_init_attr);
 int ibv_cmd_alloc_mw(struct ibv_pd *pd, enum ibv_mw_type type,
