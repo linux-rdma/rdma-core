@@ -74,6 +74,8 @@ enum ibv_gid_type {
 	IBV_GID_TYPE_IB,
 	IBV_GID_TYPE_ROCE_V1,
 	IBV_GID_TYPE_ROCE_V2,
+	IBV_GID_TYPE_UET_UDP,
+	IBV_GID_TYPE_UET_IP,
 };
 
 struct ibv_gid_entry {

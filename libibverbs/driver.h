@@ -171,6 +171,8 @@ enum verbs_qp_mask {
 enum ibv_gid_type_sysfs {
 	IBV_GID_TYPE_SYSFS_IB_ROCE_V1,
 	IBV_GID_TYPE_SYSFS_ROCE_V2,
+	IBV_GID_TYPE_SYSFS_UET_UDP,
+	IBV_GID_TYPE_SYSFS_UET_IP,
 };
 
 enum verbs_query_gid_attr_mask {
