@@ -317,8 +317,10 @@ struct ds_qp {
 	struct ds_header  hdr;
 	struct ds_dest	  dest;
 
+	struct ds_smsg	  *smsg_free;
 	struct ibv_mr	  *smr;
 	struct ibv_mr	  *rmr;
+	uint8_t		  *sbuf;
 	uint8_t		  *rbuf;
 
 	int		  cq_armed;
@@ -369,6 +371,7 @@ struct rsocket {
 			int		  sbuf_bytes_avail;
 			struct ibv_mr	  *smr;
 			struct ibv_sge	  ssgl[2];
+			uint8_t		  *sbuf;
 		};
 		/* datagram */
 		struct {
@@ -379,7 +382,6 @@ struct rsocket {
 			int		  udp_sock;
 			int		  epfd;
 			int		  rqe_avail;
-			struct ds_smsg	  *smsg_free;
 		};
 	};
 
@@ -410,7 +412,6 @@ struct rsocket {
 		struct ds_rmsg	  *dmsg;
 	};
 
-	uint8_t		  *sbuf;
 	struct rs_iomap_mr *remote_iomappings;
 	dlist_entry	  iomap_list;
 	dlist_entry	  iomap_queue;
@@ -846,11 +847,26 @@ static int rs_init_bufs(struct rsocket *rs)
 
 static int ds_init_bufs(struct ds_qp *qp)
 {
+	struct ds_smsg *msg;
+	int i;
+
+	qp->sbuf = forksafe_alloc(qp->rs->sbuf_size);
+	if (!qp->sbuf)
+		return ERR(ENOMEM);
+
+	qp->smsg_free = (struct ds_smsg *) qp->sbuf;
+	msg = qp->smsg_free;
+	for (i = 0; i < qp->rs->sq_size - 1; i++) {
+		msg->next = (void *) msg + RS_SNDLOWAT;
+		msg = msg->next;
+	}
+	msg->next = NULL;
+
 	qp->rbuf = forksafe_alloc(qp->rs->rbuf_size + sizeof(struct ibv_grh));
 	if (!qp->rbuf)
 		return ERR(ENOMEM);
 
-	qp->smr = rdma_reg_msgs(qp->cm_id, qp->rs->sbuf, qp->rs->sbuf_size);
+	qp->smr = rdma_reg_msgs(qp->cm_id, qp->sbuf, qp->rs->sbuf_size);
 	if (!qp->smr)
 		return -1;
 
@@ -1022,8 +1038,11 @@ static void rs_free_iomappings(struct rsocket *rs)
 
 static void ds_free_qp(struct ds_qp *qp)
 {
-	if (qp->smr)
-		rdma_dereg_mr(qp->smr);
+	if (qp->sbuf) {
+		if (qp->smr)
+			rdma_dereg_mr(qp->smr);
+		free(qp->sbuf);
+	}
 
 	if (qp->rbuf) {
 		if (qp->rmr)
@@ -1069,9 +1088,6 @@ static void ds_free(struct rsocket *rs)
 
 	if (rs->epfd >= 0)
 		close(rs->epfd);
-
-	if (rs->sbuf)
-		free(rs->sbuf);
 
 	tdestroy(rs->dest_map, free);
 	fastlock_destroy(&rs->map_lock);
@@ -1203,14 +1219,9 @@ static int ds_init(struct rsocket *rs, int domain)
 
 static int ds_init_ep(struct rsocket *rs)
 {
-	struct ds_smsg *msg;
-	int i, ret;
+	int ret;
 
 	ds_set_qp_size(rs);
-
-	rs->sbuf = calloc(rs->sq_size, RS_SNDLOWAT);
-	if (!rs->sbuf)
-		return ERR(ENOMEM);
 
 	rs->dmsg = calloc(rs->rq_size + 1, sizeof(*rs->dmsg));
 	if (!rs->dmsg)
@@ -1218,14 +1229,6 @@ static int ds_init_ep(struct rsocket *rs)
 
 	rs->sqe_avail = rs->sq_size;
 	rs->rqe_avail = rs->rq_size;
-
-	rs->smsg_free = (struct ds_smsg *) rs->sbuf;
-	msg = rs->smsg_free;
-	for (i = 0; i < rs->sq_size - 1; i++) {
-		msg->next = (void *) msg + RS_SNDLOWAT;
-		msg = msg->next;
-	}
-	msg->next = NULL;
 
 	ret = rs_notify_svc(&udp_svc, rs, RS_SVC_ADD_DGRAM);
 	if (ret)
@@ -2291,9 +2294,9 @@ static void ds_poll_cqs(struct rsocket *rs)
 					ds_post_recv(rs, qp, rs_wr_data(wc.wr_id));
 				}
 			} else {
-				smsg = (struct ds_smsg *) (rs->sbuf + rs_wr_data(wc.wr_id));
-				smsg->next = rs->smsg_free;
-				rs->smsg_free = smsg;
+				smsg = (struct ds_smsg *) (qp->sbuf + rs_wr_data(wc.wr_id));
+				smsg->next = qp->smsg_free;
+				qp->smsg_free = smsg;
 				rs->sqe_avail++;
 			}
 
@@ -2826,8 +2829,8 @@ static ssize_t dsend(struct rsocket *rs, const void *buf, size_t len, int flags)
 			return ret;
 	}
 
-	msg = rs->smsg_free;
-	rs->smsg_free = msg->next;
+	msg = rs->conn_dest->qp->smsg_free;
+	rs->conn_dest->qp->smsg_free = msg->next;
 	rs->sqe_avail--;
 
 	memcpy((void *) msg, &rs->conn_dest->qp->hdr, rs->conn_dest->qp->hdr.length);
@@ -2835,7 +2838,7 @@ static ssize_t dsend(struct rsocket *rs, const void *buf, size_t len, int flags)
 	sge.addr = (uintptr_t) msg;
 	sge.length = rs->conn_dest->qp->hdr.length + len;
 	sge.lkey = rs->conn_dest->qp->smr->lkey;
-	offset = (uint8_t *) msg - rs->sbuf;
+	offset = (uint8_t *) msg - rs->conn_dest->qp->sbuf;
 
 	ret = ds_post_send(rs, &sge, offset);
 	return ret ? ret : len;
@@ -3749,7 +3752,8 @@ int rsetsockopt(int socket, int level, int optname,
 			ret = 0;
 			break;
 		case SO_SNDBUF:
-			if (!rs->sbuf)
+			if (((rs->type == SOCK_STREAM) && !rs->sbuf) ||
+			    ((rs->type == SOCK_DGRAM) && !rs->dmsg))
 				rs->sbuf_size = (*(uint32_t *) optval) << 1;
 			if (rs->sbuf_size < RS_SNDLOWAT)
 				rs->sbuf_size = RS_SNDLOWAT << 1;
@@ -4519,8 +4523,8 @@ static void udp_svc_forward(struct rsocket *rs, void *buf, size_t len,
 			return;
 	}
 
-	msg = rs->smsg_free;
-	rs->smsg_free = msg->next;
+	msg = rs->conn_dest->qp->smsg_free;
+	rs->conn_dest->qp->smsg_free = msg->next;
 	rs->sqe_avail--;
 
 	ds_format_hdr(&hdr, src);
@@ -4529,7 +4533,7 @@ static void udp_svc_forward(struct rsocket *rs, void *buf, size_t len,
 	sge.addr = (uintptr_t) msg;
 	sge.length = hdr.length + len;
 	sge.lkey = rs->conn_dest->qp->smr->lkey;
-	offset = (uint8_t *) msg - rs->sbuf;
+	offset = (uint8_t *) msg - rs->conn_dest->qp->sbuf;
 
 	ds_post_send(rs, &sge, offset);
 }
