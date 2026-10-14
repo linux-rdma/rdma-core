@@ -1014,6 +1014,10 @@ int ibv_query_gid_type(struct ibv_context *context, uint8_t port_num,
 	if (entry.gid_type == IBV_GID_TYPE_IB ||
 	    entry.gid_type == IBV_GID_TYPE_ROCE_V1)
 		*type = IBV_GID_TYPE_SYSFS_IB_ROCE_V1;
+	else if (entry.gid_type == IBV_GID_TYPE_UET_UDP)
+		*type = IBV_GID_TYPE_SYSFS_UET_UDP;
+	else if (entry.gid_type == IBV_GID_TYPE_UET_IP)
+		*type = IBV_GID_TYPE_SYSFS_UET_IP;
 	else
 		*type = IBV_GID_TYPE_SYSFS_ROCE_V2;
 

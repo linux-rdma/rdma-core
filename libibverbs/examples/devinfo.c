@@ -171,6 +171,8 @@ static const char *gid_type_str(enum ibv_gid_type_sysfs type)
 	switch (type) {
 	case IBV_GID_TYPE_SYSFS_IB_ROCE_V1: return "RoCE v1";
 	case IBV_GID_TYPE_SYSFS_ROCE_V2: return "RoCE v2";
+	case IBV_GID_TYPE_SYSFS_UET_UDP: return "UET UDP";
+	case IBV_GID_TYPE_SYSFS_UET_IP: return "UET IP";
 	default: return "Invalid gid type";
 	}
 }
@@ -192,7 +194,9 @@ static void print_formated_gid(union ibv_gid *gid, int i,
 		       gid->raw[11], gid->raw[12], gid->raw[13], gid->raw[14],
 		       gid->raw[15], str);
 
-	if (type == IBV_GID_TYPE_SYSFS_ROCE_V2) {
+	if (type == IBV_GID_TYPE_SYSFS_ROCE_V2 ||
+	    type == IBV_GID_TYPE_SYSFS_UET_UDP ||
+	    type == IBV_GID_TYPE_SYSFS_UET_IP) {
 		inet_ntop(AF_INET6, gid->raw, gid_str, sizeof(gid_str));
 		printf("\t\t\tGID[%3d]:\t\t%s%s\n", i, gid_str, str);
 	}
