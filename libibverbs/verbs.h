@@ -2076,6 +2076,53 @@ struct ibv_flow_action_esp_attr {
 	uint32_t		esn;
 };
 
+struct ibv_job {
+	struct ibv_context *context;
+	void *user_context;
+	uint32_t handle;
+};
+
+enum ibv_job_attr_mask {
+	IBV_JOB_ATTR_FLAGS            = 1 << 0,
+	IBV_JOB_ATTR_ID               = 1 << 1,
+	IBV_JOB_ATTR_MAX_ADDR_ENTRIES = 1 << 2,
+	IBV_JOB_ATTR_PORT_NUM         = 1 << 3,
+	IBV_JOB_ATTR_SGID_INDEX       = 1 << 4,
+};
+
+struct ibv_job_attr {
+	uint32_t comp_mask;
+	unsigned int flags;
+	uint32_t id;
+	uint32_t max_addr_entries;
+	uint32_t port_num;
+	uint8_t sgid_index;
+};
+
+struct ibv_job *ibv_alloc_job(struct ibv_context *context,
+			      struct ibv_job_attr *attr, void *user_context);
+int ibv_dealloc_job(struct ibv_job *job);
+int ibv_query_job(struct ibv_job *job, struct ibv_job_attr *attr);
+int ibv_export_job(struct ibv_job *job, int *fd);
+int ibv_import_job(struct ibv_context *context, int fd, struct ibv_job **job);
+
+int ibv_insert_addr(struct ibv_job *job, struct ibv_ah_attr_ex *ah_attr,
+		    unsigned int addr_idx, unsigned int flags);
+int ibv_remove_addr(struct ibv_job *job, unsigned int addr_idx,
+		    unsigned int flags);
+int ibv_query_addr(struct ibv_job *job, unsigned int addr_idx,
+		   struct ibv_ah_attr_ex *ah_attr, unsigned int flags);
+
+struct ibv_job_key {
+	struct ibv_pd *pd;
+	uint32_t handle;
+	uint32_t jkey;
+};
+
+struct ibv_job_key *ibv_create_jkey(struct ibv_pd *pd, struct ibv_job *job,
+				    unsigned int flags);
+int ibv_destroy_jkey(struct ibv_job_key *job_key);
+
 struct ibv_device;
 struct ibv_context;
 
@@ -2309,6 +2356,24 @@ struct verbs_context {
 				  uint32_t port_num, uint8_t sgid_index,
 				  struct ibv_qp_semantics *qp_semantics,
 				  size_t qp_semantic_len);
+	struct ibv_job_key *(*create_jkey)(struct ibv_pd *pd,
+					   struct ibv_job *job,
+					   unsigned int flags);
+	int (*destroy_jkey)(struct ibv_job_key *job_key);
+	struct ibv_job *(*alloc_job)(struct ibv_context *context,
+				     struct ibv_job_attr *attr,
+				     void *user_context);
+	int (*dealloc_job)(struct ibv_job *job);
+	int (*query_job)(struct ibv_job *job, struct ibv_job_attr *attr);
+	int (*export_job)(struct ibv_job *job, int *fd);
+	int (*import_job)(struct ibv_context *context, int fd,
+			  struct ibv_job **job);
+	int (*insert_addr)(struct ibv_job *job, struct ibv_ah_attr_ex *ah_attr,
+			   unsigned int addr_idx, unsigned int flags);
+	int (*remove_addr)(struct ibv_job *job, unsigned int addr_idx,
+			   unsigned int flags);
+	int (*query_addr)(struct ibv_job *job, unsigned int addr_idx,
+			  struct ibv_ah_attr_ex *ah_attr, unsigned int flags);
 	void (*free_buf)(struct ibv_buf *buf);
 	void *(*alloc_buf)(struct ibv_pd *pd, size_t size,
 			   struct ibv_buf **buf);

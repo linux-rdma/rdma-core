@@ -308,6 +308,159 @@ LATEST_SYMVER_FUNC(ibv_dealloc_pd, 1_1, "IBVERBS_1.1",
 	return get_ops(pd->context)->dealloc_pd(pd);
 }
 
+struct ibv_job *ibv_alloc_job(struct ibv_context *context,
+			      struct ibv_job_attr *attr,
+			      void *user_context)
+{
+	struct verbs_context *vctx;
+	struct ibv_job *job;
+
+	vctx = verbs_get_ctx_op(context, alloc_job);
+	if (!vctx) {
+		errno = EOPNOTSUPP;
+		return NULL;
+	}
+
+	job = vctx->alloc_job(context, attr, user_context);
+	if (job) {
+		job->context = context;
+		job->user_context = user_context;
+	}
+
+	return job;
+}
+
+int ibv_dealloc_job(struct ibv_job *job)
+{
+	struct verbs_context *vctx;
+
+	vctx = verbs_get_ctx_op(job->context, dealloc_job);
+	if (!vctx) {
+		errno = EOPNOTSUPP;
+		return -1;
+	}
+
+	return vctx->dealloc_job(job);
+}
+
+int ibv_query_job(struct ibv_job *job, struct ibv_job_attr *attr)
+{
+	struct verbs_context *vctx;
+
+	vctx = verbs_get_ctx_op(job->context, query_job);
+	if (!vctx) {
+		errno = EOPNOTSUPP;
+		return -1;
+	}
+
+	return vctx->query_job(job, attr);
+}
+
+int ibv_export_job(struct ibv_job *job, int *fd)
+{
+	struct verbs_context *vctx;
+
+	vctx = verbs_get_ctx_op(job->context, export_job);
+	if (!vctx) {
+		errno = EOPNOTSUPP;
+		return -1;
+	}
+
+	return vctx->export_job(job, fd);
+}
+
+int ibv_import_job(struct ibv_context *context, int fd, struct ibv_job **job)
+{
+	struct verbs_context *vctx;
+	int ret;
+
+	vctx = verbs_get_ctx_op(context, import_job);
+	if (!vctx) {
+		errno = EOPNOTSUPP;
+		return -1;
+	}
+
+	ret = vctx->import_job(context, fd, job);
+	if (!ret && *job)
+		(*job)->context = context;
+
+	return ret;
+}
+
+int ibv_insert_addr(struct ibv_job *job, struct ibv_ah_attr_ex *ah_attr,
+		    unsigned int addr_idx, unsigned int flags)
+{
+	struct verbs_context *vctx;
+
+	vctx = verbs_get_ctx_op(job->context, insert_addr);
+	if (!vctx) {
+		errno = EOPNOTSUPP;
+		return -1;
+	}
+
+	return vctx->insert_addr(job, ah_attr, addr_idx, flags);
+}
+
+int ibv_remove_addr(struct ibv_job *job, unsigned int addr_idx,
+		    unsigned int flags)
+{
+	struct verbs_context *vctx;
+
+	vctx = verbs_get_ctx_op(job->context, remove_addr);
+	if (!vctx) {
+		errno = EOPNOTSUPP;
+		return -1;
+	}
+
+	return vctx->remove_addr(job, addr_idx, flags);
+}
+
+int ibv_query_addr(struct ibv_job *job, unsigned int addr_idx,
+		   struct ibv_ah_attr_ex *ah_attr, unsigned int flags)
+{
+	struct verbs_context *vctx;
+
+	vctx = verbs_get_ctx_op(job->context, query_addr);
+	if (!vctx) {
+		errno = EOPNOTSUPP;
+		return -1;
+	}
+
+	return vctx->query_addr(job, addr_idx, ah_attr, flags);
+}
+
+struct ibv_job_key *ibv_create_jkey(struct ibv_pd *pd, struct ibv_job *job,
+				    unsigned int flags)
+{
+	struct verbs_context *vctx;
+	struct ibv_job_key *job_key;
+
+	vctx = verbs_get_ctx_op(pd->context, create_jkey);
+	if (!vctx) {
+		errno = EOPNOTSUPP;
+		return NULL;
+	}
+
+	job_key = vctx->create_jkey(pd, job, flags);
+	if (job_key)
+		job_key->pd = pd;
+
+	return job_key;
+}
+
+int ibv_destroy_jkey(struct ibv_job_key *job_key)
+{
+	struct verbs_context *vctx;
+
+	vctx = verbs_get_ctx_op(job_key->pd->context, destroy_jkey);
+	if (!vctx) {
+		errno = EOPNOTSUPP;
+		return -1;
+	}
+
+	return vctx->destroy_jkey(job_key);
+}
+
 struct ibv_mr *ibv_reg_mr_iova2(struct ibv_pd *pd, void *addr, size_t length,
 				uint64_t iova, unsigned int access)
 {

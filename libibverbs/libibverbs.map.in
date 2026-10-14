@@ -201,6 +201,16 @@ IBVERBS_1.18 {
 
 IBVERBS_1.19 {
 	global:
+		ibv_alloc_job;
+		ibv_dealloc_job;
+		ibv_query_job;
+		ibv_export_job;
+		ibv_import_job;
+		ibv_insert_addr;
+		ibv_remove_addr;
+		ibv_query_addr;
+		ibv_create_jkey;
+		ibv_destroy_jkey;
 		ibv_create_ah_ex;
 		ibv_ah_to_ah_ex;
 } IBVERBS_1.18;
