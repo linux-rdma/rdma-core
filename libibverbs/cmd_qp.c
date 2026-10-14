@@ -560,3 +560,43 @@ int ibv_cmd_qp_detach_mr(struct ibv_qp *qp, struct ibv_mr *mr)
 
 	return 0;
 }
+
+/* what a QP of a specified type guarantees over this device */
+int ibv_cmd_query_qp_semantics(struct ibv_context *ctx,
+			       enum ibv_qp_type qp_type,
+			       struct ibv_qp_semantics *out,
+			       size_t qp_semantic_len)
+{
+	struct ib_uverbs_qp_semantics sem = {};
+	struct ibv_qp_semantics mine = {};
+
+	DECLARE_COMMAND_BUFFER(cmd, UVERBS_OBJECT_DEVICE,
+			       UVERBS_METHOD_QUERY_QP_SEMANTICS, 2);
+
+	if (!out || !qp_semantic_len)
+		return EINVAL;
+
+	if (qp_type != IBV_QPT_RU)
+		return EOPNOTSUPP;
+
+	fill_attr_const_in(cmd, UVERBS_ATTR_QUERY_QP_SEMANTICS_QP_TYPE,
+			   qp_type);
+	fill_attr_out_ptr(cmd, UVERBS_ATTR_QUERY_QP_SEMANTICS_RESP, &sem);
+
+	if (execute_ioctl(ctx, cmd))
+		return errno;
+
+	mine.comp_mask = sem.comp_mask;
+	mine.msg_order = sem.msg_order;
+	mine.max_rdma_raw_size = sem.max_rdma_raw_size;
+	mine.max_rdma_war_size = sem.max_rdma_war_size;
+	mine.max_rdma_waw_size = sem.max_rdma_waw_size;
+	mine.max_pdu = sem.max_pdu;
+	mine.imm_data_size = sem.imm_data_size;
+	mine.usage_flags = sem.usage_flags;
+
+	memcpy(out, &mine, qp_semantic_len < sizeof(mine) ? qp_semantic_len
+							  : sizeof(mine));
+
+	return 0;
+}
