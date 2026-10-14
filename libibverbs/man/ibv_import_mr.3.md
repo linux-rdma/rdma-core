@@ -33,6 +33,9 @@ void ibv_unimport_mr(struct ibv_mr *mr)
 The input *mr_handle* value must be a valid kernel handle for an MR object in the assosicated RDMA context.
 It can be achieved from the original MR by getting its ibv_mr->handle member value.
 
+The imported MR carries the region's 64-bit keys in *lkey64* and *rkey64* when
+the device reports *IBV_DEVICE_KEY64*, and zero otherwise.
+
 **ibv_unimport_mr()** un import the MR.
 Once the MR usage has been ended ibv_dereg_mr() or ibv_unimport_mr() should be called.
 The first one will go to the kernel to destroy the object once the second one way cleanup what

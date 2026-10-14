@@ -47,6 +47,7 @@ usr/share/man/man3/mlx5dv_*.3
 usr/share/man/man3/mult_to_ibv_rate.3
 usr/share/man/man7/efadv.7
 usr/share/man/man7/hnsdv.7
+usr/share/man/man7/ibv_uet.7
 usr/share/man/man7/ionicdv.7
 usr/share/man/man7/manadv.7
 usr/share/man/man7/mlx4dv.7

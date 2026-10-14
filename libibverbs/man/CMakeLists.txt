@@ -2,6 +2,7 @@ rdma_man_pages(
   ibv_advise_mr.3.md
   ibv_alloc_buf.3.md
   ibv_alloc_dm.3
+  ibv_alloc_job.3.md
   ibv_alloc_dmah.3.md
   ibv_alloc_mw.3
   ibv_alloc_null_mr.3.md
@@ -11,9 +12,11 @@ rdma_man_pages(
   ibv_asyncwatch.1
   ibv_attach_counters_point_flow.3.md
   ibv_attach_mcast.3.md
+  ibv_attach_mr.3.md
   ibv_bind_mw.3
   ibv_create_ah.3
   ibv_create_ah_from_wc.3
+  ibv_create_ah_ex.3.md
   ibv_create_comp_channel.3
   ibv_create_comp_cntr.3.md
   ibv_create_counters.3.md
@@ -22,6 +25,7 @@ rdma_man_pages(
   ibv_modify_cq.3
   ibv_create_flow.3
   ibv_create_flow_action.3.md
+  ibv_create_jkey.3.md
   ibv_create_qp.3
   ibv_create_qp_ex.3
   ibv_create_rwq_ind_table.3
@@ -30,6 +34,7 @@ rdma_man_pages(
   ibv_create_wq.3
   ibv_devices.1
   ibv_devinfo.1
+  ibv_insert_addr.3.md
   ibv_dm_export_dmabuf_fd.3.md
   ibv_event_type_str.3.md
   ibv_fork_init.3.md
@@ -77,6 +82,8 @@ rdma_man_pages(
   ibv_rate_to_mbps.3.md
   ibv_rate_to_mult.3.md
   ibv_rc_pingpong.1
+  ibv_ru_pingpong.1
+  ibv_ru_rma.1
   ibv_read_counters.3.md
   ibv_reg_mr.3
   ibv_req_notify_cq.3.md
@@ -86,6 +93,8 @@ rdma_man_pages(
   ibv_srq_pingpong.1
   ibv_uc_pingpong.1
   ibv_ud_pingpong.1
+  ibv_query_qp_semantics.3.md
+  ibv_uet.7.md
   ibv_wr_post.3.md
   ibv_xsrq_pingpong.1
   )
@@ -135,6 +144,7 @@ rdma_alias_man_pages(
   ibv_rate_to_mult.3 mult_to_ibv_rate.3
   ibv_reg_mr.3 ibv_dereg_mr.3
   ibv_reg_mr.3 ibv_reg_mr_ex.3
+  ibv_post_recv.3 ibv_post_recv64.3
   ibv_wr_post.3 ibv_wr_abort.3
   ibv_wr_post.3 ibv_wr_complete.3
   ibv_wr_post.3 ibv_wr_start.3
@@ -156,4 +166,23 @@ rdma_alias_man_pages(
   ibv_wr_post.3 ibv_wr_set_ud_addr.3
   ibv_wr_post.3 ibv_wr_set_xrc_srqn.3
   ibv_wr_post.3 ibv_wr_flush.3
+  ibv_wr_post.3 ibv_wr_rdma_read64.3
+  ibv_wr_post.3 ibv_wr_rdma_write64.3
+  ibv_wr_post.3 ibv_wr_rdma_write_imm64.3
+  ibv_wr_post.3 ibv_wr_rdma_write64_imm.3
+  ibv_wr_post.3 ibv_wr_rdma_write64_imm64.3
+  ibv_wr_post.3 ibv_wr_send_imm64.3
+  ibv_wr_post.3 ibv_wr_set_ru_addr.3
+  ibv_wr_post.3 ibv_wr_set_job_key.3
+  ibv_wr_post.3 ibv_wr_set_sge64.3
+  ibv_wr_post.3 ibv_wr_set_sge64_list.3
+  ibv_alloc_job.3 ibv_dealloc_job.3
+  ibv_alloc_job.3 ibv_query_job.3
+  ibv_alloc_job.3 ibv_export_job.3
+  ibv_alloc_job.3 ibv_import_job.3
+  ibv_create_jkey.3 ibv_destroy_jkey.3
+  ibv_insert_addr.3 ibv_remove_addr.3
+  ibv_insert_addr.3 ibv_query_addr.3
+  ibv_create_ah_ex.3 ibv_ah_to_ah_ex.3
+  ibv_attach_mr.3 ibv_detach_mr.3
   )
