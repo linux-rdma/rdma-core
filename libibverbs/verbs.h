@@ -761,6 +761,10 @@ enum ibv_mr_init_attr_mask {
 	IBV_REG_MR_MASK_FD_OFFSET = 1 << 3,
 	IBV_REG_MR_MASK_DMAH = 1 << 4,
 	IBV_REG_MR_MASK_BUF = 1 << 5,
+	IBV_REG_MR_MASK_JKEY = 1 << 6,
+	IBV_REG_MR_MASK_RKEY = 1 << 7,
+	IBV_REG_MR_MASK_CUR_MR = 1 << 8,
+	IBV_REG_MR_MASK_DERIVE_CNT = 1 << 9,
 };
 
 struct ibv_mr_init_attr {
@@ -773,6 +777,10 @@ struct ibv_mr_init_attr {
 	uint64_t fd_offset;
 	struct ibv_dmah *dmah;
 	struct ibv_buf *buf; /* Handle from ibv_alloc_buf(), addr must be set */
+	struct ibv_job_key *job_key;
+	uint64_t rkey;
+	struct ibv_mr *cur_mr;
+	uint32_t derive_cnt;
 };
 
 enum ibv_mw_type {
@@ -2369,6 +2377,8 @@ struct verbs_context {
 			   struct ibv_recv_wr64 **bad_wr);
 	struct ibv_ah *(*create_ah_ex)(struct ibv_pd *pd,
 				       struct ibv_ah_attr_ex *attr);
+	int (*attach_mr)(struct ibv_qp *qp, struct ibv_mr *mr);
+	int (*detach_mr)(struct ibv_qp *qp, struct ibv_mr *mr);
 	int (*query_qp_semantics)(struct ibv_context *context,
 				  enum ibv_qp_type qp_type,
 				  uint32_t port_num, uint8_t sgid_index,
@@ -2964,6 +2974,26 @@ static inline struct ibv_mw *ibv_alloc_mw(struct ibv_pd *pd,
 static inline int ibv_dealloc_mw(struct ibv_mw *mw)
 {
 	return mw->context->ops.dealloc_mw(mw);
+}
+
+static inline int ibv_attach_mr(struct ibv_qp *qp, struct ibv_mr *mr)
+{
+	struct verbs_context *vctx = verbs_get_ctx_op(qp->context, attach_mr);
+
+	if (!vctx)
+		return EOPNOTSUPP;
+
+	return vctx->attach_mr(qp, mr);
+}
+
+static inline int ibv_detach_mr(struct ibv_qp *qp, struct ibv_mr *mr)
+{
+	struct verbs_context *vctx = verbs_get_ctx_op(qp->context, detach_mr);
+
+	if (!vctx)
+		return EOPNOTSUPP;
+
+	return vctx->detach_mr(qp, mr);
 }
 
 /**
