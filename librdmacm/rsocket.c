@@ -280,6 +280,7 @@ enum rs_state {
 #define RS_OPT_UDP_SVC    (1 << 2)
 #define RS_OPT_KEEPALIVE  (1 << 3)
 #define RS_OPT_CM_SVC	  (1 << 4)
+#define RS_OPT_COCO_PD	  (1 << 5)
 
 union socket_addr {
 	struct sockaddr		sa;
@@ -881,12 +882,44 @@ static int ds_init_bufs(struct ds_qp *qp)
  */
 static int rs_create_cq(struct rsocket *rs, struct rdma_cm_id *cm_id)
 {
+	struct ibv_device_attr_ex device_attr = {};
+	struct ibv_pd *coco_parent_pd = NULL;
+
+	if (!cm_id->verbs || !cm_id->pd)
+		return ERR(ENODEV);
+
 	cm_id->recv_cq_channel = ibv_create_comp_channel(cm_id->verbs);
 	if (!cm_id->recv_cq_channel)
 		return -1;
 
-	cm_id->recv_cq = ibv_create_cq(cm_id->verbs, rs->sq_size + rs->rq_size,
-				       cm_id, cm_id->recv_cq_channel, 0);
+	/*
+	 * Only allocate a CoCo parent domain and extended CQ when the device
+	 * requires DMA bounce buffering, keeping non-CoCo and legacy providers
+	 * on the standard ibv_create_cq() path.
+	 */
+	if (!ibv_query_device_ex(cm_id->verbs, NULL, &device_attr) &&
+	    (device_attr.device_cap_flags_ex & IBV_DEVICE_CC_DMA_BOUNCE)) {
+		struct ibv_parent_domain_init_attr attr = {
+			.pd = cm_id->pd,
+			.comp_mask = IBV_PARENT_DOMAIN_INIT_ATTR_ALLOW_CC_UNPROTECTED_ALLOC,
+		};
+		struct ibv_cq_init_attr_ex cq_attr = {
+			.cqe = rs->sq_size + rs->rq_size,
+			.cq_context = cm_id,
+			.channel = cm_id->recv_cq_channel,
+			.comp_vector = 0,
+			.comp_mask = IBV_CQ_INIT_ATTR_MASK_PD,
+		};
+
+		coco_parent_pd = ibv_alloc_parent_domain(cm_id->verbs, &attr);
+		if (!coco_parent_pd)
+			goto err1;
+		cq_attr.parent_domain = coco_parent_pd;
+		cm_id->recv_cq = ibv_cq_ex_to_cq(ibv_create_cq_ex(cm_id->verbs, &cq_attr));
+	} else {
+		cm_id->recv_cq = ibv_create_cq(cm_id->verbs, rs->sq_size + rs->rq_size,
+					       cm_id, cm_id->recv_cq_channel, 0);
+	}
 	if (!cm_id->recv_cq)
 		goto err1;
 
@@ -895,6 +928,10 @@ static int rs_create_cq(struct rsocket *rs, struct rdma_cm_id *cm_id)
 			goto err2;
 	}
 
+	if (coco_parent_pd) {
+		cm_id->pd = coco_parent_pd;
+		rs->opts |= RS_OPT_COCO_PD;
+	}
 	ibv_req_notify_cq(cm_id->recv_cq, 0);
 	cm_id->send_cq_channel = cm_id->recv_cq_channel;
 	cm_id->send_cq = cm_id->recv_cq;
@@ -904,6 +941,8 @@ err2:
 	ibv_destroy_cq(cm_id->recv_cq);
 	cm_id->recv_cq = NULL;
 err1:
+	if (coco_parent_pd)
+		ibv_dealloc_pd(coco_parent_pd);
 	ibv_destroy_comp_channel(cm_id->recv_cq_channel);
 	cm_id->recv_cq_channel = NULL;
 	return -1;
@@ -1058,6 +1097,8 @@ static void ds_free_qp(struct ds_qp *qp)
 			ibv_destroy_cq(qp->cm_id->recv_cq);
 			ibv_destroy_comp_channel(qp->cm_id->recv_cq_channel);
 		}
+		if ((qp->rs->opts & RS_OPT_COCO_PD) && qp->cm_id->send_cq)
+			ibv_dealloc_pd(qp->cm_id->pd);
 		rdma_destroy_id(qp->cm_id);
 	}
 
@@ -1136,8 +1177,11 @@ static void rs_free(struct rsocket *rs)
 		ibv_free_buf(rs->target_ibv);
 	}
 
-	if (rs->cm_id)
+	if (rs->cm_id) {
+		if (rs->opts & RS_OPT_COCO_PD)
+			ibv_dealloc_pd(rs->cm_id->pd);
 		rdma_destroy_id(rs->cm_id);
+	}
 
 	if (rs->accept_queue[0] > 0 || rs->accept_queue[1] > 0) {
 		close(rs->accept_queue[0]);
@@ -1184,7 +1228,7 @@ static void rs_save_conn_data(struct rsocket *rs, struct rs_conn_data *conn)
 	rs->remote_sge = 1;
 	if ((rs_host_is_net() && !(conn->flags & RS_CONN_FLAG_NET)) ||
 	    (!rs_host_is_net() && (conn->flags & RS_CONN_FLAG_NET)))
-		rs->opts = RS_OPT_SWAP_SGL;
+		rs->opts |= RS_OPT_SWAP_SGL;
 
 	if (conn->flags & RS_CONN_FLAG_IOMAP) {
 		rs->remote_iomap.addr = rs->remote_sgl.addr +
