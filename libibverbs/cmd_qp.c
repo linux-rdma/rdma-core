@@ -75,7 +75,7 @@ static int ibv_icmd_create_qp(struct ibv_context *context,
 			      struct ibv_qp_init_attr_ex *attr_ex,
 			      struct ibv_command_buffer *link)
 {
-	DECLARE_FBCMD_BUFFER(cmdb, UVERBS_OBJECT_QP, UVERBS_METHOD_QP_CREATE, 15, link);
+	DECLARE_FBCMD_BUFFER(cmdb, UVERBS_OBJECT_QP, UVERBS_METHOD_QP_CREATE, 18, link);
 	struct verbs_ex_private *priv = get_priv(context);
 	struct ib_uverbs_attr *handle;
 	uint32_t qp_num;
@@ -88,6 +88,45 @@ static int ibv_icmd_create_qp(struct ibv_context *context,
 	uint32_t create_flags = 0;
 
 	qp->context = context;
+
+	if (attr_ex->comp_mask & IBV_QP_INIT_ATTR_SRC_ID) {
+		fallback_require_ioctl(cmdb);
+		fill_attr_in_uint32(cmdb, UVERBS_ATTR_CREATE_QP_SRC_ID,
+				    attr_ex->src_id);
+	}
+
+	if (attr_ex->comp_mask & IBV_QP_INIT_ATTR_JKEY) {
+		if (!attr_ex->job_key) {
+			errno = EINVAL;
+			return errno;
+		}
+
+		fallback_require_ioctl(cmdb);
+		fill_attr_in_obj(cmdb, UVERBS_ATTR_CREATE_QP_JOB_KEY,
+				 attr_ex->job_key->handle);
+	}
+
+	if (attr_ex->comp_mask & IBV_QP_INIT_ATTR_QP_SEMANTICS) {
+		const struct ibv_qp_semantics *req = attr_ex->qp_semantics;
+		struct ib_uverbs_qp_semantics sem = {};
+
+		if (!req) {
+			errno = EINVAL;
+			return errno;
+		}
+
+		fallback_require_ioctl(cmdb);
+
+		sem.comp_mask = req->comp_mask;
+		sem.msg_order = req->msg_order;
+		sem.max_rdma_raw_size = req->max_rdma_raw_size;
+		sem.max_rdma_war_size = req->max_rdma_war_size;
+		sem.max_rdma_waw_size = req->max_rdma_waw_size;
+		sem.max_pdu = req->max_pdu;
+		sem.imm_data_size = req->imm_data_size;
+		sem.usage_flags = req->usage_flags;
+		fill_attr_in_ptr(cmdb, UVERBS_ATTR_CREATE_QP_SEMANTICS, &sem);
+	}
 
 	switch (attr_ex->qp_type) {
 	case IBV_QPT_XRC_RECV:
@@ -105,7 +144,11 @@ static int ibv_icmd_create_qp(struct ibv_context *context,
 	case IBV_QPT_UC:
 	case IBV_QPT_RAW_PACKET:
 	case IBV_QPT_XRC_SEND:
+	case IBV_QPT_RU:
 	case IBV_QPT_DRIVER:
+		if (attr_ex->qp_type == IBV_QPT_RU)
+			fallback_require_ioctl(cmdb);
+
 		if (!(attr_ex->comp_mask & IBV_QP_INIT_ATTR_PD)) {
 			errno = EINVAL;
 			return errno;
@@ -439,7 +482,10 @@ int ibv_cmd_create_qp_ex2(struct ibv_context *context,
 			     IBV_QP_INIT_ATTR_MAX_TSO_HEADER |
 			     IBV_QP_INIT_ATTR_IND_TABLE |
 			     IBV_QP_INIT_ATTR_RX_HASH |
-			     IBV_QP_INIT_ATTR_SEND_OPS_FLAGS)) {
+			     IBV_QP_INIT_ATTR_SEND_OPS_FLAGS |
+			     IBV_QP_INIT_ATTR_QP_SEMANTICS |
+			     IBV_QP_INIT_ATTR_SRC_ID |
+			     IBV_QP_INIT_ATTR_JKEY)) {
 		errno = EINVAL;
 		return errno;
 	}
