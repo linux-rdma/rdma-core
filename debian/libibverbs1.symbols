@@ -16,7 +16,8 @@ libibverbs.so.1 libibverbs1 #MINVER#
  IBVERBS_1.16@IBVERBS_1.16 62
  IBVERBS_1.17@IBVERBS_1.17 64
  IBVERBS_1.18@IBVERBS_1.18 65
- (symver)IBVERBS_PRIVATE_65 65
+ IBVERBS_1.19@IBVERBS_1.19 66
+ (symver)IBVERBS_PRIVATE_66 66
  _ibv_query_comp_cntr_caps@IBVERBS_1.18 65
  _ibv_query_gid_ex@IBVERBS_1.11 32
  _ibv_query_gid_table@IBVERBS_1.11 32
@@ -24,8 +25,10 @@ libibverbs.so.1 libibverbs1 #MINVER#
  ibv_ack_async_event@IBVERBS_1.1 1.1.6
  ibv_ack_cq_events@IBVERBS_1.0 1.1.6
  ibv_ack_cq_events@IBVERBS_1.1 1.1.6
+ ibv_ah_to_ah_ex@IBVERBS_1.19 66
  ibv_alloc_buf@IBVERBS_1.17 64
  ibv_alloc_dmah@IBVERBS_1.15 59
+ ibv_alloc_job@IBVERBS_1.19 66
  ibv_alloc_pd@IBVERBS_1.0 1.1.6
  ibv_alloc_pd@IBVERBS_1.1 1.1.6
  ibv_attach_mcast@IBVERBS_1.0 1.1.6
@@ -38,16 +41,19 @@ libibverbs.so.1 libibverbs1 #MINVER#
  ibv_copy_qp_attr_from_kern@IBVERBS_1.0 1.1.6
  ibv_create_ah@IBVERBS_1.0 1.1.6
  ibv_create_ah@IBVERBS_1.1 1.1.6
+ ibv_create_ah_ex@IBVERBS_1.19 66
  ibv_create_ah_from_wc@IBVERBS_1.1 1.1.6
  ibv_create_comp_channel@IBVERBS_1.0 1.1.6
  ibv_create_comp_cntr@IBVERBS_1.18 65
  ibv_create_cq@IBVERBS_1.0 1.1.6
  ibv_create_cq@IBVERBS_1.1 1.1.6
+ ibv_create_jkey@IBVERBS_1.19 66
  ibv_create_qp@IBVERBS_1.0 1.1.6
  ibv_create_qp@IBVERBS_1.1 1.1.6
  ibv_create_srq@IBVERBS_1.0 1.1.6
  ibv_create_srq@IBVERBS_1.1 1.1.6
  ibv_dealloc_dmah@IBVERBS_1.15 59
+ ibv_dealloc_job@IBVERBS_1.19 66
  ibv_dealloc_pd@IBVERBS_1.0 1.1.6
  ibv_dealloc_pd@IBVERBS_1.1 1.1.6
  ibv_dereg_mr@IBVERBS_1.0 1.1.6
@@ -58,6 +64,7 @@ libibverbs.so.1 libibverbs1 #MINVER#
  ibv_destroy_comp_cntr@IBVERBS_1.18 65
  ibv_destroy_cq@IBVERBS_1.0 1.1.6
  ibv_destroy_cq@IBVERBS_1.1 1.1.6
+ ibv_destroy_jkey@IBVERBS_1.19 66
  ibv_destroy_qp@IBVERBS_1.0 1.1.6
  ibv_destroy_qp@IBVERBS_1.1 1.1.6
  ibv_destroy_srq@IBVERBS_1.0 1.1.6
@@ -69,6 +76,7 @@ libibverbs.so.1 libibverbs1 #MINVER#
  ibv_dontfork_range@IBVERBS_1.1 1.1.6
  ibv_event_type_str@IBVERBS_1.1 1.1.6
  ibv_export_buf_dmabuf_fd@IBVERBS_1.18 65
+ ibv_export_job@IBVERBS_1.19 66
  ibv_fork_init@IBVERBS_1.1 1.1.6
  ibv_free_buf@IBVERBS_1.17 64
  ibv_free_device_list@IBVERBS_1.0 1.1.6
@@ -88,11 +96,13 @@ libibverbs.so.1 libibverbs1 #MINVER#
  ibv_get_sysfs_path@IBVERBS_1.0 1.1.6
  ibv_import_device@IBVERBS_1.10 31
  ibv_import_dm@IBVERBS_1.13 35
+ ibv_import_job@IBVERBS_1.19 66
  ibv_import_mr@IBVERBS_1.10 31
  ibv_import_pd@IBVERBS_1.10 31
  ibv_inc_comp_cntr@IBVERBS_1.18 65
  ibv_inc_err_comp_cntr@IBVERBS_1.18 65
  ibv_init_ah_from_wc@IBVERBS_1.1 1.1.6
+ ibv_insert_addr@IBVERBS_1.19 66
  ibv_is_fork_initialized@IBVERBS_1.13 35
  ibv_modify_qp@IBVERBS_1.0 1.1.6
  ibv_modify_qp@IBVERBS_1.1 1.1.6
@@ -104,11 +114,13 @@ libibverbs.so.1 libibverbs1 #MINVER#
  ibv_port_state_str@IBVERBS_1.1 1.1.6
  ibv_qp_attach_comp_cntr@IBVERBS_1.18 65
  ibv_qp_to_qp_ex@IBVERBS_1.6 24
+ ibv_query_addr@IBVERBS_1.19 66
  ibv_query_device@IBVERBS_1.0 1.1.6
  ibv_query_device@IBVERBS_1.1 1.1.6
  ibv_query_ece@IBVERBS_1.10 31
  ibv_query_gid@IBVERBS_1.0 1.1.6
  ibv_query_gid@IBVERBS_1.1 1.1.6
+ ibv_query_job@IBVERBS_1.19 66
  ibv_query_pkey@IBVERBS_1.0 1.1.6
  ibv_query_pkey@IBVERBS_1.1 1.1.6
  ibv_query_port@IBVERBS_1.0 1.1.6
@@ -132,6 +144,7 @@ libibverbs.so.1 libibverbs1 #MINVER#
  ibv_reg_mr_iova@IBVERBS_1.7 25
  ibv_reg_mr_iova2@IBVERBS_1.8 28
  ibv_register_driver@IBVERBS_1.1 1.1.6
+ ibv_remove_addr@IBVERBS_1.19 66
  ibv_rereg_mr@IBVERBS_1.1 1.2.1
  ibv_resize_cq@IBVERBS_1.0 1.1.6
  ibv_resize_cq@IBVERBS_1.1 1.1.6
