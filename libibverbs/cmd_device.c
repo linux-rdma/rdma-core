@@ -281,6 +281,8 @@ static int query_sysfs_gid(struct ibv_context *context, uint8_t port_num, int in
  */
 #define V1_TYPE "IB/RoCE v1"
 #define V2_TYPE "RoCE v2"
+#define UET_UDP_TYPE "UET UDP"
+#define UET_IP_TYPE "UET IP"
 static int query_sysfs_gid_type(struct ibv_context *context, uint8_t port_num,
 				unsigned int index, enum ibv_gid_type_sysfs *type)
 {
@@ -329,6 +331,10 @@ static int query_sysfs_gid_type(struct ibv_context *context, uint8_t port_num,
 			*type = IBV_GID_TYPE_SYSFS_IB_ROCE_V1;
 		} else if (!strcmp(buff, V2_TYPE)) {
 			*type = IBV_GID_TYPE_SYSFS_ROCE_V2;
+		} else if (!strcmp(buff, UET_UDP_TYPE)) {
+			*type = IBV_GID_TYPE_SYSFS_UET_UDP;
+		} else if (!strcmp(buff, UET_IP_TYPE)) {
+			*type = IBV_GID_TYPE_SYSFS_UET_IP;
 		} else {
 			errno = ENOTSUP;
 			return -1;
@@ -379,6 +385,10 @@ static int query_sysfs_gid_entry(struct ibv_context *context, uint32_t port_num,
 				/* Unspecified link layer is IB by default */
 				entry->gid_type = IBV_GID_TYPE_IB;
 			}
+		} else if (gid_type == IBV_GID_TYPE_SYSFS_UET_UDP) {
+			entry->gid_type = IBV_GID_TYPE_UET_UDP;
+		} else if (gid_type == IBV_GID_TYPE_SYSFS_UET_IP) {
+			entry->gid_type = IBV_GID_TYPE_UET_IP;
 		} else {
 			entry->gid_type = IBV_GID_TYPE_ROCE_V2;
 		}
@@ -685,6 +695,15 @@ int ibv_cmd_query_device_any(struct ibv_context *context,
 
 	if (CAN_COPY(xrc_odp_caps, xrc_odp_caps))
 		attr->xrc_odp_caps = resp->xrc_odp_caps;
+
+	if (CAN_COPY(max_job_ids, max_job_ids))
+		attr->max_job_ids = resp->max_job_ids;
+
+	if (CAN_COPY(max_job_keys, max_job_keys))
+		attr->max_job_keys = resp->max_job_keys;
+
+	if (CAN_COPY(max_addr_entries, max_addr_entries))
+		attr->max_addr_entries = resp->max_addr_entries;
 
 	if (attr_size >= offsetofend(struct ibv_device_attr_ex, phys_port_cnt_ex)) {
 		struct verbs_sysfs_dev *sysfs_dev = verbs_get_device(context->device)->sysfs;

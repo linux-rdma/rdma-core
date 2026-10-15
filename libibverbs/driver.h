@@ -171,6 +171,8 @@ enum verbs_qp_mask {
 enum ibv_gid_type_sysfs {
 	IBV_GID_TYPE_SYSFS_IB_ROCE_V1,
 	IBV_GID_TYPE_SYSFS_ROCE_V2,
+	IBV_GID_TYPE_SYSFS_UET_UDP,
+	IBV_GID_TYPE_SYSFS_UET_IP,
 };
 
 enum verbs_query_gid_attr_mask {
@@ -371,6 +373,9 @@ struct verbs_context_ops {
 				   struct ibv_alloc_dm_attr *attr);
 	struct ibv_dmah *(*alloc_dmah)(struct ibv_context *context,
 				       struct ibv_dmah_init_attr *attr);
+	struct ibv_job *(*alloc_job)(struct ibv_context *context,
+				     struct ibv_job_attr *attr,
+				     void *user_context);
 	struct ibv_mw *(*alloc_mw)(struct ibv_pd *pd, enum ibv_mw_type type);
 	struct ibv_mr *(*alloc_null_mr)(struct ibv_pd *pd);
 	struct ibv_pd *(*alloc_parent_domain)(
@@ -385,12 +390,15 @@ struct verbs_context_ops {
 					  struct ibv_flow *flow);
 	int (*attach_mcast)(struct ibv_qp *qp, const union ibv_gid *gid,
 			    uint16_t lid);
+	int (*attach_mr)(struct ibv_qp *qp, struct ibv_mr *mr);
 	int (*bind_mw)(struct ibv_qp *qp, struct ibv_mw *mw,
 		       struct ibv_mw_bind *mw_bind);
 	int (*close_xrcd)(struct ibv_xrcd *xrcd);
 	void (*cq_event)(struct ibv_cq *cq);
 	struct ibv_ah *(*create_ah)(struct ibv_pd *pd,
 				    struct ibv_ah_attr *attr);
+	struct ibv_ah *(*create_ah_ex)(struct ibv_pd *pd,
+				       struct ibv_ah_attr_ex *attr);
 	struct ibv_comp_cntr *(*create_comp_cntr)(struct ibv_context *context,
 						  struct ibv_comp_cntr_init_attr *attr);
 	struct ibv_counters *(*create_counters)(struct ibv_context *context,
@@ -405,6 +413,9 @@ struct verbs_context_ops {
 					struct ibv_flow_attr *flow_attr);
 	struct ibv_flow_action *(*create_flow_action_esp)(struct ibv_context *context,
 							  struct ibv_flow_action_esp_attr *attr);
+	struct ibv_job_key *(*create_jkey)(struct ibv_pd *pd,
+					   struct ibv_job *job,
+					   unsigned int flags);
 	struct ibv_qp *(*create_qp)(struct ibv_pd *pd,
 				    struct ibv_qp_init_attr *attr);
 	struct ibv_qp *(*create_qp_ex)(
@@ -421,6 +432,7 @@ struct verbs_context_ops {
 	struct ibv_wq *(*create_wq)(struct ibv_context *context,
 				    struct ibv_wq_init_attr *wq_init_attr);
 	int (*dealloc_dmah)(struct ibv_dmah *dmah);
+	int (*dealloc_job)(struct ibv_job *job);
 	int (*dealloc_mw)(struct ibv_mw *mw);
 	int (*dealloc_pd)(struct ibv_pd *pd);
 	int (*dealloc_td)(struct ibv_td *td);
@@ -431,19 +443,24 @@ struct verbs_context_ops {
 	int (*destroy_cq)(struct ibv_cq *cq);
 	int (*destroy_flow)(struct ibv_flow *flow);
 	int (*destroy_flow_action)(struct ibv_flow_action *action);
+	int (*destroy_jkey)(struct ibv_job_key *job_key);
 	int (*destroy_qp)(struct ibv_qp *qp);
 	int (*destroy_rwq_ind_table)(struct ibv_rwq_ind_table *rwq_ind_table);
 	int (*destroy_srq)(struct ibv_srq *srq);
 	int (*destroy_wq)(struct ibv_wq *wq);
 	int (*detach_mcast)(struct ibv_qp *qp, const union ibv_gid *gid,
 			    uint16_t lid);
+	int (*detach_mr)(struct ibv_qp *qp, struct ibv_mr *mr);
 	int (*dm_export_dmabuf_fd)(struct ibv_dm *dm);
+	int (*export_job)(struct ibv_job *job, int *fd);
 	void (*free_buf)(struct ibv_buf *buf);
 	void (*free_context)(struct ibv_context *context);
 	int (*free_dm)(struct ibv_dm *dm);
 	int (*get_srq_num)(struct ibv_srq *srq, uint32_t *srq_num);
 	struct ibv_dm *(*import_dm)(struct ibv_context *context,
 				    uint32_t dm_handle);
+	int (*import_job)(struct ibv_context *context, int fd,
+			  struct ibv_job **job);
 	struct ibv_mr *(*import_mr)(struct ibv_pd *pd,
 				    uint32_t mr_handle);
 	struct ibv_pd *(*import_pd)(struct ibv_context *context,
@@ -451,6 +468,8 @@ struct verbs_context_ops {
 	int (*inc_comp_cntr)(struct ibv_comp_cntr *comp_cntr, uint64_t amount);
 	int (*inc_err_comp_cntr)(struct ibv_comp_cntr *comp_cntr,
 				 uint64_t amount);
+	int (*insert_addr)(struct ibv_job *job, struct ibv_ah_attr_ex *ah_attr,
+			   unsigned int addr_idx, unsigned int flags);
 	int (*modify_cq)(struct ibv_cq *cq, struct ibv_modify_cq_attr *attr);
 	int (*modify_flow_action_esp)(struct ibv_flow_action *action,
 				      struct ibv_flow_action_esp_attr *attr);
@@ -469,6 +488,8 @@ struct verbs_context_ops {
 	int (*poll_cq)(struct ibv_cq *cq, int num_entries, struct ibv_wc *wc);
 	int (*post_recv)(struct ibv_qp *qp, struct ibv_recv_wr *wr,
 			 struct ibv_recv_wr **bad_wr);
+	int (*post_recv64)(struct ibv_qp *qp, struct ibv_recv_wr64 *wr,
+			   struct ibv_recv_wr64 **bad_wr);
 	int (*post_send)(struct ibv_qp *qp, struct ibv_send_wr *wr,
 			 struct ibv_send_wr **bad_wr);
 	int (*post_srq_ops)(struct ibv_srq *srq, struct ibv_ops_wr *op,
@@ -478,6 +499,8 @@ struct verbs_context_ops {
 	int (*qp_attach_comp_cntr)(struct ibv_qp *qp,
 				   struct ibv_comp_cntr *comp_cntr,
 				   struct ibv_qp_attach_comp_cntr_attr *attr);
+	int (*query_addr)(struct ibv_job *job, unsigned int addr_idx,
+			  struct ibv_ah_attr_ex *ah_attr, unsigned int flags);
 	int (*query_comp_cntr_caps)(struct ibv_context *context,
 				    struct ibv_comp_cntr_caps *caps,
 				    size_t caps_size);
@@ -486,6 +509,7 @@ struct verbs_context_ops {
 			       struct ibv_device_attr_ex *attr,
 			       size_t attr_size);
 	int (*query_ece)(struct ibv_qp *qp, struct ibv_ece *ece);
+	int (*query_job)(struct ibv_job *job, struct ibv_job_attr *attr);
 	int (*query_port)(struct ibv_context *context, uint8_t port_num,
 			  struct ibv_port_attr *port_attr);
 	int (*query_port_speed)(struct ibv_context *context, uint32_t port_num,
@@ -494,6 +518,11 @@ struct verbs_context_ops {
 			int attr_mask, struct ibv_qp_init_attr *init_attr);
 	int (*query_qp_data_in_order)(struct ibv_qp *qp, enum ibv_wr_opcode op,
 				      uint32_t flags);
+	int (*query_qp_semantics)(struct ibv_context *context,
+				  enum ibv_qp_type qp_type,
+				  uint32_t port_num, uint8_t sgid_index,
+				  struct ibv_qp_semantics *qp_semantics,
+				  size_t qp_semantic_len);
 	int (*query_rt_values)(struct ibv_context *context,
 			       struct ibv_values_ex *values);
 	int (*query_srq)(struct ibv_srq *srq, struct ibv_srq_attr *srq_attr);
@@ -514,6 +543,8 @@ struct verbs_context_ops {
 				 uint64_t hca_va, int access);
 	struct ibv_mr *(*reg_mr_ex)(struct ibv_pd *pd,
 				    struct ibv_mr_init_attr *mr_init_attr);
+	int (*remove_addr)(struct ibv_job *job, unsigned int addr_idx,
+			   unsigned int flags);
 	int (*req_notify_cq)(struct ibv_cq *cq, int solicited_only);
 	int (*rereg_mr)(struct verbs_mr *vmr, int flags, struct ibv_pd *pd,
 			void *addr, size_t length, int access);
@@ -641,6 +672,12 @@ int ibv_cmd_reg_dmabuf_mr(struct ibv_pd *pd, uint64_t offset, size_t length,
 			  uint64_t iova, int fd, int access,
 			  struct verbs_mr *vmr,
 			  struct ibv_command_buffer *driver);
+int ibv_cmd_qp_attach_mr(struct ibv_qp *qp, struct ibv_mr *mr);
+int ibv_cmd_qp_detach_mr(struct ibv_qp *qp, struct ibv_mr *mr);
+int ibv_cmd_query_qp_semantics(struct ibv_context *ctx,
+			       enum ibv_qp_type qp_type,
+			       struct ibv_qp_semantics *out,
+			       size_t qp_semantic_len);
 int ibv_cmd_reg_mr_ex(struct ibv_pd *pd, struct verbs_mr *vmr,
 		      struct ibv_mr_init_attr *mr_init_attr);
 int ibv_cmd_alloc_mw(struct ibv_pd *pd, enum ibv_mw_type type,

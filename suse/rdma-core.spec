@@ -682,6 +682,7 @@ done
 %{_mandir}/man3/sa_key*
 %{_mandir}/man3/umad*
 %{_mandir}/man3/*_to_ibv_rate.*
+%{_mandir}/man7/ibv_uet*
 %{_mandir}/man7/rdma_cm.*
 %if 0%{?dma_coherent}
 %{_mandir}/man3/efadv*

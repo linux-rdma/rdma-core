@@ -80,6 +80,10 @@ invalid fork state on new address range.
 
 Even on a failure, the user still needs to call ibv_dereg_mr on this MR.
 
+A region restricted to a job, derived from another region, or with regions
+derived from it cannot be re-registered; the command fails and the region is
+left as it was. Create a new region instead.
+
 # SEE ALSO
 
 **ibv_dereg_mr**(3),

@@ -24,7 +24,7 @@ ibv_wr_send_tso - Post segmentation offload work requests
 
 ibv_wr_set_inline_data, ibv_wr_set_inline_data_list - Attach inline data to the last work request
 
-ibv_wr_set_sge, ibv_wr_set_sge_list - Attach data to the last work request
+ibv_wr_set_sge, ibv_wr_set_sge_list, ibv_wr_set_sge64, ibv_wr_set_sge64_list - Attach data to the last work request
 
 ibv_wr_set_ud_addr - Attach UD addressing info to the last work request
 
@@ -55,9 +55,20 @@ void ibv_wr_rdma_write(struct ibv_qp_ex *qp, uint32_t rkey,
                        uint64_t remote_addr);
 void ibv_wr_rdma_write_imm(struct ibv_qp_ex *qp, uint32_t rkey,
                            uint64_t remote_addr, __be32 imm_data);
+void ibv_wr_rdma_read64(struct ibv_qp_ex *qp, uint64_t rkey,
+                        uint64_t remote_addr);
+void ibv_wr_rdma_write64(struct ibv_qp_ex *qp, uint64_t rkey,
+                         uint64_t remote_addr);
+void ibv_wr_rdma_write_imm64(struct ibv_qp_ex *qp, uint32_t rkey,
+                             uint64_t remote_addr, __be64 imm_data);
+void ibv_wr_rdma_write64_imm(struct ibv_qp_ex *qp, uint64_t rkey,
+                             uint64_t remote_addr, __be32 imm_data);
+void ibv_wr_rdma_write64_imm64(struct ibv_qp_ex *qp, uint64_t rkey,
+                               uint64_t remote_addr, __be64 imm_data);
 
 void ibv_wr_send(struct ibv_qp_ex *qp);
 void ibv_wr_send_imm(struct ibv_qp_ex *qp, __be32 imm_data);
+void ibv_wr_send_imm64(struct ibv_qp_ex *qp, __be64 imm_data);
 void ibv_wr_send_inv(struct ibv_qp_ex *qp, uint32_t invalidate_rkey);
 void ibv_wr_send_tso(struct ibv_qp_ex *qp, void *hdr, uint16_t hdr_sz,
                      uint16_t mss);
@@ -67,11 +78,18 @@ void ibv_wr_set_inline_data_list(struct ibv_qp_ex *qp, size_t num_buf,
                                  const struct ibv_data_buf *buf_list);
 void ibv_wr_set_sge(struct ibv_qp_ex *qp, uint32_t lkey, uint64_t addr,
                     uint32_t length);
+void ibv_wr_set_sge64(struct ibv_qp_ex *qp, uint64_t lkey, uint64_t addr,
+                      uint32_t length);
 void ibv_wr_set_sge_list(struct ibv_qp_ex *qp, size_t num_sge,
                          const struct ibv_sge *sg_list);
+void ibv_wr_set_sge64_list(struct ibv_qp_ex *qp, size_t num_sge,
+                           const struct ibv_sge64 *sg_list);
 
 void ibv_wr_set_ud_addr(struct ibv_qp_ex *qp, struct ibv_ah *ah,
                         uint32_t remote_qpn, uint32_t remote_qkey);
+void ibv_wr_set_ru_addr(struct ibv_qp_ex *qp, struct ibv_ah_ex *ah,
+                        unsigned int addr_idx);
+void ibv_wr_set_job_key(struct ibv_qp_ex *qp, uint32_t jkey);
 void ibv_wr_set_xrc_srqn(struct ibv_qp_ex *qp, uint32_t remote_srqn);
 void ibv_wr_flush(struct ibv_qp_ex *qp, uint32_t rkey, uint64_t remote_addr,
                   size_t len, uint8_t type, uint8_t level);
@@ -149,10 +167,16 @@ ibv_qp_init_attr_ex* (see the EXAMPLE below).
 | RDMA_WRITE           | ibv_wr_rdma_write()       | UC, RC, XRC_SEND                 | DATA, QP |
 | FLUSH                | ibv_wr_flush()            | RC, RD, XRC_SEND                 | DATA, QP |
 | RDMA_WRITE_WITH_IMM  | ibv_wr_rdma_write_imm()   | UC, RC, XRC_SEND                 | DATA, QP |
-| SEND                 | ibv_wr_send()             | UD, UC, RC, XRC_SEND, RAW_PACKET | DATA, QP |
-| SEND_WITH_IMM        | ibv_wr_send_imm()         | UD, UC, RC, SRC SEND             | DATA, QP |
+| SEND                 | ibv_wr_send()             | UD, UC, RC, XRC_SEND, RAW_PACKET, RU | DATA, QP |
+| SEND_WITH_IMM        | ibv_wr_send_imm()         | UD, UC, RC, SRC SEND, RU         | DATA, QP |
 | SEND_WITH_INV        | ibv_wr_send_inv()         | UC, RC, XRC_SEND                 | DATA, QP |
 | TSO                  | ibv_wr_send_tso()         | UD, RAW_PACKET                   | DATA, QP |
+| RDMA_READ            | ibv_wr_rdma_read64()      | RU                               | DATA, QP |
+| RDMA_WRITE           | ibv_wr_rdma_write64()     | RU                               | DATA, QP |
+| RDMA_WRITE_WITH_IMM64 | ibv_wr_rdma_write_imm64() | RU                              | DATA, QP |
+| RDMA_WRITE64_WITH_IMM | ibv_wr_rdma_write64_imm() | RU                              | DATA, QP |
+| RDMA_WRITE64_WITH_IMM64 | ibv_wr_rdma_write64_imm64() | RU                          | DATA, QP |
+| SEND_WITH_IMM64      | ibv_wr_send_imm64()       | RU                               | DATA, QP |
 
 
 ## Atomic operations
@@ -194,6 +218,18 @@ Memory window type 2 operations (See man page for ibv_alloc_mw).
     The _imm version causes the remote side to get a IBV_WC_RECV_RDMA_WITH_IMM
     containing the 32 bits of immediate data.
 
+*ibv_wr_rdma_read64()*, *ibv_wr_rdma_write64()*
+:   As *ibv_wr_rdma_read()* and *ibv_wr_rdma_write()*, but *rkey* is a 64 bit
+    remote key. Requires a device reporting IBV_DEVICE_KEY64.
+
+*ibv_wr_rdma_write_imm64()*, *ibv_wr_rdma_write64_imm()*,
+*ibv_wr_rdma_write64_imm64()*
+:   As *ibv_wr_rdma_write_imm()*, for the combinations of a 32 or 64 bit
+    *rkey* with 32 or 64 bits of immediate data. A 64 bit *rkey* requires
+    IBV_DEVICE_KEY64 and 64 bits of immediate data requires IBV_DEVICE_IMM64.
+    The remote side reads 64 bit immediate data with
+    *ibv_wc_read_imm64_data()*.
+
 ## Message Send
 
 *ibv_wr_send()*, *ibv_wr_send_imm()*
@@ -202,6 +238,11 @@ Memory window type 2 operations (See man page for ibv_alloc_mw).
 
     The _imm version causes the remote side to get a IBV_WC_RECV_RDMA_WITH_IMM
     containing the 32 bits of immediate data.
+
+*ibv_wr_send_imm64()*
+:   As *ibv_wr_send_imm()*, but with 64 bits of immediate data. Requires a
+    device reporting IBV_DEVICE_IMM64. The remote side reads the value with
+    *ibv_wc_read_imm64_data()*.
 
 *ibv_wr_send_inv()*
 :   The data transfer is the same as for *ibv_wr_send()*, however the remote
@@ -227,6 +268,15 @@ table.
 *XRC_SEND* QPs
 :   *ibv_wr_set_xrc_srqn()* must be called to set the destination SRQN field.
 
+*RU* QPs
+:   *ibv_wr_set_ru_addr()* must be called to set the destination of the work,
+    either by passing an extended address handle in *ah*, or by passing NULL
+    for *ah* and an index into the job address table in *addr_idx*. See
+    **ibv_create_ah_ex**(3) and **ibv_insert_addr**(3).
+
+    *ibv_wr_set_job_key()* must be called to set the job key authorizing the
+    work. See **ibv_create_jkey**(3).
+
 ## DATA transfer setters
 
 For work that requires to transfer data one of the following setters should
@@ -237,10 +287,19 @@ be called once after the WR builder:
     length. This is equivalent to *ibv_wr_set_sge_list()* with a single
     element.
 
+*ibv_wr_set_sge64()*
+:   As *ibv_wr_set_sge()*, but *lkey* is a 64 bit local key. Requires a
+    device reporting IBV_DEVICE_KEY64.
+
 *ibv_wr_set_sge_list()*
 :   Transfer data to/from a list of buffers, logically concatenated
     together. Each buffer is specified by an element in an array of *struct
     ibv_sge*.
+
+*ibv_wr_set_sge64_list()*
+:   As *ibv_wr_set_sge_list()*, but the buffers are specified by an array of
+    *struct ibv_sge64*, whose local keys are 64 bits wide. Requires a device
+    reporting IBV_DEVICE_KEY64.
 
 Inline setters will copy the send data during the setter and allows the caller
 to immediately re-use the buffer. This behavior is identical to the
@@ -328,7 +387,8 @@ ret = ibv_wr_complete(qpx);
 
 # SEE ALSO
 
-**ibv_post_send**(3), **ibv_create_qp_ex(3)**.
+**ibv_post_send**(3), **ibv_create_qp_ex(3)**, **ibv_create_ah_ex**(3),
+**ibv_create_jkey**(3), **ibv_insert_addr**(3), **ibv_uet**(7).
 
 # AUTHOR
 

@@ -31,7 +31,12 @@ struct ibv_send_wr {
 .in +8
 uint64_t                wr_id;                  /* User defined WR ID */
 struct ibv_send_wr     *next;                   /* Pointer to next WR in list, NULL if last WR */
+union {
+.in +8
 struct ibv_sge         *sg_list;                /* Pointer to the s/g array */
+struct ibv_sge64       *sg64_list;              /* Pointer to the 64 bit key s/g array, when IBV_SEND_SGE64 is set */
+.in -8
+};
 int                     num_sge;                /* Size of the s/g array */
 enum ibv_wr_opcode      opcode;                 /* Operation type */
 unsigned int            send_flags;             /* Flags of the WR properties */
@@ -64,6 +69,23 @@ uint32_t        remote_qpn;     /* QP number of the destination QP */
 uint32_t        remote_qkey;    /* Q_Key number of the destination QP */
 .in -8
 } ud;
+struct {
+.in +8
+struct ibv_ah_ex *ah;           /* Extended AH for the remote node address, or NULL to use addr_idx */
+unsigned int    addr_idx;       /* Job address table index, used when ah is NULL */
+uint32_t        jkey;           /* Job key authorizing the transfer */
+.in -8
+} ru;
+struct {
+.in +8
+struct ibv_ah_ex *ah;           /* Extended AH for the remote node address, or NULL to use addr_idx */
+unsigned int    addr_idx;       /* Job address table index, used when ah is NULL */
+uint32_t        jkey;           /* Job key authorizing the transfer */
+uint64_t        remote_addr;    /* Start address of remote memory buffer */
+uint32_t        rkey;           /* 32 bit key of the remote Memory Region */
+uint64_t        rkey64;         /* 64 bit key of the remote Memory Region */
+.in -8
+} ru_rdma;
 .in -8
 } wr;
 union {
@@ -118,6 +140,17 @@ uint32_t                lkey;                   /* Key of the local Memory Regio
 .in -8
 };
 .fi
+.sp
+.nf
+struct ibv_sge64 {
+.in +8
+uint64_t                addr;                   /* Start address of the local memory buffer or number of bytes from the
+                                                   start of the MR for MRs which are IBV_ACCESS_ZERO_BASED */
+uint32_t                length;                 /* Length of the buffer */
+uint64_t                lkey64;                 /* 64 bit key of the local Memory Region */
+.in -8
+};
+.fi
 .PP
 Each QP Transport Service Type supports a specific set of opcodes, as shown in the following table:
 .PP
@@ -137,6 +170,27 @@ IBV_WR_SEND_WITH_INV        |            |     X      |     X      |         X  
 IBV_WR_TSO                  |     X      |            |            |                  |         X
 .fi
 .PP
+.B IBV_QPT_RU
+supports IBV_WR_SEND, IBV_WR_SEND_WITH_IMM, IBV_WR_RDMA_WRITE,
+IBV_WR_RDMA_WRITE_WITH_IMM and IBV_WR_RDMA_READ. Because an RU QP is
+unconnected, every work request must name its destination and the job key
+authorizing it through the
+.I wr.ru
+or
+.I wr.ru_rdma
+member: either an extended address handle in
+.IR ah ,
+or
+.I ah
+set to NULL and an index into the job address table in
+.IR addr_idx\fR.
+An RDMA work request supplies the remote key in
+.I rkey64
+on devices reporting IBV_DEVICE_KEY64, otherwise in
+.IR rkey\fR.
+See
+.BR ibv_uet (7).
+.PP
 The attribute send_flags describes the properties of the \s-1WR\s0. It is either 0 or the bitwise \s-1OR\s0 of one or more of the following flags:
 .PP
 .TP
@@ -152,6 +206,16 @@ in a send WQE.  Valid only for Send and RDMA Write.  The L_Key will not be check
 .B IBV_SEND_IP_CSUM \fR Offload the IPv4 and TCP/UDP checksum calculation.
 Valid only when \fBdevice_cap_flags\fR in device_attr indicates current QP is
 supported by checksum offload.
+.TP
+.B IBV_SEND_DELIVERY_COMPLETE \fR Defer the completion until the data has been delivered at the target, rather than signalling once it has been transmitted.
+.TP
+.B IBV_SEND_SGE64 \fR The scatter/gather list is an array of
+.I struct ibv_sge64
+carrying 64 bit local keys, taken from
+.I sg64_list
+rather than
+.IR sg_list \fR.
+Valid only on devices reporting IBV_DEVICE_KEY64.
 .SH "RETURN VALUE"
 .B ibv_post_send()
 returns 0 on success, or the value of errno on failure (which indicates the failure reason).
@@ -173,7 +237,11 @@ IBV_WR_DRIVER1 is an opcode that should be used to issue a specific driver opera
 .BR ibv_create_ah (3),
 .BR ibv_post_recv (3),
 .BR ibv_post_srq_recv (3),
-.BR ibv_poll_cq (3)
+.BR ibv_poll_cq (3),
+.BR ibv_create_ah_ex (3),
+.BR ibv_create_jkey (3),
+.BR ibv_insert_addr (3),
+.BR ibv_uet (7)
 .SH "AUTHORS"
 .TP
 Dotan Barak <dotanba@gmail.com>

@@ -18,6 +18,7 @@ cdef class Context(PyverbsCM):
     cdef object cqs
     cdef object qps
     cdef object xrcds
+    cdef object jobs
     cdef object vars
     cdef object uars
     cdef object pps
