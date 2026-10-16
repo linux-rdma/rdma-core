@@ -199,6 +199,12 @@ IBVERBS_1.18 {
 		ibv_set_err_comp_cntr;
 } IBVERBS_1.17;
 
+IBVERBS_1.19 {
+	global:
+		ibv_alloc_user_buf;
+		ibv_free_user_buf;
+} IBVERBS_1.18;
+
 /* If any symbols in this stanza change ABI then the entire staza gets a new symbol
    version. See the top level CMakeLists.txt for this setting. */
 
