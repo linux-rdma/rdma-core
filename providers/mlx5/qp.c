@@ -1941,20 +1941,20 @@ _mlx5_send_wr_set_inline_data_list(struct mlx5_qp *mqp,
 	for (i = 0; i < num_buf; i++) {
 		size_t length = buf_list[i].length;
 
-		inl_size += length;
-
-		if (unlikely(inl_size > mqp->max_inline_data)) {
+		if (unlikely(length > mqp->max_inline_data - inl_size)) {
 			FILE *fp = to_mctx(mqp->ibv_qp->context)->dbg_fp;
 
 			mlx5_dbg(fp, MLX5_DBG_QP_SEND,
 				 "Inline data %zu exceeds the maximum (%d)\n",
-				 inl_size, mqp->max_inline_data);
+				 inl_size + length, mqp->max_inline_data);
 
 			if (!mqp->err)
 				mqp->err = ENOMEM;
 
 			return;
 		}
+
+		inl_size += length;
 
 		memcpy_to_wqe_and_update(mqp, &wqe, buf_list[i].addr, length);
 	}
@@ -2023,20 +2023,20 @@ mlx5_send_wr_set_inline_data_list_eth(struct ibv_qp_ex *ibqp,
 	for (i = sg_copy_ptr.index; i < num_buf; i++) {
 		size_t length = buf_list[i].length - sg_copy_ptr.offset;
 
-		inl_size += length;
-
-		if (unlikely(inl_size > mqp->max_inline_data)) {
+		if (unlikely(length > mqp->max_inline_data - inl_size)) {
 			FILE *fp = to_mctx(mqp->ibv_qp->context)->dbg_fp;
 
 			mlx5_dbg(fp, MLX5_DBG_QP_SEND,
 				 "Inline data %zu exceeds the maximum (%d)\n",
-				 inl_size, mqp->max_inline_data);
+				 inl_size + length, mqp->max_inline_data);
 
 			if (!mqp->err)
 				mqp->err = EINVAL;
 
 			return;
 		}
+
+		inl_size += length;
 
 		memcpy_to_wqe_and_update(mqp, &wqe,
 					 buf_list[i].addr + sg_copy_ptr.offset,
