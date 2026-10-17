@@ -1602,6 +1602,20 @@ static void ds_format_hdr(struct ds_header *hdr, union socket_addr *addr)
 	}
 }
 
+static uint8_t udp_svc_sgid_index(struct ds_dest *dest, union ibv_gid *sgid)
+{
+	union ibv_gid gid;
+	int i;
+
+	for (i = 0; i < 16; i++) {
+		ibv_query_gid(dest->qp->cm_id->verbs, dest->qp->cm_id->port_num,
+			      i, &gid);
+		if (!memcmp(sgid, &gid, sizeof gid))
+			return i;
+	}
+	return 0;
+}
+
 static int ds_add_qp_dest(struct ds_qp *qp, union socket_addr *addr,
 			  socklen_t addrlen)
 {
@@ -1618,6 +1632,12 @@ static int ds_add_qp_dest(struct ds_qp *qp, union socket_addr *addr,
 		return ret;
 
 	memset(&attr, 0, sizeof attr);
+	if (port_attr.link_layer == IBV_LINK_LAYER_ETHERNET) {
+		attr.is_global = 1;
+		attr.grh.dgid = qp->cm_id->route.addr.addr.ibaddr.sgid;
+		attr.grh.sgid_index = udp_svc_sgid_index(&qp->dest, &attr.grh.dgid);
+		attr.grh.hop_limit = 1;
+	}
 	attr.dlid = port_attr.lid;
 	attr.port_num = qp->cm_id->port_num;
 	qp->dest.ah = ibv_create_ah(qp->cm_id->pd, &attr);
@@ -4406,20 +4426,6 @@ static void udp_svc_process_sock(struct rs_svc *svc)
 	}
 
 	write_all(svc->sock[1], &msg, sizeof msg);
-}
-
-static uint8_t udp_svc_sgid_index(struct ds_dest *dest, union ibv_gid *sgid)
-{
-	union ibv_gid gid;
-	int i;
-
-	for (i = 0; i < 16; i++) {
-		ibv_query_gid(dest->qp->cm_id->verbs, dest->qp->cm_id->port_num,
-			      i, &gid);
-		if (!memcmp(sgid, &gid, sizeof gid))
-			return i;
-	}
-	return 0;
 }
 
 static uint8_t udp_svc_path_bits(struct ds_dest *dest)
