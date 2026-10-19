@@ -609,11 +609,15 @@ int ibv_cmd_post_send(struct ibv_qp *ibqp, struct ibv_send_wr *wr,
 	struct ib_uverbs_send_wr  *n, *tmp;
 	struct ibv_sge           *s;
 	unsigned                  wr_count = 0;
-	unsigned                  sge_count = 0;
-	int                       cmd_size;
+	size_t                    sge_count = 0;
+	size_t                    cmd_size;
 	int                       ret;
 
 	for (i = wr; i; i = i->next) {
+		if (i->num_sge < 0) {
+			*bad_wr = i;
+			return EINVAL;
+		}
 		wr_count++;
 		sge_count += i->num_sge;
 	}
@@ -697,11 +701,15 @@ int ibv_cmd_post_recv(struct ibv_qp *ibqp, struct ibv_recv_wr *wr,
 	struct ib_uverbs_recv_wr  *n, *tmp;
 	struct ibv_sge           *s;
 	unsigned                  wr_count = 0;
-	unsigned                  sge_count = 0;
-	int                       cmd_size;
+	size_t                    sge_count = 0;
+	size_t                    cmd_size;
 	int                       ret;
 
 	for (i = wr; i; i = i->next) {
+		if (i->num_sge < 0) {
+			*bad_wr = i;
+			return EINVAL;
+		}
 		wr_count++;
 		sge_count += i->num_sge;
 	}
@@ -756,11 +764,15 @@ int ibv_cmd_post_srq_recv(struct ibv_srq *srq, struct ibv_recv_wr *wr,
 	struct ib_uverbs_recv_wr  *n, *tmp;
 	struct ibv_sge           *s;
 	unsigned                  wr_count = 0;
-	unsigned                  sge_count = 0;
-	int                       cmd_size;
+	size_t                    sge_count = 0;
+	size_t                    cmd_size;
 	int                       ret;
 
 	for (i = wr; i; i = i->next) {
+		if (i->num_sge < 0) {
+			*bad_wr = i;
+			return EINVAL;
+		}
 		wr_count++;
 		sge_count += i->num_sge;
 	}
