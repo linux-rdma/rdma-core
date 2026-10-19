@@ -225,6 +225,8 @@ cdef class Mlx5FlowActionAttr(PyverbsObject):
             self.attr.bulk_obj.obj = obj.obj
             self.attr.bulk_obj.offset = offset
             self.devx_obj = obj
+        elif action_type == dv.MLX5DV_FLOW_ACTION_ALLOW:
+            pass
         elif action_type:
             raise PyverbsUserError(f'Unsupported action type: {action_type}.')
 
@@ -237,7 +239,8 @@ cdef class Mlx5FlowActionAttr(PyverbsObject):
         if not (self.attr.type in [dv.MLX5DV_FLOW_ACTION_DEST_IBV_QP,
                                    dv.MLX5DV_FLOW_ACTION_DEST_DEVX,
                                    dv.MLX5DV_FLOW_ACTION_COUNTERS_DEVX,
-                                   dv.MLX5DV_FLOW_ACTION_COUNTERS_DEVX_WITH_OFFSET]):
+                                   dv.MLX5DV_FLOW_ACTION_COUNTERS_DEVX_WITH_OFFSET,
+                                   dv.MLX5DV_FLOW_ACTION_ALLOW]):
             raise PyverbsUserError(f'Unsupported action type: {action_type}.')
         self.attr.type = action_type
 
@@ -331,7 +334,9 @@ cdef class Mlx5Flow(Flow):
                                                 dv.MLX5DV_FLOW_ACTION_COUNTERS_DEVX,
                                                 dv.MLX5DV_FLOW_ACTION_COUNTERS_DEVX_WITH_OFFSET]:
                 self.devx_obj = (<Mlx5FlowActionAttr>attr).devx_obj
-            elif (<Mlx5FlowActionAttr>attr).attr.type not in [dv.MLX5DV_FLOW_ACTION_IBV_FLOW_ACTION]:
+            elif (<Mlx5FlowActionAttr>attr).attr.type not in \
+                    [dv.MLX5DV_FLOW_ACTION_IBV_FLOW_ACTION,
+                     dv.MLX5DV_FLOW_ACTION_ALLOW]:
                raise PyverbsUserError(f'Unsupported action type: '
                                       f'{(<Mlx5FlowActionAttr>attr).attr.type}.')
             memcpy(tmp_addr, &(<Mlx5FlowActionAttr>attr).attr,
