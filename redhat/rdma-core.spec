@@ -613,7 +613,7 @@ fi
 %{_libdir}/libmlx4.so.*
 %config(noreplace) %{_sysconfdir}/libibverbs.d/*.driver
 %doc %{_docdir}/%{name}/libibverbs.md
-%{_prefix}/lib/sysusers.d/rdma.conf
+%{_sysusersdir}/rdma.conf
 
 %files -n libibverbs-utils
 %{_bindir}/ibv_*
