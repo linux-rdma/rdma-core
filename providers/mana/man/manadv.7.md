@@ -24,12 +24,12 @@ The mana direct verbs API is intended for such applications.
 It exposes mana specific low level operations, allowing the application
 to bypass the libibverbs API.
 
-This version of the driver supports one QP type: IBV_QPT_RAW_PACKET. To use
-this QP type, the application is required to use manadv_set_context_attr()
-to set external buffer allocators for allocating queues, and use
-manadv_init_obj() to obtain all the queue information. The application
-implements its own queue operations, bypassing libibverbs API for
-sending/receiving traffic over the queues. At hardware layer, IBV_QPT_RAW_PACKET
+The mana direct verbs API exposes queues for IBV_QPT_RAW_PACKET QPs.
+Applications can use manadv_set_context_attr() to supply external buffer
+allocators and manadv_init_obj() to obtain the queue information, then
+implement their own queue operations.
+
+At hardware layer, IBV_QPT_RAW_PACKET
 QP shares the same hardware resource as the Ethernet port used in the kernel.
 The software checks for exclusive use of the hardware Ethernet port, and will
 fail the QP creation if the port is already in use. To create a

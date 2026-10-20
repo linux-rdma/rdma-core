@@ -143,23 +143,22 @@ struct ibv_cq *mana_create_cq(struct ibv_context *context, int cqe,
 	list_head_init(&cq->recv_err_qp_list);
 	pthread_spin_init(&cq->lock, PTHREAD_PROCESS_PRIVATE);
 
-	cq->buf_external = ctx->extern_alloc.alloc && ctx->extern_alloc.free;
-	if (!cq->buf_external)
-		flags |= MANA_IB_CREATE_RNIC_CQ;
-
-	if (cq->buf_external)
-		cq->buf = ctx->extern_alloc.alloc(cq_size, ctx->extern_alloc.data);
-	else
-		cq->buf = mana_alloc_mem(cq_size);
+	cq->buf = mana_alloc_buf(ctx, cq_size, &cq->buf_external);
 	if (!cq->buf) {
 		errno = ENOMEM;
 		goto free_cq;
 	}
 
-	if (flags & MANA_IB_CREATE_RNIC_CQ)
-		cq->cqe = cq_size / COMP_ENTRY_SIZE;
-	else
+	/* Kernels before 7.0 create an RNIC CQ only when asked, and the
+	 * Ethernet device has no RNIC. External buffers keep the old rule.
+	 */
+	if (!cq->buf_external && ctx->part_id != MANA_PART_ID_ETH)
+		flags |= MANA_IB_CREATE_RNIC_CQ;
+
+	if (cq->buf_external)
 		cq->cqe = cqe; // to preserve old behaviour for DPDK
+	else
+		cq->cqe = cq_size / COMP_ENTRY_SIZE;
 	cq->head = INITIALIZED_OWNER_BIT(ilog32(cq->cqe) - 1);
 	cq->poll_credit = (cq->cqe << (GDMA_CQE_OWNER_BITS - 1)) - 1;
 
@@ -183,10 +182,7 @@ struct ibv_cq *mana_create_cq(struct ibv_context *context, int cqe,
 	return &cq->ibcq;
 
 free_mem:
-	if (cq->buf_external)
-		ctx->extern_alloc.free(cq->buf, ctx->extern_alloc.data);
-	else
-		mana_dealloc_mem(cq->buf, cq_size);
+	mana_free_buf(ctx, cq->buf, cq_size, cq->buf_external);
 free_cq:
 	free(cq);
 	return NULL;
@@ -208,10 +204,7 @@ int mana_destroy_cq(struct ibv_cq *ibcq)
 	}
 	pthread_spin_destroy(&cq->lock);
 
-	if (cq->buf_external)
-		ctx->extern_alloc.free(cq->buf, ctx->extern_alloc.data);
-	else
-		mana_dealloc_mem(cq->buf, cq->cqe * COMP_ENTRY_SIZE);
+	mana_free_buf(ctx, cq->buf, cq->cqe * COMP_ENTRY_SIZE, cq->buf_external);
 
 	free(cq);
 
@@ -535,6 +528,20 @@ static int mana_flush_completions_in_err(struct mana_cq *cq, struct ibv_wc *wc, 
 	}
 
 	return wc_idx;
+}
+
+/* The kernel binds a raw CQ to one queue for good, the send queue of a raw QP
+ * or the receive queue of a WQ, so at most one owner is set and polling needs
+ * no QP lookup. RNIC CQs, which QPs may share, have none.
+ */
+void mana_cq_set_owner(struct ibv_cq *ibcq, struct mana_qp *qp, struct mana_wq *wq)
+{
+	struct mana_cq *cq = container_of(ibcq, struct mana_cq, ibcq);
+
+	pthread_spin_lock(&cq->lock);
+	cq->raw_qp = qp;
+	cq->raw_wq = wq;
+	pthread_spin_unlock(&cq->lock);
 }
 
 int mana_poll_cq(struct ibv_cq *ibcq, int nwc, struct ibv_wc *wc)
