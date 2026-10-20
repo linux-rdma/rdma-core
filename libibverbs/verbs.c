@@ -321,13 +321,6 @@ struct ibv_job *ibv_alloc_job(struct ibv_context *context,
 		return NULL;
 	}
 
-	/* the address table is sized once, when the job is allocated */
-	if (!(attr->comp_mask & IBV_JOB_ATTR_MAX_ADDR_ENTRIES) ||
-	    !attr->max_addr_entries) {
-		errno = EINVAL;
-		return NULL;
-	}
-
 	job = vctx->alloc_job(context, attr, user_context);
 	if (job) {
 		job->context = context;

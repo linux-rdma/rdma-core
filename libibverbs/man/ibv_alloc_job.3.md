@@ -97,9 +97,11 @@ struct ibv_job_attr {
 
 *max_addr_entries*
 :	Number of entries in the job address table. Selected by
-	*IBV_JOB_ATTR_MAX_ADDR_ENTRIES*, which allocation requires. It MUST be
-	non-zero and MUST NOT exceed the *max_addr_entries* limit reported by
-	**ibv_query_device_ex**(3). See **ibv_insert_addr**(3).
+	*IBV_JOB_ATTR_MAX_ADDR_ENTRIES*. Omitting this member or specifying zero
+	creates a job without an address table; work requests must then use
+	explicit address handles. Consumers using indexed addresses must request
+	a positive capacity. The capacity MUST NOT exceed the *max_addr_entries*
+	limit reported by **ibv_query_device_ex**(3). See **ibv_insert_addr**(3).
 
 *port_num*
 :	Device port the job is associated with. Selected by
