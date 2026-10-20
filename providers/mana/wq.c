@@ -82,6 +82,8 @@ struct ibv_wq *mana_create_wq(struct ibv_context *context,
 		goto destroy_shadow;
 	}
 
+	wq->ibwq.post_recv = mana_post_wq_recv;
+
 	return &wq->ibwq;
 
 destroy_shadow:

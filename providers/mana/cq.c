@@ -548,7 +548,11 @@ static enum ibv_wc_status mana_raw_cqe_status(uint32_t cqe_type)
 {
 	switch (cqe_type) {
 	case CQE_TX_OKAY:
+	case CQE_RX_OKAY:
+	case CQE_RX_COALESCED_4:
+	case CQE_RX_COALESCED_8:
 		return IBV_WC_SUCCESS;
+	case CQE_RX_TRUNCATED:
 	case CQE_TX_MTU_DROP:
 		return IBV_WC_LOC_LEN_ERR;
 	case CQE_TX_INVALID_OOB:
@@ -604,6 +608,96 @@ static int mana_raw_handle_tx_cqe(struct mana_qp *qp, const struct gdma_cqe *cqe
 	return produced;
 }
 
+/* The kernel enables CQE coalescing for raw receive queues, so one completion
+ * reports up to eight packets, each in its own WQE, as a list of non-zero
+ * lengths. Polling clears each length in the cached CQE once its packet is
+ * reported, so this returns the next packet's length, or NULL when none is left.
+ */
+static uint16_t *mana_raw_rx_next_len(struct mana_rxcomp_oob *rx)
+{
+	union mana_rxcomp_perpkt_info *ppi = rx->ppi;
+	int i;
+
+	switch (rx->cqe_hdr.cqe_type) {
+	case CQE_RX_OKAY:
+		return ppi[0].pkt_len ? &ppi[0].pkt_len : NULL;
+	case CQE_RX_COALESCED_4:
+		for (i = 0; i < MANA_RXCOMP_OOB_NUM_PPI; i++)
+			if (ppi[i].pkt_len)
+				return &ppi[i].pkt_len;
+		return NULL;
+	case CQE_RX_COALESCED_8:
+		for (i = 0; i < MANA_RXCOMP_OOB_NUM_PPI; i++) {
+			if (ppi[i].pkt_len0)
+				return &ppi[i].pkt_len0;
+			if (ppi[i].pkt_len1)
+				return &ppi[i].pkt_len1;
+		}
+		return NULL;
+	default:
+		return NULL;
+	}
+}
+
+static int mana_raw_handle_rx_cqe(struct mana_cq *cq, struct mana_wq *wq,
+				  struct ibv_wc *wc, int nwc, bool *consumed)
+{
+	struct gdma_cqe *cqe = &cq->pending_cqe;
+	struct mana_rxcomp_oob *rx = (struct mana_rxcomp_oob *)&cqe->rdma_cqe;
+	enum ibv_wc_status status = mana_raw_cqe_status(rx->cqe_hdr.cqe_type);
+	struct shadow_wqe_header *wqe;
+	bool failed = status != IBV_WC_SUCCESS;
+	uint16_t *len = NULL;
+	int produced = 0;
+
+	/* A fence is emitted while the queue drains and consumes no WQE. */
+	if (cqe->wqid != wq->rq.id || cqe->is_sq ||
+	    rx->cqe_hdr.cqe_type == CQE_RX_OBJECT_FENCE)
+		return 0;
+
+	/* A failed completion consumes one WQE and carries no packet. */
+	while (failed || (len = mana_raw_rx_next_len(rx))) {
+		if (produced == nwc) {
+			*consumed = false;
+			break;
+		}
+
+		wqe = shadow_queue_get_next_to_consume(&wq->shadow);
+		if (!wqe) {
+			verbs_warn_datapath(verbs_get_ctx(cq->ibcq.context),
+					    "raw receive CQE without a posted WQE\n");
+			break;
+		}
+
+		memset(&wc[produced], 0, sizeof(*wc));
+		wc[produced].wr_id = wqe->wr_id;
+		wc[produced].status = status;
+		wc[produced].opcode = IBV_WC_RECV;
+		wc[produced].vendor_err = rx->cqe_hdr.vendor_err;
+		wc[produced].qp_num = wq->ibwq.wq_num;
+		if (len) {
+			wc[produced].byte_len = *len;
+			*len = 0;
+		}
+		/* IPv6 carries no header checksum, so a verified transport
+		 * checksum with no failure is enough.
+		 */
+		if ((rx->rx_tcp_csum_succeed || rx->rx_udp_csum_succeed) &&
+		    !(rx->rx_outer_iphdr_csum_fail || rx->rx_iphdr_csum_fail ||
+		      rx->rx_tcp_csum_fail || rx->rx_udp_csum_fail))
+			wc[produced].wc_flags = IBV_WC_IP_CSUM_OK;
+
+		wq->rq.cons_idx += wqe->posted_wqe_size_in_bu;
+		wq->rq.cons_idx &= GDMA_QUEUE_OFFSET_MASK;
+		shadow_queue_advance_consumer(&wq->shadow);
+		produced++;
+		if (failed)
+			break;
+	}
+
+	return produced;
+}
+
 int mana_poll_cq(struct ibv_cq *ibcq, int nwc, struct ibv_wc *wc)
 {
 	struct mana_cq *cq = container_of(ibcq, struct mana_cq, ibcq);
@@ -633,6 +727,9 @@ int mana_poll_cq(struct ibv_cq *ibcq, int nwc, struct ibv_wc *wc)
 		if (cq->raw_qp)
 			ret = mana_raw_handle_tx_cqe(cq->raw_qp, &cq->pending_cqe,
 						     &wc[num_polled]);
+		else if (cq->raw_wq)
+			ret = mana_raw_handle_rx_cqe(cq, cq->raw_wq, &wc[num_polled],
+						     nwc - num_polled, &consumed);
 		else
 			ret = mana_handle_cqe(ctx, &cq->pending_cqe, &wc[num_polled],
 					      nwc - num_polled, &consumed);

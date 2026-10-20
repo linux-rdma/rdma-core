@@ -315,5 +315,8 @@ struct mana_qp *mana_get_qp(struct mana_context *ctx, uint32_t qpn, bool is_sq);
 
 void mana_qp_move_flush_err(struct ibv_qp *ibqp);
 
+int mana_post_wq_recv(struct ibv_wq *ibwq, struct ibv_recv_wr *wr,
+		      struct ibv_recv_wr **bad);
+
 void mana_cq_set_owner(struct ibv_cq *ibcq, struct mana_qp *qp, struct mana_wq *wq);
 #endif

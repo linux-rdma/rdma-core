@@ -18,6 +18,7 @@
 #define GDMA_COMP_DATA_SIZE 60
 
 #define GDMA_MAX_SQE_SIZE 512
+#define GDMA_MAX_RQE_SIZE 256
 
 #define IB_SYNDROME_ACK(credits) (0x00 + (credits))
 #define IB_SYNDROME_RNR_NAK(timer) (0x20 + (timer))
@@ -239,6 +240,8 @@ struct gdma_cqe {
 /* vsq_frame is the [23:10] slice of the send queue id. */
 #define MANA_VSQ_FRAME(sqid) (((sqid) >> 10) & 0x3fff)
 
+#define MANA_RXCOMP_OOB_NUM_PPI 4
+
 enum mana_tx_pkt_format {
 	MANA_SHORT_PKT_FMT	= 0,
 	MANA_LONG_PKT_FMT	= 1,
@@ -288,6 +291,12 @@ static_assert(sizeof(struct mana_tx_short_oob) == 8, "bad size");
 static_assert(sizeof(struct mana_tx_oob) == 24, "bad size");
 
 enum mana_cqe_type {
+	CQE_RX_OKAY			= 1,
+	CQE_RX_COALESCED_4		= 2,
+	CQE_RX_OBJECT_FENCE		= 3,
+	CQE_RX_TRUNCATED		= 4,
+	CQE_RX_COALESCED_8		= 7,
+
 	CQE_TX_OKAY			= 32,
 	CQE_TX_SA_DROP			= 33,
 	CQE_TX_MTU_DROP			= 34,
@@ -306,6 +315,22 @@ struct mana_cqe_header {
 	uint32_t vendor_err	: 24;
 }; /* HW DATA */
 
+union mana_rxcomp_perpkt_info {
+	struct {
+		uint16_t pkt_len;
+		uint16_t reserved1;
+		uint32_t reserved2;
+		uint32_t pkt_hash;
+	};
+
+	struct {
+		uint32_t pkt_hash0;
+		uint16_t pkt_len0;
+		uint16_t pkt_len1;
+		uint32_t pkt_hash1;
+	};
+}; /* HW DATA */
+
 /* Identifies the completed request by its WQE start, in 32-byte units masked by
  * GDMA_QUEUE_OFFSET_MASK. Not a ring slot index.
  */
@@ -321,6 +346,30 @@ struct mana_tx_comp_oob {
 }; /* HW DATA */
 
 static_assert(sizeof(struct mana_tx_comp_oob) == GDMA_COMP_DATA_SIZE, "bad size");
+
+struct mana_rxcomp_oob {
+	struct mana_cqe_header cqe_hdr;
+
+	uint32_t rx_vlan_id			: 12;
+	uint32_t rx_vlantag_present		: 1;
+	uint32_t rx_outer_iphdr_csum_succeed	: 1;
+	uint32_t rx_outer_iphdr_csum_fail	: 1;
+	uint32_t reserved1			: 1;
+	uint32_t rx_hashtype			: 9;
+	uint32_t rx_iphdr_csum_succeed		: 1;
+	uint32_t rx_iphdr_csum_fail		: 1;
+	uint32_t rx_tcp_csum_succeed		: 1;
+	uint32_t rx_tcp_csum_fail		: 1;
+	uint32_t rx_udp_csum_succeed		: 1;
+	uint32_t rx_udp_csum_fail		: 1;
+	uint32_t reserved2			: 1;
+
+	union mana_rxcomp_perpkt_info ppi[MANA_RXCOMP_OOB_NUM_PPI];
+
+	uint32_t rx_wqe_offset;
+}; /* HW DATA */
+
+static_assert(sizeof(struct mana_rxcomp_oob) == GDMA_COMP_DATA_SIZE, "bad size");
 
 enum mana_error_code {
 	VENDOR_ERR_OK					= 0x0,

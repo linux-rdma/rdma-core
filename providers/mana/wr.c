@@ -306,6 +306,76 @@ static int mana_raw_post_send(struct ibv_qp *ibqp, struct ibv_send_wr *wr,
 	return ret;
 }
 
+static int mana_raw_post_recv_one(struct mana_wq *wq, struct ibv_recv_wr *wr)
+{
+	struct gdma_wqe wqe = {};
+	uint32_t wqe_size;
+	int ret;
+
+	if (wr->num_sge < 1)
+		return EINVAL;
+
+	wqe_size = align(DMA_OOB_SIZE + INLINE_OOB_SMALL_SIZE + wr->num_sge * SGE_SIZE,
+			 GDMA_WQE_ALIGNMENT_UNIT_SIZE);
+	if (wqe_size > GDMA_MAX_RQE_SIZE)
+		return EINVAL;
+
+	/* The receive client OOB carries no data and is already zeroed. */
+	ret = gdma_get_current_wqe(&wq->rq, INLINE_OOB_SMALL_SIZE, wqe_size, &wqe);
+	if (ret)
+		return ret;
+
+	wqe.gdma_oob->rx.num_sgl_entries = wr->num_sge;
+	wqe.gdma_oob->rx.inline_client_oob_size = INLINE_OOB_SMALL_SIZE / sizeof(uint32_t);
+
+	gdma_write_sge(&wqe, NULL, wr->sg_list, wr->num_sge);
+	gdma_advance_producer(&wq->rq, wqe.size_in_bu);
+
+	mana_raw_track_wqe(&wq->shadow, wr->wr_id, IBV_WC_RECV, 0, &wqe);
+	return 0;
+}
+
+int mana_post_wq_recv(struct ibv_wq *ibwq, struct ibv_recv_wr *wr,
+		      struct ibv_recv_wr **bad)
+{
+	struct mana_wq *wq = container_of(ibwq, struct mana_wq, ibwq);
+	bool ring = false;
+	int ret = 0;
+
+	/* The receive queue exists only while an RSS QP holds this WQ. */
+	if (wq->rq.id == MANA_INVALID_QUEUE_ID) {
+		if (bad)
+			*bad = wr;
+		return EINVAL;
+	}
+
+	pthread_spin_lock(&wq->lock);
+
+	for (; wr; wr = wr->next) {
+		if (shadow_queue_full(&wq->shadow)) {
+			ret = ENOMEM;
+			break;
+		}
+
+		ret = mana_raw_post_recv_one(wq, wr);
+		if (ret)
+			break;
+
+		ring = true;
+	}
+
+	/* The hardware requires a zero wqe_cnt on receive doorbells. */
+	if (ring)
+		gdma_ring_recv_doorbell(&wq->rq, 0);
+
+	pthread_spin_unlock(&wq->lock);
+
+	if (bad && ret)
+		*bad = wr;
+
+	return ret;
+}
+
 static inline bool is_opcode_supported(enum ibv_wr_opcode opcode)
 {
 	switch (opcode) {

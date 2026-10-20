@@ -31,12 +31,16 @@ implement their own queue operations.
 
 Raw packet QPs also support the libibverbs datapath without external buffer
 allocators. Send queues accept complete Ethernet frames through ibv_post_send().
-Completions
+Receive work queues are associated with an RSS QP through a receive work queue
+indirection table and accept buffers through ibv_post_wq_recv(). Completions
 are returned by ibv_poll_cq(). Each raw completion queue belongs to a single
-send or receive queue and cannot be shared.
+send or receive queue and cannot be shared. Receive work requests can only be
+posted while the work queue is associated with an RSS QP.
 
 The send datapath supports IBV_WR_SEND and IBV_SEND_SIGNALED, but not inline
-sends or transmit offloads.
+sends or transmit offloads. Receive completions report the packet length and
+IBV_WC_IP_CSUM_OK when the hardware verifies the transport checksum without
+detecting a checksum error.
 
 At hardware layer, IBV_QPT_RAW_PACKET
 QP shares the same hardware resource as the Ethernet port used in the kernel.
