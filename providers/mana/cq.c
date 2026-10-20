@@ -544,6 +544,66 @@ void mana_cq_set_owner(struct ibv_cq *ibcq, struct mana_qp *qp, struct mana_wq *
 	pthread_spin_unlock(&cq->lock);
 }
 
+static enum ibv_wc_status mana_raw_cqe_status(uint32_t cqe_type)
+{
+	switch (cqe_type) {
+	case CQE_TX_OKAY:
+		return IBV_WC_SUCCESS;
+	case CQE_TX_MTU_DROP:
+		return IBV_WC_LOC_LEN_ERR;
+	case CQE_TX_INVALID_OOB:
+	case CQE_TX_INVALID_ETH_TYPE:
+	case CQE_TX_HDR_PROCESSING_ERROR:
+		return IBV_WC_LOC_QP_OP_ERR;
+	case CQE_TX_SA_DROP:
+	case CQE_TX_VF_DISABLED:
+	case CQE_TX_VPORT_IDX_OUT_OF_RANGE:
+	case CQE_TX_VPORT_DISABLED:
+	case CQE_TX_VLAN_TAGGING_VIOLATION:
+		return IBV_WC_LOC_ACCESS_ERR;
+	default:
+		return IBV_WC_GENERAL_ERR;
+	}
+}
+
+/* Suppressed sends produce no completion, so a CQE retires every request up
+ * to the one at its WQE offset. On error the device reports each WQE, whether
+ * suppressed or not.
+ */
+static int mana_raw_handle_tx_cqe(struct mana_qp *qp, const struct gdma_cqe *cqe,
+				  struct ibv_wc *wc)
+{
+	const struct mana_tx_comp_oob *tx = (const struct mana_tx_comp_oob *)&cqe->rdma_cqe;
+	enum ibv_wc_status status = mana_raw_cqe_status(tx->cqe_hdr.cqe_type);
+	struct mana_gdma_queue *sq = &qp->raw_qp.sq;
+	struct shadow_wqe_header *wqe;
+	int produced = 0;
+	bool last;
+
+	if (cqe->wqid != sq->id || !cqe->is_sq)
+		return 0;
+
+	while ((wqe = shadow_queue_get_next_to_consume(&qp->shadow_sq))) {
+		last = (wqe->unmasked_queue_offset & GDMA_QUEUE_OFFSET_MASK) == tx->tx_wqe_offset;
+		if (last && (wqe->flags != MANA_NO_SIGNAL_WC || status != IBV_WC_SUCCESS)) {
+			memset(wc, 0, sizeof(*wc));
+			wc->wr_id = wqe->wr_id;
+			wc->status = status;
+			wc->opcode = IBV_WC_SEND;
+			wc->vendor_err = tx->cqe_hdr.vendor_err;
+			wc->qp_num = qp->ibqp.qp.qp_num;
+			produced = 1;
+		}
+		sq->cons_idx += wqe->posted_wqe_size_in_bu;
+		sq->cons_idx &= GDMA_QUEUE_OFFSET_MASK;
+		shadow_queue_advance_consumer(&qp->shadow_sq);
+		if (last)
+			break;
+	}
+
+	return produced;
+}
+
 int mana_poll_cq(struct ibv_cq *ibcq, int nwc, struct ibv_wc *wc)
 {
 	struct mana_cq *cq = container_of(ibcq, struct mana_cq, ibcq);
@@ -570,7 +630,12 @@ int mana_poll_cq(struct ibv_cq *ibcq, int nwc, struct ibv_wc *wc)
 		}
 
 		consumed = true;
-		ret = mana_handle_cqe(ctx, &cq->pending_cqe, &wc[num_polled], nwc - num_polled, &consumed);
+		if (cq->raw_qp)
+			ret = mana_raw_handle_tx_cqe(cq->raw_qp, &cq->pending_cqe,
+						     &wc[num_polled]);
+		else
+			ret = mana_handle_cqe(ctx, &cq->pending_cqe, &wc[num_polled],
+					      nwc - num_polled, &consumed);
 		num_polled += ret;
 
 		cq->has_pending_cqe = !consumed;

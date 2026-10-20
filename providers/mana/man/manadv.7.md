@@ -29,6 +29,15 @@ Applications can use manadv_set_context_attr() to supply external buffer
 allocators and manadv_init_obj() to obtain the queue information, then
 implement their own queue operations.
 
+Raw packet QPs also support the libibverbs datapath without external buffer
+allocators. Send queues accept complete Ethernet frames through ibv_post_send().
+Completions
+are returned by ibv_poll_cq(). Each raw completion queue belongs to a single
+send or receive queue and cannot be shared.
+
+The send datapath supports IBV_WR_SEND and IBV_SEND_SIGNALED, but not inline
+sends or transmit offloads.
+
 At hardware layer, IBV_QPT_RAW_PACKET
 QP shares the same hardware resource as the Ethernet port used in the kernel.
 The software checks for exclusive use of the hardware Ethernet port, and will
