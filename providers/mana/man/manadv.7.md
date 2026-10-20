@@ -24,12 +24,25 @@ The mana direct verbs API is intended for such applications.
 It exposes mana specific low level operations, allowing the application
 to bypass the libibverbs API.
 
-This version of the driver supports one QP type: IBV_QPT_RAW_PACKET. To use
-this QP type, the application is required to use manadv_set_context_attr()
-to set external buffer allocators for allocating queues, and use
-manadv_init_obj() to obtain all the queue information. The application
-implements its own queue operations, bypassing libibverbs API for
-sending/receiving traffic over the queues. At hardware layer, IBV_QPT_RAW_PACKET
+The mana direct verbs API exposes queues for IBV_QPT_RAW_PACKET QPs.
+Applications can use manadv_set_context_attr() to supply external buffer
+allocators and manadv_init_obj() to obtain the queue information, then
+implement their own queue operations.
+
+Raw packet QPs also support the libibverbs datapath without external buffer
+allocators. Send queues accept complete Ethernet frames through ibv_post_send().
+Receive work queues are associated with an RSS QP through a receive work queue
+indirection table and accept buffers through ibv_post_wq_recv(). Completions
+are returned by ibv_poll_cq(). Each raw completion queue belongs to a single
+send or receive queue and cannot be shared. Receive work requests can only be
+posted while the work queue is associated with an RSS QP.
+
+The send datapath supports IBV_WR_SEND and IBV_SEND_SIGNALED, but not inline
+sends or transmit offloads. Receive completions report the packet length and
+IBV_WC_IP_CSUM_OK when the hardware verifies the transport checksum without
+detecting a checksum error.
+
+At hardware layer, IBV_QPT_RAW_PACKET
 QP shares the same hardware resource as the Ethernet port used in the kernel.
 The software checks for exclusive use of the hardware Ethernet port, and will
 fail the QP creation if the port is already in use. To create a

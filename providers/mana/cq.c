@@ -143,23 +143,22 @@ struct ibv_cq *mana_create_cq(struct ibv_context *context, int cqe,
 	list_head_init(&cq->recv_err_qp_list);
 	pthread_spin_init(&cq->lock, PTHREAD_PROCESS_PRIVATE);
 
-	cq->buf_external = ctx->extern_alloc.alloc && ctx->extern_alloc.free;
-	if (!cq->buf_external)
-		flags |= MANA_IB_CREATE_RNIC_CQ;
-
-	if (cq->buf_external)
-		cq->buf = ctx->extern_alloc.alloc(cq_size, ctx->extern_alloc.data);
-	else
-		cq->buf = mana_alloc_mem(cq_size);
+	cq->buf = mana_alloc_buf(ctx, cq_size, &cq->buf_external);
 	if (!cq->buf) {
 		errno = ENOMEM;
 		goto free_cq;
 	}
 
-	if (flags & MANA_IB_CREATE_RNIC_CQ)
-		cq->cqe = cq_size / COMP_ENTRY_SIZE;
-	else
+	/* Kernels before 7.0 create an RNIC CQ only when asked, and the
+	 * Ethernet device has no RNIC. External buffers keep the old rule.
+	 */
+	if (!cq->buf_external && ctx->part_id != MANA_PART_ID_ETH)
+		flags |= MANA_IB_CREATE_RNIC_CQ;
+
+	if (cq->buf_external)
 		cq->cqe = cqe; // to preserve old behaviour for DPDK
+	else
+		cq->cqe = cq_size / COMP_ENTRY_SIZE;
 	cq->head = INITIALIZED_OWNER_BIT(ilog32(cq->cqe) - 1);
 	cq->poll_credit = (cq->cqe << (GDMA_CQE_OWNER_BITS - 1)) - 1;
 
@@ -183,10 +182,7 @@ struct ibv_cq *mana_create_cq(struct ibv_context *context, int cqe,
 	return &cq->ibcq;
 
 free_mem:
-	if (cq->buf_external)
-		ctx->extern_alloc.free(cq->buf, ctx->extern_alloc.data);
-	else
-		mana_dealloc_mem(cq->buf, cq_size);
+	mana_free_buf(ctx, cq->buf, cq_size, cq->buf_external);
 free_cq:
 	free(cq);
 	return NULL;
@@ -208,10 +204,7 @@ int mana_destroy_cq(struct ibv_cq *ibcq)
 	}
 	pthread_spin_destroy(&cq->lock);
 
-	if (cq->buf_external)
-		ctx->extern_alloc.free(cq->buf, ctx->extern_alloc.data);
-	else
-		mana_dealloc_mem(cq->buf, cq->cqe * COMP_ENTRY_SIZE);
+	mana_free_buf(ctx, cq->buf, cq->cqe * COMP_ENTRY_SIZE, cq->buf_external);
 
 	free(cq);
 
@@ -537,6 +530,174 @@ static int mana_flush_completions_in_err(struct mana_cq *cq, struct ibv_wc *wc, 
 	return wc_idx;
 }
 
+/* The kernel binds a raw CQ to one queue for good, the send queue of a raw QP
+ * or the receive queue of a WQ, so at most one owner is set and polling needs
+ * no QP lookup. RNIC CQs, which QPs may share, have none.
+ */
+void mana_cq_set_owner(struct ibv_cq *ibcq, struct mana_qp *qp, struct mana_wq *wq)
+{
+	struct mana_cq *cq = container_of(ibcq, struct mana_cq, ibcq);
+
+	pthread_spin_lock(&cq->lock);
+	cq->raw_qp = qp;
+	cq->raw_wq = wq;
+	pthread_spin_unlock(&cq->lock);
+}
+
+static enum ibv_wc_status mana_raw_cqe_status(uint32_t cqe_type)
+{
+	switch (cqe_type) {
+	case CQE_TX_OKAY:
+	case CQE_RX_OKAY:
+	case CQE_RX_COALESCED_4:
+	case CQE_RX_COALESCED_8:
+		return IBV_WC_SUCCESS;
+	case CQE_RX_TRUNCATED:
+	case CQE_TX_MTU_DROP:
+		return IBV_WC_LOC_LEN_ERR;
+	case CQE_TX_INVALID_OOB:
+	case CQE_TX_INVALID_ETH_TYPE:
+	case CQE_TX_HDR_PROCESSING_ERROR:
+		return IBV_WC_LOC_QP_OP_ERR;
+	case CQE_TX_SA_DROP:
+	case CQE_TX_VF_DISABLED:
+	case CQE_TX_VPORT_IDX_OUT_OF_RANGE:
+	case CQE_TX_VPORT_DISABLED:
+	case CQE_TX_VLAN_TAGGING_VIOLATION:
+		return IBV_WC_LOC_ACCESS_ERR;
+	default:
+		return IBV_WC_GENERAL_ERR;
+	}
+}
+
+/* Suppressed sends produce no completion, so a CQE retires every request up
+ * to the one at its WQE offset. On error the device reports each WQE, whether
+ * suppressed or not.
+ */
+static int mana_raw_handle_tx_cqe(struct mana_qp *qp, const struct gdma_cqe *cqe,
+				  struct ibv_wc *wc)
+{
+	const struct mana_tx_comp_oob *tx = (const struct mana_tx_comp_oob *)&cqe->rdma_cqe;
+	enum ibv_wc_status status = mana_raw_cqe_status(tx->cqe_hdr.cqe_type);
+	struct mana_gdma_queue *sq = &qp->raw_qp.sq;
+	struct shadow_wqe_header *wqe;
+	int produced = 0;
+	bool last;
+
+	if (cqe->wqid != sq->id || !cqe->is_sq)
+		return 0;
+
+	while ((wqe = shadow_queue_get_next_to_consume(&qp->shadow_sq))) {
+		last = (wqe->unmasked_queue_offset & GDMA_QUEUE_OFFSET_MASK) == tx->tx_wqe_offset;
+		if (last && (wqe->flags != MANA_NO_SIGNAL_WC || status != IBV_WC_SUCCESS)) {
+			memset(wc, 0, sizeof(*wc));
+			wc->wr_id = wqe->wr_id;
+			wc->status = status;
+			wc->opcode = IBV_WC_SEND;
+			wc->vendor_err = tx->cqe_hdr.vendor_err;
+			wc->qp_num = qp->ibqp.qp.qp_num;
+			produced = 1;
+		}
+		sq->cons_idx += wqe->posted_wqe_size_in_bu;
+		sq->cons_idx &= GDMA_QUEUE_OFFSET_MASK;
+		shadow_queue_advance_consumer(&qp->shadow_sq);
+		if (last)
+			break;
+	}
+
+	return produced;
+}
+
+/* The kernel enables CQE coalescing for raw receive queues, so one completion
+ * reports up to eight packets, each in its own WQE, as a list of non-zero
+ * lengths. Polling clears each length in the cached CQE once its packet is
+ * reported, so this returns the next packet's length, or NULL when none is left.
+ */
+static uint16_t *mana_raw_rx_next_len(struct mana_rxcomp_oob *rx)
+{
+	union mana_rxcomp_perpkt_info *ppi = rx->ppi;
+	int i;
+
+	switch (rx->cqe_hdr.cqe_type) {
+	case CQE_RX_OKAY:
+		return ppi[0].pkt_len ? &ppi[0].pkt_len : NULL;
+	case CQE_RX_COALESCED_4:
+		for (i = 0; i < MANA_RXCOMP_OOB_NUM_PPI; i++)
+			if (ppi[i].pkt_len)
+				return &ppi[i].pkt_len;
+		return NULL;
+	case CQE_RX_COALESCED_8:
+		for (i = 0; i < MANA_RXCOMP_OOB_NUM_PPI; i++) {
+			if (ppi[i].pkt_len0)
+				return &ppi[i].pkt_len0;
+			if (ppi[i].pkt_len1)
+				return &ppi[i].pkt_len1;
+		}
+		return NULL;
+	default:
+		return NULL;
+	}
+}
+
+static int mana_raw_handle_rx_cqe(struct mana_cq *cq, struct mana_wq *wq,
+				  struct ibv_wc *wc, int nwc, bool *consumed)
+{
+	struct gdma_cqe *cqe = &cq->pending_cqe;
+	struct mana_rxcomp_oob *rx = (struct mana_rxcomp_oob *)&cqe->rdma_cqe;
+	enum ibv_wc_status status = mana_raw_cqe_status(rx->cqe_hdr.cqe_type);
+	struct shadow_wqe_header *wqe;
+	bool failed = status != IBV_WC_SUCCESS;
+	uint16_t *len = NULL;
+	int produced = 0;
+
+	/* A fence is emitted while the queue drains and consumes no WQE. */
+	if (cqe->wqid != wq->rq.id || cqe->is_sq ||
+	    rx->cqe_hdr.cqe_type == CQE_RX_OBJECT_FENCE)
+		return 0;
+
+	/* A failed completion consumes one WQE and carries no packet. */
+	while (failed || (len = mana_raw_rx_next_len(rx))) {
+		if (produced == nwc) {
+			*consumed = false;
+			break;
+		}
+
+		wqe = shadow_queue_get_next_to_consume(&wq->shadow);
+		if (!wqe) {
+			verbs_warn_datapath(verbs_get_ctx(cq->ibcq.context),
+					    "raw receive CQE without a posted WQE\n");
+			break;
+		}
+
+		memset(&wc[produced], 0, sizeof(*wc));
+		wc[produced].wr_id = wqe->wr_id;
+		wc[produced].status = status;
+		wc[produced].opcode = IBV_WC_RECV;
+		wc[produced].vendor_err = rx->cqe_hdr.vendor_err;
+		wc[produced].qp_num = wq->ibwq.wq_num;
+		if (len) {
+			wc[produced].byte_len = *len;
+			*len = 0;
+		}
+		/* IPv6 carries no header checksum, so a verified transport
+		 * checksum with no failure is enough.
+		 */
+		if ((rx->rx_tcp_csum_succeed || rx->rx_udp_csum_succeed) &&
+		    !(rx->rx_outer_iphdr_csum_fail || rx->rx_iphdr_csum_fail ||
+		      rx->rx_tcp_csum_fail || rx->rx_udp_csum_fail))
+			wc[produced].wc_flags = IBV_WC_IP_CSUM_OK;
+
+		wq->rq.cons_idx += wqe->posted_wqe_size_in_bu;
+		wq->rq.cons_idx &= GDMA_QUEUE_OFFSET_MASK;
+		shadow_queue_advance_consumer(&wq->shadow);
+		produced++;
+		if (failed)
+			break;
+	}
+
+	return produced;
+}
+
 int mana_poll_cq(struct ibv_cq *ibcq, int nwc, struct ibv_wc *wc)
 {
 	struct mana_cq *cq = container_of(ibcq, struct mana_cq, ibcq);
@@ -563,7 +724,15 @@ int mana_poll_cq(struct ibv_cq *ibcq, int nwc, struct ibv_wc *wc)
 		}
 
 		consumed = true;
-		ret = mana_handle_cqe(ctx, &cq->pending_cqe, &wc[num_polled], nwc - num_polled, &consumed);
+		if (cq->raw_qp)
+			ret = mana_raw_handle_tx_cqe(cq->raw_qp, &cq->pending_cqe,
+						     &wc[num_polled]);
+		else if (cq->raw_wq)
+			ret = mana_raw_handle_rx_cqe(cq, cq->raw_wq, &wc[num_polled],
+						     nwc - num_polled, &consumed);
+		else
+			ret = mana_handle_cqe(ctx, &cq->pending_cqe, &wc[num_polled],
+					      nwc - num_polled, &consumed);
 		num_polled += ret;
 
 		cq->has_pending_cqe = !consumed;

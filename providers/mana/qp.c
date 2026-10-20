@@ -42,7 +42,7 @@ static struct ibv_qp *mana_create_qp_raw(struct ibv_pd *ibpd,
 	struct mana_qp *qp;
 	struct mana_pd *pd = container_of(ibpd, struct mana_pd, ibv_pd);
 	struct mana_parent_domain *mpd;
-	uint32_t port;
+	uint32_t port, wqe_size;
 
 	struct mana_create_qp qp_cmd = {};
 	struct mana_create_qp_resp qp_resp = {};
@@ -64,33 +64,41 @@ static struct ibv_qp *mana_create_qp_raw(struct ibv_pd *ibpd,
 
 	cq = container_of(attr->send_cq, struct mana_cq, ibcq);
 
-	if (!ctx->extern_alloc.alloc || !ctx->extern_alloc.free) {
-		verbs_err(verbs_get_ctx(ibpd->context),
-			  "RAW QP requires extern alloc for buffers\n");
-		errno = EINVAL;
-		return NULL;
-	}
-
 	qp = calloc(1, sizeof(*qp));
 	if (!qp)
 		return NULL;
 
-	qp->raw_qp.send_buf_size =
-		attr->cap.max_send_wr * get_wqe_size(attr->cap.max_send_sge);
-	qp->raw_qp.send_buf_size = align_hw_size(qp->raw_qp.send_buf_size);
-
-	qp->raw_qp.send_buf = ctx->extern_alloc.alloc(qp->raw_qp.send_buf_size,
-						      ctx->extern_alloc.data);
-	if (!qp->raw_qp.send_buf) {
+	/* The provider needs the long TX OOB when the vport offset, returned only
+	 * after creation, exceeds 255. External buffers keep the short-OOB size
+	 * to preserve the old behaviour for DPDK.
+	 */
+	if (ctx->extern_alloc.alloc && ctx->extern_alloc.free)
+		wqe_size = get_wqe_size(attr->cap.max_send_sge);
+	else
+		wqe_size = get_large_wqe_size(attr->cap.max_send_sge);
+	qp->raw_qp.sq.size = align_hw_size(attr->cap.max_send_wr * wqe_size);
+	qp->raw_qp.sq.buffer = mana_alloc_buf(ctx, qp->raw_qp.sq.size,
+					      &qp->buf_external);
+	if (!qp->raw_qp.sq.buffer) {
 		errno = ENOMEM;
 		goto free_qp;
 	}
 
+	qp->raw_qp.sq.db_page = ctx->db_page;
+
+	if (create_shadow_queue(&qp->shadow_sq, attr->cap.max_send_wr,
+				sizeof(struct shadow_wqe_header))) {
+		errno = ENOMEM;
+		goto free_buf;
+	}
+
+	pthread_spin_init(&qp->sq_lock, PTHREAD_PROCESS_PRIVATE);
+
 	qp_cmd_drv = &qp_cmd.drv_payload;
 	qp_resp_drv = &qp_resp.drv_payload;
 
-	qp_cmd_drv->sq_buf_addr = (uintptr_t)qp->raw_qp.send_buf;
-	qp_cmd_drv->sq_buf_size = qp->raw_qp.send_buf_size;
+	qp_cmd_drv->sq_buf_addr = (uintptr_t)qp->raw_qp.sq.buffer;
+	qp_cmd_drv->sq_buf_size = qp->raw_qp.sq.size;
 	qp_cmd_drv->port = port;
 
 	ret = ibv_cmd_create_qp(ibpd, &qp->ibqp.qp, attr, &qp_cmd.ibv_cmd,
@@ -98,19 +106,28 @@ static struct ibv_qp *mana_create_qp_raw(struct ibv_pd *ibpd,
 				sizeof(qp_resp));
 	if (ret) {
 		verbs_err(verbs_get_ctx(ibpd->context), "Create QP failed\n");
-		ctx->extern_alloc.free(qp->raw_qp.send_buf, ctx->extern_alloc.data);
 		errno = ret;
-		goto free_qp;
+		goto destroy_shadow;
 	}
 
-	qp->raw_qp.sqid = qp_resp_drv->sqid;
+	qp->raw_qp.sq.id = qp_resp_drv->sqid;
 	qp->raw_qp.tx_vp_offset = qp_resp_drv->tx_vp_offset;
 	qp->raw_qp.send_wqe_count = attr->cap.max_send_wr;
+	qp->sq_sig_all = attr->sq_sig_all;
+	/* The kernel does not number raw QPs, so the queue id names it, as for RNIC */
+	qp->ibqp.qp.qp_num = qp->raw_qp.sq.id;
 
 	cq->cqid = qp_resp_drv->cqid;
+	mana_cq_set_owner(&cq->ibcq, qp, NULL);
 
 	return &qp->ibqp.qp;
 
+destroy_shadow:
+	pthread_spin_destroy(&qp->sq_lock);
+	destroy_shadow_queue(&qp->shadow_sq);
+free_buf:
+	mana_free_buf(ctx, qp->raw_qp.sq.buffer, qp->raw_qp.sq.size,
+		      qp->buf_external);
 free_qp:
 	free(qp);
 	return NULL;
@@ -389,7 +406,8 @@ static struct ibv_qp *mana_create_qp_rnic(struct ibv_pd *ibpd,
 	for (i = 0; i < USER_RNIC_QUEUE_TYPE_MAX; ++i) {
 		qp->rnic_qp.queues[i].db_page = ctx->db_page;
 		qp->rnic_qp.queues[i].size = get_queue_size(attr, i, qp->rollback_sq);
-		qp->rnic_qp.queues[i].buffer = mana_alloc_mem(qp->rnic_qp.queues[i].size);
+		qp->rnic_qp.queues[i].buffer = mana_alloc_buf(ctx, qp->rnic_qp.queues[i].size,
+							      &qp->buf_external);
 
 		if (qp->rnic_qp.queues[i].size != 0 && !qp->rnic_qp.queues[i].buffer) {
 			verbs_err(verbs_get_ctx(ibpd->context),
@@ -421,7 +439,8 @@ destroy_qp:
 	ibv_cmd_destroy_qp(&qp->ibqp.qp);
 destroy_queues:
 	while (i-- > 0)
-		mana_dealloc_mem(qp->rnic_qp.queues[i].buffer, qp->rnic_qp.queues[i].size);
+		mana_free_buf(ctx, qp->rnic_qp.queues[i].buffer,
+			      qp->rnic_qp.queues[i].size, qp->buf_external);
 	destroy_shadow_queue(&qp->shadow_rq);
 destroy_shadow_sq:
 	destroy_shadow_queue(&qp->shadow_sq);
@@ -530,6 +549,22 @@ static void mana_drain_cqes(struct mana_qp *qp)
 	pthread_spin_unlock(&recv_cq->lock);
 }
 
+/* Unbinds the WQs whose receive queues the kernel destroyed with their RSS QP,
+ * so that posting to one cannot ring a recycled queue id. Verbs keeps the WQs
+ * alive until then.
+ */
+static void mana_unbind_rss_wqs(struct mana_rwq_ind_table *ind_tbl)
+{
+	uint32_t i;
+
+	for (i = 0; i < ind_tbl->ind_tbl_size; i++) {
+		struct mana_wq *wq = container_of(ind_tbl->ind_tbl[i], struct mana_wq, ibwq);
+
+		mana_cq_set_owner(wq->ibwq.cq, NULL, NULL);
+		wq->rq.id = MANA_INVALID_QUEUE_ID;
+	}
+}
+
 int mana_destroy_qp(struct ibv_qp *ibqp)
 {
 	struct mana_qp *qp = container_of(ibqp, struct mana_qp, ibqp.qp);
@@ -549,7 +584,15 @@ int mana_destroy_qp(struct ibv_qp *ibqp)
 
 	switch (ibqp->qp_type) {
 	case IBV_QPT_RAW_PACKET:
-		ctx->extern_alloc.free(qp->raw_qp.send_buf, ctx->extern_alloc.data);
+		if (qp->raw_qp.ind_tbl)
+			mana_unbind_rss_wqs(qp->raw_qp.ind_tbl);
+		else
+			mana_cq_set_owner(ibqp->send_cq, NULL, NULL);
+		/* An RSS QP has no send queue, so these are no-ops for it. */
+		pthread_spin_destroy(&qp->sq_lock);
+		destroy_shadow_queue(&qp->shadow_sq);
+		mana_free_buf(ctx, qp->raw_qp.sq.buffer, qp->raw_qp.sq.size,
+			      qp->buf_external);
 		break;
 	case IBV_QPT_RC:
 	case IBV_QPT_UC:
@@ -559,7 +602,8 @@ int mana_destroy_qp(struct ibv_qp *ibqp)
 		destroy_shadow_queue(&qp->shadow_rq);
 		mana_ib_deinit_rb_shmem(qp);
 		for (i = 0; i < USER_RNIC_QUEUE_TYPE_MAX; ++i)
-			mana_dealloc_mem(qp->rnic_qp.queues[i].buffer, qp->rnic_qp.queues[i].size);
+			mana_free_buf(ctx, qp->rnic_qp.queues[i].buffer,
+				      qp->rnic_qp.queues[i].size, qp->buf_external);
 		break;
 	default:
 		verbs_err(verbs_get_ctx(ibqp->context),
@@ -578,10 +622,11 @@ static struct ibv_qp *mana_create_qp_ex_raw(struct ibv_context *context,
 	struct mana_ib_create_qp_rss *cmd_drv;
 	struct mana_create_qp_ex_resp resp = {};
 	struct mana_ib_create_qp_rss_resp *cmd_resp;
+	struct mana_rwq_ind_table *ind_table;
 	struct mana_qp *qp;
 	struct mana_pd *pd = container_of(attr->pd, struct mana_pd, ibv_pd);
 	struct mana_parent_domain *mpd;
-	uint32_t port;
+	uint32_t port, i;
 	int ret;
 
 	cmd_drv = &cmd.drv_payload;
@@ -591,6 +636,14 @@ static struct ibv_qp *mana_create_qp_ex_raw(struct ibv_context *context,
 	if (!pd->mprotection_domain) {
 		verbs_err(verbs_get_ctx(context),
 			  "RAW QP needs to be on a parent domain\n");
+		errno = EINVAL;
+		return NULL;
+	}
+
+	/* Raw send QPs come through mana_create_qp(). */
+	if (!(attr->comp_mask & IBV_QP_INIT_ATTR_IND_TABLE) || !attr->rwq_ind_tbl) {
+		verbs_err(verbs_get_ctx(context),
+			  "RAW QP EX needs an RWQ indirection table\n");
 		errno = EINVAL;
 		return NULL;
 	}
@@ -610,6 +663,9 @@ static struct ibv_qp *mana_create_qp_ex_raw(struct ibv_context *context,
 	if (!qp)
 		return NULL;
 
+	/* Posting a send to an RSS QP fails on its empty shadow queue. */
+	pthread_spin_init(&qp->sq_lock, PTHREAD_PROCESS_PRIVATE);
+
 	cmd_drv->rx_hash_fields_mask = attr->rx_hash_conf.rx_hash_fields_mask;
 	cmd_drv->rx_hash_function = attr->rx_hash_conf.rx_hash_function;
 	cmd_drv->rx_hash_key_len = attr->rx_hash_conf.rx_hash_key_len;
@@ -628,19 +684,20 @@ static struct ibv_qp *mana_create_qp_ex_raw(struct ibv_context *context,
 		return NULL;
 	}
 
-	if (attr->rwq_ind_tbl) {
-		struct mana_rwq_ind_table *ind_table =
-			container_of(attr->rwq_ind_tbl,
-				     struct mana_rwq_ind_table, ib_ind_table);
-		for (int i = 0; i < ind_table->ind_tbl_size; i++) {
-			struct mana_wq *wq = container_of(ind_table->ind_tbl[i],
-							  struct mana_wq, ibwq);
-			struct mana_cq *cq =
-				container_of(wq->ibwq.cq, struct mana_cq, ibcq);
-			wq->wqid = cmd_resp->entries[i].wqid;
-			cq->cqid = cmd_resp->entries[i].cqid;
-		}
+	/* The kernel creates the WQs' receive queues with the RSS QP, each bound
+	 * to its WQ's CQ for good. The queue id also numbers the WQ.
+	 */
+	ind_table = container_of(attr->rwq_ind_tbl, struct mana_rwq_ind_table, ib_ind_table);
+	for (i = 0; i < ind_table->ind_tbl_size; i++) {
+		struct mana_wq *wq = container_of(ind_table->ind_tbl[i], struct mana_wq, ibwq);
+		struct mana_cq *cq = container_of(wq->ibwq.cq, struct mana_cq, ibcq);
+
+		wq->rq.id = cmd_resp->entries[i].wqid;
+		wq->ibwq.wq_num = wq->rq.id;
+		cq->cqid = cmd_resp->entries[i].cqid;
+		mana_cq_set_owner(&cq->ibcq, NULL, wq);
 	}
+	qp->raw_qp.ind_tbl = ind_table;
 
 	return &qp->ibqp.qp;
 }

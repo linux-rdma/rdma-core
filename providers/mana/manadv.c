@@ -27,10 +27,21 @@ int manadv_set_context_attr(struct ibv_context *ibv_ctx,
 	int ret;
 
 	switch (type) {
-	case MANADV_CTX_ATTR_BUF_ALLOCATORS:
-		ctx->extern_alloc = *((struct manadv_ctx_allocators *)attr);
+	case MANADV_CTX_ATTR_BUF_ALLOCATORS: {
+		const struct manadv_ctx_allocators *alloc = attr;
+
+		/* Half a pair would leave buffers allocated by one owner and freed
+		 * by the other.
+		 */
+		if (!alloc->alloc != !alloc->free) {
+			verbs_err(verbs_get_ctx(ibv_ctx),
+				  "alloc and free must be set together\n");
+			return EINVAL;
+		}
+		ctx->extern_alloc = *alloc;
 		ret = 0;
 		break;
+	}
 	default:
 		verbs_err(verbs_get_ctx(ibv_ctx),
 			  "Unsupported context type %d\n", type);
@@ -53,10 +64,10 @@ int manadv_init_obj(struct manadv_obj *obj, uint64_t obj_type)
 		struct ibv_context *context = ibqp->context;
 		struct mana_context *ctx = to_mctx(context);
 
-		obj->qp.out->sq_buf = qp->raw_qp.send_buf;
+		obj->qp.out->sq_buf = qp->raw_qp.sq.buffer;
 		obj->qp.out->sq_count = qp->raw_qp.send_wqe_count;
-		obj->qp.out->sq_size = qp->raw_qp.send_buf_size;
-		obj->qp.out->sq_id = qp->raw_qp.sqid;
+		obj->qp.out->sq_size = qp->raw_qp.sq.size;
+		obj->qp.out->sq_id = qp->raw_qp.sq.id;
 		obj->qp.out->tx_vp_offset = qp->raw_qp.tx_vp_offset;
 		obj->qp.out->db_page = ctx->db_page;
 	}
@@ -77,10 +88,10 @@ int manadv_init_obj(struct manadv_obj *obj, uint64_t obj_type)
 		struct ibv_context *context = ibwq->context;
 		struct mana_context *ctx = to_mctx(context);
 
-		obj->rwq.out->buf = wq->buf;
+		obj->rwq.out->buf = wq->rq.buffer;
 		obj->rwq.out->count = wq->wqe;
-		obj->rwq.out->size = wq->buf_size;
-		obj->rwq.out->wq_id = wq->wqid;
+		obj->rwq.out->size = wq->rq.size;
+		obj->rwq.out->wq_id = wq->rq.id;
 		obj->rwq.out->db_page = ctx->db_page;
 	}
 
