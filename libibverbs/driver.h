@@ -530,6 +530,10 @@ struct verbs_context_ops {
 			     uint64_t *counters_value,
 			     uint32_t ncounters,
 			     uint32_t flags);
+	int (*read_counters_ex)(struct ibv_counters *counters,
+				const uint64_t *items, uint64_t *counters_value,
+				uint64_t *timestamps, uint32_t ncounters,
+				uint32_t flags);
 	int (*read_err_comp_cntr)(struct ibv_comp_cntr *comp_cntr,
 				  uint64_t *value);
 	struct ibv_mr *(*reg_dm_mr)(struct ibv_pd *pd, struct ibv_dm *dm,
@@ -819,6 +823,10 @@ int ibv_cmd_read_counters(struct verbs_counters *vcounters,
 			  uint32_t ncounters,
 			  uint32_t flags,
 			  struct ibv_command_buffer *link);
+int ibv_cmd_read_counters_ex(struct verbs_counters *vcounters,
+			     const uint64_t *items, uint64_t *counters_value,
+			     uint64_t *timestamps, uint32_t ncounters,
+			     uint32_t flags, struct ibv_command_buffer *link);
 /*
  * Adjust fork protection for the given range. Return 0 on success, or a
  * non-zero value on failure with errno set to indicate the reason.

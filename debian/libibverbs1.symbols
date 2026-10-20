@@ -136,6 +136,7 @@ libibverbs.so.1 libibverbs1 #MINVER#
  ibv_rate_to_mbps@IBVERBS_1.1 1.1.8
  ibv_rate_to_mult@IBVERBS_1.0 1.1.6
  ibv_read_comp_cntr@IBVERBS_1.18 65
+ ibv_read_counters_ex@IBVERBS_1.19 66
  ibv_read_err_comp_cntr@IBVERBS_1.18 65
  ibv_read_sysfs_file@IBVERBS_1.0 1.1.6
  ibv_reg_buf_mr@IBVERBS_1.17 64

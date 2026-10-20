@@ -404,6 +404,8 @@ enum uverbs_attrs_read_counters_cmd_attr_ids {
 	UVERBS_ATTR_READ_COUNTERS_HANDLE,
 	UVERBS_ATTR_READ_COUNTERS_BUFF,
 	UVERBS_ATTR_READ_COUNTERS_FLAGS,
+	UVERBS_ATTR_READ_COUNTERS_ITEMS,
+	UVERBS_ATTR_READ_COUNTERS_TIMESTAMPS,
 };
 
 enum uverbs_methods_actions_counters_ops {

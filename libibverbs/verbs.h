@@ -3485,6 +3485,23 @@ int ibv_inc_err_comp_cntr(struct ibv_comp_cntr *comp_cntr, uint64_t amount);
 int ibv_read_comp_cntr(struct ibv_comp_cntr *comp_cntr, uint64_t *value);
 
 /**
+ * ibv_read_counters_ex - Read selected counters, with timestamps
+ * @counters: counters object from ibv_create_counters()
+ * @items: counter numbers to read, or NULL to read counters 0..ncounters-1
+ * @counters_value: receives the value of each counter
+ * @timestamps: if not NULL, receives the time in nanoseconds each counter
+ *              was read, as defined by the provider
+ * @ncounters: number of entries in each array
+ * @flags: enum ibv_read_counters_flags
+ *
+ * Only providers that implement the extended read support it. Returns 0 on
+ * success, else an errno value.
+ */
+int ibv_read_counters_ex(struct ibv_counters *counters, const uint64_t *items,
+			 uint64_t *counters_value, uint64_t *timestamps,
+			 uint32_t ncounters, uint32_t flags);
+
+/**
  * ibv_read_err_comp_cntr - Read the error count value
  * @comp_cntr: The completion counter to read.
  * @value: Output pointer to store the current error count.

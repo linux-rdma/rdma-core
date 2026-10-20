@@ -215,6 +215,7 @@ IBVERBS_1.19 {
 		ibv_destroy_jkey;
 		ibv_create_ah_ex;
 		ibv_ah_to_ah_ex;
+		ibv_read_counters_ex;
 } IBVERBS_1.18;
 
 /* If any symbols in this stanza change ABI then the entire staza gets a new symbol
@@ -295,6 +296,7 @@ IBVERBS_PRIVATE_@IBVERBS_PABI_VERSION@ {
 		ibv_cmd_query_srq;
 		ibv_cmd_read_comp_cntr;
 		ibv_cmd_read_counters;
+		ibv_cmd_read_counters_ex;
 		ibv_cmd_read_err_comp_cntr;
 		ibv_cmd_reg_dm_mr;
 		ibv_cmd_reg_dmabuf_mr;

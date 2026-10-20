@@ -1034,6 +1034,16 @@ int ibv_read_comp_cntr(struct ibv_comp_cntr *comp_cntr, uint64_t *value)
 	return get_ops(comp_cntr->context)->read_comp_cntr(comp_cntr, value);
 }
 
+int ibv_read_counters_ex(struct ibv_counters *counters, const uint64_t *items,
+			 uint64_t *counters_value, uint64_t *timestamps,
+			 uint32_t ncounters, uint32_t flags)
+{
+	return get_ops(counters->context)->read_counters_ex(counters, items,
+							    counters_value,
+							    timestamps, ncounters,
+							    flags);
+}
+
 int ibv_read_err_comp_cntr(struct ibv_comp_cntr *comp_cntr, uint64_t *value)
 {
 	return get_ops(comp_cntr->context)->read_err_comp_cntr(comp_cntr, value);

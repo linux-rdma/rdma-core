@@ -616,6 +616,14 @@ static int read_counters(struct ibv_counters *counters,
 	return EOPNOTSUPP;
 }
 
+static int read_counters_ex(struct ibv_counters *counters,
+			    const uint64_t *items, uint64_t *counters_value,
+			    uint64_t *timestamps, uint32_t ncounters,
+			    uint32_t flags)
+{
+	return EOPNOTSUPP;
+}
+
 static int read_err_comp_cntr(struct ibv_comp_cntr *comp_cntr, uint64_t *value)
 {
 	return EOPNOTSUPP;
@@ -846,6 +854,7 @@ const struct verbs_context_ops verbs_dummy_ops = {
 	query_srq,
 	read_comp_cntr,
 	read_counters,
+	read_counters_ex,
 	read_err_comp_cntr,
 	reg_dm_mr,
 	reg_dmabuf_mr,
@@ -1002,6 +1011,7 @@ void verbs_set_ops(struct verbs_context *vctx,
 	SET_OP(vctx, query_rt_values);
 	SET_PRIV_OP_IC(vctx, read_comp_cntr);
 	SET_OP(vctx, read_counters);
+	SET_PRIV_OP_IC(vctx, read_counters_ex);
 	SET_PRIV_OP_IC(vctx, read_err_comp_cntr);
 	SET_PRIV_OP(ctx, query_srq);
 	SET_OP(vctx, reg_dm_mr);
