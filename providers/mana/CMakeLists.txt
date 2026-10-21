@@ -8,8 +8,11 @@ rdma_shared_provider(mana libmana.map
   wr.c
 )
 
+# shadow_queue.h uses 64-bit atomics
+target_link_libraries(mana LINK_PRIVATE ${ATOMIC_LIBRARIES})
+
 publish_headers(infiniband
   manadv.h
 )
 
-rdma_pkg_config("mana" "libibverbs" "${CMAKE_THREAD_LIBS_INIT}")
+rdma_pkg_config("mana" "libibverbs" "${CMAKE_THREAD_LIBS_INIT} ${ATOMIC_LIBRARIES}")

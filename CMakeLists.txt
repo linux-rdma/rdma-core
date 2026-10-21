@@ -507,6 +507,27 @@ if (NOT HAVE_SPARSE)
   RDMA_DoFixup("${HAVE_STDATOMIC}" "stdatomic.h")
 endif()
 
+# 64-bit C11 atomics are not lock free on some 32-bit targets (e.g. riscv32)
+# and the compiler emits __atomic_* libcalls that libatomic provides.
+set(ATOMIC64_CHECK_PROGRAM "
+#include <stdatomic.h>
+#include <stdint.h>
+_Atomic(uint64_t) v;
+int main(int argc, const char *argv[]) {
+  atomic_store(&v, (uint64_t)argc);
+  return (int)atomic_load(&v);
+}")
+CHECK_C_SOURCE_COMPILES("${ATOMIC64_CHECK_PROGRAM}" HAVE_ATOMIC64_WITHOUT_LIBATOMIC)
+set(ATOMIC_LIBRARIES "")
+if (NOT HAVE_ATOMIC64_WITHOUT_LIBATOMIC)
+  set(CMAKE_REQUIRED_LIBRARIES "-latomic")
+  CHECK_C_SOURCE_COMPILES("${ATOMIC64_CHECK_PROGRAM}" HAVE_ATOMIC64_WITH_LIBATOMIC)
+  unset(CMAKE_REQUIRED_LIBRARIES)
+  if (HAVE_ATOMIC64_WITH_LIBATOMIC)
+    set(ATOMIC_LIBRARIES "-latomic")
+  endif()
+endif()
+
 CHECK_INCLUDE_FILE("linux/dma-heap.h" HAVE_LINUX_DMA_HEAP_H)
 
 RDMA_Check_SSE(HAVE_TARGET_SSE)
