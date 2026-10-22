@@ -76,6 +76,7 @@ def make_dev(
     dev.vpd_sn = vpd_sn
     dev.parent = parent
     dev.has_ats = has_ats
+    dev.is_vf = False
     dev.get_subsystems.return_value = subsystems or {}
     return dev
 
@@ -90,7 +91,7 @@ def make_parent(bdf_str: str) -> MagicMock:
 
 
 def make_nic(
-    pf_bdfs: List[str],
+    fn_bdfs: List[str],
     parent_bdf: Optional[str] = None,
     vpd_sn: Optional[str] = None,
     has_ats: bool = False,
@@ -102,7 +103,7 @@ def make_nic(
         make_dev(
             bdf, vpd_sn=vpd_sn, parent=parent, has_ats=has_ats, subsystems=subsystems
         )
-        for bdf in pf_bdfs
+        for bdf in fn_bdfs
     ]
     return NVCX_Topo.NIC(set(devs))
 
@@ -117,7 +118,7 @@ class TestNVCX_Topo_NIC_Constructor:
         nic = make_nic(["0000:00:01.0"], parent_bdf=None, vpd_sn=None)
         assert nic.parent is None
         assert nic.vpd_sn is None
-        assert len(nic.pfs) == 1
+        assert len(nic.fns) == 1
 
     def test_single_pf_with_parent_and_sn(self):
         nic = make_nic(["0000:00:01.0"], parent_bdf="0000:00:00.0", vpd_sn="SN123")
@@ -130,7 +131,7 @@ class TestNVCX_Topo_NIC_Constructor:
             parent_bdf="0000:00:00.0",
             vpd_sn="SN123",
         )
-        assert len(nic.pfs) == 2
+        assert len(nic.fns) == 2
 
     def test_multi_pf_different_parent_raises(self):
         parent_a = make_parent("0000:00:00.0")
@@ -149,17 +150,17 @@ class TestNVCX_Topo_NIC_Constructor:
 
 
 # ---------------------------------------------------------------------------
-# NVCX_Topo.NIC — primary_pf
+# NVCX_Topo.NIC — primary_fn
 # ---------------------------------------------------------------------------
 
 
-class TestNVCX_Topo_NIC_PrimaryPf:
+class TestNVCX_Topo_NIC_PrimaryFn:
     def test_multi_pf_returns_min_bdf(self):
         parent = make_parent("0000:00:00.0")
         dev_lo = make_dev("0000:00:01.0", parent=parent, vpd_sn="SN")
         dev_hi = make_dev("0000:00:02.0", parent=parent, vpd_sn="SN")
         nic = NVCX_Topo.NIC({dev_lo, dev_hi})
-        assert nic.primary_pf is dev_lo
+        assert nic.primary_fn is dev_lo
 
 
 # ---------------------------------------------------------------------------
@@ -380,7 +381,7 @@ class TestNVCX_Topo_Constructor:
         topo = NVCX_Topo({dev1, dev2})
         assert len(topo.boards) == 1
         assert len(topo.boards[0].nics) == 1
-        assert len(topo.boards[0].nics[0].pfs) == 2
+        assert len(topo.boards[0].nics[0].fns) == 2
 
     def test_two_pfs_different_parent_same_sn_two_nics_one_board(self):
         parent_a = make_parent("0000:00:00.0")
@@ -401,32 +402,32 @@ class TestNVCX_Topo_Constructor:
 
 
 # ---------------------------------------------------------------------------
-# NVCX_Topo — pfs / primary_pf
+# NVCX_Topo — fns / primary_fn
 # ---------------------------------------------------------------------------
 
 
-class TestNVCX_Topo_Pfs:
-    def test_pfs_returns_all_devs(self):
+class TestNVCX_Topo_Fns:
+    def test_fns_returns_all_devs(self):
         parent = make_parent("0000:00:00.0")
         dev1 = make_dev("0000:00:01.0", vpd_sn="SN123", parent=parent)
         dev2 = make_dev("0000:00:02.0", vpd_sn="SN123", parent=parent)
         topo = NVCX_Topo({dev1, dev2})
-        assert topo.pfs == {dev1, dev2}
+        assert topo.fns == {dev1, dev2}
 
-    def test_primary_pf_is_min_bdf(self):
+    def test_primary_fn_is_min_bdf(self):
         parent = make_parent("0000:00:00.0")
         dev_lo = make_dev("0000:00:01.0", vpd_sn="SN123", parent=parent)
         dev_hi = make_dev("0000:00:02.0", vpd_sn="SN123", parent=parent)
         topo = NVCX_Topo({dev_lo, dev_hi})
-        assert topo.primary_pf is dev_lo
+        assert topo.primary_fn is dev_lo
 
-    def test_primary_pf_across_boards(self):
+    def test_primary_fn_across_boards(self):
         parent_a = make_parent("0000:00:00.0")
         parent_b = make_parent("0000:00:10.0")
         dev_lo = make_dev("0000:00:01.0", vpd_sn="SN1", parent=parent_a)
         dev_hi = make_dev("0000:00:11.0", vpd_sn="SN2", parent=parent_b)
         topo = NVCX_Topo({dev_lo, dev_hi})
-        assert topo.primary_pf is dev_lo
+        assert topo.primary_fn is dev_lo
 
 
 # ---------------------------------------------------------------------------
