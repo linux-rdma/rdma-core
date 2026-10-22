@@ -6,6 +6,26 @@
 #include "ionic.h"
 #include "ionic_dv.h"
 
+bool ionic_dv_is_ionic_ctx(struct ibv_context *ibctx)
+{
+	return is_ionic_ctx(ibctx);
+}
+
+bool ionic_dv_is_ionic_pd(struct ibv_pd *ibpd)
+{
+	return is_ionic_pd(ibpd);
+}
+
+bool ionic_dv_is_ionic_cq(struct ibv_cq *ibcq)
+{
+	return is_ionic_cq(ibcq);
+}
+
+bool ionic_dv_is_ionic_qp(struct ibv_qp *ibqp)
+{
+	return is_ionic_qp(ibqp);
+}
+
 uint8_t ionic_dv_ctx_get_udma_count(struct ibv_context *ibctx)
 {
 	if (!is_ionic_ctx(ibctx))
@@ -30,6 +50,22 @@ uint8_t ionic_dv_pd_get_udma_mask(struct ibv_pd *ibpd)
 	return to_ionic_pd(ibpd)->udma_mask;
 }
 
+uint8_t ionic_dv_cq_get_udma_mask(struct ibv_cq *ibcq)
+{
+	if (!is_ionic_cq(ibcq))
+		return 0;
+
+	return to_ionic_vcq(ibcq)->udma_mask;
+}
+
+uint8_t ionic_dv_qp_get_udma_idx(struct ibv_qp *ibqp)
+{
+	if (!is_ionic_qp(ibqp))
+		return 0;
+
+	return to_ionic_qp(ibqp)->udma_idx;
+}
+
 int ionic_dv_pd_set_udma_mask(struct ibv_pd *ibpd, uint8_t udma_mask)
 {
 	if (!is_ionic_pd(ibpd))
@@ -39,6 +75,19 @@ int ionic_dv_pd_set_udma_mask(struct ibv_pd *ibpd, uint8_t udma_mask)
 		return EINVAL;
 
 	to_ionic_pd(ibpd)->udma_mask = udma_mask;
+
+	return 0;
+}
+
+int ionic_dv_pd_set_expdb_mask(struct ibv_pd *ibpd, uint8_t mask)
+{
+	struct ionic_pd *pd;
+
+	if (!is_ionic_pd(ibpd))
+		return EPERM;
+
+	pd = to_ionic_pd(ibpd);
+	pd->expdb_mask = mask & ((IONIC_EXPDB_512 << 1) - 1);
 
 	return 0;
 }
@@ -104,4 +153,125 @@ int ionic_dv_pd_set_rqcmb(struct ibv_pd *ibpd, bool enable, bool expdb, bool req
 	pd->rq_cmb = ionic_dv_cmb_val(enable, expdb, require);
 
 	return 0;
+}
+
+int ionic_dv_qp_set_gda(struct ibv_qp *ibqp, bool enable_send, bool enable_recv)
+{
+	struct ionic_qp *qp;
+
+	if (!is_ionic_qp(ibqp))
+		return EPERM;
+
+	qp = to_ionic_qp(ibqp);
+
+	if (enable_send && qp->sq.cmb & IONIC_CMB_EXPDB)
+		return EINVAL;
+
+	if (enable_recv && qp->rq.cmb & IONIC_CMB_EXPDB)
+		return EINVAL;
+
+	qp->sq.gda = enable_send;
+	qp->rq.gda = enable_recv;
+
+	return 0;
+}
+
+int ionic_dv_qp_get_send_dbell_data(struct ibv_qp *ibqp, uint64_t *dbdata)
+{
+	struct ionic_qp *qp;
+
+	if (!is_ionic_qp(ibqp))
+		return EPERM;
+
+	qp = to_ionic_qp(ibqp);
+
+	*dbdata = ionic_queue_dbell_val(&qp->sq.queue);
+
+	return 0;
+}
+
+int ionic_dv_qp_get_recv_dbell_data(struct ibv_qp *ibqp, uint64_t *dbdata)
+{
+	struct ionic_qp *qp;
+
+	if (!is_ionic_qp(ibqp))
+		return EPERM;
+
+	qp = to_ionic_qp(ibqp);
+
+	*dbdata = ionic_queue_dbell_val(&qp->rq.queue);
+
+	return 0;
+}
+
+int ionic_dv_get_ctx(struct ionic_dv_ctx *dvctx, struct ibv_context *ibctx)
+{
+	struct ionic_ctx *ctx;
+
+	if (!is_ionic_ctx(ibctx))
+		return EPERM;
+
+	ctx = to_ionic_ctx(ibctx);
+
+	dvctx->db_page = ctx->dbpage_page;
+	dvctx->db_ptr = ctx->dbpage;
+	dvctx->sq_qtype = ctx->sq_qtype;
+	dvctx->rq_qtype = ctx->rq_qtype;
+	dvctx->cq_qtype = ctx->cq_qtype;
+
+	return 0;
+}
+
+static void ionic_dv_get_queue(struct ionic_dv_queue *dvq, struct ionic_queue *q)
+{
+	dvq->ptr = q->ptr;
+	dvq->size = q->size;
+	dvq->db_val = q->dbell;
+	dvq->mask = (uint16_t)q->mask;
+	dvq->depth_log2 = q->depth_log2;
+	dvq->stride_log2 = q->stride_log2;
+}
+
+int ionic_dv_get_cq(struct ionic_dv_cq *dvcq, struct ibv_cq *ibcq, uint8_t udma_idx)
+{
+	struct ionic_vcq *vcq;
+
+	if (!is_ionic_cq(ibcq))
+		return EPERM;
+
+	vcq = to_ionic_vcq(ibcq);
+
+	if (!(vcq->udma_mask & BIT(udma_idx)))
+		return EINVAL;
+
+	ionic_dv_get_queue(&dvcq->q, &vcq->cq[udma_idx].q);
+
+	return 0;
+}
+
+int ionic_dv_get_qp(struct ionic_dv_qp *dvqp, struct ibv_qp *ibqp)
+{
+	struct ionic_qp *qp;
+
+	if (!is_ionic_qp(ibqp))
+		return EPERM;
+
+	qp = to_ionic_qp(ibqp);
+
+	ionic_dv_get_queue(&dvqp->rq, &qp->rq.queue);
+	ionic_dv_get_queue(&dvqp->sq, &qp->sq.queue);
+
+	return 0;
+}
+
+struct ibv_cq_ex *ionic_dv_create_cq_ex(struct ibv_context *ibctx,
+					struct ibv_cq_init_attr_ex *ex,
+					struct ionic_cq_init_attr_ex *ionic_ex)
+{
+	if (!is_ionic_ctx(ibctx)) {
+		errno = EPERM;
+		return NULL;
+	}
+
+	return ionic_create_cq_ex_common(ibctx, ex, ionic_ex);
 }
