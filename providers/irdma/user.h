@@ -488,7 +488,8 @@ struct irdma_sq_uk_wr_trk_info {
 	__u64 wrid;
 	__u32 wr_len;
 	__u16 quanta;
-	__u8 reserved[2];
+	__u8 signaled;
+	__u8 reserved[1];
 };
 
 struct irdma_qp_quanta {
