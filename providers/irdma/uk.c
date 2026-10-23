@@ -117,7 +117,7 @@ void irdma_uk_qp_post_wr(struct irdma_qp_uk *qp)
 	/* valid bit is written before ringing doorbell */
 	udma_to_device_barrier();
 
-	db_wr32(qp->qp_id, qp->wqe_alloc_db);
+	mmio_write32(qp->wqe_alloc_db, qp->qp_id);
 	qp->initial_ring.head = qp->sq_ring.head;
 }
 
@@ -1252,7 +1252,7 @@ void irdma_uk_cq_request_notification(struct irdma_cq_uk *cq,
 
 	udma_to_device_barrier(); /* make sure WQE is populated before valid bit is set */
 
-	db_wr32(cq->cq_id, cq->cqe_alloc_db);
+	mmio_write32(cq->cqe_alloc_db, cq->cq_id);
 }
 
 /**
