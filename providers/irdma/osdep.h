@@ -16,4 +16,5 @@
 #include <pthread.h>
 #include <endian.h>
 #include <util/mmio.h>
+#include <errno.h>
 #endif /* IRDMA_OSDEP_H */
