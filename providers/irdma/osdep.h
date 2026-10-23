@@ -15,9 +15,5 @@
 #include <inttypes.h>
 #include <pthread.h>
 #include <endian.h>
-
-static inline void db_wr32(__u32 val, __u32 *wqe_word)
-{
-	*wqe_word = val;
-}
+#include <util/mmio.h>
 #endif /* IRDMA_OSDEP_H */
