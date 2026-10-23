@@ -1946,7 +1946,10 @@ int irdma_upost_send(struct ibv_qp *ib_qp, struct ibv_send_wr *ib_wr,
 			err = irdma_uk_rdma_read(&iwuqp->qp, &info, false, false);
 			break;
 		case IBV_WR_BIND_MW:
-			if (ib_qp->qp_type != IBV_QPT_RC) {
+			if (ib_qp->qp_type != IBV_QPT_RC ||
+			    (ib_wr->bind_mw.mw->type == IBV_MW_TYPE_1 &&
+			     ib_wr->bind_mw.bind_info.mw_access_flags &
+			     IBV_ACCESS_ZERO_BASED)) {
 				err = EINVAL;
 				break;
 			}
