@@ -1887,6 +1887,9 @@ void irdma_uk_clean_cq(void *q, struct irdma_cq_uk *cq)
 		if (polarity != temp)
 			break;
 
+		/* Ensure CQE contents are read after valid bit is checked */
+		udma_from_device_barrier();
+
 		get_64bit_val(cqe, 8, &comp_ctx);
 		if ((void *)(uintptr_t)comp_ctx == q)
 			set_64bit_val(cqe, 8, 0);
