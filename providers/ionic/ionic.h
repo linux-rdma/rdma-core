@@ -31,9 +31,6 @@
 #define IONIC_MIN_RDMA_VERSION	1
 #define IONIC_MAX_RDMA_VERSION	2
 
-#define IONIC_META_LAST ((void *)1ul)
-#define IONIC_META_POSTED ((void *)2ul)
-
 #define IONIC_CQ_GRACE 100
 #define IONIC_PAGE_SIZE 4096
 
@@ -157,6 +154,7 @@ struct ionic_cq {
 	int			reserve_pending;
 	uint16_t		arm_any_prod;
 	uint16_t		arm_sol_prod;
+	uint16_t		srq_cnt;
 	uint64_t		phc_tick;
 };
 
@@ -193,9 +191,15 @@ struct ionic_sq_meta {
 	bool			local_comp;
 };
 
+enum ionic_meta_state {
+	IONIC_META_FREE,
+	IONIC_META_POSTED,
+	IONIC_META_OOO_CMPL,
+};
+
 struct ionic_rq_meta {
-	struct ionic_rq_meta	*next;
 	uint64_t		wrid;
+	enum ionic_meta_state	state;
 };
 
 struct ionic_rq {
@@ -204,14 +208,13 @@ struct ionic_rq {
 
 	void			*cmb_ptr;
 	struct ionic_rq_meta	*meta;
-	struct ionic_rq_meta	*meta_head;
-	uint16_t		*meta_idx;
 
 	int			spec;
 	uint16_t		old_prod;
 	uint16_t		cmb_prod;
 	uint8_t			cmb;
 	bool			flush;
+	bool			lockfree;
 };
 
 struct ionic_sq {
@@ -234,6 +237,25 @@ struct ionic_sq {
 	bool			color;
 };
 
+struct ionic_pending_rq_wr {
+	uint64_t		wrid;
+	struct ionic_v1_wqe	wqe;
+};
+
+struct ionic_srq {
+	struct ibv_srq			vsrq;
+	struct ionic_rq			rq;
+	struct ionic_pending_rq_wr	*pending_wrs;
+	uint32_t			srqid;
+	uint32_t			max_sge;
+	uint32_t			ooo_count;
+	uint32_t			in_use;
+	uint16_t			pending_cidx;
+	uint16_t			pending_pidx;
+	uint16_t			pending_in_use;
+	uint8_t				udma_idx;
+};
+
 struct ionic_qp {
 	struct verbs_qp		vqp;
 
@@ -250,6 +272,7 @@ struct ionic_qp {
 
 	struct ionic_sq		sq;
 	struct ionic_rq		rq;
+	struct ionic_srq	*srq;
 	struct ibv_send_wr	ex_wr;
 	int			ex_rc;
 	bool			sig_all;
@@ -351,6 +374,11 @@ static inline struct ionic_ah *to_ionic_ah(struct ibv_ah *ibah)
 static inline bool ionic_ibop_is_local(enum ibv_wr_opcode op)
 {
 	return op == IBV_WR_LOCAL_INV || op == IBV_WR_BIND_MW;
+}
+
+static inline struct ionic_srq *to_ionic_srq(struct ibv_srq *ibsrq)
+{
+	return container_of(ibsrq, struct ionic_srq, vsrq);
 }
 
 static inline uint8_t ionic_ctx_udma_mask(struct ionic_ctx *ctx)

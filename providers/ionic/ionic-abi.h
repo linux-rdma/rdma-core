@@ -21,5 +21,7 @@ DECLARE_DRV_CMD(uionic_cq, IB_USER_VERBS_CMD_CREATE_CQ,
 		ionic_cq_req, ionic_cq_resp);
 DECLARE_DRV_CMD(uionic_qp, IB_USER_VERBS_EX_CMD_CREATE_QP,
 		ionic_qp_req, ionic_qp_resp);
+DECLARE_DRV_CMD(uionic_srq, IB_USER_VERBS_CMD_CREATE_SRQ,
+		ionic_srq_req, ionic_srq_resp);
 
 #endif /* __IONIC_ABI_H__ */
