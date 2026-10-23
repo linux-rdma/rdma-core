@@ -1508,6 +1508,10 @@ int irdma_uk_cq_poll_cmpl(struct irdma_cq_uk *cq,
 					break;
 				}
 			} while (1);
+
+			if (info->op_type == IRDMA_OP_TYPE_BIND_MW &&
+			    info->minor_err == FLUSH_PROT_ERR)
+				info->minor_err = FLUSH_MW_BIND_ERR;
 			qp->sq_flush_seen = true;
 			if (!IRDMA_RING_MORE_WORK(qp->sq_ring))
 				qp->sq_flush_complete = true;
