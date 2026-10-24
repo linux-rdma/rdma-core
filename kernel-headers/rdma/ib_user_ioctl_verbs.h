@@ -91,6 +91,7 @@ enum ib_uverbs_qp_type {
 	IB_UVERBS_QPT_RAW_PACKET = 8,
 	IB_UVERBS_QPT_XRC_INI,
 	IB_UVERBS_QPT_XRC_TGT,
+	IB_UVERBS_QPT_RU,
 	IB_UVERBS_QPT_DRIVER = 0xFF,
 };
 
@@ -263,6 +264,8 @@ enum ib_uverbs_gid_type {
 	IB_UVERBS_GID_TYPE_IB,
 	IB_UVERBS_GID_TYPE_ROCE_V1,
 	IB_UVERBS_GID_TYPE_ROCE_V2,
+	IB_UVERBS_GID_TYPE_UET_UDP,
+	IB_UVERBS_GID_TYPE_UET_IP,
 };
 
 struct ib_uverbs_gid_entry {
@@ -298,6 +301,103 @@ struct ib_uverbs_buffer_desc {
 	__u32 optional_flags;
 	__aligned_u64 addr;
 	__aligned_u64 length;
+};
+
+/* Extended memory registration, for devices whose memory keys are 64 bits
+ * wide and may be bound to a job. See UVERBS_ATTR_REG_MR_FLAGS.
+ */
+enum ib_uverbs_reg_mr_flags {
+	/* REQ_RKEY64 carries the key, rather than the device assigning one */
+	IB_UVERBS_REG_MR_USER_RKEY		= 1 << 0,
+	/* the region tolerates a replayed idempotent operation */
+	IB_UVERBS_REG_MR_IDEMPOTENT_SAFE	= 1 << 1,
+};
+
+/* A UET reliable unconnected queue pair number uses all 32 bits:
+ *
+ *	[ absolute 1b | reserved 7b | resource index 12b | PIDonFEP 12b ]
+ *
+ * An absolute pair is named by its number alone. A relative one is named
+ * within a job, so it must carry a job key when it is created. The reserved
+ * bits are zero.
+ */
+#define IB_UVERBS_QPN_UET_PID_ON_FEP_MASK	0x00000fff
+#define IB_UVERBS_QPN_UET_PID_ON_FEP_SHIFT	0
+#define IB_UVERBS_QPN_UET_RI_MASK		0x00fff000
+#define IB_UVERBS_QPN_UET_RI_SHIFT		12
+#define IB_UVERBS_QPN_UET_RESERVED_MASK		0x7f000000
+#define IB_UVERBS_QPN_UET_ABSOLUTE_ADDR_BIT	0x80000000
+
+enum ib_uverbs_qp_semantics_mask {
+	IB_UVERBS_QP_SEMANTICS_MASK_MSG_ORDER	= 1 << 0,
+	IB_UVERBS_QP_SEMANTICS_MASK_RAW		= 1 << 1,
+	IB_UVERBS_QP_SEMANTICS_MASK_WAR		= 1 << 2,
+	IB_UVERBS_QP_SEMANTICS_MASK_WAW		= 1 << 3,
+	IB_UVERBS_QP_SEMANTICS_MASK_PDU		= 1 << 4,
+	IB_UVERBS_QP_SEMANTICS_MASK_IMM		= 1 << 5,
+	IB_UVERBS_QP_SEMANTICS_MASK_USAGE	= 1 << 6,
+};
+
+/* Ordering guarantees between operations on one QP. "X after Y" means an
+ * X may not pass a Y posted before it. A bit that is clear means the pair
+ * does not order that combination, and an application that needs it must
+ * wait for the earlier completion.
+ */
+enum ib_uverbs_qp_msg_order {
+	/* atomic after atomic */
+	IB_UVERBS_QP_ORDER_ATOMIC_RAR	= 1 << 0,
+	IB_UVERBS_QP_ORDER_ATOMIC_RAW	= 1 << 1,
+	IB_UVERBS_QP_ORDER_ATOMIC_WAR	= 1 << 2,
+	IB_UVERBS_QP_ORDER_ATOMIC_WAW	= 1 << 3,
+	/* rma after rma */
+	IB_UVERBS_QP_ORDER_RDMA_RAR	= 1 << 4,
+	IB_UVERBS_QP_ORDER_RDMA_RAW	= 1 << 5,
+	IB_UVERBS_QP_ORDER_RDMA_WAR	= 1 << 6,
+	IB_UVERBS_QP_ORDER_RDMA_WAW	= 1 << 7,
+	/* send against atomic and rma */
+	IB_UVERBS_QP_ORDER_RAS		= 1 << 8,
+	IB_UVERBS_QP_ORDER_SAR		= 1 << 9,
+	IB_UVERBS_QP_ORDER_SAS		= 1 << 10,
+	IB_UVERBS_QP_ORDER_SAW		= 1 << 11,
+	IB_UVERBS_QP_ORDER_WAS		= 1 << 12,
+	/* rma and atomic, either kind, against each other */
+	IB_UVERBS_QP_ORDER_RAR		= 1 << 13,
+	IB_UVERBS_QP_ORDER_RAW		= 1 << 14,
+	IB_UVERBS_QP_ORDER_WAR		= 1 << 15,
+	IB_UVERBS_QP_ORDER_WAW		= 1 << 16,
+};
+
+enum ib_uverbs_qp_usage_flags {
+	/* immediate data consumes a posted receive */
+	IB_UVERBS_QP_USAGE_IMM_DATA_RQ	= 1 << 0,
+};
+
+/* An address handle that names a peer using both transport+network addresses.
+ * Used for reliable unconnected QPs in both work request address handles and
+ * a Job address table.
+ */
+struct ib_uverbs_ah_attr_ex {
+	struct ib_uverbs_ah_attr ah_attr;
+	__u32 remote_qpn;
+};
+
+struct ib_uverbs_qp_semantics {
+	__u32 comp_mask;		/* enum ib_uverbs_qp_semantics_mask */
+	__u32 msg_order;		/* enum ib_uverbs_qp_msg_order */
+	/*
+	 * Data ordering: the largest transfer, in bytes, for which the target
+	 * memory reflects the order of the pair under its RDMA_ and plain
+	 * msg_order bits. 0 if not provided, and those bits are then clear.
+	 * There is no read-after-read size, as two reads leave memory
+	 * unchanged.
+	 */
+	__u32 max_rdma_raw_size;	/* read after write */
+	__u32 max_rdma_war_size;	/* write after read */
+	__u32 max_rdma_waw_size;	/* write after write */
+	__u32 max_pdu;			/* largest packet, bytes */
+	__u32 usage_flags;		/* enum ib_uverbs_qp_usage_flags */
+	__u8  imm_data_size;		/* widest immediate, in bits */
+	__u8  reserved[3];
 };
 
 enum ib_uverbs_comp_cntr_entry {

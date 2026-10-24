@@ -300,6 +300,10 @@ struct ib_uverbs_ex_query_device_resp {
 	__aligned_u64 max_dm_size;
 	__u32 xrc_odp_caps;
 	__u32 reserved;
+	__u32 max_job_ids; /* jobs allocated at once, not a JobID */
+	__u32 max_job_keys; /* job keys allocated at once */
+	__u32 max_addr_entries; /* largest address table of one job */
+	__u32 reserved2;
 };
 
 struct ib_uverbs_query_port {
@@ -1370,6 +1374,27 @@ enum ib_uverbs_device_cap_flags {
 	IB_UVERBS_DEVICE_ATOMIC_WRITE = 1ULL << 40,
 	/* CoCo guest with DMA bounce buffering required */
 	IB_UVERBS_DEVICE_CC_DMA_BOUNCE = 1ULL << 41,
+	/* Reliable unconnected QPs, jobs, job keys and address tables */
+	IB_UVERBS_DEVICE_RU = 1ULL << 42,
+	/* 64-bit immediate data */
+	IB_UVERBS_DEVICE_IMM64 = 1ULL << 43,
+	/* An MR may carry 64-bit keys as a second name beside its 32-bit ones */
+	IB_UVERBS_DEVICE_KEY64 = 1ULL << 44,
+	/* MR registration with a caller-chosen rkey */
+	IB_UVERBS_DEVICE_USER_RKEY = 1ULL << 45,
+	/*
+	 * MR access restrictions, meaningful only with IB_UVERBS_DEVICE_RU.
+	 * Each names what an incoming request must match, and each is its own
+	 * match: supporting two does not imply their combination.
+	 */
+	/* PD: any QP */
+	IB_UVERBS_DEVICE_MR_UNRESTRICTED = 1ULL << 46,
+	/* PD and JobID: any QP, one job */
+	IB_UVERBS_DEVICE_MR_JOB_RESTRICTED = 1ULL << 47,
+	/* PD and QP: the QP the MR is attached to */
+	IB_UVERBS_DEVICE_MR_QP_RESTRICTED = 1ULL << 48,
+	/* PD, QP and JobID: the attached QP, one job */
+	IB_UVERBS_DEVICE_MR_QP_JOB_RESTRICTED = 1ULL << 49,
 };
 
 enum ib_uverbs_raw_packet_caps {
