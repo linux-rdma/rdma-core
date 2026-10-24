@@ -31,6 +31,7 @@
  * SOFTWARE.
  */
 #include <stdlib.h>
+#include <string.h>
 #include <unistd.h>
 #include <infiniband/driver.h>
 #include "ibverbs.h"
@@ -84,6 +85,7 @@ static void *alloc_buf(struct ibv_pd *pd, size_t size, struct ibv_buf **buf)
 		return NULL;
 	}
 
+	memset(ptr, 0, size);
 	ibv_buf_init(ibuf, pd, ptr, size);
 	*buf = ibuf;
 	return ptr;
