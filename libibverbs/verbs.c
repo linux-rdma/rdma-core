@@ -308,6 +308,164 @@ LATEST_SYMVER_FUNC(ibv_dealloc_pd, 1_1, "IBVERBS_1.1",
 	return get_ops(pd->context)->dealloc_pd(pd);
 }
 
+struct ibv_job *ibv_alloc_job(struct ibv_context *context,
+			      struct ibv_job_attr *attr,
+			      void *user_context)
+{
+	struct verbs_context *vctx;
+	struct ibv_job *job;
+
+	vctx = verbs_get_ctx_op(context, alloc_job);
+	if (!vctx) {
+		errno = EOPNOTSUPP;
+		return NULL;
+	}
+
+	/* the address table is sized once, when the job is allocated */
+	if (!(attr->comp_mask & IBV_JOB_ATTR_MAX_ADDR_ENTRIES) ||
+	    !attr->max_addr_entries) {
+		errno = EINVAL;
+		return NULL;
+	}
+
+	job = vctx->alloc_job(context, attr, user_context);
+	if (job) {
+		job->context = context;
+		job->user_context = user_context;
+	}
+
+	return job;
+}
+
+int ibv_dealloc_job(struct ibv_job *job)
+{
+	struct verbs_context *vctx;
+
+	vctx = verbs_get_ctx_op(job->context, dealloc_job);
+	if (!vctx) {
+		errno = EOPNOTSUPP;
+		return -1;
+	}
+
+	return vctx->dealloc_job(job);
+}
+
+int ibv_query_job(struct ibv_job *job, struct ibv_job_attr *attr)
+{
+	struct verbs_context *vctx;
+
+	vctx = verbs_get_ctx_op(job->context, query_job);
+	if (!vctx) {
+		errno = EOPNOTSUPP;
+		return -1;
+	}
+
+	return vctx->query_job(job, attr);
+}
+
+int ibv_export_job(struct ibv_job *job, int *fd)
+{
+	struct verbs_context *vctx;
+
+	vctx = verbs_get_ctx_op(job->context, export_job);
+	if (!vctx) {
+		errno = EOPNOTSUPP;
+		return -1;
+	}
+
+	return vctx->export_job(job, fd);
+}
+
+int ibv_import_job(struct ibv_context *context, int fd, struct ibv_job **job)
+{
+	struct verbs_context *vctx;
+	int ret;
+
+	vctx = verbs_get_ctx_op(context, import_job);
+	if (!vctx) {
+		errno = EOPNOTSUPP;
+		return -1;
+	}
+
+	ret = vctx->import_job(context, fd, job);
+	if (!ret && *job)
+		(*job)->context = context;
+
+	return ret;
+}
+
+int ibv_insert_addr(struct ibv_job *job, struct ibv_ah_attr_ex *ah_attr,
+		    unsigned int addr_idx)
+{
+	struct verbs_context *vctx;
+
+	vctx = verbs_get_ctx_op(job->context, insert_addr);
+	if (!vctx) {
+		errno = EOPNOTSUPP;
+		return -1;
+	}
+
+	return vctx->insert_addr(job, ah_attr, addr_idx);
+}
+
+int ibv_remove_addr(struct ibv_job *job, unsigned int addr_idx)
+{
+	struct verbs_context *vctx;
+
+	vctx = verbs_get_ctx_op(job->context, remove_addr);
+	if (!vctx) {
+		errno = EOPNOTSUPP;
+		return -1;
+	}
+
+	return vctx->remove_addr(job, addr_idx);
+}
+
+int ibv_query_addr(struct ibv_job *job, unsigned int addr_idx,
+		   struct ibv_ah_attr_ex *ah_attr)
+{
+	struct verbs_context *vctx;
+
+	vctx = verbs_get_ctx_op(job->context, query_addr);
+	if (!vctx) {
+		errno = EOPNOTSUPP;
+		return -1;
+	}
+
+	return vctx->query_addr(job, addr_idx, ah_attr);
+}
+
+struct ibv_job_key *ibv_create_jkey(struct ibv_pd *pd, struct ibv_job *job)
+{
+	struct verbs_context *vctx;
+	struct ibv_job_key *job_key;
+
+	vctx = verbs_get_ctx_op(pd->context, create_jkey);
+	if (!vctx) {
+		errno = EOPNOTSUPP;
+		return NULL;
+	}
+
+	job_key = vctx->create_jkey(pd, job);
+	if (job_key)
+		job_key->pd = pd;
+
+	return job_key;
+}
+
+int ibv_destroy_jkey(struct ibv_job_key *job_key)
+{
+	struct verbs_context *vctx;
+
+	vctx = verbs_get_ctx_op(job_key->pd->context, destroy_jkey);
+	if (!vctx) {
+		errno = EOPNOTSUPP;
+		return -1;
+	}
+
+	return vctx->destroy_jkey(job_key);
+}
+
 struct ibv_mr *ibv_reg_mr_iova2(struct ibv_pd *pd, void *addr, size_t length,
 				uint64_t iova, unsigned int access)
 {
@@ -595,6 +753,14 @@ struct ibv_mr *ibv_reg_mr_ex(struct ibv_pd *pd, struct ibv_mr_init_attr *mr_init
 		attr.dmah = mr_init_attr->dmah;
 	if (comp_mask & IBV_REG_MR_MASK_BUF)
 		attr.buf = mr_init_attr->buf;
+	if (comp_mask & IBV_REG_MR_MASK_JKEY)
+		attr.job_key = mr_init_attr->job_key;
+	if (comp_mask & IBV_REG_MR_MASK_RKEY)
+		attr.rkey = mr_init_attr->rkey;
+	if (comp_mask & IBV_REG_MR_MASK_CUR_MR)
+		attr.cur_mr = mr_init_attr->cur_mr;
+	if (comp_mask & IBV_REG_MR_MASK_DERIVE_CNT)
+		attr.derive_cnt = mr_init_attr->derive_cnt;
 
 	if (attr.comp_mask & IBV_REG_MR_MASK_BUF &&
 	    fill_mr_init_attr_from_buf(pd, &attr))
@@ -1027,6 +1193,23 @@ LATEST_SYMVER_FUNC(ibv_create_ah, 1_1, "IBVERBS_1.1",
 	return ah;
 }
 
+struct ibv_ah *ibv_create_ah_ex(struct ibv_pd *pd, struct ibv_ah_attr_ex *attr)
+{
+	struct ibv_ah *ah = get_ops(pd->context)->create_ah_ex(pd, attr);
+
+	if (ah) {
+		ah->context = pd->context;
+		ah->pd      = pd;
+	}
+
+	return ah;
+}
+
+struct ibv_ah_ex *ibv_ah_to_ah_ex(struct ibv_ah *ah)
+{
+	return container_of(ah, struct ibv_ah_ex, ah_base);
+}
+
 int ibv_query_gid_type(struct ibv_context *context, uint8_t port_num,
 		       unsigned int index, enum ibv_gid_type_sysfs *type)
 {
@@ -1046,6 +1229,10 @@ int ibv_query_gid_type(struct ibv_context *context, uint8_t port_num,
 	if (entry.gid_type == IBV_GID_TYPE_IB ||
 	    entry.gid_type == IBV_GID_TYPE_ROCE_V1)
 		*type = IBV_GID_TYPE_SYSFS_IB_ROCE_V1;
+	else if (entry.gid_type == IBV_GID_TYPE_UET_UDP)
+		*type = IBV_GID_TYPE_SYSFS_UET_UDP;
+	else if (entry.gid_type == IBV_GID_TYPE_UET_IP)
+		*type = IBV_GID_TYPE_SYSFS_UET_IP;
 	else
 		*type = IBV_GID_TYPE_SYSFS_ROCE_V2;
 

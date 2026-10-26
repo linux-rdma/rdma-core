@@ -147,9 +147,55 @@ describe the buffer range to register.
 The protection domain must be the same protection domain used to allocate the buffer, and the range must be within the allocated buffer.
 The other fields on the input pointer have the same meaning as of the fields that described in that man page for the other verbs.
 .PP
+.B ibv_reg_mr_ex()
+additionally accepts the following fields on devices that advertise the
+capabilities:
+.TP 7
+.I mr_init_attr->job_key
+Selected by
+.BR IBV_REG_MR_MASK_JKEY .
+Restricts the region to a job, so that only transfers bearing a matching job
+key may reach it. The job key must have been created against the same
+protection domain as the region, and the device must report
+IBV_DEVICE_MR_JOB_RESTRICTED or IBV_DEVICE_MR_QP_JOB_RESTRICTED. See
+.BR ibv_create_jkey (3).
+.TP 7
+.I mr_init_attr->rkey
+Selected by
+.BR IBV_REG_MR_MASK_RKEY .
+Registers the region with an application-assigned 64-bit RKey rather than one
+chosen by the device, so that peers can predict it. Requires a device
+reporting IBV_DEVICE_USER_RKEY, and for a key wider than 32 bits also
+IBV_DEVICE_KEY64. Zero is not a valid key, as it means a region has no wide
+key.
+.TP 7
+.I mr_init_attr->cur_mr
+Selected by
+.BR IBV_REG_MR_MASK_CUR_MR .
+Derives the new region from an existing one, exposing a window of the same
+memory, possibly with different access rights. The derived region must lie
+within the existing one and belong to the same protection domain, which
+allows the device to share page mappings between them. The existing region
+cannot be deregistered while regions derived from it remain.
+.TP 7
+.I mr_init_attr->derive_cnt
+Selected by
+.BR IBV_REG_MR_MASK_DERIVE_CNT .
+A hint giving the number of regions the application expects to subsequently
+derive from the region being registered, allowing a provider to reserve
+resources for them in advance, such as a contiguous range of RKey values.
+A provider may ignore the hint, or reject a non-zero value if it does not
+implement it; derived regions themselves remain available through
+.BR IBV_REG_MR_MASK_CUR_MR .
+.PP
 .B ibv_dereg_mr()
 deregisters the MR
 .I mr\fR.
+It fails with
+.B EBUSY
+while regions derived from
+.I mr
+remain registered.
 .SH "RETURN VALUE"
 .B ibv_reg_mr() / ibv_reg_mr_iova() / ibv_reg_dmabuf_mr() / ibv_reg_mr_ex()
 returns a pointer to the registered MR, or NULL if the request fails.
@@ -201,7 +247,10 @@ because libibverbs derives them from the buffer handle.
 .BR ibv_alloc_buf (3),
 .BR ibv_post_send (3),
 .BR ibv_post_recv (3),
-.BR ibv_post_srq_recv (3)
+.BR ibv_post_srq_recv (3),
+.BR ibv_create_jkey (3),
+.BR ibv_attach_mr (3),
+.BR ibv_uet (7)
 .SH "AUTHORS"
 .TP
 Dotan Barak <dotanba@gmail.com>
