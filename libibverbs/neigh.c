@@ -474,7 +474,7 @@ static int handle_encoded_mac(struct nl_addr *dst, struct nl_addr **ll_addr)
 
 	for (i = 0;
 	     i < sizeof(encoded_prefixes)/sizeof(encoded_prefixes[0]) &&
-	     ret; prefix = NULL, i++) {
+	     ret; i++) {
 		if (encoded_prefixes[i].family != family)
 			continue;
 
@@ -492,8 +492,10 @@ static int handle_encoded_mac(struct nl_addr *dst, struct nl_addr **ll_addr)
 		if (nl_addr_cmp_prefix_msb(nl_addr_get_binary_addr(dst),
 					   nl_addr_get_prefixlen(dst),
 					   nl_addr_get_binary_addr(prefix),
-					   nl_addr_get_prefixlen(prefix)))
+					   nl_addr_get_prefixlen(prefix))) {
+			nl_addr_put(prefix);
 			continue;
+		}
 
 		ret = encoded_prefixes[i].getter(dst, ll_addr);
 		nl_addr_put(prefix);
