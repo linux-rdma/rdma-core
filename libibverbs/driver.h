@@ -692,6 +692,12 @@ int ibv_cmd_create_srq_ex(struct ibv_context *context,
 			  struct ibv_srq_init_attr_ex *attr_ex,
 			  struct ibv_create_xsrq *cmd, size_t cmd_size,
 			  struct ib_uverbs_create_srq_resp *resp, size_t resp_size);
+int ibv_cmd_create_srq_ex2(struct ibv_context *context,
+			   struct verbs_srq *srq,
+			   struct ibv_srq_init_attr_ex *attr_ex,
+			   struct ibv_create_xsrq *cmd, size_t cmd_size,
+			   struct ib_uverbs_create_srq_resp *resp, size_t resp_size,
+			   struct ibv_command_buffer *driver_filter);
 int ibv_cmd_modify_srq(struct ibv_srq *srq,
 		       struct ibv_srq_attr *srq_attr,
 		       int srq_attr_mask,
