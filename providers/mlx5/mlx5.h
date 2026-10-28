@@ -1260,6 +1260,8 @@ int mlx5_adversarial_next_poll(struct ibv_cq_ex *ibcq);
 void mlx5_adversarial_end_poll(struct ibv_cq_ex *ibcq);
 int mlx5_adversarial_post_recv(struct ibv_qp *ibqp, struct ibv_recv_wr *wr,
 			       struct ibv_recv_wr **bad_wr);
+int mlx5_adversarial_post_send(struct ibv_qp *ibqp, struct ibv_send_wr *wr,
+			       struct ibv_send_wr **bad_wr);
 int mlx5_arm_cq(struct ibv_cq *cq, int solicited);
 void mlx5_cq_event(struct ibv_cq *cq);
 void __mlx5_cq_clean(struct mlx5_cq *cq, uint32_t qpn, struct mlx5_srq *srq);
@@ -1326,7 +1328,14 @@ void mlx5_free_av(struct mlx5_ah *ah);
 int mlx5_attach_mcast(struct ibv_qp *qp, const union ibv_gid *gid, uint16_t lid);
 int mlx5_detach_mcast(struct ibv_qp *qp, const union ibv_gid *gid, uint16_t lid);
 void *mlx5_get_atomic_laddr(struct mlx5_qp *qp, uint16_t idx, int *byte_count);
-void *mlx5_get_send_wqe(struct mlx5_qp *qp, int n);
+#ifdef MLX5_DEBUG
+void mlx5_dump_wqe(struct mlx5_context *mctx, int idx, int size_16,
+		   struct mlx5_qp *qp);
+#endif
+static inline void *mlx5_get_send_wqe(struct mlx5_qp *qp, int n)
+{
+	return qp->sq_start + (n << MLX5_SEND_WQE_SHIFT);
+}
 int mlx5_copy_to_recv_wqe(struct mlx5_qp *qp, int idx, void *buf, int size);
 int mlx5_copy_to_send_wqe(struct mlx5_qp *qp, int idx, void *buf, int size);
 int mlx5_copy_to_recv_srq(struct mlx5_srq *srq, int idx, void *buf, int size);

@@ -191,6 +191,7 @@ static const struct verbs_context_ops mlx5_ctx_cqev1_ops = {
 static const struct verbs_context_ops mlx5_ctx_adversarial_ops = {
 	.poll_cq = mlx5_adversarial_poll_cq,
 	.post_recv = mlx5_adversarial_post_recv,
+	.post_send = mlx5_adversarial_post_send,
 };
 
 static int read_number_from_line(const char *line, int *value)

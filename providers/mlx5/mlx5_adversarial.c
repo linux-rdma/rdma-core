@@ -24,6 +24,7 @@
 #include <infiniband/opcode.h>
 
 #include "mlx5.h"
+#include "mlx5_trace.h"
 #include "wqe.h"
 
 /* Map the requester sub-opcode to a wc opcode; reject unsupported ones */
@@ -237,4 +238,14 @@ int mlx5_adversarial_post_recv(struct ibv_qp *ibqp, struct ibv_recv_wr *wr,
 			       struct ibv_recv_wr **bad_wr)
 {
 	return _mlx5_post_recv_body(ibqp, wr, bad_wr);
+}
+
+#define ADVERSARIAL_POST_SEND
+#include "mlx5_post_send_body.h"
+#undef ADVERSARIAL_POST_SEND
+
+int mlx5_adversarial_post_send(struct ibv_qp *ibqp, struct ibv_send_wr *wr,
+			       struct ibv_send_wr **bad_wr)
+{
+	return _mlx5_post_send_body(ibqp, wr, bad_wr);
 }
