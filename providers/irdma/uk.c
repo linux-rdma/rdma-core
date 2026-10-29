@@ -117,7 +117,7 @@ void irdma_uk_qp_post_wr(struct irdma_qp_uk *qp)
 	/* valid bit is written before ringing doorbell */
 	udma_to_device_barrier();
 
-	db_wr32(qp->qp_id, qp->wqe_alloc_db);
+	mmio_write32(qp->wqe_alloc_db, qp->qp_id);
 	qp->initial_ring.head = qp->sq_ring.head;
 }
 
@@ -209,6 +209,7 @@ __le64 *irdma_qp_get_next_send_wqe(struct irdma_qp_uk *qp, __u32 *wqe_idx,
 	qp->sq_wrtrk_array[*wqe_idx].wrid = info->wr_id;
 	qp->sq_wrtrk_array[*wqe_idx].wr_len = total_size;
 	qp->sq_wrtrk_array[*wqe_idx].quanta = quanta;
+	qp->sq_wrtrk_array[*wqe_idx].signaled = info->signaled;
 
 	return wqe;
 }
@@ -1252,7 +1253,7 @@ void irdma_uk_cq_request_notification(struct irdma_cq_uk *cq,
 
 	udma_to_device_barrier(); /* make sure WQE is populated before valid bit is set */
 
-	db_wr32(cq->cq_id, cq->cqe_alloc_db);
+	mmio_write32(cq->cqe_alloc_db, cq->cq_id);
 }
 
 /**
@@ -1481,6 +1482,10 @@ int irdma_uk_cq_poll_cmpl(struct irdma_cq_uk *cq,
 			info->wr_id = qp->sq_wrtrk_array[wqe_idx].wrid;
 			if (!info->comp_status)
 				info->bytes_xfered = qp->sq_wrtrk_array[wqe_idx].wr_len;
+			if (!qp->sq_wrtrk_array[wqe_idx].signaled) {
+				ret_code = EFAULT;
+				goto exit;
+			}
 			info->op_type = (__u8)FIELD_GET(IRDMACQ_OP, qword3);
 			IRDMA_RING_SET_TAIL(qp->sq_ring,
 					    wqe_idx + qp->sq_wrtrk_array[wqe_idx].quanta);
@@ -1508,6 +1513,10 @@ int irdma_uk_cq_poll_cmpl(struct irdma_cq_uk *cq,
 					break;
 				}
 			} while (1);
+
+			if (info->op_type == IRDMA_OP_TYPE_BIND_MW &&
+			    info->minor_err == FLUSH_PROT_ERR)
+				info->minor_err = FLUSH_MW_BIND_ERR;
 			qp->sq_flush_seen = true;
 			if (!IRDMA_RING_MORE_WORK(qp->sq_ring))
 				qp->sq_flush_complete = true;
@@ -1886,6 +1895,9 @@ void irdma_uk_clean_cq(void *q, struct irdma_cq_uk *cq)
 
 		if (polarity != temp)
 			break;
+
+		/* Ensure CQE contents are read after valid bit is checked */
+		udma_from_device_barrier();
 
 		get_64bit_val(cqe, 8, &comp_ctx);
 		if ((void *)(uintptr_t)comp_ctx == q)
