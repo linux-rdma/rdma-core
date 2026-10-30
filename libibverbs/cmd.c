@@ -1172,6 +1172,9 @@ int ibv_cmd_create_rwq_ind_table(struct ibv_context *context,
 	if (init_attr->comp_mask >= IBV_CREATE_IND_TABLE_RESERVED)
 		return EINVAL;
 
+	if (init_attr->log_ind_tbl_size > IB_USER_VERBS_MAX_LOG_IND_TBL_SIZE)
+		return EINVAL;
+
 	num_tbl_entries = 1 << init_attr->log_ind_tbl_size;
 
 	/* The entire message must be size aligned to 8 bytes. */
