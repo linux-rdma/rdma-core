@@ -196,10 +196,14 @@ int ibv_cmd_poll_cq(struct ibv_cq *ibcq, int ne, struct ibv_wc *wc)
 	struct ibv_poll_cq       cmd;
 	struct ib_uverbs_poll_cq_resp *resp;
 	int                      i;
-	int                      rsize;
+	size_t                   rsize;
 	int                      ret;
 
-	rsize = sizeof *resp + ne * sizeof(struct ib_uverbs_wc);
+	if (ne < 0 ||
+	    (size_t)ne > (SIZE_MAX - sizeof(*resp)) / sizeof(struct ib_uverbs_wc))
+		return -1;
+
+	rsize = sizeof(*resp) + (size_t)ne * sizeof(struct ib_uverbs_wc);
 	resp  = malloc(rsize);
 	if (!resp)
 		return -1;
@@ -210,6 +214,11 @@ int ibv_cmd_poll_cq(struct ibv_cq *ibcq, int ne, struct ibv_wc *wc)
 	ret = execute_cmd_write_no_uhw(ibcq->context, IB_USER_VERBS_CMD_POLL_CQ,
 				       &cmd, sizeof(cmd), resp, rsize);
 	if (ret) {
+		ret = -1;
+		goto out;
+	}
+
+	if (resp->count > (unsigned int)ne) {
 		ret = -1;
 		goto out;
 	}
