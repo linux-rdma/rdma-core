@@ -891,9 +891,12 @@ COMPAT_SYMVER_FUNC(ibv_query_qp, 1_0, "IBVERBS_1.0",
 		return ret;
 
 	init_attr->qp_context = qp->qp_context;
-	init_attr->send_cq    = real_init_attr.send_cq->cq_context;
-	init_attr->recv_cq    = real_init_attr.recv_cq->cq_context;
-	init_attr->srq        = real_init_attr.srq->srq_context;
+	init_attr->send_cq    = real_init_attr.send_cq ?
+		real_init_attr.send_cq->cq_context : NULL;
+	init_attr->recv_cq    = real_init_attr.recv_cq ?
+		real_init_attr.recv_cq->cq_context : NULL;
+	init_attr->srq        = real_init_attr.srq ?
+		real_init_attr.srq->srq_context : NULL;
 	init_attr->qp_type    = real_init_attr.qp_type;
 	init_attr->cap        = real_init_attr.cap;
 	init_attr->sq_sig_all = real_init_attr.sq_sig_all;
