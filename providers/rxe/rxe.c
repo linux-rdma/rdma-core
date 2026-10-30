@@ -1658,14 +1658,19 @@ static int rxe_post_send(struct ibv_qp *ibqp,
 	int rc = 0;
 	int err;
 	struct rxe_qp *qp = to_rqp(ibqp);
-	struct rxe_wq *sq = &qp->sq;
+	struct rxe_wq *sq;
 
 	if (!bad_wr)
 		return EINVAL;
 
 	*bad_wr = NULL;
 
-	if (!sq || !wr_list || !sq->queue)
+	if (!qp)
+		return EINVAL;
+
+	sq = &qp->sq;
+
+	if (!wr_list || !sq->queue)
 		return EINVAL;
 
 	pthread_spin_lock(&sq->lock);
@@ -1692,14 +1697,19 @@ static int rxe_post_recv(struct ibv_qp *ibqp,
 {
 	int rc = 0;
 	struct rxe_qp *qp = to_rqp(ibqp);
-	struct rxe_wq *rq = &qp->rq;
+	struct rxe_wq *rq;
 
 	if (!bad_wr)
 		return EINVAL;
 
 	*bad_wr = NULL;
 
-	if (!rq || !recv_wr || !rq->queue)
+	if (!qp)
+		return EINVAL;
+
+	rq = &qp->rq;
+
+	if (!recv_wr || !rq->queue)
 		return EINVAL;
 
 	/* see C10-97.2.1 */
