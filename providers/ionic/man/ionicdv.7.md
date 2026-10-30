@@ -45,8 +45,19 @@ may also be enabled. Use **ionic_dv_pd_set_sqcmb**(3) and
 **ionic_dv_pd_set_rqcmb**(3) to configure CMB preferences on a protection
 domain before creating queues.
 
+## RCCL and RCQ
+
+Ionic devices support passing RCCL (RC Collective) flags and Reorder
+Completion Queue (RCQ) selection from userspace to firmware at QP creation
+time. RCCL flags control data, read fence, and receive offload capabilities
+on RC queue pairs. RCQ reorders out-of-order receive completions so that
+they are delivered to the application in order. Use
+**ionic_dv_create_qp_ex**(3) to create a QP with these ionic-specific
+attributes.
+
 # SEE ALSO
 
+**ionic_dv_create_qp_ex**(3),
 **ionic_dv_ctx_get_udma_count**(3),
 **ionic_dv_ctx_get_udma_mask**(3),
 **ionic_dv_pd_get_udma_mask**(3),

@@ -1,5 +1,6 @@
 rdma_man_pages(
   ionicdv.7.md
+  ionic_dv_create_qp_ex.3.md
   ionic_dv_ctx_get_udma_count.3.md
   ionic_dv_ctx_get_udma_mask.3.md
   ionic_dv_pd_get_udma_mask.3.md
