@@ -388,7 +388,6 @@ are used by the IB diagnostic and management tools, including OpenSM.
 %package -n     %rdmacm_lname
 Summary:        Userspace RDMA Connection Manager
 Group:          System/Libraries
-Requires:       %{name} = %{version}
 Provides:       librdmacm = %{version}
 Obsoletes:      librdmacm < %{version}
 
