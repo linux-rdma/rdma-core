@@ -2323,11 +2323,11 @@ static int bnxt_re_put_tx_sge(struct bnxt_re_queue *que, uint32_t *idx,
 	return len;
 }
 
-static inline int bnxt_re_calc_inline_len(struct ibv_send_wr *swr)
+static inline uint64_t bnxt_re_calc_inline_len(struct ibv_send_wr *swr)
 {
-	int illen, indx;
+	uint64_t illen = 0;
+	int indx;
 
-	illen = 0;
 	for (indx = 0; indx < swr->num_sge; indx++)
 		illen += swr->sg_list[indx].length;
 	return illen;
@@ -2342,8 +2342,8 @@ static int bnxt_re_put_inline(struct bnxt_re_queue *que, uint32_t *idx,
 	uint32_t n_slots, start_phys, slots_nowrap;
 	uint32_t sge_idx, sge_off;
 	int copied, cplen, len;
+	uint64_t t_len = 0;
 	int nowrap_bytes;
-	int t_len = 0;
 	void *il_dst;
 	int indx;
 
@@ -2414,7 +2414,7 @@ static int bnxt_re_required_slots(struct bnxt_re_qp *qp, struct ibv_send_wr *wr,
 				  uint32_t *wqe_sz, void **pbuf)
 {
 	uint32_t wqe_byte;
-	int ilsize;
+	uint64_t ilsize;
 
 	if (wr->send_flags & IBV_SEND_INLINE) {
 		ilsize = bnxt_re_calc_inline_len(wr);
@@ -2582,12 +2582,19 @@ int bnxt_re_post_send(struct ibv_qp *ibvqp, struct ibv_send_wr *wr,
 	bool ring_db = false;
 	uint8_t sig = 0;
 	uint32_t idx;
+	int nslots;
 
 	pthread_spin_lock(&sq->qlock);
 	while (wr) {
 
 		pbuf = NULL;
-		slots = bnxt_re_required_slots(qp, wr, &wqe_size, (void **)&pbuf);
+		nslots = bnxt_re_required_slots(qp, wr, &wqe_size, (void **)&pbuf);
+		if (unlikely(nslots < 0)) {
+			*bad = wr;
+			ret = -nslots;
+			goto bad_wr;
+		}
+		slots = nslots;
 		if (bnxt_re_is_que_full(sq, slots) ||
 		    wr->num_sge > qp->cap.max_ssge) {
 			*bad = wr;
