@@ -36,7 +36,7 @@ static char *expand(char *basename, char *args, int *str_cnt, int *str_size)
 {
 	char buf[256];
 	char *str_buf = NULL;
-	char *token, *tmp;
+	char *token, *tmp, *new_buf;
 	int from, to, width;
 	int size = 0, cnt = 0;
 
@@ -54,7 +54,14 @@ static char *expand(char *basename, char *args, int *str_cnt, int *str_size)
 
 		while (from <= to) {
 			snprintf(buf, sizeof buf, "%s%0*d", basename, width, from);
-			str_buf = realloc(str_buf, size + strlen(buf)+1);
+			new_buf = realloc(str_buf, size + strlen(buf)+1);
+			if (!new_buf) {
+				free(str_buf);
+				*str_size = 0;
+				*str_cnt = 0;
+				return NULL;
+			}
+			str_buf = new_buf;
 			strcpy(&str_buf[size], buf);
 
 			from++;
@@ -101,6 +108,8 @@ char **parse(const char *args, int *count)
 		cnt = 1;
 	} else {
 		str_buf = expand(cpy, next, &cnt, &str_size);
+		if (!str_buf)
+			goto out_cpy;
 	}
 
 	ptrs = malloc((sizeof str_buf * (cnt + 1)) + str_size);
