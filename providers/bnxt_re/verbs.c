@@ -688,14 +688,19 @@ static int bnxt_re_poll_err_rcqe(struct bnxt_re_qp *qp, struct ibv_wc *ibvwc,
 		cnt = swque->slots;
 	} else {
 		struct bnxt_re_srq *srq;
-		int tag;
+		uint32_t tag;
 
 		srq = qp->srq;
 		rq = srq->srqq;
 		cnt = 1;
 		tag = le32toh(hdr->qphi_rwrid) & BNXT_RE_BCQE_RWRID_MASK;
-		ibvwc->wr_id = srq->srwrid[tag].wrid;
-		bnxt_re_release_srqe(srq, tag);
+		/* tag is written by the device, do not trust it as an index */
+		if (likely(tag < rq->depth)) {
+			ibvwc->wr_id = srq->srwrid[tag].wrid;
+			bnxt_re_release_srqe(srq, tag);
+		} else {
+			ibvwc->wr_id = 0;
+		}
 	}
 
 	status = (le32toh(hdr->flg_st_typ_ph) >> BNXT_RE_BCQE_STATUS_SHIFT) &
@@ -752,6 +757,7 @@ static void bnxt_re_poll_success_rcqe(struct bnxt_re_qp *qp,
 	uint32_t rcqe_len;
 	uint32_t head = 0;
 	uint8_t cnt = 0;
+	bool bad_tag = false;
 
 	rcqe = cqe;
 	if (!qp->srq) {
@@ -762,17 +768,23 @@ static void bnxt_re_poll_success_rcqe(struct bnxt_re_qp *qp,
 		cnt = swque->slots;
 	} else {
 		struct bnxt_re_srq *srq;
-		int tag;
+		uint32_t tag;
 
 		srq = qp->srq;
 		rq = srq->srqq;
 		tag = le32toh(hdr->qphi_rwrid) & BNXT_RE_BCQE_RWRID_MASK;
-		ibvwc->wr_id = srq->srwrid[tag].wrid;
 		cnt = 1;
-		bnxt_re_release_srqe(srq, tag);
+		/* tag is written by the device, do not trust it as an index */
+		if (likely(tag < rq->depth)) {
+			ibvwc->wr_id = srq->srwrid[tag].wrid;
+			bnxt_re_release_srqe(srq, tag);
+		} else {
+			ibvwc->wr_id = 0;
+			bad_tag = true;
+		}
 	}
 
-	ibvwc->status = IBV_WC_SUCCESS;
+	ibvwc->status = bad_tag ? IBV_WC_GENERAL_ERR : IBV_WC_SUCCESS;
 	ibvwc->qp_num = qp->qpid;
 	rcqe_len = le32toh(rcqe->length);
 	ibvwc->byte_len = (qp_type == IBV_QPT_UD ||
