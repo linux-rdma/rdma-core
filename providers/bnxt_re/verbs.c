@@ -500,7 +500,8 @@ int bnxt_re_resize_cq(struct ibv_cq *ibvcq, int ncqe)
 	rc = ibv_cmd_resize_cq(ibvcq, ncqe, &cmd.ibv_cmd,
 			       sizeof(cmd), &resp, sizeof(resp));
 	if (rc) {
-		bnxt_re_free_mem(cq->mem);
+		bnxt_re_free_mem(cq->resize_mem);
+		cq->resize_mem = NULL;
 		goto done;
 	}
 
