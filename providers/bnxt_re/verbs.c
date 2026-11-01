@@ -2761,12 +2761,14 @@ int bnxt_re_post_recv(struct ibv_qp *ibvqp, struct ibv_recv_wr *wr,
 	return rc;
 }
 
-static size_t bnxt_re_get_srqmem_size(struct bnxt_re_context *cntx,
-				      struct ibv_srq_init_attr *attr,
-				      struct bnxt_re_qattr *qattr)
+static ssize_t bnxt_re_get_srqmem_size(struct bnxt_re_context *cntx,
+				       struct ibv_srq_init_attr *attr,
+				       struct bnxt_re_qattr *qattr)
 {
-	uint32_t stride, nswr;
-	size_t size = 0;
+	uint64_t stride, nswr, sz_ring, sz_shad, size;
+
+	if (attr->attr.max_wr > cntx->rdev->devattr.max_srq_wr)
+		return -EINVAL;
 
 	size = sizeof(struct bnxt_re_srq);
 	size += sizeof(struct bnxt_re_queue);
@@ -2776,15 +2778,17 @@ static size_t bnxt_re_get_srqmem_size(struct bnxt_re_context *cntx,
 
 	stride = bnxt_re_get_srqe_sz();
 
+	sz_ring = align(nswr * stride, cntx->rdev->pg_size);
+	sz_shad = nswr * sizeof(struct bnxt_re_wrid); /* shadow */
+	size += sz_ring + sz_shad;
+	if (nswr > INT32_MAX || size > INT32_MAX)
+		return -EINVAL;
+
 	qattr->nwr = nswr;
 	qattr->slots = nswr;
 	qattr->esize = stride;
-
-	qattr->sz_ring = align((nswr * stride), cntx->rdev->pg_size);
-	qattr->sz_shad = nswr * sizeof(struct bnxt_re_wrid); /* shadow */
-
-	size += qattr->sz_ring;
-	size += qattr->sz_shad;
+	qattr->sz_ring = sz_ring;
+	qattr->sz_shad = sz_shad;
 	return size;
 }
 
@@ -2792,9 +2796,13 @@ static void *bnxt_re_alloc_srqslab(struct bnxt_re_context *cntx,
 				   struct ibv_srq_init_attr *attr,
 				   struct bnxt_re_qattr *qattr)
 {
-	size_t bytes;
+	ssize_t bytes;
 
 	bytes = bnxt_re_get_srqmem_size(cntx, attr, qattr);
+	if (bytes < 0) {
+		errno = -bytes;
+		return NULL;
+	}
 	return bnxt_re_alloc_mem(bytes, cntx->rdev->pg_size);
 }
 
