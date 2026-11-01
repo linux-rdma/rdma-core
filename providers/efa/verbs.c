@@ -481,7 +481,10 @@ static uint32_t efa_wq_get_dev_req_id_locked(struct efa_wq *wq, uint64_t wr_id)
 	return efa_wq_get_next_wrid_idx_locked(wq, wr_id) | wq->shifted_gen;
 }
 
-static void efa_wq_cqe_finalize(struct efa_wq *wq, struct efa_io_cdesc_common *cqe)
+static inline void efa_wq_cqe_finalize(struct efa_wq *wq,
+				       struct efa_io_cdesc_common *cqe) ALWAYS_INLINE;
+static inline void efa_wq_cqe_finalize(struct efa_wq *wq,
+				       struct efa_io_cdesc_common *cqe)
 {
 	if (wq->need_lock)
 		pthread_spin_lock(&wq->wqlock);
