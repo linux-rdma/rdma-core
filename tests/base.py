@@ -158,7 +158,7 @@ class RDMATestCase(unittest.TestCase):
         dev = self.config['dev']
         self.dev_name = dev_name if dev_name else dev
         self.ib_port = ib_port if ib_port else self.config['port']
-        self.gid_index = gid_index if gid_index else self.config['gid']
+        self.gid_index = gid_index if gid_index is not None else self.config['gid']
         self.pkey_index = pkey_index
         self.gid_type = gid_type if gid_index is None else None
         self.ip_addr = None
