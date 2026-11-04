@@ -3,6 +3,7 @@
 
 import unittest
 import errno
+import os
 
 from pyverbs.pyverbs_error import PyverbsRDMAError
 from tests.base import RCResources, RDMATestCase
@@ -59,6 +60,8 @@ class DmabufCudaRes(RCResources):
             if ex.error_code == errno.EOPNOTSUPP:
                 raise unittest.SkipTest('Registering DMABUF with DmaBufMR is not supported')
             raise ex
+        finally:
+            os.close(dmabuf_fd)
 
     def create_qp_attr(self):
         qp_attr = QPAttr(port_num=self.ib_port)
@@ -75,9 +78,12 @@ class MRExDmabufCudaRes(DmabufCudaRes):
     @u.skip_unsupported
     def create_mr(self):
         dmabuf_fd = self.dmabuf_cuda_init()
-        self.mr = MREx(self.pd, self.msg_size, self.mr_access,
-                       comp_mask=ibv_mr_init_attr_mask.IBV_REG_MR_MASK_FD | \
-                       ibv_mr_init_attr_mask.IBV_REG_MR_MASK_IOVA, fd=dmabuf_fd, iova=0)
+        try:
+            self.mr = MREx(self.pd, self.msg_size, self.mr_access,
+                           comp_mask=ibv_mr_init_attr_mask.IBV_REG_MR_MASK_FD | \
+                           ibv_mr_init_attr_mask.IBV_REG_MR_MASK_IOVA, fd=dmabuf_fd, iova=0)
+        finally:
+            os.close(dmabuf_fd)
 
 
 @cu.set_mem_io_cuda_methods
@@ -86,7 +92,6 @@ class MRExDmabufDmaHCudaRes(DmabufCudaRes):
 
     @u.skip_unsupported
     def create_mr(self):
-        dmabuf_fd = self.dmabuf_cuda_init()
         try:
             attr = u.create_dmah_init_attr()
             dmah = DMAHandle(self.ctx, attr)
@@ -95,9 +100,13 @@ class MRExDmabufDmaHCudaRes(DmabufCudaRes):
                 raise unittest.SkipTest('DMAHandle is not supported')
             raise ex
 
-        self.mr = MREx(self.pd, self.msg_size, self.mr_access,
-                       comp_mask=ibv_mr_init_attr_mask.IBV_REG_MR_MASK_FD | \
-                       ibv_mr_init_attr_mask.IBV_REG_MR_MASK_IOVA, fd=dmabuf_fd, iova=0, dmah=dmah)
+        dmabuf_fd = self.dmabuf_cuda_init()
+        try:
+            self.mr = MREx(self.pd, self.msg_size, self.mr_access,
+                           comp_mask=ibv_mr_init_attr_mask.IBV_REG_MR_MASK_FD | \
+                           ibv_mr_init_attr_mask.IBV_REG_MR_MASK_IOVA, fd=dmabuf_fd, iova=0, dmah=dmah)
+        finally:
+            os.close(dmabuf_fd)
 
 @cu.set_init_cuda_methods
 class DmabufCudaTest(RDMATestCase):
