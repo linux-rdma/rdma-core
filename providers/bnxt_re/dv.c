@@ -145,9 +145,9 @@ static int bnxt_re_dv_create_cq_cmd(struct bnxt_re_dev *dev,
 
 	buf_addr = (uint8_t *)cq_buf->addr + offset;
 	cmd.cq_va = (uintptr_t)buf_addr;
-	fill_attr_in_buf_umem(driver_attrs, UVERBS_ATTR_CREATE_CQ_BUF_UMEM,
-			      &cq_buf_umem_desc, cq_buf,
-			      buf_addr, size);
+	fill_attr_in_buf_umem_va(driver_attrs, UVERBS_ATTR_CREATE_CQ_BUF_UMEM,
+				 &cq_buf_umem_desc, cq_buf,
+				 buf_addr, size);
 
 	cq_attr_ex.cqe = cq_attr->ncqe;
 	cq_attr_ex.comp_mask = 0;
@@ -304,9 +304,9 @@ bnxt_re_dv_create_qp_cmd(struct ibv_context *ibvctx,
 	req.sq_slots = dv_qp_attr->sq_slots;
 	req.sq_npsn = dv_qp_attr->sq_npsn;
 	buf_addr = (uint8_t *)sq_buf->addr + offset;
-	fill_attr_in_buf_umem(driver_attrs, UVERBS_ATTR_CREATE_QP_SQ_BUF_UMEM,
-			      &sq_buf_umem_desc, sq_buf,
-			      buf_addr, size);
+	fill_attr_in_buf_umem_va(driver_attrs, UVERBS_ATTR_CREATE_QP_SQ_BUF_UMEM,
+				 &sq_buf_umem_desc, sq_buf,
+				 buf_addr, size);
 	/* Keep qpsva as fallback for kernels without SQ_BUF_UMEM support */
 	req.qpsva = (uintptr_t)buf_addr;
 
@@ -319,10 +319,10 @@ bnxt_re_dv_create_qp_cmd(struct ibv_context *ibvctx,
 			return -EINVAL;
 
 		buf_addr = (uint8_t *)rq_buf->addr + offset;
-		fill_attr_in_buf_umem(driver_attrs,
-				      UVERBS_ATTR_CREATE_QP_RQ_BUF_UMEM,
-				      &rq_buf_umem_desc, rq_buf,
-				      buf_addr, size);
+		fill_attr_in_buf_umem_va(driver_attrs,
+					 UVERBS_ATTR_CREATE_QP_RQ_BUF_UMEM,
+					 &rq_buf_umem_desc, rq_buf,
+					 buf_addr, size);
 		/* Keep qprva as fallback for kernels without RQ_BUF_UMEM support */
 		req.qprva = (uintptr_t)buf_addr;
 	}
