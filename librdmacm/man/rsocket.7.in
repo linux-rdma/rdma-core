@@ -153,8 +153,6 @@ wake_up_interval - maximum number of milliseconds to block in poll.
 This value is used to safe guard against potential application hangs
 in rpoll().
 .P
-max_events - maximum number of events for the epoll thread to handle for an epoll_instance.
-.P
 All configuration files should contain a single integer value.  Values may
 be set by issuing a command similar to the following example.
 .P

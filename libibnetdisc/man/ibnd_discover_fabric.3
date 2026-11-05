@@ -1,65 +1,74 @@
 .TH IBND_DISCOVER_FABRIC 3  "July 25, 2008" "OpenIB" "OpenIB Programmer's Manual"
 .SH "NAME"
-ibnd_discover_fabric, ibnd_destroy_fabric, ibnd_debug ibnd_show_progress \- initialize ibnetdiscover library.
+ibnd_discover_fabric, ibnd_destroy_fabric \- initialize ibnetdiscover library.
 .SH "SYNOPSIS"
 .nf
 .B #include <infiniband/ibnetdisc.h>
 .sp
-.BI "ibnd_fabric_t *ibnd_discover_fabric(struct ibmad_port *ibmad_port, int timeout_ms, ib_portid_t *from, int hops)"
-.BI "void ibnd_destroy_fabric(ibnd_fabric_t *fabric)"
-.BI "void ibnd_debug(int i)"
-.BI "void ibnd_show_progress(int i)"
-.BI "int ibnd_set_max_smps_on_wire(int i)"
+.BI "ibnd_fabric_t *ibnd_discover_fabric(char " "*ca_name" ", int " "ca_port" ", ib_portid_t " "*from" ", struct ibnd_config " "*config)"
+.BI "void ibnd_destroy_fabric(ibnd_fabric_t " "*fabric)"
 .SH "DESCRIPTION"
 .B ibnd_discover_fabric()
-Discover the fabric connected to the port specified by ibmad_port, using a timeout specified.  The "from" and "hops" parameters are optional and allow one to scan part of a fabric by specifying a node "from" and a number of hops away from that node to scan, "hops".  This gives the user a "sub-fabric" which is "centered" anywhere they chose.
+Discover the fabric connected to the port specified by ca_name and ca_port.  The "from" parameter is optional and allows one to scan part of a fabric by specifying a node "from", giving the user a "sub-fabric" which is "centered" anywhere they chose.  The "config" parameter tunes the scan (see "struct ibnd_config" below).
 
-ibmad_port must be opened with at least IB_SMI_CLASS and IB_SMI_DIRECT_CLASS
-classes for ibnd_discover_fabric to work.
+ca_name and ca_port may be NULL/0, in which case a default CA and port are used.
+
+.TP
+.B struct ibnd_config
+Configuration which tunes the scan.  The following members are
+recognized (a value of 0 selects the library default):
+.RS
+.TP
+.B show_progress
+Indicate that the library should print debug output which shows
+its progress through the fabric.
+.TP
+.B max_smps
+Set the number of SMP's which will be issued on the wire simultaneously.
+.TP
+.B max_hops
+Limit the maximum number of hops scanned away from the "from" node.
+.TP
+.B timeout_ms
+Timeout in milliseconds used for each SMP request.
+.TP
+.B retries
+Number of retries for each SMP request.
+.TP
+.B mkey
+MKey used for SMP requests requiring authorization.
+.RE
 
 .B ibnd_destroy_fabric()
 free all memory and resources associated with the fabric.
-
-.B ibnd_debug()
-Set the debug level to be printed as library operations take place.
-
-.B ibnd_show_progress()
-Indicate that the library should print debug output which shows it's progress
-through the fabric.
-
-.B ibnd_set_max_smps_on_wire()
-Set the number of SMP's which will be issued on the wire simultaneously.
 
 .SH "RETURN VALUE"
 .B ibnd_discover_fabric()
 return NULL on failure, otherwise a valid ibnd_fabric_t object.
 
-.B ibnd_destory_fabric(), ibnd_debug()
+.B ibnd_destroy_fabric()
 NONE
-
-.B ibnd_set_max_smps_on_wire()
-The previous value is returned
 
 .SH "EXAMPLES"
 
 .B Discover the entire fabric connected to device "mthca0", port 1.
 
-	int mgmt_classes[2] = {IB_SMI_CLASS, IB_SMI_DIRECT_CLASS};
-	struct ibmad_port *ibmad_port = mad_rpc_open_port(ca, ca_port, mgmt_classes, 2);
-	ibnd_fabric_t *fabric = ibnd_discover_fabric(ibmad_port, 100, NULL, 0);
+	struct ibnd_config cfg = { 0 };
+	ibnd_fabric_t *fabric = ibnd_discover_fabric("mthca0", 1, NULL, &cfg);
 	...
 	ibnd_destroy_fabric(fabric);
-	mad_rpc_close_port(ibmad_port);
 
 .B Discover only a single node and those nodes connected to it.
 
+	struct ibnd_config cfg = { .max_hops = 1 };
+	ib_portid_t port_id = { 0 };
 	...
 	str2drpath(&(port_id.drpath), from, 0, 0);
 	...
-	ibnd_discover_fabric(ibmad_port, 100, &port_id, 1);
+	ibnd_discover_fabric("mthca0", 1, &port_id, &cfg);
 	...
 .SH "SEE ALSO"
-	libibmad, mad_rpc_open_port
+	libibmad, str2drpath
 .SH "AUTHORS"
 .TP
 Ira Weiny <weiny2@llnl.gov>

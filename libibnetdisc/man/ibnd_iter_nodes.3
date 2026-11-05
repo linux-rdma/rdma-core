@@ -5,8 +5,8 @@ ibnd_iter_nodes, ibnd_iter_nodes_type \- given a fabric object and a function it
 .nf
 .B #include <infiniband/ibnetdisc.h>
 .sp
-.BI "void ibnd_iter_nodes(ibnd_fabric_t *fabric, ibnd_iter_func_t func, void *user_data)"
-.BI "void ibnd_iter_nodes_type(ibnd_fabric_t *fabric, ibnd_iter_func_t func, ibnd_node_type_t type, void *user_data)"
+.BI "void ibnd_iter_nodes(ibnd_fabric_t *fabric, ibnd_iter_node_func_t func, void *user_data)"
+.BI "void ibnd_iter_nodes_type(ibnd_fabric_t *fabric, ibnd_iter_node_func_t func, int node_type, void *user_data)"
 .SH "DESCRIPTION"
 .B ibnd_iter_nodes()
 Itterate through all the nodes in the fabric and call "func" on them.

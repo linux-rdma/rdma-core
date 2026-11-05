@@ -149,24 +149,24 @@ The following members of the esp_attr are used only in full offload mode:
 
 *spi*
 :	The value for the ESP Security Parameters Index.
-	It is only used for *IB_UVERBS_FLOW_ACTION_ESP_FLAGS_FULL_OFFLAOD*.
+	It is only used for *IB_UVERBS_FLOW_ACTION_ESP_FLAGS_FULL_OFFLOAD*.
 
 *seq*
 :	The initial 32 lower bytes of the sequence number.
 	This is the value of the ESP sequence number.
-	It is only used for *IB_UVERBS_FLOW_ACTION_ESP_FLAGS_FULL_OFFLAOD*.
+	It is only used for *IB_UVERBS_FLOW_ACTION_ESP_FLAGS_FULL_OFFLOAD*.
 
 *tfc_pad*
 :	The length of Traffic Flow Confidentiality Padding as specified by
 	RFC4303. If it is set to zero no additional padding is added.
-	It is only used for *IB_UVERBS_FLOW_ACTION_ESP_FLAGS_FULL_OFFLAOD*. 
+	It is only used for *IB_UVERBS_FLOW_ACTION_ESP_FLAGS_FULL_OFFLOAD*.
 
 *hard_limit_pkts*
 : 	The hard lifetime of the SA measured in number of packets.
 	As specified by RFC4301.
 	After this limit is reached the action will drop future packets
 	to prevent breaking the crypto.
-	It is only used for *IB_UVERBS_FLOW_ACTION_ESP_FLAGS_FULL_OFFLAOD*. 
+	It is only used for *IB_UVERBS_FLOW_ACTION_ESP_FLAGS_FULL_OFFLOAD*.
 
 ## Inline Crypto Mode
 
@@ -239,16 +239,16 @@ This mechanism is controlled by the *esp_attr* flag:
 	Setting this flag indicates that the bottom of the replay window is
 	between 2^31 - 2^32.
 
-## Key Material for AES GCM (*IBV_ACTION_ESP_KEYMAT_AES_GCM*)
+## Key Material for AES GCM (*IBV_FLOW_ACTION_ESP_KEYMAT_AES_GCM*)
 
 The AES GCM crypto algorithm as defined by RFC4106. This struct is to be
 provided in *keymat_ptr* when *keymat_proto* is set to
-*IBV_ACTION_ESP_KEYMAT_AES_GCM*.
+*IBV_FLOW_ACTION_ESP_KEYMAT_AES_GCM*.
 
 ```c
-struct ibv_flow_action_esp_aes_keymat_aes_gcm {
+struct ib_uverbs_flow_action_esp_keymat_aes_gcm {
 	uint64_t   iv;
-	uint32_t   iv_algo; /* Use enum ib_uverbs_flow_action_esp_aes_gcm_keymat_iv_algo */
+	uint32_t   iv_algo; /* Use enum ib_uverbs_flow_action_esp_keymat_aes_gcm_iv_algo */
 
 	uint32_t   salt;
 	uint32_t   icv_len;
@@ -293,15 +293,15 @@ of *size* sequence numbers. If a newer sequence number is received, then the
 bitmap will shift to represent this as in RFC6479.  The replay window cannot
 shift more than 2^31 sequence numbers forward.
 
-This struct is to be provided in *replay_ptr* when *reply_proto* is set to
-*IBV_FLOW_ACTION_ESP_REPLAY_BMP*. In this mode reply_ptr and reply_len should
+This struct is to be provided in *replay_ptr* when *replay_proto* is set to
+*IBV_FLOW_ACTION_ESP_REPLAY_BMP*. In this mode replay_ptr and replay_len should
 point to a struct ibv_flow_action_esp_replay_bmp containing:
 	*size*
 :	The size of the bitmap.
 
 ## ESP Encapsulation
 
-An *esp_encap* specification is required when *eps_attr* flags
+An *esp_encap* specification is required when *esp_attr* flags
 *IB_UVERBS_FLOW_ACTION_ESP_FLAGS_TUNNEL* is set. It is used to provide the fields
 for the encapsulation header that is added/removed to/from packets.
 Tunnel and Transport mode are defined as in RFC4301.
@@ -327,12 +327,12 @@ The header should be selected from a supported header in 'enum ibv_flow_spec_typ
 Upon success *ibv_create_flow_action_esp* will return a new *struct
 ibv_flow_action* object, on error NULL will be returned and errno will be set.
 
-Upon success *ibv_modify_action_esp* will return 0. On error the value of
-errno will be returned. If ibv_modify_flow_action fails, it is guaranteed that
+Upon success *ibv_modify_flow_action_esp* will return 0. On error the value of
+errno will be returned. If ibv_modify_flow_action_esp fails, it is guaranteed that
 the last action still holds. If it succeeds, there is a point in the future
 where the old action is applied on all packets until this point and the new
 one is applied on all packets from this point and on.
 
 # SEE ALSO
 
-*ibv_create_flow(3)*,  *ibv_destroy_action(3)*, *RFC 4106*
+*ibv_create_flow(3)*,  *ibv_destroy_flow_action(3)*, *RFC 4106*

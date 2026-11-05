@@ -8,7 +8,7 @@ rdma_post_sendv \- post a work request to send a message.
 .B "int" rdma_post_sendv
 .BI "(struct rdma_cm_id *" id ","
 .BI "void *" context ","
-.BI "struct ibv_sge *" slg ","
+.BI "struct ibv_sge *" sgl ","
 .BI "int " nsge ","
 .BI "int " flags ");"
 .SH ARGUMENTS
@@ -17,10 +17,10 @@ A reference to a communication identifier where the message buffer
 will be posted.
 .IP "context" 12
 User-defined context associated with the request.
-.IP "slg" 12
+.IP "sgl" 12
 A scatter-gather list of memory buffers posted as a single request.
 .IP "nsge" 12
-The number of scatter-gather entries in the slg array.
+The number of scatter-gather entries in the sgl array.
 .IP "flags" 12
 Optional flags used to control the send operation.
 .SH "DESCRIPTION"

@@ -24,7 +24,7 @@ void umad_free_ca_device_list(struct umad_device_node *head);
 # DESCRIPTION
 
 **umad_free_ca_device_list()** frees the *struct umad_device_node*
-list and its values that allocated with umad_get_ca_namelist().
+list and its values that allocated with umad_get_ca_device_list().
 The argument head is list of *struct umad_device_node* filled with
 local IB devices(CAs) names.
 

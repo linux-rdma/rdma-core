@@ -48,15 +48,15 @@ uint32_t	       phys_port_cnt_ex		   /* Extended number of physical port count, 
 };
 
 struct ibv_odp_caps {
-        uint64_t general_odp_caps;    /* Mask with enum ibv_odp_general_cap_bits */
+        uint64_t general_caps;        /* Mask with enum ibv_odp_general_caps */
         struct {
-                uint32_t rc_odp_caps; /* Mask with enum ibv_odp_tranport_cap_bits to know which operations are supported. */
-                uint32_t uc_odp_caps; /* Mask with enum ibv_odp_tranport_cap_bits to know which operations are supported. */
-                uint32_t ud_odp_caps; /* Mask with enum ibv_odp_tranport_cap_bits to know which operations are supported. */
+                uint32_t rc_odp_caps; /* Mask with enum ibv_odp_transport_cap_bits to know which operations are supported. */
+                uint32_t uc_odp_caps; /* Mask with enum ibv_odp_transport_cap_bits to know which operations are supported. */
+                uint32_t ud_odp_caps; /* Mask with enum ibv_odp_transport_cap_bits to know which operations are supported. */
         } per_transport_caps;
 };
 
-enum ibv_odp_general_cap_bits {
+enum ibv_odp_general_caps {
         IBV_ODP_SUPPORT = 1 << 0, /* On demand paging is supported */
         IBV_ODP_SUPPORT_IMPLICIT = 1 << 1, /* Implicit on demand paging is supported */
 };
