@@ -697,8 +697,8 @@ cdef class Mlx5DVContext(PyverbsObject):
                print_format.format('DC ODP caps', self.dv.dc_odp_caps) +\
                print_format.format('Num LAG ports', self.dv.num_lag_ports) +\
                print_format.format('Max WR memcpy length', self.dv.max_wr_memcpy_length) +\
-               print_format.format('Max DC Read Atomic', self.dv.max_dc_rd_atomic) +\
-               print_format.format('Max DC Init Read Atomic', self.dv.max_dc_init_rd_atomic)
+               print_format.format('Max DC Read Atomic', self.dv.max_dc_rd_atom) +\
+               print_format.format('Max DC Init Read Atomic', self.dv.max_dc_init_rd_atom)
 
 
 cdef class Mlx5DCIStreamInitAttr(PyverbsObject):
