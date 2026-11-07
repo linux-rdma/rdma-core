@@ -304,7 +304,7 @@ static void hns_roce_update_sq_db(struct hns_roce_context *ctx,
 
 static void hns_roce_write512(uint64_t *dest, uint64_t *val)
 {
-	mmio_memcpy_x64(dest, val, sizeof(struct hns_roce_rc_sq_wqe));
+	mmio_memcpy_x64(dest, val, 1 << HNS_ROCE_SQWQE_SHIFT);
 }
 
 static void hns_roce_write_dwqe(struct hns_roce_qp *qp, void *wqe)
