@@ -227,7 +227,7 @@ static inline void _mmio_memcpy_x64(void *dest, const void *src, size_t bytecnt)
 
 #define mmio_memcpy_x64(dest, src, bytecount)                                  \
 	({                                                                     \
-		if (__builtin_constant_p((bytecount) == 64))                   \
+		if (__builtin_constant_p(bytecount) && (bytecount) == 64)      \
 			_mmio_memcpy_x64_64b((dest), (src));                   \
 		else                                                           \
 			_mmio_memcpy_x64((dest), (src), (bytecount));          \
