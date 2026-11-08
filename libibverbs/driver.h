@@ -873,32 +873,53 @@ static inline void ibv_initialize_parent_domain(struct ibv_pd *parent_domain,
 }
 
 /**
- * In case the length is 0, the buffer size is used. Handles both
- * dmabuf-backed and plain user virtual address buffers.
+ * In case the length is 0, the buffer size is used.
  */
 static inline void
 fill_attr_in_buf_umem(struct ibv_command_buffer *cmdb, uint16_t attr_id,
 		      struct ib_uverbs_buffer_desc *storage,
 		      struct ibv_buf *buf, void *addr, size_t length)
 {
+	if (!buf || buf->dmabuf_fd == -1)
+		return;
+
+	*storage = (struct ib_uverbs_buffer_desc){
+		.type	= IB_UVERBS_BUFFER_TYPE_DMABUF,
+		.fd	= buf->dmabuf_fd,
+		.addr	= addr ? (uintptr_t)addr - (uintptr_t)buf->addr : 0,
+		.length	= length ? length : buf->size,
+	};
+	fill_attr_in_ptr(cmdb, attr_id, storage);
+	cmdb->fallback_ioctl_only = 1;
+}
+
+/**
+ * Like fill_attr_in_buf_umem(), but also describes plain user virtual
+ * address buffers (IB_UVERBS_BUFFER_TYPE_VA). The attribute is always added
+ * and is mandatory, so only use it where the caller requires UMEM attribute
+ * support from the kernel (e.g. direct verbs), never on generic paths.
+ * In case the length is 0, the buffer size is used.
+ */
+static inline void
+fill_attr_in_buf_umem_va(struct ibv_command_buffer *cmdb, uint16_t attr_id,
+			 struct ib_uverbs_buffer_desc *storage,
+			 struct ibv_buf *buf, void *addr, size_t length)
+{
 	if (!buf)
 		return;
 
 	if (buf->dmabuf_fd != -1) {
-		*storage = (struct ib_uverbs_buffer_desc){
-			.type	= IB_UVERBS_BUFFER_TYPE_DMABUF,
-			.fd	= buf->dmabuf_fd,
-			.addr	= addr ? (uintptr_t)addr - (uintptr_t)buf->addr : 0,
-			.length	= length ? length : buf->size,
-		};
-	} else {
-		*storage = (struct ib_uverbs_buffer_desc){
-			.type	= IB_UVERBS_BUFFER_TYPE_VA,
-			.fd	= -1,
-			.addr	= (uintptr_t)(addr ? addr : buf->addr),
-			.length	= length ? length : buf->size,
-		};
+		fill_attr_in_buf_umem(cmdb, attr_id, storage, buf, addr,
+				      length);
+		return;
 	}
+
+	*storage = (struct ib_uverbs_buffer_desc){
+		.type	= IB_UVERBS_BUFFER_TYPE_VA,
+		.fd	= -1,
+		.addr	= (uintptr_t)(addr ? addr : buf->addr),
+		.length	= length ? length : buf->size,
+	};
 	fill_attr_in_ptr(cmdb, attr_id, storage);
 	cmdb->fallback_ioctl_only = 1;
 }
