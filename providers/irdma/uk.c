@@ -1257,6 +1257,17 @@ void irdma_uk_cq_request_notification(struct irdma_cq_uk *cq,
 }
 
 /**
+ * irdma_srq_release_wqe - release an SRQ WQE
+ * @srq: SRQ
+ */
+static void irdma_srq_release_wqe(struct irdma_srq_uk *srq)
+{
+	pthread_spin_lock(srq->lock);
+	IRDMA_RING_MOVE_TAIL(srq->srq_ring);
+	pthread_spin_unlock(srq->lock);
+}
+
+/**
  * irdma_uk_cq_poll_cmpl - get cq completion info
  * @cq: hw cq
  * @info: cq poll information returned
@@ -1421,7 +1432,8 @@ int irdma_uk_cq_poll_cmpl(struct irdma_cq_uk *cq,
 		} else {
 			info->stag_invalid_set = false;
 		}
-		IRDMA_RING_MOVE_TAIL(srq->srq_ring);
+
+		irdma_srq_release_wqe(srq);
 		pring = &srq->srq_ring;
 	} else if (info->q_type == IRDMA_CQE_QTYPE_RQ && !is_srq) {
 		__u32 array_idx;

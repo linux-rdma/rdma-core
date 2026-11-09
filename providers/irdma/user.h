@@ -471,6 +471,7 @@ struct irdma_srq_uk {
 	__u8 wqe_size;
 	__u8 wqe_size_multiplier;
 	__u8 deferred_flag;
+	pthread_spinlock_t *lock;
 };
 
 struct irdma_srq_uk_init_info {
