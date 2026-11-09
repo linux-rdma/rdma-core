@@ -1559,6 +1559,12 @@ struct ibv_qp *irdma_ucreate_qp(struct ibv_pd *pd,
 	info.max_rq_frag_cnt = attr->cap.max_recv_sge;
 	info.max_inline_data = attr->cap.max_inline_data;
 	info.abi_ver = iwvctx->abi_ver;
+	if (uk_attrs->hw_rev >= IRDMA_GEN_3) {
+		if (attr->qp_type == IBV_QPT_UD)
+			info.type = IRDMA_QP_TYPE_ROCE_UD;
+		else
+			info.type = IRDMA_QP_TYPE_ROCE_RC;
+	}
 
 	status = irdma_uk_calc_depth_shift_sq(&info, &info.sq_depth, &info.sq_shift);
 	if (status) {
@@ -1946,7 +1952,10 @@ int irdma_upost_send(struct ibv_qp *ib_qp, struct ibv_send_wr *ib_wr,
 			err = irdma_uk_rdma_read(&iwuqp->qp, &info, false, false);
 			break;
 		case IBV_WR_BIND_MW:
-			if (ib_qp->qp_type != IBV_QPT_RC) {
+			if (ib_qp->qp_type != IBV_QPT_RC ||
+			    (ib_wr->bind_mw.mw->type == IBV_MW_TYPE_1 &&
+			     ib_wr->bind_mw.bind_info.mw_access_flags &
+			     IBV_ACCESS_ZERO_BASED)) {
 				err = EINVAL;
 				break;
 			}
