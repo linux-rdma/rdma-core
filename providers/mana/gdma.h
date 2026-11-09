@@ -17,6 +17,9 @@
 
 #define GDMA_COMP_DATA_SIZE 60
 
+#define GDMA_MAX_SQE_SIZE 512
+#define GDMA_MAX_RQE_SIZE 256
+
 #define IB_SYNDROME_ACK(credits) (0x00 + (credits))
 #define IB_SYNDROME_RNR_NAK(timer) (0x20 + (timer))
 #define IB_SYNDROME_NAK(code) (0x60 + (code))
@@ -228,6 +231,145 @@ struct gdma_cqe {
 	uint32_t reserved	: 4;
 	uint32_t owner_bits	: 3;
 }; /* HW DATA */
+
+/* Ethernet (raw packet) descriptors. Mirrors include/net/mana/mana.h. */
+
+/* A vport offset above this must use the long packet format. */
+#define MANA_SHORT_VPORT_OFFSET_MAX ((1U << 8) - 1)
+
+/* vsq_frame is the [23:10] slice of the send queue id. */
+#define MANA_VSQ_FRAME(sqid) (((sqid) >> 10) & 0x3fff)
+
+#define MANA_RXCOMP_OOB_NUM_PPI 4
+
+enum mana_tx_pkt_format {
+	MANA_SHORT_PKT_FMT	= 0,
+	MANA_LONG_PKT_FMT	= 1,
+};
+
+struct mana_tx_short_oob {
+	uint32_t pkt_fmt		: 2;
+	uint32_t is_outer_ipv4		: 1;
+	uint32_t is_outer_ipv6		: 1;
+	uint32_t comp_iphdr_csum	: 1;
+	uint32_t comp_tcp_csum		: 1;
+	uint32_t comp_udp_csum		: 1;
+	uint32_t supress_txcqe_gen	: 1;
+	uint32_t vcq_num		: 24;
+
+	uint32_t trans_off		: 10;
+	uint32_t vsq_frame		: 14;
+	uint32_t short_vp_offset	: 8;
+}; /* HW DATA */
+
+struct mana_tx_long_oob {
+	uint32_t is_encap		: 1;
+	uint32_t inner_is_ipv6		: 1;
+	uint32_t inner_tcp_opt		: 1;
+	uint32_t inject_vlan_pri_tag	: 1;
+	uint32_t reserved1		: 12;
+	uint32_t pcp			: 3;
+	uint32_t dei			: 1;
+	uint32_t vlan_id		: 12;
+
+	uint32_t inner_frame_offset	: 10;
+	uint32_t inner_ip_rel_offset	: 6;
+	uint32_t long_vp_offset		: 12;
+	uint32_t reserved2		: 4;
+
+	uint32_t reserved3;
+	uint32_t reserved4;
+}; /* HW DATA */
+
+struct mana_tx_oob {
+	struct mana_tx_short_oob s_oob;
+	struct mana_tx_long_oob l_oob;
+}; /* HW DATA */
+
+/* Sizes match INLINE_OOB_SMALL_SIZE and INLINE_OOB_LARGE_SIZE. */
+static_assert(sizeof(struct mana_tx_short_oob) == 8, "bad size");
+static_assert(sizeof(struct mana_tx_oob) == 24, "bad size");
+
+enum mana_cqe_type {
+	CQE_RX_OKAY			= 1,
+	CQE_RX_COALESCED_4		= 2,
+	CQE_RX_OBJECT_FENCE		= 3,
+	CQE_RX_TRUNCATED		= 4,
+	CQE_RX_COALESCED_8		= 7,
+
+	CQE_TX_OKAY			= 32,
+	CQE_TX_SA_DROP			= 33,
+	CQE_TX_MTU_DROP			= 34,
+	CQE_TX_INVALID_OOB		= 35,
+	CQE_TX_INVALID_ETH_TYPE		= 36,
+	CQE_TX_HDR_PROCESSING_ERROR	= 37,
+	CQE_TX_VF_DISABLED		= 38,
+	CQE_TX_VPORT_IDX_OUT_OF_RANGE	= 39,
+	CQE_TX_VPORT_DISABLED		= 40,
+	CQE_TX_VLAN_TAGGING_VIOLATION	= 41,
+}; /* HW DATA */
+
+struct mana_cqe_header {
+	uint32_t cqe_type	: 6;
+	uint32_t client_type	: 2;
+	uint32_t vendor_err	: 24;
+}; /* HW DATA */
+
+union mana_rxcomp_perpkt_info {
+	struct {
+		uint16_t pkt_len;
+		uint16_t reserved1;
+		uint32_t reserved2;
+		uint32_t pkt_hash;
+	};
+
+	struct {
+		uint32_t pkt_hash0;
+		uint16_t pkt_len0;
+		uint16_t pkt_len1;
+		uint32_t pkt_hash1;
+	};
+}; /* HW DATA */
+
+/* Identifies the completed request by its WQE start, in 32-byte units masked by
+ * GDMA_QUEUE_OFFSET_MASK. Not a ring slot index.
+ */
+struct mana_tx_comp_oob {
+	struct mana_cqe_header cqe_hdr;
+
+	uint32_t tx_data_offset;
+
+	uint32_t tx_sgl_offset		: 5;
+	uint32_t tx_wqe_offset		: 27;
+
+	uint32_t reserved[12];
+}; /* HW DATA */
+
+static_assert(sizeof(struct mana_tx_comp_oob) == GDMA_COMP_DATA_SIZE, "bad size");
+
+struct mana_rxcomp_oob {
+	struct mana_cqe_header cqe_hdr;
+
+	uint32_t rx_vlan_id			: 12;
+	uint32_t rx_vlantag_present		: 1;
+	uint32_t rx_outer_iphdr_csum_succeed	: 1;
+	uint32_t rx_outer_iphdr_csum_fail	: 1;
+	uint32_t reserved1			: 1;
+	uint32_t rx_hashtype			: 9;
+	uint32_t rx_iphdr_csum_succeed		: 1;
+	uint32_t rx_iphdr_csum_fail		: 1;
+	uint32_t rx_tcp_csum_succeed		: 1;
+	uint32_t rx_tcp_csum_fail		: 1;
+	uint32_t rx_udp_csum_succeed		: 1;
+	uint32_t rx_udp_csum_fail		: 1;
+	uint32_t reserved2			: 1;
+
+	union mana_rxcomp_perpkt_info ppi[MANA_RXCOMP_OOB_NUM_PPI];
+
+	uint32_t rx_wqe_offset;
+}; /* HW DATA */
+
+static_assert(sizeof(struct mana_rxcomp_oob) == GDMA_COMP_DATA_SIZE, "bad size");
 
 enum mana_error_code {
 	VENDOR_ERR_OK					= 0x0,

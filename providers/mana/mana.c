@@ -88,6 +88,32 @@ void destroy_shadow_queue(struct shadow_queue *queue)
 	queue->buffer = NULL;
 }
 
+/* Queue rings come from the manadv_ctx_allocators when the application set
+ * them, and from libmana otherwise. The caller keeps *external for the free.
+ */
+void *mana_alloc_buf(struct mana_context *ctx, size_t size, bool *external)
+{
+	*external = ctx->extern_alloc.alloc && ctx->extern_alloc.free;
+	if (!size)
+		return NULL;
+
+	if (*external)
+		return ctx->extern_alloc.alloc(size, ctx->extern_alloc.data);
+
+	return mana_alloc_mem(size);
+}
+
+void mana_free_buf(struct mana_context *ctx, void *buf, size_t size, bool external)
+{
+	if (!buf)
+		return;
+
+	if (external)
+		ctx->extern_alloc.free(buf, ctx->extern_alloc.data);
+	else
+		mana_dealloc_mem(buf, size);
+}
+
 int mana_query_device_ex(struct ibv_context *context,
 			 const struct ibv_query_device_ex_input *input,
 			 struct ibv_device_attr_ex *attr, size_t attr_size)
@@ -476,6 +502,7 @@ static struct verbs_context *mana_alloc_context(struct ibv_device *ibdev,
 	int ret, i;
 	struct mana_context *context;
 	struct mana_alloc_ucontext_resp resp = {};
+	struct ibv_device_attr_ex attr = {};
 	struct ibv_get_context cmd;
 
 	context = verbs_init_and_alloc_context(ibdev, cmd_fd, context, ibv_ctx,
@@ -494,6 +521,9 @@ static struct verbs_context *mana_alloc_context(struct ibv_device *ibdev,
 	context->comp_mask = resp.drv_payload.comp_mask;
 
 	verbs_set_ops(&context->ibv_ctx, &mana_ctx_ops);
+
+	if (!mana_query_device_ex(&context->ibv_ctx.context, NULL, &attr, sizeof(attr)))
+		context->part_id = attr.orig_attr.vendor_part_id;
 
 	pthread_mutex_init(&context->qp_table_mutex, NULL);
 	for (i = 0; i < MANA_QP_TABLE_SIZE; ++i) {

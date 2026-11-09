@@ -94,6 +94,8 @@ struct mana_context {
 
 	struct manadv_ctx_allocators extern_alloc;
 	void *db_page;
+	/* vendor_part_id, or 0 from kernels before the RNIC/Ethernet split */
+	uint32_t part_id;
 };
 
 struct mana_rwq_ind_table {
@@ -113,12 +115,17 @@ struct mana_gdma_queue {
 	void *buffer;
 };
 
+#define MANA_INVALID_QUEUE_ID UINT32_MAX
+
+/* vendor_part_id of the Ethernet-only device (manae_N), since the split */
+#define MANA_PART_ID_ETH 2
+
 struct mana_ib_raw_qp {
-	void *send_buf;
-	uint32_t send_buf_size;
+	struct mana_gdma_queue sq;
 	int send_wqe_count;
-	uint32_t sqid;
 	uint32_t tx_vp_offset;
+	/* RSS QPs only: the kernel destroys the WQs' receive queues with it */
+	struct mana_rwq_ind_table *ind_tbl;
 };
 
 struct mana_ib_rnic_qp {
@@ -140,6 +147,8 @@ struct mana_qp {
 	int sq_sig_all;
 	/* Requester SQ carries a software rollback region */
 	bool rollback_sq;
+	/* Queue buffers came from the manadv_ctx_allocators */
+	bool buf_external;
 
 	struct shadow_queue shadow_rq;
 	struct shadow_queue shadow_sq;
@@ -168,13 +177,13 @@ static inline struct mana_gdma_queue *mana_ib_get_sreq(struct mana_qp *qp)
 struct mana_wq {
 	struct ibv_wq ibwq;
 
-	void *buf;
-	uint32_t buf_size;
-
 	uint32_t wqe;
 	uint32_t sge;
 
-	uint32_t wqid;
+	struct mana_gdma_queue rq;
+	struct shadow_queue shadow;
+	pthread_spinlock_t lock;
+	bool buf_external;
 };
 
 struct mana_cq {
@@ -182,6 +191,10 @@ struct mana_cq {
 	uint32_t cqe;
 	uint32_t cqid;
 	void *buf;
+
+	/* Owner of a raw CQ, at most one of them; see mana_cq_set_owner() */
+	struct mana_qp *raw_qp;
+	struct mana_wq *raw_wq;
 
 	pthread_spinlock_t lock;
 	uint32_t head;
@@ -213,6 +226,9 @@ struct mana_context *to_mctx(struct ibv_context *ibctx);
 
 void *mana_alloc_mem(size_t size);
 void mana_dealloc_mem(void *buf, size_t size);
+
+void *mana_alloc_buf(struct mana_context *ctx, size_t size, bool *external);
+void mana_free_buf(struct mana_context *ctx, void *buf, size_t size, bool external);
 
 int mana_query_device_ex(struct ibv_context *context,
 			 const struct ibv_query_device_ex_input *input,
@@ -284,4 +300,9 @@ int mana_arm_cq(struct ibv_cq *ibcq, int solicited);
 struct mana_qp *mana_get_qp(struct mana_context *ctx, uint32_t qpn, bool is_sq);
 
 void mana_qp_move_flush_err(struct ibv_qp *ibqp);
+
+int mana_post_wq_recv(struct ibv_wq *ibwq, struct ibv_recv_wr *wr,
+		      struct ibv_recv_wr **bad);
+
+void mana_cq_set_owner(struct ibv_cq *ibcq, struct mana_qp *qp, struct mana_wq *wq);
 #endif

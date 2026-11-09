@@ -199,6 +199,183 @@ int mana_post_recv(struct ibv_qp *ibqp, struct ibv_recv_wr *wr,
 	}
 }
 
+/* Raw packet queues carry whole Ethernet frames and complete in order, so a
+ * FIFO of posted work requests is enough to build the completions.
+ */
+static void mana_raw_track_wqe(struct shadow_queue *shadow_queue, uint64_t wr_id,
+			       enum ibv_wc_opcode opcode, uint64_t flags,
+			       const struct gdma_wqe *wqe)
+{
+	struct shadow_wqe_header *shadow = shadow_queue_producer_entry(shadow_queue);
+
+	memset(shadow, 0, sizeof(*shadow));
+	shadow->opcode = opcode;
+	shadow->wr_id = wr_id;
+	shadow->flags = flags;
+	shadow->posted_wqe_size_in_bu = wqe->size_in_bu;
+	shadow->unmasked_queue_offset = wqe->unmasked_wqe_index;
+	shadow_queue_advance_producer(shadow_queue);
+}
+
+static int mana_raw_post_send_one(struct mana_qp *qp, struct ibv_send_wr *wr)
+{
+	struct mana_cq *cq = container_of(qp->ibqp.qp.send_cq, struct mana_cq, ibcq);
+	bool signaled = (wr->send_flags & IBV_SEND_SIGNALED) || qp->sq_sig_all;
+	struct mana_gdma_queue *sq = &qp->raw_qp.sq;
+	struct mana_tx_oob oob = {};
+	uint32_t oob_size, wqe_size;
+	struct gdma_wqe wqe = {};
+	int ret;
+
+	if (wr->opcode != IBV_WR_SEND || wr->num_sge < 1)
+		return EINVAL;
+
+	/* Offloads need metadata that ibv_send_wr does not carry. The device has
+	 * no protocol auto-detect, and recovering it by reading the frame is not
+	 * open to the provider: an SGE may be zero-based or in memory the CPU
+	 * cannot map. A send attribute has to supply it instead.
+	 */
+	if (wr->send_flags & ~(unsigned int)IBV_SEND_SIGNALED)
+		return EOPNOTSUPP;
+
+	oob.s_oob.vcq_num = cq->cqid;
+	oob.s_oob.vsq_frame = MANA_VSQ_FRAME(sq->id);
+	oob.s_oob.supress_txcqe_gen = !signaled;
+
+	if (qp->raw_qp.tx_vp_offset > MANA_SHORT_VPORT_OFFSET_MAX) {
+		oob.s_oob.pkt_fmt = MANA_LONG_PKT_FMT;
+		oob.l_oob.long_vp_offset = qp->raw_qp.tx_vp_offset;
+		oob_size = INLINE_OOB_LARGE_SIZE;
+	} else {
+		oob.s_oob.pkt_fmt = MANA_SHORT_PKT_FMT;
+		oob.s_oob.short_vp_offset = qp->raw_qp.tx_vp_offset;
+		oob_size = INLINE_OOB_SMALL_SIZE;
+	}
+
+	wqe_size = align(DMA_OOB_SIZE + oob_size + wr->num_sge * SGE_SIZE,
+			 GDMA_WQE_ALIGNMENT_UNIT_SIZE);
+	if (wqe_size > GDMA_MAX_SQE_SIZE)
+		return EINVAL;
+
+	ret = gdma_get_current_wqe(sq, oob_size, wqe_size, &wqe);
+	if (ret)
+		return ret;
+
+	wqe.gdma_oob->tx.num_sgl_entries = wr->num_sge;
+	wqe.gdma_oob->tx.inline_client_oob_size = oob_size / sizeof(uint32_t);
+	memcpy(wqe.client_oob, &oob, oob_size);
+
+	gdma_write_sge(&wqe, NULL, wr->sg_list, wr->num_sge);
+	gdma_advance_producer(sq, wqe.size_in_bu);
+
+	mana_raw_track_wqe(&qp->shadow_sq, wr->wr_id, IBV_WC_SEND,
+			   signaled ? 0 : MANA_NO_SIGNAL_WC, &wqe);
+	return 0;
+}
+
+static int mana_raw_post_send(struct ibv_qp *ibqp, struct ibv_send_wr *wr,
+			      struct ibv_send_wr **bad)
+{
+	struct mana_qp *qp = container_of(ibqp, struct mana_qp, ibqp.qp);
+	bool ring = false;
+	int ret = 0;
+
+	pthread_spin_lock(&qp->sq_lock);
+
+	for (; wr; wr = wr->next) {
+		if (shadow_queue_full(&qp->shadow_sq)) {
+			ret = ENOMEM;
+			break;
+		}
+
+		ret = mana_raw_post_send_one(qp, wr);
+		if (ret)
+			break;
+
+		ring = true;
+	}
+
+	if (ring)
+		gdma_ring_send_doorbell(&qp->raw_qp.sq);
+
+	pthread_spin_unlock(&qp->sq_lock);
+
+	if (bad && ret)
+		*bad = wr;
+
+	return ret;
+}
+
+static int mana_raw_post_recv_one(struct mana_wq *wq, struct ibv_recv_wr *wr)
+{
+	struct gdma_wqe wqe = {};
+	uint32_t wqe_size;
+	int ret;
+
+	if (wr->num_sge < 1)
+		return EINVAL;
+
+	wqe_size = align(DMA_OOB_SIZE + INLINE_OOB_SMALL_SIZE + wr->num_sge * SGE_SIZE,
+			 GDMA_WQE_ALIGNMENT_UNIT_SIZE);
+	if (wqe_size > GDMA_MAX_RQE_SIZE)
+		return EINVAL;
+
+	/* The receive client OOB carries no data and is already zeroed. */
+	ret = gdma_get_current_wqe(&wq->rq, INLINE_OOB_SMALL_SIZE, wqe_size, &wqe);
+	if (ret)
+		return ret;
+
+	wqe.gdma_oob->rx.num_sgl_entries = wr->num_sge;
+	wqe.gdma_oob->rx.inline_client_oob_size = INLINE_OOB_SMALL_SIZE / sizeof(uint32_t);
+
+	gdma_write_sge(&wqe, NULL, wr->sg_list, wr->num_sge);
+	gdma_advance_producer(&wq->rq, wqe.size_in_bu);
+
+	mana_raw_track_wqe(&wq->shadow, wr->wr_id, IBV_WC_RECV, 0, &wqe);
+	return 0;
+}
+
+int mana_post_wq_recv(struct ibv_wq *ibwq, struct ibv_recv_wr *wr,
+		      struct ibv_recv_wr **bad)
+{
+	struct mana_wq *wq = container_of(ibwq, struct mana_wq, ibwq);
+	bool ring = false;
+	int ret = 0;
+
+	/* The receive queue exists only while an RSS QP holds this WQ. */
+	if (wq->rq.id == MANA_INVALID_QUEUE_ID) {
+		if (bad)
+			*bad = wr;
+		return EINVAL;
+	}
+
+	pthread_spin_lock(&wq->lock);
+
+	for (; wr; wr = wr->next) {
+		if (shadow_queue_full(&wq->shadow)) {
+			ret = ENOMEM;
+			break;
+		}
+
+		ret = mana_raw_post_recv_one(wq, wr);
+		if (ret)
+			break;
+
+		ring = true;
+	}
+
+	/* The hardware requires a zero wqe_cnt on receive doorbells. */
+	if (ring)
+		gdma_ring_recv_doorbell(&wq->rq, 0);
+
+	pthread_spin_unlock(&wq->lock);
+
+	if (bad && ret)
+		*bad = wr;
+
+	return ret;
+}
+
 static inline bool is_opcode_supported(enum ibv_wr_opcode opcode)
 {
 	switch (opcode) {
@@ -433,6 +610,8 @@ int mana_post_send(struct ibv_qp *ibqp, struct ibv_send_wr *wr,
 	case IBV_QPT_RC:
 	case IBV_QPT_UC:
 		return mana_ib_post_send(ibqp, wr, bad);
+	case IBV_QPT_RAW_PACKET:
+		return mana_raw_post_send(ibqp, wr, bad);
 	default:
 		verbs_err(verbs_get_ctx(ibqp->context), "QPT not supported %d\n", ibqp->qp_type);
 		return EOPNOTSUPP;

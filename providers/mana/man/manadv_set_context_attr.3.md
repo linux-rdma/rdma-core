@@ -34,12 +34,11 @@ the RDMA context.
 ## attr_type
 ```c
 enum manadv_set_ctx_attr_type {
-	/* Attribute type uint8_t */
-	MANADV_SET_CTX_ATTR_BUF_ALLOCATORS = 0,
+	MANADV_CTX_ATTR_BUF_ALLOCATORS = 0,
 };
 ```
-*MANADV_SET_CTX_ATTR_BUF_ALLOCATORS*
-:	Provide an external buffer allocator
+*MANADV_CTX_ATTR_BUF_ALLOCATORS*
+:	Provide external allocators for QP, WQ and CQ queue buffers.
 
 ```c
 struct manadv_ctx_allocators {
@@ -56,6 +55,13 @@ struct manadv_ctx_allocators {
 
 *data*
 :	Metadata that can be used by alloc and free functions
+
+Both *alloc* and *free* must be supplied together. Setting only one callback
+returns EINVAL. With both callbacks unset, libmana allocates and frees queue
+buffers internally, including those of raw packet QPs and receive work queues.
+
+Set the allocators before creating queues, and do not change the callbacks or
+*data* while any queue buffers allocated with them remain alive.
 
 # RETURN VALUE
 Returns 0 on success, or the value of errno on failure
