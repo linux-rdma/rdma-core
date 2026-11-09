@@ -1885,10 +1885,10 @@ int irdma_uk_cq_init(struct irdma_cq_uk *cq, struct irdma_cq_uk_init_info *info)
 
 /**
  * irdma_uk_clean_cq - clean cq entries
- * @q: completion context
+ * @qp: QP
  * @cq: cq to clean
  */
-void irdma_uk_clean_cq(void *q, struct irdma_cq_uk *cq)
+void irdma_uk_clean_cq(struct irdma_qp_uk *qp, struct irdma_cq_uk *cq)
 {
 	__le64 *cqe;
 	__u64 qword3, comp_ctx;
@@ -1911,9 +1911,15 @@ void irdma_uk_clean_cq(void *q, struct irdma_cq_uk *cq)
 		/* Ensure CQE contents are read after valid bit is checked */
 		udma_from_device_barrier();
 
-		get_64bit_val(cqe, 8, &comp_ctx);
-		if ((void *)(uintptr_t)comp_ctx == q)
-			set_64bit_val(cqe, 8, 0);
+		if (cq->avoid_mem_cflct && FIELD_GET(IRDMA_CQ_SRQ, qword3)) {
+			get_64bit_val(cqe, 40, &comp_ctx);
+			if ((struct irdma_qp_uk *)(uintptr_t)comp_ctx == qp)
+				set_64bit_val(cqe, 40, 0);
+		} else {
+			get_64bit_val(cqe, 8, &comp_ctx);
+			if ((struct irdma_qp_uk *)(uintptr_t)comp_ctx == qp)
+				set_64bit_val(cqe, 8, 0);
+		}
 
 		cq_head = (cq_head + 1) % cq->cq_ring.size;
 		if (!cq_head)
