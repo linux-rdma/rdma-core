@@ -184,7 +184,6 @@ Configuration flags
 -------------------
 
 .. include:: common/opt_t.rst
-.. include:: common/opt_o-outstanding_smps.rst
 .. include:: common/opt_node_name_map.rst
 .. include:: common/opt_z-config.rst
 
@@ -202,7 +201,7 @@ COMMON FILES
 DEPENDENCIES
 ============
 
-OpenSM (or other running SM/SA), libosmcomp, libibumad, libibmad
+OpenSM (or other running SM/SA), libibumad, libibmad, libibnetdisc
 
 AUTHORS
 =======

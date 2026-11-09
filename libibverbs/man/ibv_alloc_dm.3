@@ -52,7 +52,7 @@ and ibv_memcpy_from_dm calls respectively.
 .BI "int ibv_memcpy_from_dm(void " "*host_addr" ", struct ibv_dm " "*dm" ",
 .BI "			    uint64_t " "dm_offset" ", size_t " "length" ");
 .sp
-.I dm_offest
+.I dm_offset
 is the byte offset from the beginning of the allocated device memory buffer to access.
 .sp
 .I host_addr
@@ -79,7 +79,7 @@ the associated pd for this registration.
 .I dm
 the associated dm for this registration.
 .sp
-.I dm_offest
+.I dm_offset
 is the byte offset from the beginning of the allocated device memory buffer to register.
 .sp
 .I length

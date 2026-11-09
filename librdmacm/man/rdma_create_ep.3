@@ -31,7 +31,7 @@ After resolving address information using rdma_getaddrinfo, a user
 may use this call to allocate an rdma_cm_id based on the results.
 .P
 If the rdma_cm_id will be used on the active side of a connection,
-meaning that res->ai_flag does not have RAI_PASSIVE set, rdma_create_ep
+meaning that res->ai_flags does not have RAI_PASSIVE set, rdma_create_ep
 will automatically create a QP on the rdma_cm_id if qp_init_attr is
 not NULL.  The QP will be associated with the specified protection
 domain, if provided, or a default protection domain if not.  Users
@@ -41,7 +41,7 @@ rdma_cm_id may be connected by calling rdma_connect.  The active side
 calls rdma_resolve_addr and rdma_resolve_route are not necessary.
 .P
 If the rdma_cm_id will be used on the passive side of a connection,
-indicated by having res->ai_flag RAI_PASSIVE set, this call will save
+indicated by having res->ai_flags RAI_PASSIVE set, this call will save
 the provided pd and qp_init_attr parameters.  When a new connection
 request is retrieved by calling rdma_get_request, the rdma_cm_id
 associated with the new connection will automatically be associated

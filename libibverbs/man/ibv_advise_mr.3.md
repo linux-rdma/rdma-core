@@ -65,7 +65,7 @@ application performance.
 
 *sg_list*
 :	Pointer to the s/g array
-	When using IBV_ADVISE_OP_PREFETCH advise value, all the lkeys of all
+	When using IBV_ADVISE_MR_ADVICE_PREFETCH advise value, all the lkeys of all
 	the scatter gather elements (SGEs) must be associated with ODP MRs
 	(MRs that were registered with IBV_ACCESS_ON_DEMAND).
 

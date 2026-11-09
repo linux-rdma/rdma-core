@@ -258,7 +258,7 @@ for SEND and RDMA_WRITE.
 *ibv_wr_set_inline_data_list()*
 :   Copy send data from a list of buffers, logically concatenated
     together. Each buffer is specified by an element in an array of *struct
-    ibv_inl_data*.
+    ibv_data_buf*.
 
 ## Flags
 
@@ -320,7 +320,7 @@ ibv_wr_set_sge(qpx, lkey, local_addr_1, length_1);
 qpx->wr_id = my_wr_id_2;
 qpx->wr_flags = IBV_SEND_SIGNALED;
 ibv_wr_rdma_write_imm(qpx, rkey, remote_addr_2, htonl(0x1234));
-ibv_set_wr_sge(qpx, lkey, local_addr_2, length_2);
+ibv_wr_set_sge(qpx, lkey, local_addr_2, length_2);
 
 /* Begin processing WRs */
 ret = ibv_wr_complete(qpx);

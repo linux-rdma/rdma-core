@@ -125,7 +125,7 @@ supported");
 				.flags      = 0,
 			},
 		.spec_eth = {
-				.type = IBV_EXP_FLOW_SPEC_ETH,
+				.type = IBV_FLOW_SPEC_ETH,
 				.size = sizeof(struct ibv_flow_spec_eth),
 				.val  = FLOW_SPEC_ETH_MAC_VAL,
 				.mask = FLOW_SPEC_ETH_MAC_MASK,
