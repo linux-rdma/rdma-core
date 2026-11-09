@@ -3,12 +3,16 @@
 # Copyright (c) 2018, Mellanox Technologies. All rights reserved.  See COPYING file
 
 from args_parser import parser
+import importlib.util
 import unittest
+import sys
 import os
-from importlib.machinery import SourceFileLoader
 
 
 module_path = os.path.join(os.path.dirname(__file__), '__init__.py')
-tests = SourceFileLoader('tests', module_path).load_module()
+spec = importlib.util.spec_from_file_location('tests', module_path)
+tests = importlib.util.module_from_spec(spec)
+sys.modules['tests'] = tests
+spec.loader.exec_module(tests)
 parser.parse_args()
 unittest.main(module=tests)
