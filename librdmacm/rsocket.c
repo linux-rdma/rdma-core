@@ -280,6 +280,7 @@ enum rs_state {
 #define RS_OPT_UDP_SVC    (1 << 2)
 #define RS_OPT_KEEPALIVE  (1 << 3)
 #define RS_OPT_CM_SVC	  (1 << 4)
+#define RS_OPT_COCO_PD	  (1 << 5)
 
 union socket_addr {
 	struct sockaddr		sa;
@@ -317,9 +318,13 @@ struct ds_qp {
 	struct ds_header  hdr;
 	struct ds_dest	  dest;
 
+	struct ds_smsg	  *smsg_free;
 	struct ibv_mr	  *smr;
 	struct ibv_mr	  *rmr;
+	uint8_t		  *sbuf;
 	uint8_t		  *rbuf;
+	struct ibv_buf	  *sbuf_ibv;
+	struct ibv_buf	  *rbuf_ibv;
 
 	int		  cq_armed;
 };
@@ -358,6 +363,7 @@ struct rsocket {
 			void		  *target_buffer_list;
 			volatile struct rs_sge	  *target_sgl;
 			struct rs_iomap   *target_iomap;
+			struct ibv_buf	  *target_ibv;
 
 			int		  rbuf_msg_index;
 			int		  rbuf_bytes_avail;
@@ -365,10 +371,13 @@ struct rsocket {
 			int		  rbuf_offset;
 			struct ibv_mr	  *rmr;
 			uint8_t		  *rbuf;
+			struct ibv_buf	  *rbuf_ibv;
 
 			int		  sbuf_bytes_avail;
 			struct ibv_mr	  *smr;
 			struct ibv_sge	  ssgl[2];
+			uint8_t		  *sbuf;
+			struct ibv_buf	  *sbuf_ibv;
 		};
 		/* datagram */
 		struct {
@@ -379,7 +388,6 @@ struct rsocket {
 			int		  udp_sock;
 			int		  epfd;
 			int		  rqe_avail;
-			struct ds_smsg	  *smsg_free;
 		};
 	};
 
@@ -410,7 +418,6 @@ struct rsocket {
 		struct ds_rmsg	  *dmsg;
 	};
 
-	uint8_t		  *sbuf;
 	struct rs_iomap_mr *remote_iomappings;
 	dlist_entry	  iomap_list;
 	dlist_entry	  iomap_queue;
@@ -471,25 +478,6 @@ static void read_all(int fd, void *msg, size_t len)
 	// FIXME: if fd is a socket this really needs to handle EINTR and other conditions.
 	ssize_t __attribute__((unused)) rc = read(fd, msg, len);
 	assert(rc == len);
-}
-
-/**
- * Allocates entire pages for registered allocations so that MADV_DONTFORK will
- * not unmap valid memory in the child process when IBV_FORKSAFE is enabled.
- */
-static void *forksafe_alloc(size_t len)
-{
-	long pagesize = sysconf(_SC_PAGESIZE);
-	void *ptr;
-	int ret;
-
-	len = ((len + pagesize - 1) / pagesize) * pagesize;
-	ret = posix_memalign(&ptr, pagesize, len);
-	if (ret)
-		return NULL;
-
-	memset(ptr, 0, len);
-	return ptr;
 }
 
 static uint64_t rs_time_us(void)
@@ -800,21 +788,25 @@ static int rs_init_bufs(struct rsocket *rs)
 	total_sbuf_size = rs->sbuf_size;
 	if (rs->sq_inline < RS_MAX_CTRL_MSG)
 		total_sbuf_size += RS_MAX_CTRL_MSG * RS_QP_CTRL_SIZE;
-	rs->sbuf = forksafe_alloc(total_sbuf_size);
+	rs->sbuf = ibv_alloc_buf(rs->cm_id->pd, total_sbuf_size, &rs->sbuf_ibv);
 	if (!rs->sbuf)
 		return ERR(ENOMEM);
 
-	rs->smr = rdma_reg_msgs(rs->cm_id, rs->sbuf, total_sbuf_size);
+	rs->smr = ibv_reg_buf_mr(rs->cm_id->pd, rs->sbuf_ibv, rs->sbuf,
+				 total_sbuf_size, IBV_ACCESS_LOCAL_WRITE);
 	if (!rs->smr)
 		return -1;
 
 	len = sizeof(*rs->target_sgl) * RS_SGL_SIZE +
 	      sizeof(*rs->target_iomap) * rs->target_iomap_size;
-	rs->target_buffer_list = forksafe_alloc(len);
+	rs->target_buffer_list = ibv_alloc_buf(rs->cm_id->pd, len, &rs->target_ibv);
 	if (!rs->target_buffer_list)
 		return ERR(ENOMEM);
+	memset(rs->target_buffer_list, 0, len);
 
-	rs->target_mr = rdma_reg_write(rs->cm_id, rs->target_buffer_list, len);
+	rs->target_mr = ibv_reg_buf_mr(rs->cm_id->pd, rs->target_ibv,
+				       rs->target_buffer_list, len,
+				       IBV_ACCESS_LOCAL_WRITE | IBV_ACCESS_REMOTE_WRITE);
 	if (!rs->target_mr)
 		return -1;
 
@@ -825,11 +817,13 @@ static int rs_init_bufs(struct rsocket *rs)
 	total_rbuf_size = rs->rbuf_size;
 	if (rs->opts & RS_OPT_MSG_SEND)
 		total_rbuf_size += rs->rq_size * RS_MSG_SIZE;
-	rs->rbuf = forksafe_alloc(total_rbuf_size);
+	rs->rbuf = ibv_alloc_buf(rs->cm_id->pd, total_rbuf_size, &rs->rbuf_ibv);
 	if (!rs->rbuf)
 		return ERR(ENOMEM);
 
-	rs->rmr = rdma_reg_write(rs->cm_id, rs->rbuf, total_rbuf_size);
+	rs->rmr = ibv_reg_buf_mr(rs->cm_id->pd, rs->rbuf_ibv, rs->rbuf,
+				 total_rbuf_size,
+				 IBV_ACCESS_LOCAL_WRITE | IBV_ACCESS_REMOTE_WRITE);
 	if (!rs->rmr)
 		return -1;
 
@@ -846,16 +840,35 @@ static int rs_init_bufs(struct rsocket *rs)
 
 static int ds_init_bufs(struct ds_qp *qp)
 {
-	qp->rbuf = forksafe_alloc(qp->rs->rbuf_size + sizeof(struct ibv_grh));
+	struct ds_smsg *msg;
+	int i;
+
+	qp->sbuf = ibv_alloc_buf(qp->cm_id->pd, qp->rs->sbuf_size, &qp->sbuf_ibv);
+	if (!qp->sbuf)
+		return ERR(ENOMEM);
+
+	qp->smsg_free = (struct ds_smsg *) qp->sbuf;
+	msg = qp->smsg_free;
+	for (i = 0; i < qp->rs->sq_size - 1; i++) {
+		msg->next = (void *) msg + RS_SNDLOWAT;
+		msg = msg->next;
+	}
+	msg->next = NULL;
+
+	qp->rbuf = ibv_alloc_buf(qp->cm_id->pd,
+				 qp->rs->rbuf_size + sizeof(struct ibv_grh),
+				 &qp->rbuf_ibv);
 	if (!qp->rbuf)
 		return ERR(ENOMEM);
 
-	qp->smr = rdma_reg_msgs(qp->cm_id, qp->rs->sbuf, qp->rs->sbuf_size);
+	qp->smr = ibv_reg_buf_mr(qp->cm_id->pd, qp->sbuf_ibv, qp->sbuf,
+				 qp->rs->sbuf_size, IBV_ACCESS_LOCAL_WRITE);
 	if (!qp->smr)
 		return -1;
 
-	qp->rmr = rdma_reg_msgs(qp->cm_id, qp->rbuf, qp->rs->rbuf_size +
-						     sizeof(struct ibv_grh));
+	qp->rmr = ibv_reg_buf_mr(qp->cm_id->pd, qp->rbuf_ibv, qp->rbuf,
+				 qp->rs->rbuf_size + sizeof(struct ibv_grh),
+				 IBV_ACCESS_LOCAL_WRITE);
 	if (!qp->rmr)
 		return -1;
 
@@ -869,12 +882,44 @@ static int ds_init_bufs(struct ds_qp *qp)
  */
 static int rs_create_cq(struct rsocket *rs, struct rdma_cm_id *cm_id)
 {
+	struct ibv_device_attr_ex device_attr = {};
+	struct ibv_pd *coco_parent_pd = NULL;
+
+	if (!cm_id->verbs || !cm_id->pd)
+		return ERR(ENODEV);
+
 	cm_id->recv_cq_channel = ibv_create_comp_channel(cm_id->verbs);
 	if (!cm_id->recv_cq_channel)
 		return -1;
 
-	cm_id->recv_cq = ibv_create_cq(cm_id->verbs, rs->sq_size + rs->rq_size,
-				       cm_id, cm_id->recv_cq_channel, 0);
+	/*
+	 * Only allocate a CoCo parent domain and extended CQ when the device
+	 * requires DMA bounce buffering, keeping non-CoCo and legacy providers
+	 * on the standard ibv_create_cq() path.
+	 */
+	if (!ibv_query_device_ex(cm_id->verbs, NULL, &device_attr) &&
+	    (device_attr.device_cap_flags_ex & IBV_DEVICE_CC_DMA_BOUNCE)) {
+		struct ibv_parent_domain_init_attr attr = {
+			.pd = cm_id->pd,
+			.comp_mask = IBV_PARENT_DOMAIN_INIT_ATTR_ALLOW_CC_UNPROTECTED_ALLOC,
+		};
+		struct ibv_cq_init_attr_ex cq_attr = {
+			.cqe = rs->sq_size + rs->rq_size,
+			.cq_context = cm_id,
+			.channel = cm_id->recv_cq_channel,
+			.comp_vector = 0,
+			.comp_mask = IBV_CQ_INIT_ATTR_MASK_PD,
+		};
+
+		coco_parent_pd = ibv_alloc_parent_domain(cm_id->verbs, &attr);
+		if (!coco_parent_pd)
+			goto err1;
+		cq_attr.parent_domain = coco_parent_pd;
+		cm_id->recv_cq = ibv_cq_ex_to_cq(ibv_create_cq_ex(cm_id->verbs, &cq_attr));
+	} else {
+		cm_id->recv_cq = ibv_create_cq(cm_id->verbs, rs->sq_size + rs->rq_size,
+					       cm_id, cm_id->recv_cq_channel, 0);
+	}
 	if (!cm_id->recv_cq)
 		goto err1;
 
@@ -883,6 +928,10 @@ static int rs_create_cq(struct rsocket *rs, struct rdma_cm_id *cm_id)
 			goto err2;
 	}
 
+	if (coco_parent_pd) {
+		cm_id->pd = coco_parent_pd;
+		rs->opts |= RS_OPT_COCO_PD;
+	}
 	ibv_req_notify_cq(cm_id->recv_cq, 0);
 	cm_id->send_cq_channel = cm_id->recv_cq_channel;
 	cm_id->send_cq = cm_id->recv_cq;
@@ -892,6 +941,8 @@ err2:
 	ibv_destroy_cq(cm_id->recv_cq);
 	cm_id->recv_cq = NULL;
 err1:
+	if (coco_parent_pd)
+		ibv_dealloc_pd(coco_parent_pd);
 	ibv_destroy_comp_channel(cm_id->recv_cq_channel);
 	cm_id->recv_cq_channel = NULL;
 	return -1;
@@ -1022,22 +1073,32 @@ static void rs_free_iomappings(struct rsocket *rs)
 
 static void ds_free_qp(struct ds_qp *qp)
 {
-	if (qp->smr)
-		rdma_dereg_mr(qp->smr);
+	if (qp->sbuf) {
+		if (qp->smr)
+			rdma_dereg_mr(qp->smr);
+		ibv_free_buf(qp->sbuf_ibv);
+	}
 
 	if (qp->rbuf) {
 		if (qp->rmr)
 			rdma_dereg_mr(qp->rmr);
-		free(qp->rbuf);
+		ibv_free_buf(qp->rbuf_ibv);
 	}
 
 	if (qp->cm_id) {
+		if (qp->dest.ah)
+			ibv_destroy_ah(qp->dest.ah);
 		if (qp->cm_id->qp) {
 			tdelete(&qp->dest.addr, &qp->rs->dest_map, ds_compare_addr);
 			epoll_ctl(qp->rs->epfd, EPOLL_CTL_DEL,
 				  qp->cm_id->recv_cq_channel->fd, NULL);
 			rdma_destroy_qp(qp->cm_id);
+		} else if (qp->cm_id->recv_cq) {
+			ibv_destroy_cq(qp->cm_id->recv_cq);
+			ibv_destroy_comp_channel(qp->cm_id->recv_cq_channel);
 		}
+		if ((qp->rs->opts & RS_OPT_COCO_PD) && qp->cm_id->send_cq)
+			ibv_dealloc_pd(qp->cm_id->pd);
 		rdma_destroy_id(qp->cm_id);
 	}
 
@@ -1065,9 +1126,6 @@ static void ds_free(struct rsocket *rs)
 	if (rs->epfd >= 0)
 		close(rs->epfd);
 
-	if (rs->sbuf)
-		free(rs->sbuf);
-
 	tdestroy(rs->dest_map, free);
 	fastlock_destroy(&rs->map_lock);
 	fastlock_destroy(&rs->cq_wait_lock);
@@ -1087,24 +1145,6 @@ static void rs_free(struct rsocket *rs)
 	if (rs->rmsg)
 		free(rs->rmsg);
 
-	if (rs->sbuf) {
-		if (rs->smr)
-			rdma_dereg_mr(rs->smr);
-		free(rs->sbuf);
-	}
-
-	if (rs->rbuf) {
-		if (rs->rmr)
-			rdma_dereg_mr(rs->rmr);
-		free(rs->rbuf);
-	}
-
-	if (rs->target_buffer_list) {
-		if (rs->target_mr)
-			rdma_dereg_mr(rs->target_mr);
-		free(rs->target_buffer_list);
-	}
-
 	if (rs->index >= 0)
 		rs_remove(rs);
 
@@ -1113,7 +1153,33 @@ static void rs_free(struct rsocket *rs)
 		if (rs->cm_id->qp) {
 			ibv_ack_cq_events(rs->cm_id->recv_cq, rs->unack_cqe);
 			rdma_destroy_qp(rs->cm_id);
+		} else if (rs->cm_id->recv_cq) {
+			ibv_destroy_cq(rs->cm_id->recv_cq);
+			ibv_destroy_comp_channel(rs->cm_id->recv_cq_channel);
 		}
+	}
+
+	if (rs->sbuf) {
+		if (rs->smr)
+			rdma_dereg_mr(rs->smr);
+		ibv_free_buf(rs->sbuf_ibv);
+	}
+
+	if (rs->rbuf) {
+		if (rs->rmr)
+			rdma_dereg_mr(rs->rmr);
+		ibv_free_buf(rs->rbuf_ibv);
+	}
+
+	if (rs->target_buffer_list) {
+		if (rs->target_mr)
+			rdma_dereg_mr(rs->target_mr);
+		ibv_free_buf(rs->target_ibv);
+	}
+
+	if (rs->cm_id) {
+		if (rs->opts & RS_OPT_COCO_PD)
+			ibv_dealloc_pd(rs->cm_id->pd);
 		rdma_destroy_id(rs->cm_id);
 	}
 
@@ -1162,7 +1228,7 @@ static void rs_save_conn_data(struct rsocket *rs, struct rs_conn_data *conn)
 	rs->remote_sge = 1;
 	if ((rs_host_is_net() && !(conn->flags & RS_CONN_FLAG_NET)) ||
 	    (!rs_host_is_net() && (conn->flags & RS_CONN_FLAG_NET)))
-		rs->opts = RS_OPT_SWAP_SGL;
+		rs->opts |= RS_OPT_SWAP_SGL;
 
 	if (conn->flags & RS_CONN_FLAG_IOMAP) {
 		rs->remote_iomap.addr = rs->remote_sgl.addr +
@@ -1193,14 +1259,9 @@ static int ds_init(struct rsocket *rs, int domain)
 
 static int ds_init_ep(struct rsocket *rs)
 {
-	struct ds_smsg *msg;
-	int i, ret;
+	int ret;
 
 	ds_set_qp_size(rs);
-
-	rs->sbuf = calloc(rs->sq_size, RS_SNDLOWAT);
-	if (!rs->sbuf)
-		return ERR(ENOMEM);
 
 	rs->dmsg = calloc(rs->rq_size + 1, sizeof(*rs->dmsg));
 	if (!rs->dmsg)
@@ -1208,14 +1269,6 @@ static int ds_init_ep(struct rsocket *rs)
 
 	rs->sqe_avail = rs->sq_size;
 	rs->rqe_avail = rs->rq_size;
-
-	rs->smsg_free = (struct ds_smsg *) rs->sbuf;
-	msg = rs->smsg_free;
-	for (i = 0; i < rs->sq_size - 1; i++) {
-		msg->next = (void *) msg + RS_SNDLOWAT;
-		msg = msg->next;
-	}
-	msg->next = NULL;
 
 	ret = rs_notify_svc(&udp_svc, rs, RS_SVC_ADD_DGRAM);
 	if (ret)
@@ -1650,11 +1703,11 @@ static int ds_create_qp(struct rsocket *rs, union socket_addr *src_addr,
 	if (ret)
 		goto err;
 
-	ret = ds_init_bufs(qp);
+	ret = rs_create_cq(rs, qp->cm_id);
 	if (ret)
 		goto err;
 
-	ret = rs_create_cq(rs, qp->cm_id);
+	ret = ds_init_bufs(qp);
 	if (ret)
 		goto err;
 
@@ -2281,9 +2334,9 @@ static void ds_poll_cqs(struct rsocket *rs)
 					ds_post_recv(rs, qp, rs_wr_data(wc.wr_id));
 				}
 			} else {
-				smsg = (struct ds_smsg *) (rs->sbuf + rs_wr_data(wc.wr_id));
-				smsg->next = rs->smsg_free;
-				rs->smsg_free = smsg;
+				smsg = (struct ds_smsg *) (qp->sbuf + rs_wr_data(wc.wr_id));
+				smsg->next = qp->smsg_free;
+				qp->smsg_free = smsg;
 				rs->sqe_avail++;
 			}
 
@@ -2816,8 +2869,8 @@ static ssize_t dsend(struct rsocket *rs, const void *buf, size_t len, int flags)
 			return ret;
 	}
 
-	msg = rs->smsg_free;
-	rs->smsg_free = msg->next;
+	msg = rs->conn_dest->qp->smsg_free;
+	rs->conn_dest->qp->smsg_free = msg->next;
 	rs->sqe_avail--;
 
 	memcpy((void *) msg, &rs->conn_dest->qp->hdr, rs->conn_dest->qp->hdr.length);
@@ -2825,7 +2878,7 @@ static ssize_t dsend(struct rsocket *rs, const void *buf, size_t len, int flags)
 	sge.addr = (uintptr_t) msg;
 	sge.length = rs->conn_dest->qp->hdr.length + len;
 	sge.lkey = rs->conn_dest->qp->smr->lkey;
-	offset = (uint8_t *) msg - rs->sbuf;
+	offset = (uint8_t *) msg - rs->conn_dest->qp->sbuf;
 
 	ret = ds_post_send(rs, &sge, offset);
 	return ret ? ret : len;
@@ -3739,7 +3792,8 @@ int rsetsockopt(int socket, int level, int optname,
 			ret = 0;
 			break;
 		case SO_SNDBUF:
-			if (!rs->sbuf)
+			if (((rs->type == SOCK_STREAM) && !rs->sbuf) ||
+			    ((rs->type == SOCK_DGRAM) && !rs->dmsg))
 				rs->sbuf_size = (*(uint32_t *) optval) << 1;
 			if (rs->sbuf_size < RS_SNDLOWAT)
 				rs->sbuf_size = RS_SNDLOWAT << 1;
@@ -4509,8 +4563,8 @@ static void udp_svc_forward(struct rsocket *rs, void *buf, size_t len,
 			return;
 	}
 
-	msg = rs->smsg_free;
-	rs->smsg_free = msg->next;
+	msg = rs->conn_dest->qp->smsg_free;
+	rs->conn_dest->qp->smsg_free = msg->next;
 	rs->sqe_avail--;
 
 	ds_format_hdr(&hdr, src);
@@ -4519,7 +4573,7 @@ static void udp_svc_forward(struct rsocket *rs, void *buf, size_t len,
 	sge.addr = (uintptr_t) msg;
 	sge.length = hdr.length + len;
 	sge.lkey = rs->conn_dest->qp->smr->lkey;
-	offset = (uint8_t *) msg - rs->sbuf;
+	offset = (uint8_t *) msg - rs->conn_dest->qp->sbuf;
 
 	ds_post_send(rs, &sge, offset);
 }
