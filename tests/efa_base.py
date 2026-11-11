@@ -49,9 +49,11 @@ class SRDResources(TrafficResources):
     SRD_QKEY = 0x11111111
     SRD_PKEY_INDEX = 0
     def __init__(self, dev_name, ib_port, gid_index, send_ops_flags,
-                 qp_count=1, required_dev_cap=None, wc_flags=0, qp_flags=0):
+                 qp_count=1, required_dev_cap=None, wc_flags=0, qp_flags=0,
+                 wr_flags=0):
         self.send_ops_flags = send_ops_flags
         self.qp_flags = qp_flags
+        self.wr_flags = wr_flags
         self.required_dev_cap = required_dev_cap
         self.efa_wc_flags = wc_flags
         super().__init__(dev_name, ib_port, gid_index, qp_count=qp_count)
@@ -90,6 +92,7 @@ class SRDResources(TrafficResources):
         efa_init_attr_ex = efa.EfaQPInitAttr()
         efa_init_attr_ex.driver_qp_type = efa_enums.EFADV_QP_DRIVER_TYPE_SRD
         efa_init_attr_ex.flags |= self.qp_flags
+        efa_init_attr_ex.wr_flags |= self.wr_flags
         try:
             for _ in range(self.qp_count):
                 qp = efa.SRDQPEx(self.ctx, qp_init_attr_ex, efa_init_attr_ex)
