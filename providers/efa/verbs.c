@@ -133,6 +133,8 @@ int efa_query_device_ctx(struct efa_context *ctx)
 		ctx->max_sq_sge = resp.max_sq_sge;
 		ctx->max_rq_sge = resp.max_rq_sge;
 		ctx->max_rdma_size = resp.max_rdma_size;
+		ctx->max_comp_actions = resp.max_comp_actions;
+		ctx->comp_action_supp_ops = resp.comp_action_supp_ops;
 	} else {
 		err = ibv_cmd_query_device_any(&ctx->ibvctx.context, NULL,
 					       &attr, sizeof(attr.orig_attr),
@@ -159,6 +161,40 @@ int efa_query_device_ctx(struct efa_context *ctx)
 	}
 
 	return 0;
+}
+
+static uint32_t efa_comp_action_supp_op_to_efadv(uint32_t op)
+{
+	switch (op) {
+	case EFA_QUERY_DEVICE_COMP_ACTION_SUPP_OP_SEND:
+		return EFADV_DEVICE_ATTR_COMP_ACTION_SUPPORTED_OP_SEND;
+	case EFA_QUERY_DEVICE_COMP_ACTION_SUPP_OP_RECV:
+		return EFADV_DEVICE_ATTR_COMP_ACTION_SUPPORTED_OP_RECV;
+	case EFA_QUERY_DEVICE_COMP_ACTION_SUPP_OP_RDMA_READ:
+		return EFADV_DEVICE_ATTR_COMP_ACTION_SUPPORTED_OP_RDMA_READ;
+	case EFA_QUERY_DEVICE_COMP_ACTION_SUPP_OP_REMOTE_RDMA_READ:
+		return EFADV_DEVICE_ATTR_COMP_ACTION_SUPPORTED_OP_REMOTE_RDMA_READ;
+	case EFA_QUERY_DEVICE_COMP_ACTION_SUPP_OP_RDMA_WRITE:
+		return EFADV_DEVICE_ATTR_COMP_ACTION_SUPPORTED_OP_RDMA_WRITE;
+	case EFA_QUERY_DEVICE_COMP_ACTION_SUPP_OP_REMOTE_RDMA_WRITE:
+		return EFADV_DEVICE_ATTR_COMP_ACTION_SUPPORTED_OP_REMOTE_RDMA_WRITE;
+	case EFA_QUERY_DEVICE_COMP_ACTION_SUPP_OP_REMOTE_RDMA_WRITE_IMM:
+		return EFADV_DEVICE_ATTR_COMP_ACTION_SUPPORTED_OP_REMOTE_RDMA_WRITE_IMM;
+	default:
+		return 0;
+	}
+}
+
+static uint32_t efa_comp_action_supp_ops_to_efadv(uint32_t supp_ops)
+{
+	uint32_t efadv_ops = 0;
+	int bit;
+
+	for (bit = 0; bit < 32; bit++)
+		if (supp_ops & BIT(bit))
+			efadv_ops |= efa_comp_action_supp_op_to_efadv(BIT(bit));
+
+	return efadv_ops;
 }
 
 int efadv_query_device(struct ibv_context *ibvctx,
@@ -201,6 +237,9 @@ int efadv_query_device(struct ibv_context *ibvctx,
 
 		if (EFA_DEV_CAP(ctx, COMP_CNTR))
 			attr->device_caps |= EFADV_DEVICE_ATTR_CAPS_COMP_CNTR;
+
+		if (EFA_DEV_CAP(ctx, COMP_ACTION))
+			attr->device_caps |= EFADV_DEVICE_ATTR_CAPS_COMP_ACTION;
 	}
 
 	if (vext_field_avail(typeof(*attr), max_rdma_size, inlen)) {
@@ -212,6 +251,12 @@ int efadv_query_device(struct ibv_context *ibvctx,
 		if (EFA_DEV_CAP(ctx, RDMA_WRITE))
 			attr->device_caps |= EFADV_DEVICE_ATTR_CAPS_RDMA_WRITE;
 	}
+
+	if (vext_field_avail(typeof(*attr), max_comp_actions, inlen))
+		attr->max_comp_actions = ctx->max_comp_actions;
+
+	if (vext_field_avail(typeof(*attr), comp_action_supp_ops, inlen))
+		attr->comp_action_supp_ops = efa_comp_action_supp_ops_to_efadv(ctx->comp_action_supp_ops);
 
 	attr->comp_mask = comp_mask_out;
 
@@ -1489,7 +1534,7 @@ static void efa_fill_buffer_desc_from_mem_loc(struct ib_uverbs_buffer_desc *desc
 		efa_fill_buffer_desc_va(desc, (uintptr_t)mem->ptr, length);
 }
 
-static inline bool efa_comp_cntr_mem_type_supported(uint32_t mem_type)
+static inline bool efa_ext_mem_type_supported(uint32_t mem_type)
 {
 	return mem_type == EFADV_MEMORY_LOCATION_VA || mem_type == EFADV_MEMORY_LOCATION_DMABUF;
 }
@@ -1511,8 +1556,8 @@ static struct ibv_comp_cntr *efa_create_comp_cntr_impl(struct ibv_context *ibvct
 	    attr->type != IBV_COMP_CNTR_TYPE_WRS ||
 	    efa_attr->comp_mask ||
 	    !check_comp_mask(efa_attr->flags, supported_efa_flags) ||
-	    !efa_comp_cntr_mem_type_supported(efa_attr->comp_cntr_ext_mem.type) ||
-	    !efa_comp_cntr_mem_type_supported(efa_attr->err_cntr_ext_mem.type)) {
+	    !efa_ext_mem_type_supported(efa_attr->comp_cntr_ext_mem.type) ||
+	    !efa_ext_mem_type_supported(efa_attr->err_cntr_ext_mem.type)) {
 		verbs_err(verbs_get_ctx(ibvctx), "Unsupported type or flag\n");
 		errno = EOPNOTSUPP;
 		return NULL;
@@ -1637,6 +1682,97 @@ int efa_read_err_comp_cntr(struct ibv_comp_cntr *ibvcc, uint64_t *value)
 		return EOPNOTSUPP;
 
 	*value = *cc->err_ptr;
+	return 0;
+}
+
+struct efadv_mem_comp_action *efadv_create_mem_comp_action(struct ibv_context *ibvctx,
+							   struct efadv_mem_comp_action_init_attr *attr,
+							   uint32_t inlen)
+{
+	DECLARE_COMMAND_BUFFER(cmdb, EFA_IB_OBJECT_COMP_ACTION,
+			       EFA_IB_METHOD_COMP_ACTION_CREATE, 8);
+	struct ib_uverbs_buffer_desc mem_desc = {};
+	struct efadv_mem_comp_action *mem_action;
+	struct ib_uverbs_attr *handle_attr;
+	struct efadv_comp_action *action;
+	uint32_t action_id = 0;
+	int err;
+
+	if (!is_efa_dev(ibvctx->device)) {
+		verbs_err(verbs_get_ctx(ibvctx), "Not an EFA device\n");
+		errno = EOPNOTSUPP;
+		return NULL;
+	}
+
+	if (!vext_field_avail(struct efadv_mem_comp_action_init_attr, reserved, inlen) ||
+	    (inlen > sizeof(*attr) && !is_ext_cleared(attr, inlen)) ||
+	    attr->comp_mask || attr->flags || !is_reserved_cleared(attr->reserved)) {
+		verbs_err(verbs_get_ctx(ibvctx), "Compatibility issues\n");
+		errno = EINVAL;
+		return NULL;
+	}
+
+	if (!attr->pd || !attr->mem_size || !attr->mem_modify_size) {
+		verbs_err(verbs_get_ctx(ibvctx), "Invalid mem comp action attributes\n");
+		errno = EINVAL;
+		return NULL;
+	}
+
+	if (attr->comp_mem_modify_type != EFADV_MEM_COMP_ACTION_SET_INITIATOR_VAL ||
+	    !efa_ext_mem_type_supported(attr->comp_mem.type)) {
+		verbs_err(verbs_get_ctx(ibvctx), "Unsupported mem comp action attributes\n");
+		errno = EOPNOTSUPP;
+		return NULL;
+	}
+
+	mem_action = calloc(1, sizeof(*mem_action));
+	if (!mem_action) {
+		errno = ENOMEM;
+		return NULL;
+	}
+	action = &mem_action->comp_action;
+
+	handle_attr = fill_attr_out_obj(cmdb, EFA_IB_ATTR_COMP_ACTION_CREATE_HANDLE);
+	fill_attr_in_obj(cmdb, EFA_IB_ATTR_COMP_ACTION_CREATE_PD_HANDLE, attr->pd->handle);
+	fill_attr_const_in(cmdb, EFA_IB_ATTR_COMP_ACTION_CREATE_TYPE, EFA_COMP_ACTION_TYPE_MEM);
+	fill_attr_const_in(cmdb, EFA_IB_ATTR_COMP_ACTION_CREATE_MEM_MODIFY_TYPE,
+			   EFA_MEM_COMP_ACTION_SET_INITIATOR_VAL);
+	fill_attr_in_uint64(cmdb, EFA_IB_ATTR_COMP_ACTION_CREATE_MEM_SIZE, attr->mem_size);
+	fill_attr_in_uint32(cmdb, EFA_IB_ATTR_COMP_ACTION_CREATE_MEM_MODIFY_SIZE, attr->mem_modify_size);
+	efa_fill_buffer_desc_from_mem_loc(&mem_desc, &attr->comp_mem, attr->mem_size);
+	fill_attr_in_ptr(cmdb, EFA_IB_ATTR_COMP_ACTION_CREATE_MEM_BUFFER, &mem_desc);
+	fill_attr_out_ptr(cmdb, EFA_IB_ATTR_COMP_ACTION_CREATE_RESP_ACTION_ID, &action_id);
+
+	err = execute_ioctl(ibvctx, cmdb);
+	if (err) {
+		free(mem_action);
+		errno = err;
+		return NULL;
+	}
+
+	action->context = ibvctx;
+	action->pd = attr->pd;
+	action->handle = read_attr_obj(EFA_IB_ATTR_COMP_ACTION_CREATE_HANDLE, handle_attr);
+	action->action_id = action_id;
+
+	return mem_action;
+}
+
+int efadv_destroy_comp_action(struct efadv_comp_action *comp_action)
+{
+	DECLARE_COMMAND_BUFFER(cmdb, EFA_IB_OBJECT_COMP_ACTION,
+			       EFA_IB_METHOD_COMP_ACTION_DESTROY, 1);
+	struct efadv_mem_comp_action *mem_action;
+	int err;
+
+	fill_attr_in_obj(cmdb, EFA_IB_ATTR_COMP_ACTION_DESTROY_HANDLE, comp_action->handle);
+
+	err = execute_ioctl(comp_action->context, cmdb);
+	if (err)
+		return err;
+
+	mem_action = container_of(comp_action, struct efadv_mem_comp_action, comp_action);
+	free(mem_action);
 	return 0;
 }
 

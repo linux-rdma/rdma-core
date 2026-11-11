@@ -39,6 +39,8 @@ struct efa_context {
 	uint16_t max_sq_sge;
 	uint16_t max_rq_sge;
 	uint32_t max_rdma_size;
+	uint32_t max_comp_actions;
+	uint32_t comp_action_supp_ops;
 	uint16_t max_wr_rdma_sge;
 	uint16_t max_tx_batch;
 	uint16_t min_sq_wr;
