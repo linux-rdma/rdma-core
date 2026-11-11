@@ -5662,7 +5662,8 @@ _mlx5dv_create_flow_matcher(struct ibv_context *context,
 	}
 
 	if ((attr->ft_type == MLX5DV_FLOW_TABLE_TYPE_RDMA_TRANSPORT_RX ||
-	     attr->ft_type == MLX5DV_FLOW_TABLE_TYPE_RDMA_TRANSPORT_TX) &&
+	     attr->ft_type == MLX5DV_FLOW_TABLE_TYPE_RDMA_TRANSPORT_TX ||
+	     attr->ft_type == MLX5DV_FLOW_TABLE_TYPE_NIC_RX_CLASS) &&
 	    !(attr->comp_mask & MLX5DV_FLOW_MATCHER_MASK_IB_PORT)) {
 		errno = EINVAL;
 		goto err;
@@ -5670,7 +5671,8 @@ _mlx5dv_create_flow_matcher(struct ibv_context *context,
 
 	if (attr->comp_mask & MLX5DV_FLOW_MATCHER_MASK_IB_PORT &&
 	    (attr->ft_type != MLX5DV_FLOW_TABLE_TYPE_RDMA_TRANSPORT_RX &&
-	     attr->ft_type != MLX5DV_FLOW_TABLE_TYPE_RDMA_TRANSPORT_TX)) {
+	     attr->ft_type != MLX5DV_FLOW_TABLE_TYPE_RDMA_TRANSPORT_TX &&
+	     attr->ft_type != MLX5DV_FLOW_TABLE_TYPE_NIC_RX_CLASS)) {
 		errno = EOPNOTSUPP;
 		goto err;
 	}
@@ -5772,6 +5774,7 @@ ___mlx5dv_create_flow(struct mlx5dv_flow_matcher *flow_matcher,
 	bool have_bulk_counter = false;
 	bool have_default = false;
 	bool have_drop = false;
+	bool have_allow = false;
 	int ret;
 	int i;
 	DECLARE_COMMAND_BUFFER(cmd, UVERBS_OBJECT_FLOW,
@@ -5798,7 +5801,7 @@ ___mlx5dv_create_flow(struct mlx5dv_flow_matcher *flow_matcher,
 		switch (type) {
 		case MLX5DV_FLOW_ACTION_DEST_IBV_QP:
 			if (have_qp || have_dest_devx || have_default ||
-			    have_drop) {
+			    have_drop || have_allow) {
 				errno = EOPNOTSUPP;
 				goto err;
 			}
@@ -5821,7 +5824,7 @@ ___mlx5dv_create_flow(struct mlx5dv_flow_matcher *flow_matcher,
 			break;
 		case MLX5DV_FLOW_ACTION_DEST_DEVX:
 			if (have_dest_devx || have_qp || have_default ||
-			    have_drop) {
+			    have_drop || have_allow) {
 				errno = EOPNOTSUPP;
 				goto err;
 			}
@@ -5851,7 +5854,7 @@ ___mlx5dv_create_flow(struct mlx5dv_flow_matcher *flow_matcher,
 			break;
 		case MLX5DV_FLOW_ACTION_DEFAULT_MISS:
 			if (have_qp || have_dest_devx || have_default ||
-			    have_drop) {
+			    have_drop || have_allow) {
 				errno = EOPNOTSUPP;
 				goto err;
 			}
@@ -5862,7 +5865,7 @@ ___mlx5dv_create_flow(struct mlx5dv_flow_matcher *flow_matcher,
 			break;
 		case MLX5DV_FLOW_ACTION_DROP:
 			if (have_qp || have_dest_devx || have_default ||
-			    have_drop) {
+			    have_drop || have_allow) {
 				errno = EOPNOTSUPP;
 				goto err;
 			}
@@ -5870,6 +5873,17 @@ ___mlx5dv_create_flow(struct mlx5dv_flow_matcher *flow_matcher,
 					    MLX5_IB_ATTR_CREATE_FLOW_FLAGS,
 					    MLX5_IB_ATTR_CREATE_FLOW_FLAGS_DROP);
 			have_drop = true;
+			break;
+		case MLX5DV_FLOW_ACTION_ALLOW:
+			if (have_qp || have_dest_devx || have_default ||
+			    have_drop || have_allow) {
+				errno = EOPNOTSUPP;
+				goto err;
+			}
+			fill_attr_in_uint32(cmd,
+					    MLX5_IB_ATTR_CREATE_FLOW_FLAGS,
+					    MLX5_IB_ATTR_CREATE_FLOW_FLAGS_ALLOW);
+			have_allow = true;
 			break;
 		case MLX5DV_FLOW_ACTION_COUNTERS_DEVX_WITH_OFFSET:
 			if (have_counter || have_bulk_counter) {
