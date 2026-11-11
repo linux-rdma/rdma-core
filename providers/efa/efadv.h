@@ -24,6 +24,17 @@ enum {
 	EFADV_DEVICE_ATTR_CAPS_UNSOLICITED_WRITE_RECV = 1 << 4,
 	EFADV_DEVICE_ATTR_CAPS_CQ_WITH_EXT_MEM_DMABUF = 1 << 5,
 	EFADV_DEVICE_ATTR_CAPS_COMP_CNTR = 1 << 6,
+	EFADV_DEVICE_ATTR_CAPS_COMP_ACTION = 1 << 7,
+};
+
+enum {
+	EFADV_DEVICE_ATTR_COMP_ACTION_SUPPORTED_OP_SEND = 1 << 0,
+	EFADV_DEVICE_ATTR_COMP_ACTION_SUPPORTED_OP_RECV = 1 << 1,
+	EFADV_DEVICE_ATTR_COMP_ACTION_SUPPORTED_OP_RDMA_READ = 1 << 2,
+	EFADV_DEVICE_ATTR_COMP_ACTION_SUPPORTED_OP_REMOTE_RDMA_READ = 1 << 3,
+	EFADV_DEVICE_ATTR_COMP_ACTION_SUPPORTED_OP_RDMA_WRITE = 1 << 4,
+	EFADV_DEVICE_ATTR_COMP_ACTION_SUPPORTED_OP_REMOTE_RDMA_WRITE = 1 << 5,
+	EFADV_DEVICE_ATTR_COMP_ACTION_SUPPORTED_OP_REMOTE_RDMA_WRITE_IMM = 1 << 6,
 };
 
 struct efadv_device_attr {
@@ -36,6 +47,8 @@ struct efadv_device_attr {
 	uint16_t inline_buf_size_ex;
 	uint32_t device_caps;
 	uint32_t max_rdma_size;
+	uint32_t max_comp_actions;
+	uint32_t comp_action_supp_ops;
 };
 
 int efadv_query_device(struct ibv_context *ibvctx,
@@ -90,6 +103,8 @@ enum {
 
 enum {
 	EFADV_WR_EX_WITH_PROCESSING_HINTS = 1 << 0,
+	EFADV_WR_EX_WITH_COMP_ACTION = 1 << 1,
+	EFADV_WR_EX_WITH_COMP_ACTION_WITH_DATA = 1 << 2,
 };
 
 struct efadv_qp_init_attr {
@@ -131,6 +146,12 @@ enum efadv_wr_processing_hint {
 struct efadv_qp {
 	uint64_t comp_mask;
 	void (*wr_set_processing_hints)(struct efadv_qp *efadv_qp, uint32_t hints);
+	void (*wr_set_local_comp_action)(struct efadv_qp *efadv_qp, uint32_t action_id);
+	void (*wr_set_remote_comp_action)(struct efadv_qp *efadv_qp, uint32_t action_id);
+	void (*wr_set_local_comp_action_with_data)(struct efadv_qp *efadv_qp,
+						   uint32_t action_id, uint64_t data);
+	void (*wr_set_remote_comp_action_with_data)(struct efadv_qp *efadv_qp,
+						    uint32_t action_id, uint64_t data);
 };
 
 struct efadv_qp *efadv_qp_from_ibv_qp_ex(struct ibv_qp_ex *ibvqpx);
@@ -138,6 +159,28 @@ struct efadv_qp *efadv_qp_from_ibv_qp_ex(struct ibv_qp_ex *ibvqpx);
 static inline void efadv_wr_set_processing_hints(struct efadv_qp *efadv_qp, uint32_t hints)
 {
 	efadv_qp->wr_set_processing_hints(efadv_qp, hints);
+}
+
+static inline void efadv_wr_set_local_comp_action(struct efadv_qp *efadv_qp, uint32_t action_id)
+{
+	efadv_qp->wr_set_local_comp_action(efadv_qp, action_id);
+}
+
+static inline void efadv_wr_set_remote_comp_action(struct efadv_qp *efadv_qp, uint32_t action_id)
+{
+	efadv_qp->wr_set_remote_comp_action(efadv_qp, action_id);
+}
+
+static inline void efadv_wr_set_local_comp_action_with_data(struct efadv_qp *efadv_qp,
+							    uint32_t action_id, uint64_t data)
+{
+	efadv_qp->wr_set_local_comp_action_with_data(efadv_qp, action_id, data);
+}
+
+static inline void efadv_wr_set_remote_comp_action_with_data(struct efadv_qp *efadv_qp,
+							     uint32_t action_id, uint64_t data)
+{
+	efadv_qp->wr_set_remote_comp_action_with_data(efadv_qp, action_id, data);
 }
 
 enum {
@@ -235,6 +278,38 @@ enum {
 	EFADV_MR_ATTR_VALIDITY_RDMA_READ_IC_ID = 1 << 1,
 	EFADV_MR_ATTR_VALIDITY_RDMA_RECV_IC_ID = 1 << 2,
 };
+
+struct efadv_comp_action {
+	struct ibv_context *context;
+	struct ibv_pd *pd;
+	uint32_t handle;
+	uint32_t action_id;
+};
+
+struct efadv_mem_comp_action {
+	struct efadv_comp_action comp_action;
+};
+
+enum {
+	EFADV_MEM_COMP_ACTION_SET_INITIATOR_VAL,
+};
+
+struct efadv_mem_comp_action_init_attr {
+	uint64_t comp_mask;
+	struct ibv_pd *pd;
+	uint32_t flags;
+	uint32_t mem_modify_size;
+	uint64_t mem_size;
+	struct efadv_memory_location comp_mem;
+	uint16_t comp_mem_modify_type;
+	uint8_t reserved[6];
+};
+
+struct efadv_mem_comp_action *efadv_create_mem_comp_action(struct ibv_context *context,
+							   struct efadv_mem_comp_action_init_attr *attr,
+							   uint32_t inlen);
+
+int efadv_destroy_comp_action(struct efadv_comp_action *comp_action);
 
 struct efadv_mr_attr {
 	uint64_t comp_mask;
