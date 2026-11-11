@@ -30,6 +30,13 @@
 #define EFA_IO_TX_DESC_SIZE_64	(sizeof(struct efa_io_tx_wqe))
 #define EFA_IO_TX_DESC_SIZE_128 (sizeof(struct efa_io_tx_wqe_128))
 
+/* The completion action block occupies the tail of the wide WQE */
+#define EFA_SQ_ACTION_BLOCK_OFFSET \
+	(EFA_IO_TX_DESC_SIZE_128 - sizeof(struct efa_io_action_with_data_block))
+/* The action block takes the tail of the inline area of the wide WQE */
+#define EFA_SQ_ACTION_MAX_INLINE_DATA \
+	(EFA_IO_TX_DESC_INLINE_MAX_SIZE_128 - sizeof(struct efa_io_action_with_data_block))
+
 static bool is_buf_cleared(void *buf, size_t len)
 {
 	int i;
@@ -667,6 +674,7 @@ static enum ibv_wc_status to_ibv_status(enum efa_io_comp_status status)
 	case EFA_IO_COMP_STATUS_LOCAL_ERROR_QP_INTERNAL_ERROR:
 	case EFA_IO_COMP_STATUS_LOCAL_ERROR_UNSUPPORTED_OP:
 	case EFA_IO_COMP_STATUS_LOCAL_ERROR_INVALID_AH:
+	case EFA_IO_COMP_STATUS_LOCAL_ERROR_INVALID_ACTION:
 		return IBV_WC_LOC_QP_OP_ERR;
 	case EFA_IO_COMP_STATUS_LOCAL_ERROR_INVALID_LKEY:
 		return IBV_WC_LOC_PROT_ERR;
@@ -682,6 +690,7 @@ static enum ibv_wc_status to_ibv_status(enum efa_io_comp_status status)
 		return IBV_WC_BAD_RESP_ERR;
 	case EFA_IO_COMP_STATUS_REMOTE_ERROR_FEATURE_MISMATCH:
 	case EFA_IO_COMP_STATUS_REMOTE_ERROR_BAD_LENGTH:
+	case EFA_IO_COMP_STATUS_REMOTE_ERROR_INVALID_ACTION:
 		return IBV_WC_REM_INV_REQ_ERR;
 	case EFA_IO_COMP_STATUS_LOCAL_ERROR_UNRESP_REMOTE:
 	case EFA_IO_COMP_STATUS_LOCAL_ERROR_UNREACH_REMOTE:
@@ -2027,18 +2036,30 @@ static void efa_qp_init_indices(struct efa_qp *qp)
 	qp->rq.wq.wrid_idx_pool_next = 0;
 }
 
-static int efa_calc_sq_wqe_size(uint32_t max_inline_data, bool inline_write_enabled)
+/* Inline data a send queue accepts: the action block takes the tail of the wide WQE's inline area */
+static uint32_t efa_sq_max_inline_data(struct efa_context *ctx, bool actions_enabled)
 {
-	if (max_inline_data > EFA_IO_TX_DESC_INLINE_MAX_SIZE || inline_write_enabled)
+	if (actions_enabled)
+		return min_t(uint32_t, ctx->inline_buf_size_ex, EFA_SQ_ACTION_MAX_INLINE_DATA);
+
+	return ctx->inline_buf_size_ex;
+}
+
+static int efa_calc_sq_wqe_size(uint32_t max_inline_data, bool inline_write_enabled,
+				bool actions_enabled)
+{
+	if (max_inline_data > EFA_IO_TX_DESC_INLINE_MAX_SIZE ||
+	    inline_write_enabled || actions_enabled)
 		return EFA_IO_TX_DESC_SIZE_128;
 
 	return EFA_IO_TX_DESC_SIZE_64;
 }
 
 static int efa_calc_sq_max_depth(struct efa_context *ctx, uint32_t max_inline_data,
-				 bool write_with_inline)
+				 bool write_with_inline, bool actions_enabled)
 {
-	int sq_wqe_size = efa_calc_sq_wqe_size(max_inline_data, write_with_inline);
+	int sq_wqe_size = efa_calc_sq_wqe_size(max_inline_data, write_with_inline,
+					       actions_enabled);
 
 	return rounddown_pow_of_two(ctx->max_llq_size / sq_wqe_size);
 }
@@ -2046,8 +2067,10 @@ static int efa_calc_sq_max_depth(struct efa_context *ctx, uint32_t max_inline_da
 int efadv_get_max_sq_depth(struct ibv_context *ibvctx, struct efadv_sq_depth_attr *attr,
 			   uint32_t inlen)
 {
+	bool actions_enabled = !!(attr->flags & EFADV_SQ_DEPTH_ATTR_COMP_ACTION_WITH_DATA);
 	bool write_with_inline = !!(attr->flags & EFADV_SQ_DEPTH_ATTR_INLINE_WRITE);
 	struct efa_context *ctx = to_efa_context(ibvctx);
+	uint32_t max_inline_data;
 
 	if (!is_efa_dev(ibvctx->device)) {
 		verbs_err(verbs_get_ctx(ibvctx), "Not an EFA device\n");
@@ -2056,6 +2079,12 @@ int efadv_get_max_sq_depth(struct ibv_context *ibvctx, struct efadv_sq_depth_att
 
 	if (!vext_field_avail(typeof(*attr), max_inline_data, inlen) || attr->comp_mask) {
 		verbs_err(verbs_get_ctx(ibvctx), "Compatibility issues\n");
+		return -EINVAL;
+	}
+
+	if (!check_comp_mask(attr->flags, EFADV_SQ_DEPTH_ATTR_INLINE_WRITE |
+					  EFADV_SQ_DEPTH_ATTR_COMP_ACTION_WITH_DATA)) {
+		verbs_err(verbs_get_ctx(ibvctx), "Unsupported flags %#x\n", attr->flags);
 		return -EINVAL;
 	}
 
@@ -2071,13 +2100,15 @@ int efadv_get_max_sq_depth(struct ibv_context *ibvctx, struct efadv_sq_depth_att
 		return -EINVAL;
 	}
 
-	if (attr->max_inline_data > ctx->inline_buf_size_ex) {
+	max_inline_data = efa_sq_max_inline_data(ctx, actions_enabled);
+	if (attr->max_inline_data > max_inline_data) {
 		verbs_err(verbs_get_ctx(ibvctx), "Max inline data %u > %u\n", attr->max_inline_data,
-			  ctx->inline_buf_size_ex);
+			  max_inline_data);
 		return -EINVAL;
 	}
 
-	return efa_calc_sq_max_depth(ctx, attr->max_inline_data, write_with_inline);
+	return efa_calc_sq_max_depth(ctx, attr->max_inline_data, write_with_inline,
+				     actions_enabled);
 }
 
 static int efa_calc_rq_max_depth(struct efa_context *ctx, uint32_t max_recv_sge)
@@ -2116,12 +2147,16 @@ static void efa_setup_qp(struct efa_context *ctx,
 			 size_t page_size)
 {
 	bool inline_write_enabled = !!(efa_attr->flags & EFADV_QP_FLAGS_INLINE_WRITE);
+	bool actions_enabled = !!(efa_attr->wr_flags & (EFADV_WR_EX_WITH_COMP_ACTION |
+							EFADV_WR_EX_WITH_COMP_ACTION_WITH_DATA));
 	struct ibv_qp_cap *cap = &attr->cap;
 	uint16_t rq_desc_cnt;
 
 	efa_qp_init_indices(qp);
 
-	qp->sq.wqe_size = efa_calc_sq_wqe_size(cap->max_inline_data, inline_write_enabled);
+	qp->sq.wqe_size = efa_calc_sq_wqe_size(cap->max_inline_data, inline_write_enabled,
+					       actions_enabled);
+	qp->sq.action_block_enabled = actions_enabled;
 	qp->sq.wq.wqe_cnt = roundup_pow_of_two(max_t(uint32_t, cap->max_send_wr,
 						     ctx->min_sq_wr));
 	qp->sq.wq.max_sge = cap->max_send_sge;
@@ -2177,6 +2212,7 @@ static int efa_check_qp_attr(struct efa_context *ctx,
 					 IBV_QP_EX_WITH_SEND_WITH_IMM;
 	uint64_t supp_srd_send_ops_mask = IBV_QP_EX_WITH_SEND |
 					  IBV_QP_EX_WITH_SEND_WITH_IMM;
+	uint64_t supp_wr_flags = EFADV_WR_EX_WITH_PROCESSING_HINTS;
 	uint64_t supp_send_ops_mask;
 	uint16_t supp_efa_flags = 0;
 
@@ -2189,6 +2225,9 @@ static int efa_check_qp_attr(struct efa_context *ctx,
 	}
 	if (EFA_DEV_CAP(ctx, UNSOLICITED_WRITE_RECV))
 		supp_efa_flags |= EFADV_QP_FLAGS_UNSOLICITED_WRITE_RECV;
+	if (EFA_DEV_CAP(ctx, COMP_ACTION))
+		supp_wr_flags |= EFADV_WR_EX_WITH_COMP_ACTION |
+				 EFADV_WR_EX_WITH_COMP_ACTION_WITH_DATA;
 
 #define EFA_CREATE_QP_SUPP_ATTR_MASK \
 	(IBV_QP_INIT_ATTR_PD | IBV_QP_INIT_ATTR_SEND_OPS_FLAGS)
@@ -2241,9 +2280,10 @@ static int efa_check_qp_attr(struct efa_context *ctx,
 		}
 	}
 
-	if (!check_comp_mask(efa_attr->wr_flags, EFADV_WR_EX_WITH_PROCESSING_HINTS)) {
-		verbs_err(&ctx->ibvctx, "Unsupported wr_flags[%" PRIx64 "]\n",
-			  efa_attr->wr_flags);
+	if (!check_comp_mask(efa_attr->wr_flags, supp_wr_flags)) {
+		verbs_err(&ctx->ibvctx,
+			  "Unsupported wr_flags[%" PRIx64 "] supported[%" PRIx64 "]\n",
+			  efa_attr->wr_flags, supp_wr_flags);
 		return EOPNOTSUPP;
 	}
 
@@ -2265,7 +2305,10 @@ static int efa_check_qp_limits(struct efa_context *ctx,
 			       struct efadv_qp_init_attr *efa_attr)
 {
 	bool inline_write_enabled = !!(efa_attr->flags & EFADV_QP_FLAGS_INLINE_WRITE);
+	bool actions_enabled = !!(efa_attr->wr_flags & (EFADV_WR_EX_WITH_COMP_ACTION |
+							EFADV_WR_EX_WITH_COMP_ACTION_WITH_DATA));
 	int sq_max_depth, rq_max_depth;
+	uint32_t max_inline_data;
 
 	if (attr->cap.max_send_sge > ctx->max_sq_sge) {
 		verbs_err(&ctx->ibvctx,
@@ -2281,7 +2324,8 @@ static int efa_check_qp_limits(struct efa_context *ctx,
 		return EINVAL;
 	}
 
-	sq_max_depth = efa_calc_sq_max_depth(ctx, attr->cap.max_inline_data, inline_write_enabled);
+	sq_max_depth = efa_calc_sq_max_depth(ctx, attr->cap.max_inline_data,
+					     inline_write_enabled, actions_enabled);
 	if (attr->cap.max_send_wr > sq_max_depth) {
 		verbs_err(&ctx->ibvctx,
 			  "Max Send WR %u > %u\n", attr->cap.max_send_wr, sq_max_depth);
@@ -2296,10 +2340,11 @@ static int efa_check_qp_limits(struct efa_context *ctx,
 		return EINVAL;
 	}
 
-	if (attr->cap.max_inline_data > ctx->inline_buf_size_ex) {
+	max_inline_data = efa_sq_max_inline_data(ctx, actions_enabled);
+	if (attr->cap.max_inline_data > max_inline_data) {
 		verbs_err(&ctx->ibvctx,
 			  "Max inline data %u > %u\n", attr->cap.max_inline_data,
-			  ctx->inline_buf_size_ex);
+			  max_inline_data);
 		return EINVAL;
 	}
 
@@ -2351,6 +2396,11 @@ static struct ibv_qp *create_qp(struct ibv_context *ibvctx,
 
 	if (qp->sq.wq.req_id_64_bit)
 		req.flags |= EFA_CREATE_QP_WITH_SQ_64_BIT_REQ_ID;
+
+	if (qp->sq.action_block_enabled) {
+		req.wqe_blocks_enablement |= EFA_CREATE_QP_WQE_BLOCK_ACTION_WITH_DATA;
+		req.action_with_data_wqe_offset = EFA_SQ_ACTION_BLOCK_OFFSET;
+	}
 
 	err = ibv_cmd_create_qp_ex(ibvctx, &qp->verbs_qp,
 				   attr, &req.ibv_cmd, sizeof(req),
@@ -2994,6 +3044,9 @@ static void efa_send_wr_init(struct efa_qp *qp, struct ibv_qp_ex *ibvqpx,
 	sq->curr_tx_wqe.remote_mem = remote_mem;
 	sq->curr_tx_wqe.inline_data = inline_data;
 	sq->curr_tx_wqe.max_sge = max_sge;
+	sq->curr_tx_wqe.action_block = sq->action_block_enabled ?
+		(struct efa_io_action_with_data_block *)((uint8_t *)sq->curr_tx_wqe.buff + EFA_SQ_ACTION_BLOCK_OFFSET) :
+		NULL;
 }
 
 static void efa_send_wr_set_imm_data(struct efa_io_tx_meta_desc *meta_desc, __be32 imm_data)
@@ -3350,6 +3403,48 @@ static void efa_send_wr_set_processing_hints(struct efadv_qp *efadv_qp, uint32_t
 	EFA_SET(&qp->sq.curr_tx_wqe.md->ctrl3, EFA_IO_TX_META_DESC_PROCESSING_HINTS, wqe_hints);
 }
 
+static void efa_send_wr_set_local_comp_action_with_data(struct efadv_qp *efadv_qp,
+							uint32_t action_id,
+							uint64_t data)
+{
+	struct efa_qp *qp = efadv_qp_to_efa_qp(efadv_qp);
+	struct efa_tx_wqe_ctx *wqe = &qp->sq.curr_tx_wqe;
+
+	if (unlikely(qp->wr_session_err))
+		return;
+
+	wqe->action_block->local_action_handle = action_id;
+	wqe->action_block->local_action_data = data;
+	EFA_SET(&wqe->md->ctrl2, EFA_IO_TX_META_DESC_LOCAL_ACTION_REQ, 1);
+}
+
+static void efa_send_wr_set_remote_comp_action_with_data(struct efadv_qp *efadv_qp,
+							 uint32_t action_id,
+							 uint64_t data)
+{
+	struct efa_qp *qp = efadv_qp_to_efa_qp(efadv_qp);
+	struct efa_tx_wqe_ctx *wqe = &qp->sq.curr_tx_wqe;
+
+	if (unlikely(qp->wr_session_err))
+		return;
+
+	wqe->action_block->remote_action_handle = action_id;
+	wqe->action_block->remote_action_data = data;
+	EFA_SET(&wqe->md->ctrl2, EFA_IO_TX_META_DESC_REMOTE_ACTION_REQ, 1);
+}
+
+static void efa_send_wr_set_local_comp_action(struct efadv_qp *efadv_qp,
+					      uint32_t action_id)
+{
+	efa_send_wr_set_local_comp_action_with_data(efadv_qp, action_id, 0);
+}
+
+static void efa_send_wr_set_remote_comp_action(struct efadv_qp *efadv_qp,
+					       uint32_t action_id)
+{
+	efa_send_wr_set_remote_comp_action_with_data(efadv_qp, action_id, 0);
+}
+
 static void efa_send_wr_start(struct ibv_qp_ex *ibvqpx)
 {
 	struct efa_qp *qp = to_efa_qp_ex(ibvqpx);
@@ -3488,6 +3583,18 @@ static void efa_qp_fill_wr_pfns(struct efa_qp *qp,
 
 	if (efa_attr->wr_flags & EFADV_WR_EX_WITH_PROCESSING_HINTS)
 		qp->dv_qp.wr_set_processing_hints = efa_send_wr_set_processing_hints;
+
+	if (efa_attr->wr_flags & EFADV_WR_EX_WITH_COMP_ACTION) {
+		qp->dv_qp.wr_set_local_comp_action = efa_send_wr_set_local_comp_action;
+		qp->dv_qp.wr_set_remote_comp_action = efa_send_wr_set_remote_comp_action;
+	}
+
+	if (efa_attr->wr_flags & EFADV_WR_EX_WITH_COMP_ACTION_WITH_DATA) {
+		qp->dv_qp.wr_set_local_comp_action_with_data =
+			efa_send_wr_set_local_comp_action_with_data;
+		qp->dv_qp.wr_set_remote_comp_action_with_data =
+			efa_send_wr_set_remote_comp_action_with_data;
+	}
 }
 
 static int efa_post_recv_validate(struct efa_qp *qp, struct ibv_recv_wr *wr)

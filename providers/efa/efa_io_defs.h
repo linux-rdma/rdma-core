@@ -61,7 +61,11 @@ enum efa_io_comp_status {
 	EFA_IO_COMP_STATUS_REMOTE_ERROR_UNKNOWN_PEER = 14,
 	/* Unreachable remote - never received a response */
 	EFA_IO_COMP_STATUS_LOCAL_ERROR_UNREACH_REMOTE = 15,
-	/* Feature mismatch */
+	/* Local action not valid */
+	EFA_IO_COMP_STATUS_LOCAL_ERROR_INVALID_ACTION = 16,
+	/* No valid action at remote side */
+	EFA_IO_COMP_STATUS_REMOTE_ERROR_INVALID_ACTION = 17,
+	/* Remote feature mismatch */
 	EFA_IO_COMP_STATUS_REMOTE_ERROR_FEATURE_MISMATCH = 18,
 };
 
@@ -72,6 +76,20 @@ enum efa_io_processing_hint {
 
 struct efa_io_req_id_ex {
 	uint16_t w[3];
+};
+
+/*
+ * Action descriptor, placed in WQE inline space. Holds local and remote
+ * action handles and data. One entry per local and remote action.
+ */
+struct efa_io_action_with_data_block {
+	uint32_t local_action_handle;
+
+	uint32_t remote_action_handle;
+
+	uint64_t local_action_data;
+
+	uint64_t remote_action_data;
 };
 
 struct efa_io_tx_meta_desc {
@@ -103,7 +121,10 @@ struct efa_io_tx_meta_desc {
 	 * 4 : comp_req - Indicates whether completion should
 	 *    be posted, after packet is transmitted. Valid only
 	 *    for the first descriptor
-	 * 7:5 : reserved29 - MBZ
+	 * 6 : local_action_req - Indicates local action
+	 *    should be triggered post local WR completion.
+	 * 7 : remote_action_req - Indicates remote action
+	 *    should be triggered post remote completion.
 	 */
 	uint8_t ctrl2;
 
@@ -348,6 +369,8 @@ struct efa_io_rx_cdesc_ex {
 #define EFA_IO_TX_META_DESC_FIRST_MASK                      BIT(2)
 #define EFA_IO_TX_META_DESC_LAST_MASK                       BIT(3)
 #define EFA_IO_TX_META_DESC_COMP_REQ_MASK                   BIT(4)
+#define EFA_IO_TX_META_DESC_LOCAL_ACTION_REQ_MASK           BIT(6)
+#define EFA_IO_TX_META_DESC_REMOTE_ACTION_REQ_MASK          BIT(7)
 #define EFA_IO_TX_META_DESC_PROCESSING_HINTS_MASK           GENMASK(1, 0)
 
 /* tx_buf_desc */

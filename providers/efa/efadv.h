@@ -63,6 +63,7 @@ struct efadv_ah_attr {
 
 enum {
 	EFADV_SQ_DEPTH_ATTR_INLINE_WRITE = 1 << 0,
+	EFADV_SQ_DEPTH_ATTR_COMP_ACTION_WITH_DATA = 1 << 1,
 };
 
 struct efadv_sq_depth_attr {
