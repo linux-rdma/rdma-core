@@ -1174,6 +1174,7 @@ static int post_send_db(struct ibv_qp *ibqp);
 
 static int wr_complete(struct ibv_qp_ex *ibqp)
 {
+	uint32_t start_index;
 	int ret;
 	struct rxe_qp *qp = container_of(ibqp, struct rxe_qp, vqp.qp_ex);
 
@@ -1182,8 +1183,17 @@ static int wr_complete(struct ibv_qp_ex *ibqp)
 		return qp->err;
 	}
 
+	/*
+	 * The index is published before the doorbell, so it has to be put
+	 * back if the doorbell is not delivered.  wr_start() has held the
+	 * send queue lock since before the entry was built, so this is
+	 * still the index the queue held before it.
+	 */
+	start_index = load_producer_index(qp->sq.queue);
 	store_producer_index(qp->sq.queue, qp->cur_index);
 	ret = post_send_db(&qp->vqp.qp);
+	if (ret)
+		store_producer_index(qp->sq.queue, start_index);
 
 	pthread_spin_unlock(&qp->sq.lock);
 	return ret;
@@ -1655,8 +1665,10 @@ static int rxe_post_send(struct ibv_qp *ibqp,
 			 struct ibv_send_wr *wr_list,
 			 struct ibv_send_wr **bad_wr)
 {
+	struct ibv_send_wr *first = wr_list;
 	int rc = 0;
 	int err;
+	uint32_t start_index;
 	struct rxe_qp *qp = to_rqp(ibqp);
 	struct rxe_wq *sq = &qp->sq;
 
@@ -1670,6 +1682,13 @@ static int rxe_post_send(struct ibv_qp *ibqp,
 
 	pthread_spin_lock(&sq->lock);
 
+	/* The producer index lives in the queue header that is shared with the
+	 * kernel, so the entries published here become visible to it before
+	 * the doorbell is written.  Remember where the queue started so they
+	 * can be withdrawn if the doorbell fails.
+	 */
+	start_index = load_producer_index(sq->queue);
+
 	while (wr_list) {
 		rc = post_one_send(qp, sq, wr_list);
 		if (rc) {
@@ -1680,9 +1699,19 @@ static int rxe_post_send(struct ibv_qp *ibqp,
 		wr_list = wr_list->next;
 	}
 
+	err = post_send_db(ibqp);
+	if (err) {
+		/*
+		 * The kernel was not notified, so no request in the list
+		 * was posted; withdraw the published entries and report
+		 * the list as unposted from its head.
+		 */
+		store_producer_index(sq->queue, start_index);
+		*bad_wr = first;
+	}
+
 	pthread_spin_unlock(&sq->lock);
 
-	err =  post_send_db(ibqp);
 	return err ? err : rc;
 }
 
