@@ -20,6 +20,8 @@ cdef extern from 'infiniband/efadv.h':
         uint16_t inline_buf_size_ex;
         uint32_t device_caps;
         uint32_t max_rdma_size;
+        uint32_t max_comp_actions;
+        uint32_t comp_action_supp_ops;
 
     cdef struct efadv_ah_attr:
         uint64_t comp_mask;
@@ -74,6 +76,14 @@ cdef extern from 'infiniband/efadv.h':
                                  uint32_t inlen)
     efadv_qp *efadv_qp_from_ibv_qp_ex(v.ibv_qp_ex *ibvqpx)
     void efadv_wr_set_processing_hints(efadv_qp *efadv_qp, uint32_t hints)
+    void efadv_wr_set_local_comp_action(efadv_qp *efadv_qp, uint32_t action_id)
+    void efadv_wr_set_remote_comp_action(efadv_qp *efadv_qp, uint32_t action_id)
+    void efadv_wr_set_local_comp_action_with_data(efadv_qp *efadv_qp,
+                                                  uint32_t action_id,
+                                                  uint64_t data)
+    void efadv_wr_set_remote_comp_action_with_data(efadv_qp *efadv_qp,
+                                                   uint32_t action_id,
+                                                   uint64_t data)
     v.ibv_cq_ex *efadv_create_cq(v.ibv_context *ibvctx,
                                  v.ibv_cq_init_attr_ex *attr_ex,
                                  efadv_cq_init_attr *efa_attr,
@@ -103,3 +113,27 @@ cdef extern from 'infiniband/efadv.h':
                                             v.ibv_comp_cntr_init_attr *attr,
                                             efadv_comp_cntr_init_attr *efa_attr,
                                             uint32_t inlen)
+
+    cdef struct efadv_comp_action:
+        v.ibv_context *context
+        v.ibv_pd *pd
+        uint32_t handle
+        uint32_t action_id
+
+    cdef struct efadv_mem_comp_action:
+        efadv_comp_action comp_action
+
+    cdef struct efadv_mem_comp_action_init_attr:
+        uint64_t comp_mask
+        v.ibv_pd *pd
+        uint32_t flags
+        uint32_t mem_modify_size
+        uint64_t mem_size
+        efadv_memory_location comp_mem
+        uint16_t comp_mem_modify_type
+        uint8_t reserved[6]
+
+    efadv_mem_comp_action *efadv_create_mem_comp_action(v.ibv_context *ibvctx,
+                                                        efadv_mem_comp_action_init_attr *attr,
+                                                        uint32_t inlen)
+    int efadv_destroy_comp_action(efadv_comp_action *comp_action)

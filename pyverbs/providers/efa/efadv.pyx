@@ -4,9 +4,12 @@
 cimport pyverbs.providers.efa.efa_enums as dve
 cimport pyverbs.providers.efa.libefa as dv
 
+import weakref
+
 from pyverbs.addr cimport GID
 from pyverbs.base import PyverbsRDMAErrno, PyverbsRDMAError
-from pyverbs.base cimport PyverbsCM
+from pyverbs.base cimport PyverbsCM, close_weakrefs
+from pyverbs.pyverbs_error import PyverbsError
 from pyverbs.comp_cntr cimport CompCntrInitAttr, CompCntr
 from pyverbs.cq cimport CQEX, CqInitAttrEx
 from pyverbs.device cimport Context
@@ -28,6 +31,7 @@ def dev_cap_to_str(flags):
             dve.EFADV_DEVICE_ATTR_CAPS_UNSOLICITED_WRITE_RECV: 'Unsolicited RDMA Write receive',
             dve.EFADV_DEVICE_ATTR_CAPS_CQ_WITH_EXT_MEM_DMABUF: 'CQ with external memory',
             dve.EFADV_DEVICE_ATTR_CAPS_COMP_CNTR: 'Completion Counters',
+            dve.EFADV_DEVICE_ATTR_CAPS_COMP_ACTION: 'Completion Actions',
     }
     return bitmask_to_str(flags, l)
 
@@ -57,6 +61,24 @@ cdef class EfaContext(Context):
         :return: None
         """
         super().__init__(name=name)
+        self.comp_actions = weakref.WeakSet()
+
+    cdef add_ref(self, obj):
+        try:
+            Context.add_ref(self, obj)
+        except PyverbsError:
+            if isinstance(obj, EfaCompAction):
+                self.comp_actions.add(obj)
+            else:
+                raise PyverbsError('Unrecognized object type')
+
+    def __dealloc__(self):
+        self.close()
+
+    cpdef close(self):
+        if self.context != NULL:
+            close_weakrefs([self.comp_actions])
+            super(EfaContext, self).close()
 
     def query_efa_device(self):
         """
@@ -111,6 +133,14 @@ cdef class EfaDVDeviceAttr(PyverbsObject):
     def max_rdma_size(self):
         return self.device_attr.max_rdma_size
 
+    @property
+    def max_comp_actions(self):
+        return self.device_attr.max_comp_actions
+
+    @property
+    def comp_action_supp_ops(self):
+        return self.device_attr.comp_action_supp_ops
+
     def __str__(self):
         print_format = '{:20}: {:<20}\n'
         return print_format.format('comp_mask', self.device_attr.comp_mask) + \
@@ -121,7 +151,9 @@ cdef class EfaDVDeviceAttr(PyverbsObject):
             print_format.format('Inline buffer size', self.device_attr.inline_buf_size) + \
             print_format.format('Inline buffer size ex', self.device_attr.inline_buf_size_ex) + \
             print_format.format('Device Capabilities', dev_cap_to_str(self.device_attr.device_caps)) + \
-            print_format.format('Max RDMA Size', self.device_attr.max_rdma_size)
+            print_format.format('Max RDMA Size', self.device_attr.max_rdma_size) + \
+            print_format.format('Max Comp Actions', self.device_attr.max_comp_actions) +\
+            print_format.format('Comp Action Supported Ops', hex(self.device_attr.comp_action_supp_ops))
 
 
 cdef class EfaDVAHAttr(PyverbsObject):
@@ -240,6 +272,18 @@ cdef class SRDQPEx(QPEx):
 
     def wr_set_processing_hints(self, hints):
         dv.efadv_wr_set_processing_hints(self.dv_qp, hints)
+
+    def wr_set_local_comp_action(self, action_id):
+        dv.efadv_wr_set_local_comp_action(self.dv_qp, action_id)
+
+    def wr_set_remote_comp_action(self, action_id):
+        dv.efadv_wr_set_remote_comp_action(self.dv_qp, action_id)
+
+    def wr_set_local_comp_action_with_data(self, action_id, data):
+        dv.efadv_wr_set_local_comp_action_with_data(self.dv_qp, action_id, data)
+
+    def wr_set_remote_comp_action_with_data(self, action_id, data):
+        dv.efadv_wr_set_remote_comp_action_with_data(self.dv_qp, action_id, data)
 
 
 cdef class EfaDVCQInitAttr(PyverbsObject):
@@ -468,3 +512,115 @@ cdef class EfaCompCntr(CompCntr):
 
     def __dealloc__(self):
         self.close()
+
+
+cdef class EfaMemCompActionInitAttr(PyverbsObject):
+    """Represents efadv_mem_comp_action_init_attr struct."""
+    def __init__(self, PD pd=None,
+                 comp_mem_modify_type=dve.EFADV_MEM_COMP_ACTION_SET_INITIATOR_VAL,
+                 mem_modify_size=4, mem_size=None, comp_mem_ptr=None):
+        """Initialize memory completion action attributes.
+
+        :param pd: The protection domain to associate the action with.
+        :param comp_mem_modify_type: The memory modification performed on completion
+                        (EFADV_MEM_COMP_ACTION_*).
+        :param mem_modify_size: Size in bytes of each memory modification (1, 2 or 4).
+        :param mem_size: Total size in bytes of the target region (defaults to
+                         mem_modify_size, a single modification).
+        :param comp_mem_ptr: VA of the application memory target (optional).
+        """
+        super().__init__()
+        memset(&self.attr, 0, sizeof(self.attr))
+        self.attr.comp_mem_modify_type = comp_mem_modify_type
+        self.attr.mem_modify_size = mem_modify_size
+        self.attr.mem_size = mem_modify_size if mem_size is None else mem_size
+        if pd is not None:
+            self.attr.pd = pd.pd
+            self.pd = pd
+        if comp_mem_ptr is not None:
+            self.set_comp_mem_va(comp_mem_ptr)
+
+    def set_comp_mem_va(self, uintptr_t ptr):
+        """Set the completion memory target VA."""
+        self.attr.comp_mem.type = dve.EFADV_MEMORY_LOCATION_VA
+        self.attr.comp_mem.ptr = <uint8_t *>ptr
+
+    @property
+    def comp_mask(self):
+        return self.attr.comp_mask
+
+    @comp_mask.setter
+    def comp_mask(self, val):
+        self.attr.comp_mask = val
+
+    @property
+    def flags(self):
+        return self.attr.flags
+
+    @flags.setter
+    def flags(self, val):
+        self.attr.flags = val
+
+    @property
+    def comp_mem_modify_type(self):
+        return self.attr.comp_mem_modify_type
+
+    @comp_mem_modify_type.setter
+    def comp_mem_modify_type(self, val):
+        self.attr.comp_mem_modify_type = val
+
+    @property
+    def mem_modify_size(self):
+        return self.attr.mem_modify_size
+
+    @mem_modify_size.setter
+    def mem_modify_size(self, val):
+        self.attr.mem_modify_size = val
+
+    @property
+    def mem_size(self):
+        return self.attr.mem_size
+
+    @mem_size.setter
+    def mem_size(self, val):
+        self.attr.mem_size = val
+
+
+cdef class EfaCompAction(PyverbsCM):
+    """Represents an EFA Completion Action."""
+    def __init__(self, Context ctx not None, EfaMemCompActionInitAttr attr not None):
+        """Create a memory completion action.
+
+        :param ctx: Device context.
+        :param attr: Init attributes.
+        """
+        super().__init__()
+        self.mem_action = dv.efadv_create_mem_comp_action(ctx.context, &attr.attr,
+                                                          sizeof(attr.attr))
+        if self.mem_action == NULL:
+            raise PyverbsRDMAErrno('Failed to create EFA comp action')
+        self.action = &self.mem_action.comp_action
+        self.ctx = ctx
+        self.pd = attr.pd
+        ctx.add_ref(self)
+
+    @property
+    def handle(self):
+        return self.action.handle
+
+    @property
+    def action_id(self):
+        return self.action.action_id
+
+    def __dealloc__(self):
+        self.close()
+
+    cpdef close(self):
+        if self.action != NULL:
+            rc = dv.efadv_destroy_comp_action(self.action)
+            if rc:
+                raise PyverbsRDMAError('Failed to destroy EFA comp action', rc)
+            self.action = NULL
+            self.mem_action = NULL
+            self.ctx = None
+            self.pd = None
