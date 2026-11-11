@@ -85,6 +85,19 @@ struct efadv_rq_depth_attr {
 int efadv_get_max_rq_depth(struct ibv_context *ibvctx, struct efadv_rq_depth_attr *attr,
 			   uint32_t inlen);
 
+enum {
+	EFADV_INLINE_DATA_ATTR_COMP_ACTION_WITH_DATA = 1 << 0,
+};
+
+struct efadv_inline_data_attr {
+	uint64_t comp_mask;
+	uint32_t flags;
+	uint8_t reserved[4];
+};
+
+int efadv_get_max_inline_data(struct ibv_context *ibvctx,
+			      struct efadv_inline_data_attr *attr, uint32_t inlen);
+
 int efadv_query_ah(struct ibv_ah *ibvah, struct efadv_ah_attr *attr,
 		   uint32_t inlen);
 

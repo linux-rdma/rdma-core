@@ -2111,6 +2111,31 @@ int efadv_get_max_sq_depth(struct ibv_context *ibvctx, struct efadv_sq_depth_att
 				     actions_enabled);
 }
 
+int efadv_get_max_inline_data(struct ibv_context *ibvctx,
+			      struct efadv_inline_data_attr *attr, uint32_t inlen)
+{
+	struct efa_context *ctx = to_efa_context(ibvctx);
+
+	if (!is_efa_dev(ibvctx->device)) {
+		verbs_err(verbs_get_ctx(ibvctx), "Not an EFA device\n");
+		return -EOPNOTSUPP;
+	}
+
+	if (!vext_field_avail(typeof(*attr), reserved, inlen) || attr->comp_mask ||
+	    !is_reserved_cleared(attr->reserved)) {
+		verbs_err(verbs_get_ctx(ibvctx), "Compatibility issues\n");
+		return -EINVAL;
+	}
+
+	if (!check_comp_mask(attr->flags, EFADV_INLINE_DATA_ATTR_COMP_ACTION_WITH_DATA)) {
+		verbs_err(verbs_get_ctx(ibvctx), "Unsupported flags %#x\n", attr->flags);
+		return -EINVAL;
+	}
+
+	return (int)efa_sq_max_inline_data(ctx,
+					   !!(attr->flags & EFADV_INLINE_DATA_ATTR_COMP_ACTION_WITH_DATA));
+}
+
 static int efa_calc_rq_max_depth(struct efa_context *ctx, uint32_t max_recv_sge)
 {
 	return ctx->max_rq_wr / max_recv_sge;
