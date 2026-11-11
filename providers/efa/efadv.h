@@ -139,6 +139,10 @@ enum {
 	EFADV_WQ_CAPS_64_BIT_REQ_ID = 1 << 0,
 };
 
+enum {
+	EFADV_WQE_BLOCK_COMP_ACTION_WITH_DATA = 1 << 0,
+};
+
 struct efadv_wq_attr {
 	uint64_t comp_mask;
 	uint8_t *buffer;
@@ -147,6 +151,8 @@ struct efadv_wq_attr {
 	uint32_t *doorbell;
 	uint32_t max_batch;
 	uint16_t caps;
+	uint16_t wqe_blocks;
+	uint16_t comp_action_with_data_block_offset;
 	uint8_t reserved[2];
 };
 
