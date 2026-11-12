@@ -38,7 +38,7 @@
 #include <rdma/ib_user_verbs.h>
 
 #ifndef RDMA_UAPI_PTR
-#define RDMA_UAPI_PTR(_type, _name)	__aligned_u64 _name
+#define RDMA_UAPI_PTR(_type, _name) __aligned_u64 _name
 #endif
 
 #define IB_UVERBS_ACCESS_OPTIONAL_FIRST (1 << 20)
@@ -153,14 +153,14 @@ enum ib_uverbs_flow_action_esp_keymat_aes_gcm_iv_algo {
 };
 
 struct ib_uverbs_flow_action_esp_keymat_aes_gcm {
-	__aligned_u64	iv;
-	__u32		iv_algo; /* Use enum ib_uverbs_flow_action_esp_keymat_aes_gcm_iv_algo */
+	__aligned_u64 iv;
+	__u32 iv_algo; /* Use enum ib_uverbs_flow_action_esp_keymat_aes_gcm_iv_algo */
 
-	__u32		salt;
-	__u32		icv_len;
+	__u32 salt;
+	__u32 icv_len;
 
-	__u32		key_len;
-	__u32		aes_key[256 / 32];
+	__u32 key_len;
+	__u32 aes_key[256 / 32];
 };
 
 enum ib_uverbs_flow_action_esp_replay {
@@ -169,20 +169,20 @@ enum ib_uverbs_flow_action_esp_replay {
 };
 
 struct ib_uverbs_flow_action_esp_replay_bmp {
-	__u32	size;
+	__u32 size;
 };
 
 enum ib_uverbs_flow_action_esp_flags {
-	IB_UVERBS_FLOW_ACTION_ESP_FLAGS_INLINE_CRYPTO	= 0UL << 0,	/* Default */
-	IB_UVERBS_FLOW_ACTION_ESP_FLAGS_FULL_OFFLOAD	= 1UL << 0,
+	IB_UVERBS_FLOW_ACTION_ESP_FLAGS_INLINE_CRYPTO = 0UL << 0, /* Default */
+	IB_UVERBS_FLOW_ACTION_ESP_FLAGS_FULL_OFFLOAD = 1UL << 0,
 
-	IB_UVERBS_FLOW_ACTION_ESP_FLAGS_TUNNEL		= 0UL << 1,	/* Default */
-	IB_UVERBS_FLOW_ACTION_ESP_FLAGS_TRANSPORT	= 1UL << 1,
+	IB_UVERBS_FLOW_ACTION_ESP_FLAGS_TUNNEL = 0UL << 1, /* Default */
+	IB_UVERBS_FLOW_ACTION_ESP_FLAGS_TRANSPORT = 1UL << 1,
 
-	IB_UVERBS_FLOW_ACTION_ESP_FLAGS_DECRYPT		= 0UL << 2,	/* Default */
-	IB_UVERBS_FLOW_ACTION_ESP_FLAGS_ENCRYPT		= 1UL << 2,
+	IB_UVERBS_FLOW_ACTION_ESP_FLAGS_DECRYPT = 0UL << 2, /* Default */
+	IB_UVERBS_FLOW_ACTION_ESP_FLAGS_ENCRYPT = 1UL << 2,
 
-	IB_UVERBS_FLOW_ACTION_ESP_FLAGS_ESN_NEW_WINDOW	= 1UL << 3,
+	IB_UVERBS_FLOW_ACTION_ESP_FLAGS_ESN_NEW_WINDOW = 1UL << 3,
 };
 
 struct ib_uverbs_flow_action_esp_encap {
@@ -191,16 +191,16 @@ struct ib_uverbs_flow_action_esp_encap {
 	 */
 	RDMA_UAPI_PTR(void *, val_ptr); /* pointer to a flow_xxxx_filter */
 	RDMA_UAPI_PTR(struct ib_uverbs_flow_action_esp_encap *, next_ptr);
-	__u16	len;		/* Len of the filter struct val_ptr points to */
-	__u16	type;		/* Use flow_spec_type enum */
+	__u16 len; /* Len of the filter struct val_ptr points to */
+	__u16 type; /* Use flow_spec_type enum */
 };
 
 struct ib_uverbs_flow_action_esp {
-	__u32		spi;
-	__u32		seq;
-	__u32		tfc_pad;
-	__u32		flags;
-	__aligned_u64	hard_limit_pkts;
+	__u32 spi;
+	__u32 seq;
+	__u32 tfc_pad;
+	__u32 flags;
+	__aligned_u64 hard_limit_pkts;
 };
 
 enum ib_uverbs_read_counters_flags {
@@ -221,7 +221,7 @@ enum ib_uverbs_advise_mr_flag {
 struct ib_uverbs_query_port_resp_ex {
 	struct ib_uverbs_query_port_resp legacy_resp;
 	__u16 port_cap_flags2;
-	__u8  reserved[2];
+	__u8 reserved[2];
 	__u32 active_speed_ex;
 };
 
@@ -257,6 +257,7 @@ enum rdma_driver_id {
 	RDMA_DRIVER_ERDMA,
 	RDMA_DRIVER_MANA,
 	RDMA_DRIVER_IONIC,
+	RDMA_DRIVER_HFI2,
 };
 
 enum ib_uverbs_gid_type {

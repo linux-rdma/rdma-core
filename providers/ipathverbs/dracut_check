@@ -1,8 +1,0 @@
-#!/bin/bash
-
-if [ -n "$hostonly" ]; then
-	lspci -n 2>/dev/null | grep -q -i "1077\|1fc1"
-	exit $?
-fi
-
-exit 0
