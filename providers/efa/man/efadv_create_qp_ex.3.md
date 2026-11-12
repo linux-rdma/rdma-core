@@ -84,13 +84,26 @@ struct efadv_qp_init_attr {
 	EFADV_WR_EX_WITH_PROCESSING_HINTS:
 		Enable **efadv_wr_set_processing_hints()** on this QP.
 
+	EFADV_WR_EX_WITH_COMP_ACTION:
+		Enable **efadv_wr_set_local_comp_action()** and
+		**efadv_wr_set_remote_comp_action()** on this QP.
+
+	EFADV_WR_EX_WITH_COMP_ACTION_WITH_DATA:
+		Enable **efadv_wr_set_local_comp_action_with_data()** and
+		**efadv_wr_set_remote_comp_action_with_data()** on this QP.
+
+	Enabling completion actions may reduce the maximum supported
+	inline data size and SQ depth. Use **efadv_get_max_sq_depth()**
+	to query the effective limits.
+
 # RETURN VALUE
 
 efadv_create_qp_ex() returns a pointer to the created QP, or NULL if the request fails.
 
 # SEE ALSO
 
-**efadv**(7), **ibv_create_qp_ex**(3)
+**efadv**(7), **ibv_create_qp_ex**(3), **efadv_wr_set_comp_action**(3),
+**efadv_wr_set_processing_hints**(3)
 
 # AUTHORS
 

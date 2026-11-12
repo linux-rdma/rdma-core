@@ -39,6 +39,8 @@ struct efadv_device_attr {
 	uint16_t inline_buf_size_ex;
 	uint32_t device_caps;
 	uint32_t max_rdma_size;
+	uint32_t max_comp_actions;
+	uint32_t comp_action_supp_ops;
 };
 ```
 
@@ -95,8 +97,40 @@ struct efadv_device_attr {
 	EFADV_DEVICE_ATTR_CAPS_COMP_CNTR:
 		Completion counters are supported.
 
+	EFADV_DEVICE_ATTR_CAPS_COMP_ACTION:
+		QPs can be created with completion action wr_flags,
+		see **efadv_create_qp_ex**(3).
+
 *max_rdma_size*
 :	Maximum RDMA transfer size in bytes.
+
+*max_comp_actions*
+:	Maximum number of completion actions.
+
+*comp_action_supp_ops*
+:	Bitmask indicating which completion events can trigger completion
+	actions:
+
+	EFADV_DEVICE_ATTR_COMP_ACTION_SUPPORTED_OP_SEND:
+		Send completion.
+
+	EFADV_DEVICE_ATTR_COMP_ACTION_SUPPORTED_OP_RECV:
+		Receive completion.
+
+	EFADV_DEVICE_ATTR_COMP_ACTION_SUPPORTED_OP_RDMA_READ:
+		RDMA read initiator completion.
+
+	EFADV_DEVICE_ATTR_COMP_ACTION_SUPPORTED_OP_REMOTE_RDMA_READ:
+		RDMA read target (responder) completion.
+
+	EFADV_DEVICE_ATTR_COMP_ACTION_SUPPORTED_OP_RDMA_WRITE:
+		RDMA write initiator completion.
+
+	EFADV_DEVICE_ATTR_COMP_ACTION_SUPPORTED_OP_REMOTE_RDMA_WRITE:
+		RDMA write target completion.
+
+	EFADV_DEVICE_ATTR_COMP_ACTION_SUPPORTED_OP_REMOTE_RDMA_WRITE_IMM:
+		RDMA write with immediate target completion.
 
 # RETURN VALUE
 
