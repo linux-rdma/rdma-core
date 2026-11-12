@@ -82,8 +82,9 @@ BuildRequires: make
 %define cmake_install DESTDIR=%{buildroot} make install
 %endif
 
-%if 0%{?fedora} >= 25 || 0%{?rhel} == 8
-# pandoc was introduced in FC25, Centos8
+# pandoc was introduced in FC25, Centos8. Amazon Linux does not ship pandoc,
+# build there from release tarballs with pre-built man pages.
+%if (0%{?fedora} >= 25 || 0%{?rhel} == 8) && !0%{?amzn}
 BuildRequires: pandoc
 %endif
 
