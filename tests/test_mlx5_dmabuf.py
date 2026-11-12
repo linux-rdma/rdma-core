@@ -2,6 +2,7 @@
 # Copyright (c) 2024 Nvidia Inc. All rights reserved. See COPYING file
 
 from os import strerror
+import os
 import unittest
 import errno
 
@@ -86,6 +87,8 @@ class Mlx5DmabufCudaRes(RCResources):
             if ex.error_code == errno.EOPNOTSUPP:
                 raise unittest.SkipTest('Registering DV DMABUF MR is not supported')
             raise ex
+        finally:
+            os.close(dmabuf_fd)
 
     def create_qp_attr(self):
         qp_attr = QPAttr(port_num=self.ib_port)
