@@ -20,6 +20,7 @@ cimport pyverbs.libibverbs as v
 cimport pyverbs.librdmacm as cm
 from pyverbs.cmid cimport CMID
 from pyverbs.xrcd cimport XRCD
+from pyverbs.ru cimport Job
 from pyverbs.addr cimport GID
 from pyverbs.mr import DMMR, DMAHandle
 from pyverbs.pd cimport PD
@@ -115,6 +116,7 @@ cdef class Context(PyverbsCM):
         self.cqs = weakref.WeakSet()
         self.qps = weakref.WeakSet()
         self.xrcds = weakref.WeakSet()
+        self.jobs = weakref.WeakSet()
         self.vars = weakref.WeakSet()
         self.uars = weakref.WeakSet()
         self.pps = weakref.WeakSet()
@@ -184,8 +186,9 @@ cdef class Context(PyverbsCM):
             if self.logger:
                 self.logger.debug('Closing Context')
             close_weakrefs([self.devx_objs, self.devx_umems, self.qps,
-                            self.crypto_logins, self.rwq_ind_tbls, self.wqs,
-                            self.ccs, self.cqs, self.dms, self.pds, self.xrcds,
+                            self.jobs, self.crypto_logins, self.rwq_ind_tbls,
+                            self.wqs, self.ccs, self.cqs, self.dms, self.pds,
+                            self.xrcds,
                             self.vars, self.sched_leafs, self.sched_nodes,
                             self.dr_domains, self.event_channels, self.dmahs,
                             self.comp_cntrs])
@@ -374,6 +377,8 @@ cdef class Context(PyverbsCM):
             self.qps.add(obj)
         elif isinstance(obj, XRCD):
             self.xrcds.add(obj)
+        elif isinstance(obj, Job):
+            self.jobs.add(obj)
         elif isinstance(obj, WQ):
             self.wqs.add(obj)
         elif isinstance(obj, RwqIndTable):
@@ -763,6 +768,15 @@ cdef class DeviceAttrEx(PyverbsObject):
     @property
     def phys_port_cnt_ex(self):
         return self.dev_attr.phys_port_cnt_ex
+    @property
+    def max_job_ids(self):
+        return self.dev_attr.max_job_ids
+    @property
+    def max_job_keys(self):
+        return self.dev_attr.max_job_keys
+    @property
+    def max_addr_entries(self):
+        return self.dev_attr.max_addr_entries
 
 
 cdef class CompCntrCaps(PyverbsObject):

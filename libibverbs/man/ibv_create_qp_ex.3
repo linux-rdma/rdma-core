@@ -29,7 +29,7 @@ struct ibv_cq          *send_cq;        /* CQ to be associated with the Send Que
 struct ibv_cq          *recv_cq;        /* CQ to be associated with the Receive Queue (RQ) */
 struct ibv_srq         *srq;            /* SRQ handle if QP is to be associated with an SRQ, otherwise NULL */
 struct ibv_qp_cap       cap;            /* QP capabilities */
-enum ibv_qp_type        qp_type;        /* QP Transport Service Type: IBV_QPT_RC, IBV_QPT_UC, IBV_QPT_UD, IBV_QPT_RAW_PACKET or IBV_QPT_DRIVER */
+enum ibv_qp_type        qp_type;        /* QP Transport Service Type: IBV_QPT_RC, IBV_QPT_UC, IBV_QPT_UD, IBV_QPT_RAW_PACKET, IBV_QPT_RU or IBV_QPT_DRIVER */
 int                     sq_sig_all;     /* If set, each Work Request (WR) submitted to the SQ generates a completion entry */
 uint32_t                comp_mask;	/* Identifies valid fields */
 struct ibv_pd          *pd;		/* PD to be associated with the QP */
@@ -40,6 +40,11 @@ struct ibv_rwq_ind_table *rwq_ind_tbl;  /* Indirection table to be associated wi
 struct ibv_rx_hash_conf  rx_hash_conf;  /* RX hash configuration to be used */
 uint32_t                source_qpn;     /* Source QP number, creation flag IBV_QP_CREATE_SOURCE_QPN should be set, few NOTEs below */
 uint64_t                send_ops_flags; /* Select which QP send ops will be defined in struct ibv_qp_ex. Use enum ibv_qp_create_send_ops_flags */
+struct ibv_qp_attr     *qp_attr;        /* QP attributes to apply at creation, valid when IBV_QP_INIT_ATTR_QP_ATTR is set */
+int                     qp_attr_mask;   /* Mask of enum ibv_qp_attr_mask selecting the members of qp_attr to apply */
+struct ibv_qp_semantics *qp_semantics;  /* Requested QP semantics, valid when IBV_QP_INIT_ATTR_QP_SEMANTICS is set */
+uint32_t                src_id;         /* Initiator ID, the caller's rank in its job, valid when IBV_QP_INIT_ATTR_SRC_ID is set */
+struct ibv_job_key     *job_key;        /* Job key authorizing the QP, valid when IBV_QP_INIT_ATTR_JKEY is set */
 .in -8
 };
 .sp
@@ -137,6 +142,34 @@ if the QP is to be associated with an SRQ.
 .PP
 The attribute source_qpn is supported only on UD QP, without flow steering RX should not be possible.
 .PP
+.B IBV_QPT_RU
+is the Reliable Unconnected service. It is reliable but does not order messages
+with respect to one another, and it is unconnected. One RU QP reaches every
+peer in its job so each work request names its destination. An RU QP is
+created with IBV_QP_INIT_ATTR_JKEY and a job key authorizing it, and
+optionally with IBV_QP_INIT_ATTR_QP_SEMANTICS to relax the ordering the
+device provides, and IBV_QP_INIT_ATTR_QP_ATTR to apply QP attributes at
+creation rather than through
+.BR ibv_modify_qp (3).
+An RU QP is returned in the RTS state. Attributes given with
+IBV_QP_INIT_ATTR_QP_ATTR are applied as that modify to RTS applies them, and
+may select only IBV_QP_STATE (which must be IBV_QPS_RTS), IBV_QP_PKEY_INDEX,
+IBV_QP_PORT, IBV_QP_ACCESS_FLAGS, and IBV_QP_PATH_MTU. If they are refused the
+QP is not created. Other QP types do not take IBV_QP_INIT_ATTR_QP_ATTR.
+Setting IBV_QP_INIT_ATTR_SRC_ID supplies the source identifier, the caller's
+rank within its job, which it may choose, since the job is the identity the
+device trusts. The job key MUST have been created on the QP's protection
+domain, and a QP given a relative QP number (IBV_QP_CREATE_SOURCE_QPN without
+IBV_QPN_UET_ABSOLUTE_ADDR_BIT) MUST have one. A requested QP number MUST NOT
+set the reserved bits. The semantics MAY ask for no more than
+.BR ibv_query_qp_semantics (3)
+advertises. Other QP types do not take IBV_QP_INIT_ATTR_SRC_ID,
+IBV_QP_INIT_ATTR_JKEY, or IBV_QP_INIT_ATTR_QP_SEMANTICS. See
+.BR ibv_uet (7),
+.BR ibv_create_jkey (3)
+and
+.BR ibv_query_qp_semantics (3).
+.PP
 Use
 .B ibv_qp_to_qp_ex()
 to get the
@@ -152,7 +185,10 @@ does not represent a specific service and is used for vendor specific QP logic.
 .BR ibv_alloc_pd (3),
 .BR ibv_modify_qp (3),
 .BR ibv_query_qp (3),
-.BR ibv_create_rwq_ind_table (3)
+.BR ibv_create_rwq_ind_table (3),
+.BR ibv_query_qp_semantics (3),
+.BR ibv_create_jkey (3),
+.BR ibv_uet (7)
 .SH "AUTHORS"
 .TP
 Yishai Hadas <yishaih@mellanox.com>

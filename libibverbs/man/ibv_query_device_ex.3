@@ -44,6 +44,9 @@ uint64_t     	       max_dm_size;		   /* Max Device Memory size (in bytes) avail
 struct ibv_pci_atomic_caps atomic_caps;            /* PCI atomic operations capabilities, use enum ibv_pci_atomic_op_size */
 uint32_t               xrc_odp_caps;               /* Mask with enum ibv_odp_transport_cap_bits to know which operations are supported. */
 uint32_t	       phys_port_cnt_ex		   /* Extended number of physical port count, allows exposing more than 255 ports device */
+uint32_t	       max_job_ids;		   /* Jobs allocated at once, not the largest JobID */
+uint32_t	       max_job_keys;		   /* Job keys allocated at once */
+uint32_t	       max_addr_entries;	   /* Largest address table a single job may have */
 .in -8
 };
 
@@ -170,6 +173,77 @@ IBV_PARENT_DOMAIN_INIT_ATTR_ALLOW_CC_UNPROTECTED_ALLOC, allocate buffers
 through ibv_alloc_buf(), and register them with ibv_reg_buf_mr() (or
 ibv_reg_mr_ex() with IBV_REG_MR_MASK_BUF).
 
+These four flags describe the device as a whole, which is coarser than the
+features they describe. A device may serve more than one transport, and a
+single port may carry both a RoCE GID and a UET GID. Read them as "some path
+on this device offers this". Which transport a queue pair uses follows from
+the type of the GID entry it was given, reported by ibv_query_gid_ex(3).
+
+.TP 7
+IBV_DEVICE_RU
+
+Indicates the device supports the Reliable Unconnected verbs: jobs, job keys,
+the job address table, extended address handles, queue pair semantics and the
+IBV_QPT_RU queue pair type. See
+.BR ibv_uet (7).
+
+The max_job_ids, max_job_keys and max_addr_entries members report the
+corresponding limits.
+
+.TP 7
+IBV_DEVICE_IMM64
+
+Indicates the device supports 64-bit immediate data, sent with
+ibv_wr_send_imm64() or the 64-bit RDMA write variants and read from a work
+completion with ibv_wc_read_imm64_data().
+
+.TP 7
+IBV_DEVICE_KEY64
+
+Indicates the device can name memory regions with 64-bit keys, carried in the
+lkey64 and rkey64 members of struct ibv_mr and struct ibv_sge64. A region may
+have a 32-bit key as well, for use over a transport that carries only 32b. The
+wide key is a second name rather than a replacement, and a region without one
+reports zero.
+
+.TP 7
+IBV_DEVICE_USER_RKEY
+
+Indicates the device supports registering a memory region with an
+application-assigned RKey, requested with IBV_REG_MR_MASK_RKEY. See
+.BR ibv_reg_mr (3).
+
+The next four flags are the memory region access restrictions a device
+supports, and are meaningful only with IBV_DEVICE_RU. Each names what an
+incoming request must match to reach a region. Each is its own match, so a
+device supporting two of them does not necessarily support their combination,
+and a device that requires every region to be restricted leaves
+IBV_DEVICE_MR_UNRESTRICTED clear.
+
+.TP 7
+IBV_DEVICE_MR_UNRESTRICTED
+
+The protection domain only: any queue pair in it may reach the region.
+
+.TP 7
+IBV_DEVICE_MR_JOB_RESTRICTED
+
+The protection domain and a JobID: any queue pair, for transfers of one job,
+requested with IBV_REG_MR_MASK_JKEY.
+
+.TP 7
+IBV_DEVICE_MR_QP_RESTRICTED
+
+The protection domain and a queue pair: only the queue pair the region is
+attached to with
+.BR ibv_attach_mr (3).
+
+.TP 7
+IBV_DEVICE_MR_QP_JOB_RESTRICTED
+
+The protection domain, a queue pair and a JobID: the attached queue pair, for
+transfers of one job.
+
 .SH "RETURN VALUE"
 .B ibv_query_device_ex()
 returns 0 on success, or the value of errno on failure (which indicates the failure reason).
@@ -185,7 +259,8 @@ in use by other users/processes.
 .BR ibv_open_device (3),
 .BR ibv_query_port (3),
 .BR ibv_query_pkey (3),
-.BR ibv_query_gid (3)
+.BR ibv_query_gid (3),
+.BR ibv_uet (7)
 .SH "AUTHORS"
 .TP
 Majd Dibbiny <majd@mellanox.com>

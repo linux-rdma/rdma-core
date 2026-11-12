@@ -10,13 +10,14 @@ from pyverbs.pyverbs_error import PyverbsUserError, PyverbsError, PyverbsRDMAErr
 from pyverbs.utils import gid_str, qp_type_to_str, qp_state_to_str, mtu_to_str
 from pyverbs.utils import access_flags_to_str, mig_state_to_str
 from pyverbs.wq cimport RwqIndTable, RxHashConf
-from pyverbs.mr cimport MW, MWBindInfo, MWBind
+from pyverbs.mr cimport MR, MW, MWBindInfo, MWBind
 from pyverbs.wr cimport RecvWR, SendWR, SGE
 from pyverbs.base import PyverbsRDMAErrno
 from pyverbs.addr cimport AHAttr, GID, AH
 from pyverbs.flow cimport FlowAttr, Flow
 from pyverbs.base cimport close_weakrefs
 cimport pyverbs.libibverbs_enums as e
+from pyverbs.ru cimport JKey, QPSemantics
 from pyverbs.addr cimport GlobalRoute
 from pyverbs.device cimport Context
 from cpython.ref cimport PyObject
@@ -267,7 +268,9 @@ cdef class QPInitAttrEx(PyverbsObject):
                  SRQ srq=None, QPCap cap=None, sq_sig_all=0, comp_mask=0,
                  PD pd=None, XRCD xrcd=None, create_flags=0,
                  max_tso_header=0, source_qpn=0, RxHashConf hash_conf=None,
-                 RwqIndTable ind_table=None, send_ops_flags=0):
+                 RwqIndTable ind_table=None, send_ops_flags=0,
+                 JKey jkey=None, src_id=0, QPAttr qp_attr=None,
+                 qp_attr_mask=0, QPSemantics qp_semantics=None):
         """
         Initialize a QPInitAttrEx object with user-defined or default values.
         :param qp_type: QP type to be created
@@ -290,6 +293,14 @@ cdef class QPInitAttrEx(PyverbsObject):
         :param ind_table: A RwqIndTable object, indirection table of RWQs.
         :param send_ops_flags: Send opcodes to be supported by the extended QP.
                                Use ibv_qp_create_send_ops_flags enum
+        :param jkey: A JKey object naming the UET job this QP joins
+        :param src_id: The UET resource index this QP answers to
+        :param qp_attr: A QPAttr applied at creation, for devices that create
+                        a QP straight into RTS rather than stepping it through
+                        INIT and RTR
+        :param qp_attr_mask: Which fields of qp_attr are set
+        :param qp_semantics: A QPSemantics object stating the semantics the QP
+                             is being created with
         :return: An initialized QPInitAttrEx object
         """
         super().__init__()
@@ -332,6 +343,55 @@ cdef class QPInitAttrEx(PyverbsObject):
         self.attr.max_tso_header = max_tso_header
         self.attr.source_qpn = source_qpn
         self.attr.send_ops_flags = send_ops_flags
+        self._jkey = jkey
+        self.attr.job_key = (<JKey>jkey).job_key if jkey else NULL
+        self.attr.src_id = src_id
+        # the C struct keeps pointers to these, so the Python objects have to
+        # outlive the call to ibv_create_qp_ex()
+        self._qp_attr = qp_attr
+        self.attr.qp_attr = &(<QPAttr>qp_attr).attr if qp_attr else NULL
+        self.attr.qp_attr_mask = qp_attr_mask
+        self._qp_semantics = qp_semantics
+        self.attr.qp_semantics = &(<QPSemantics>qp_semantics).semantics \
+            if qp_semantics else NULL
+
+    @property
+    def jkey(self):
+        return self._jkey
+    @jkey.setter
+    def jkey(self, JKey val not None):
+        self._jkey = val
+        self.attr.job_key = val.job_key
+
+    @property
+    def src_id(self):
+        return self.attr.src_id
+    @src_id.setter
+    def src_id(self, val):
+        self.attr.src_id = val
+
+    @property
+    def qp_attr(self):
+        return self._qp_attr
+    @qp_attr.setter
+    def qp_attr(self, QPAttr val not None):
+        self._qp_attr = val
+        self.attr.qp_attr = &val.attr
+
+    @property
+    def qp_attr_mask(self):
+        return self.attr.qp_attr_mask
+    @qp_attr_mask.setter
+    def qp_attr_mask(self, val):
+        self.attr.qp_attr_mask = val
+
+    @property
+    def qp_semantics(self):
+        return self._qp_semantics
+    @qp_semantics.setter
+    def qp_semantics(self, QPSemantics val not None):
+        self._qp_semantics = val
+        self.attr.qp_semantics = &val.semantics
 
     @property
     def send_cq(self):
@@ -1072,7 +1132,8 @@ cdef class QP(PyverbsCM):
                      e.IBV_QPT_UD: self.to_rts,
                      e.IBV_QPT_XRC_RECV: self.to_init,
                      e.IBV_QPT_XRC_SEND: self.to_init,
-                     e.IBV_QPT_RAW_PACKET: self.to_rts}
+                     e.IBV_QPT_RAW_PACKET: self.to_rts,
+                     e.IBV_QPT_RU: self.to_rts}
             funcs[self.qp.qp_type](qp_attr)
 
     cdef update_cqs(self, init_attr):
@@ -1160,7 +1221,8 @@ cdef class QP(PyverbsCM):
                                 e.IBV_QP_DEST_QPN | e.IBV_QP_RQ_PSN,
                                 'RTS': e.IBV_QP_TIMEOUT |\
                                 e.IBV_QP_RETRY_CNT | e.IBV_QP_RNR_RETRY |\
-                                e.IBV_QP_SQ_PSN | e.IBV_QP_MAX_QP_RD_ATOMIC}}
+                                e.IBV_QP_SQ_PSN | e.IBV_QP_MAX_QP_RD_ATOMIC},
+                e.IBV_QPT_RU: {'INIT': 0, 'RTR': 0, 'RTS': 0}}
 
         return masks[self.qp.qp_type][dst] | e.IBV_QP_STATE
 
@@ -1211,7 +1273,7 @@ cdef class QP(PyverbsCM):
                         2RTS transition.
         :return: None
         """
-        if self.qp_state != e.IBV_QPS_RTR: #assume reset/init
+        if self.qp_state not in (e.IBV_QPS_RTR, e.IBV_QPS_RTS): #assume reset/init
             self.to_rtr(qp_attr)
         mask = self._get_comp_mask('RTS')
         qp_attr.qp_state = e.IBV_QPS_RTS
@@ -1271,6 +1333,26 @@ cdef class QP(PyverbsCM):
                                         &attr.attr)
         if rc != 0:
             raise PyverbsRDMAError('Failed to attach comp cntr to QP', rc)
+
+    def attach_mr(self, MR mr not None):
+        """
+        Attach a memory region to the QP. A UET queue pair reaches a region
+        only once the region has been attached to it, so this is what makes a
+        buffer addressable by the far end.
+        :param mr: The memory region to attach
+        """
+        rc = v.ibv_attach_mr(self.qp, (<MR>mr).mr)
+        if rc != 0:
+            raise PyverbsRDMAError('Failed to attach MR to QP', rc)
+
+    def detach_mr(self, MR mr not None):
+        """
+        Detach a memory region from the QP.
+        :param mr: The memory region to detach
+        """
+        rc = v.ibv_detach_mr(self.qp, (<MR>mr).mr)
+        if rc != 0:
+            raise PyverbsRDMAError('Failed to detach MR from QP', rc)
 
     def post_recv(self, RecvWR wr not None, RecvWR bad_wr=None):
         """
@@ -1480,6 +1562,62 @@ cdef class QPEx(QP):
     def wr_send_tso(self, hdr, hdr_sz, mss):
         ptr = PyLong_AsVoidPtr(hdr)
         v.ibv_wr_send_tso(self.qp_ex, ptr, hdr_sz, mss)
+
+    def wr_rdma_read64(self, rkey, remote_addr):
+        """
+        RDMA read naming the peer's region by a wide key.
+        :param rkey: The peer's 64-bit remote key
+        :param remote_addr: Offset into the peer's region
+        """
+        v.ibv_wr_rdma_read64(self.qp_ex, rkey, remote_addr)
+
+    def wr_rdma_write64(self, rkey, remote_addr):
+        """
+        RDMA write naming the peer's region by a wide key.
+        :param rkey: The peer's 64-bit remote key
+        :param remote_addr: Offset into the peer's region
+        """
+        v.ibv_wr_rdma_write64(self.qp_ex, rkey, remote_addr)
+
+    def wr_rdma_write64_imm(self, rkey, remote_addr, data):
+        """
+        RDMA write with immediate, naming the peer's region by a wide key.
+        :param rkey: The peer's 64-bit remote key
+        :param remote_addr: Offset into the peer's region
+        :param data: The immediate data
+        """
+        cdef unsigned int imm_data = htobe32(data)
+        v.ibv_wr_rdma_write64_imm(self.qp_ex, rkey, remote_addr, imm_data)
+
+    def wr_set_sge64(self, SGE sge not None, lkey=None):
+        """
+        Set a single scatter/gather entry with a wide local key.
+        :param sge: The SGE naming the address and length
+        :param lkey: The 64-bit local key. If None, the SGE's narrow key is
+                     widened, which is only correct where the two agree.
+        """
+        v.ibv_wr_set_sge64(self.qp_ex, sge.lkey if lkey is None else lkey,
+                           sge.addr, sge.length)
+
+    def wr_set_ru_addr(self, addr_idx, ah=None):
+        """
+        Name the destination of a UET work request by its index in the job's
+        address table. UET addresses a peer by resource index rather than by
+        an address handle, so ah is not used and must be None.
+        :param addr_idx: Index into the job's address table
+        :param ah: Must be None
+        """
+        if ah is not None:
+            raise PyverbsUserError('UET addresses a peer by address table '
+                                   'index; ah must be None')
+        v.ibv_wr_set_ru_addr(self.qp_ex, NULL, addr_idx)
+
+    def wr_set_job_key(self, jkey):
+        """
+        Set the job key carried by a UET work request.
+        :param jkey: The job key value, from JKey.jkey
+        """
+        v.ibv_wr_set_job_key(self.qp_ex, jkey)
 
     def wr_set_ud_addr(self, AH ah, remote_qpn, remote_rkey):
         v.ibv_wr_set_ud_addr(self.qp_ex, ah.ah, remote_qpn, remote_rkey)

@@ -477,6 +477,7 @@ fi
 %{_mandir}/man3/sa_key*
 %{_mandir}/man3/umad*
 %{_mandir}/man3/*_to_ibv_rate.*
+%{_mandir}/man7/ibv_uet*
 %{_mandir}/man7/rdma_cm.*
 %{_mandir}/man3/manadv*
 %{_mandir}/man3/mlx5dv*

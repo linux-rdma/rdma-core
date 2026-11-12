@@ -58,6 +58,9 @@ enum uverbs_default_objects {
 	UVERBS_OBJECT_DMAH,
 	UVERBS_OBJECT_DMABUF,
 	UVERBS_OBJECT_COMP_CNTR,
+	UVERBS_OBJECT_JOB,
+	UVERBS_OBJECT_JKEY,
+	UVERBS_OBJECT_JOB_FD,
 };
 
 enum {
@@ -77,6 +80,12 @@ enum uverbs_methods_device {
 	UVERBS_METHOD_QUERY_GID_ENTRY,
 	UVERBS_METHOD_QUERY_PORT_SPEED,
 	UVERBS_METHOD_QUERY_COMP_CNTR_CAPS,
+	UVERBS_METHOD_QUERY_QP_SEMANTICS,
+};
+
+enum uverbs_attrs_query_qp_semantics_attr_ids {
+	UVERBS_ATTR_QUERY_QP_SEMANTICS_QP_TYPE,
+	UVERBS_ATTR_QUERY_QP_SEMANTICS_RESP,
 };
 
 enum uverbs_attrs_invoke_write_cmd_attr_ids {
@@ -170,6 +179,10 @@ enum uverbs_attrs_create_qp_cmd_attr_ids {
 	UVERBS_ATTR_CREATE_QP_BUF_UMEM,
 	UVERBS_ATTR_CREATE_QP_RQ_BUF_UMEM,
 	UVERBS_ATTR_CREATE_QP_SQ_BUF_UMEM,
+	UVERBS_ATTR_CREATE_QP_SRC_ID,
+	UVERBS_ATTR_CREATE_QP_SEMANTICS,
+	UVERBS_ATTR_CREATE_QP_JOB_KEY,
+	UVERBS_ATTR_CREATE_QP_ATTR,
 };
 
 enum uverbs_attrs_destroy_qp_cmd_attr_ids {
@@ -187,6 +200,18 @@ enum uverbs_methods_qp {
 	UVERBS_METHOD_QP_CREATE,
 	UVERBS_METHOD_QP_DESTROY,
 	UVERBS_METHOD_QP_ATTACH_COMP_CNTR,
+	UVERBS_METHOD_QP_ATTACH_MR,
+	UVERBS_METHOD_QP_DETACH_MR,
+};
+
+enum uverbs_attrs_qp_attach_mr_cmd_attr_ids {
+	UVERBS_ATTR_QP_ATTACH_MR_QP_HANDLE,
+	UVERBS_ATTR_QP_ATTACH_MR_MR_HANDLE,
+};
+
+enum uverbs_attrs_qp_detach_mr_cmd_attr_ids {
+	UVERBS_ATTR_QP_DETACH_MR_QP_HANDLE,
+	UVERBS_ATTR_QP_DETACH_MR_MR_HANDLE,
 };
 
 enum uverbs_attrs_create_srq_cmd_attr_ids {
@@ -330,6 +355,8 @@ enum uverbs_attrs_query_mr_cmd_attr_ids {
 	UVERBS_ATTR_QUERY_MR_RESP_RKEY,
 	UVERBS_ATTR_QUERY_MR_RESP_LENGTH,
 	UVERBS_ATTR_QUERY_MR_RESP_IOVA,
+	UVERBS_ATTR_QUERY_MR_RESP_LKEY64,
+	UVERBS_ATTR_QUERY_MR_RESP_RKEY64,
 };
 
 enum uverbs_attrs_reg_dmabuf_mr_cmd_attr_ids {
@@ -356,6 +383,13 @@ enum uverbs_attrs_reg_mr_cmd_attr_ids {
 	UVERBS_ATTR_REG_MR_FD_OFFSET,
 	UVERBS_ATTR_REG_MR_RESP_LKEY,
 	UVERBS_ATTR_REG_MR_RESP_RKEY,
+	UVERBS_ATTR_REG_MR_FLAGS,
+	UVERBS_ATTR_REG_MR_JKEY_HANDLE,
+	UVERBS_ATTR_REG_MR_PARENT_MR_HANDLE,
+	UVERBS_ATTR_REG_MR_DERIVE_CNT,
+	UVERBS_ATTR_REG_MR_REQ_RKEY64,
+	UVERBS_ATTR_REG_MR_RESP_LKEY64,
+	UVERBS_ATTR_REG_MR_RESP_RKEY64,
 };
 
 enum uverbs_attrs_create_counters_cmd_attr_ids {
@@ -410,6 +444,13 @@ enum uverbs_attrs_xrcd_destroy_ids {
 
 enum uverbs_methods_ah {
 	UVERBS_METHOD_AH_DESTROY,
+	UVERBS_METHOD_AH_EX_CREATE,
+};
+
+enum uverbs_attrs_create_ah_ex_cmd_attr_ids {
+	UVERBS_ATTR_CREATE_AH_EX_HANDLE,
+	UVERBS_ATTR_CREATE_AH_EX_PD_HANDLE,
+	UVERBS_ATTR_CREATE_AH_EX_AH_ATTR_EX,
 };
 
 enum uverbs_attrs_ah_destroy_ids {
@@ -480,6 +521,80 @@ enum uverbs_attrs_read_comp_cntr_cmd_attr_ids {
 	UVERBS_ATTR_READ_COMP_CNTR_HANDLE,
 	UVERBS_ATTR_READ_COMP_CNTR_ENTRY,
 	UVERBS_ATTR_READ_COMP_CNTR_RESP_VALUE,
+};
+
+enum uverbs_methods_job {
+	UVERBS_METHOD_JOB_ALLOC,
+	UVERBS_METHOD_JOB_DEALLOC,
+	UVERBS_METHOD_JOB_QUERY,
+	UVERBS_METHOD_JOB_ADDR_INSERT,
+	UVERBS_METHOD_JOB_ADDR_REMOVE,
+	UVERBS_METHOD_JOB_ADDR_QUERY,
+	UVERBS_METHOD_JOB_EXPORT,
+	UVERBS_METHOD_JOB_IMPORT,
+};
+
+enum uverbs_attrs_alloc_job_cmd_attr_ids {
+	UVERBS_ATTR_ALLOC_JOB_HANDLE,
+	UVERBS_ATTR_ALLOC_JOB_ID,
+	UVERBS_ATTR_ALLOC_JOB_MAX_ADDR_ENTRIES,
+	UVERBS_ATTR_ALLOC_JOB_PORT_NUM,
+	UVERBS_ATTR_ALLOC_JOB_SGID_INDEX,
+};
+
+enum uverbs_attrs_dealloc_job_cmd_attr_ids {
+	UVERBS_ATTR_DEALLOC_JOB_HANDLE,
+};
+
+enum uverbs_attrs_query_job_cmd_attr_ids {
+	UVERBS_ATTR_QUERY_JOB_HANDLE,
+	UVERBS_ATTR_QUERY_JOB_ID,
+	UVERBS_ATTR_QUERY_JOB_MAX_ADDR_ENTRIES,
+	UVERBS_ATTR_QUERY_JOB_PORT_NUM,
+	UVERBS_ATTR_QUERY_JOB_SGID_INDEX,
+};
+
+enum uverbs_attrs_job_addr_insert_cmd_attr_ids {
+	UVERBS_ATTR_JOB_ADDR_INSERT_HANDLE,
+	UVERBS_ATTR_JOB_ADDR_INSERT_INDEX,
+	UVERBS_ATTR_JOB_ADDR_INSERT_AH_ATTR_EX,
+};
+
+enum uverbs_attrs_job_addr_remove_cmd_attr_ids {
+	UVERBS_ATTR_JOB_ADDR_REMOVE_HANDLE,
+	UVERBS_ATTR_JOB_ADDR_REMOVE_INDEX,
+};
+
+enum uverbs_attrs_job_addr_query_cmd_attr_ids {
+	UVERBS_ATTR_JOB_ADDR_QUERY_HANDLE,
+	UVERBS_ATTR_JOB_ADDR_QUERY_INDEX,
+	UVERBS_ATTR_JOB_ADDR_QUERY_AH_ATTR_EX,
+};
+
+enum uverbs_attrs_export_job_cmd_attr_ids {
+	UVERBS_ATTR_EXPORT_JOB_HANDLE,
+	UVERBS_ATTR_EXPORT_JOB_FD,
+};
+
+enum uverbs_attrs_import_job_cmd_attr_ids {
+	UVERBS_ATTR_IMPORT_JOB_HANDLE,
+	UVERBS_ATTR_IMPORT_JOB_FD,
+};
+
+enum uverbs_methods_jkey {
+	UVERBS_METHOD_JKEY_CREATE,
+	UVERBS_METHOD_JKEY_DESTROY,
+};
+
+enum uverbs_attrs_create_jkey_cmd_attr_ids {
+	UVERBS_ATTR_CREATE_JKEY_HANDLE,
+	UVERBS_ATTR_CREATE_JKEY_JOB_HANDLE,
+	UVERBS_ATTR_CREATE_JKEY_PD_HANDLE,
+	UVERBS_ATTR_CREATE_JKEY_JKEY,
+};
+
+enum uverbs_attrs_destroy_jkey_cmd_attr_ids {
+	UVERBS_ATTR_DESTROY_JKEY_HANDLE,
 };
 
 #endif
