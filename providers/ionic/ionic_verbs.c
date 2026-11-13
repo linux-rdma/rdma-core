@@ -297,7 +297,8 @@ static struct ibv_pd *ionic_alloc_parent_domain(struct ibv_context *context,
 
 	if (!check_comp_mask(attr->comp_mask,
 			     IBV_PARENT_DOMAIN_INIT_ATTR_ALLOCATORS |
-			     IBV_PARENT_DOMAIN_INIT_ATTR_PD_CONTEXT)) {
+			     IBV_PARENT_DOMAIN_INIT_ATTR_PD_CONTEXT |
+			     IBV_PARENT_DOMAIN_INIT_ATTR_BUF_ALLOCATORS)) {
 		rc = EINVAL;
 		goto err_pd;
 	}
@@ -326,6 +327,11 @@ static struct ibv_pd *ionic_alloc_parent_domain(struct ibv_context *context,
 	if (attr->comp_mask & IBV_PARENT_DOMAIN_INIT_ATTR_ALLOCATORS) {
 		pd->alloc = attr->alloc;
 		pd->free = attr->free;
+	}
+
+	if (attr->comp_mask & IBV_PARENT_DOMAIN_INIT_ATTR_BUF_ALLOCATORS) {
+		pd->alloc_buf = attr->alloc_buf;
+		pd->free_buf = attr->free_buf;
 	}
 
 	if (attr->comp_mask & IBV_PARENT_DOMAIN_INIT_ATTR_PD_CONTEXT)
