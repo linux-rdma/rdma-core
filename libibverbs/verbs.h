@@ -2159,9 +2159,11 @@ enum ibv_parent_domain_init_attr_mask {
 	IBV_PARENT_DOMAIN_INIT_ATTR_ALLOCATORS = 1 << 0,
 	IBV_PARENT_DOMAIN_INIT_ATTR_PD_CONTEXT = 1 << 1,
 	IBV_PARENT_DOMAIN_INIT_ATTR_ALLOW_CC_UNPROTECTED_ALLOC = 1 << 2,
+	IBV_PARENT_DOMAIN_INIT_ATTR_BUF_ALLOCATORS = 1 << 3,
 };
 
 #define IBV_ALLOCATOR_USE_DEFAULT ((void *)-1)
+#define IBV_BUF_ALLOCATOR_USE_DEFAULT ((struct ibv_buf *)-1)
 
 struct ibv_parent_domain_init_attr {
 	struct ibv_pd *pd; /* reference to a protection domain object, can't be NULL */
@@ -2172,6 +2174,11 @@ struct ibv_parent_domain_init_attr {
 	void (*free)(struct ibv_pd *pd, void *pd_context, void *ptr,
 		     uint64_t resource_type);
 	void *pd_context;
+	struct ibv_buf *(*alloc_buf)(struct ibv_pd *pd, void *pd_context,
+				     size_t size, size_t alignment,
+				     uint64_t resource_type);
+	void (*free_buf)(struct ibv_pd *pd, void *pd_context,
+			 struct ibv_buf *buf, uint64_t resource_type);
 };
 
 enum ibv_tph_mem_type {

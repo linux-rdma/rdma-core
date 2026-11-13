@@ -861,6 +861,12 @@ ibv_check_alloc_parent_domain(struct ibv_parent_domain_init_attr *attr)
 		return -1;
 	}
 
+	if ((attr->comp_mask & IBV_PARENT_DOMAIN_INIT_ATTR_BUF_ALLOCATORS) &&
+	    (!attr->alloc_buf || !attr->free_buf)) {
+		errno = EINVAL;
+		return -1;
+	}
+
 	return 0;
 }
 
