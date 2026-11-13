@@ -30,6 +30,14 @@ static void ionic_queue_map(struct ionic_queue *q, struct ionic_pd *pd, uint64_t
 				q->ptr = NULL;
 				return;
 			}
+			if (got->dmabuf_fd != -1 &&
+			    !to_ionic_ctx(pd->ibpd.context)->cq_qp_buf_umem) {
+				pd->free_buf(&pd->ibpd, pd->pd_context, got,
+					     pd_tag);
+				errno = EOPNOTSUPP;
+				q->ptr = NULL;
+				return;
+			}
 			q->ptr = got->addr;
 			q->user_buf = got;
 			q->pd = pd;

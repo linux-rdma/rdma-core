@@ -489,6 +489,11 @@ static void ionic_vcq_cq_deinit(struct ionic_cq *cq)
 	pthread_spin_destroy(&cq->lock);
 }
 
+static bool ionic_queue_is_dmabuf(struct ionic_queue *q)
+{
+	return q->user_buf && q->user_buf->dmabuf_fd != -1;
+}
+
 static int ionic_vcq_cq_init1(struct ionic_ctx *ctx,
 			      struct ionic_vcq *vcq,
 			      struct ionic_cq *cq,
@@ -517,7 +522,7 @@ static int ionic_vcq_cq_init1(struct ionic_ctx *ctx,
 	cq->reserve = cq->q.mask;
 	cq->reserve_pending = 0;
 
-	req_cq->addr = (uintptr_t)cq->q.ptr;
+	req_cq->addr = ionic_queue_is_dmabuf(&cq->q) ? 0 : (uintptr_t)cq->q.ptr;
 	req_cq->size = cq->q.size;
 	req_cq->mask = cq->q.mask;
 	req_cq->depth_log2 = cq->q.depth_log2;
@@ -712,8 +717,13 @@ static void ionic_fill_ring_buf_umem(struct ibv_command_buffer *cmdb,
 				     struct ionic_pd *pd,
 				     struct ionic_queue *q)
 {
-	ibv_buf_init(ring_buf, pd ? &pd->ibpd : NULL, q->ptr, q->size);
-	fill_attr_in_buf_umem_va(cmdb, attr_id, storage, ring_buf, NULL, 0);
+	struct ibv_buf *buf = q->user_buf;
+
+	if (!buf) {
+		ibv_buf_init(ring_buf, pd ? &pd->ibpd : NULL, q->ptr, q->size);
+		buf = ring_buf;
+	}
+	fill_attr_in_buf_umem_va(cmdb, attr_id, storage, buf, q->ptr, q->size);
 }
 
 static struct ibv_cq_ex *ionic_create_cq_ex(struct ibv_context *ibctx,
@@ -2451,14 +2461,16 @@ struct ibv_qp *ionic_create_qp_ex_common(struct ibv_context *ibctx,
 	if (rc)
 		goto err_rq;
 
-	req.sq.addr = (uintptr_t)qp->sq.queue.ptr;
+	req.sq.addr = ionic_queue_is_dmabuf(&qp->sq.queue) ?
+		      0 : (uintptr_t)qp->sq.queue.ptr;
 	req.sq.size = qp->sq.queue.size;
 	req.sq.mask = qp->sq.queue.mask;
 	req.sq.depth_log2 = qp->sq.queue.depth_log2;
 	req.sq.stride_log2 = qp->sq.queue.stride_log2;
 	req.sq_cmb = qp->sq.cmb;
 
-	req.rq.addr = (uintptr_t)qp->rq.queue.ptr;
+	req.rq.addr = ionic_queue_is_dmabuf(&qp->rq.queue) ?
+		      0 : (uintptr_t)qp->rq.queue.ptr;
 	req.rq.size = qp->rq.queue.size;
 	req.rq.mask = qp->rq.queue.mask;
 	req.rq.depth_log2 = qp->rq.queue.depth_log2;
