@@ -17,7 +17,8 @@ libibverbs.so.1 libibverbs1 #MINVER#
  IBVERBS_1.17@IBVERBS_1.17 64
  IBVERBS_1.18@IBVERBS_1.18 65
  IBVERBS_1.19@IBVERBS_1.19 66
- (symver)IBVERBS_PRIVATE_65 65
+ IBVERBS_1.20@IBVERBS_1.20 67
+ (symver)IBVERBS_PRIVATE_67 67
  _ibv_query_comp_cntr_caps@IBVERBS_1.18 65
  _ibv_query_gid_ex@IBVERBS_1.11 32
  _ibv_query_gid_table@IBVERBS_1.11 32
@@ -30,8 +31,10 @@ libibverbs.so.1 libibverbs1 #MINVER#
  ibv_alloc_pd@IBVERBS_1.0 1.1.6
  ibv_alloc_pd@IBVERBS_1.1 1.1.6
  ibv_alloc_user_buf@IBVERBS_1.19 66
+ ibv_alloc_user_buf_ex@IBVERBS_1.20 67
  ibv_attach_mcast@IBVERBS_1.0 1.1.6
  ibv_attach_mcast@IBVERBS_1.1 1.1.6
+ ibv_buf_get_context@IBVERBS_1.20 67
  ibv_close_device@IBVERBS_1.0 1.1.6
  ibv_close_device@IBVERBS_1.1 1.1.6
  ibv_copy_ah_attr_from_kern@IBVERBS_1.1 1.1.6
