@@ -2470,11 +2470,34 @@ struct ibv_qp *ionic_create_qp_ex_common(struct ibv_context *ibctx,
 
 	req.udma_mask = pd->udma_mask;
 
-	rc = ibv_cmd_create_qp_ex2(ibctx, &qp->vqp, ex,
-				   &req.ibv_cmd,
-				   sizeof(req),
-				   &resp.ibv_resp,
-				   sizeof(resp), NULL);
+	if (ctx->cq_qp_buf_umem) {
+		DECLARE_COMMAND_BUFFER(driver_attrs, UVERBS_OBJECT_QP,
+				       UVERBS_METHOD_QP_CREATE, 2);
+		struct ib_uverbs_buffer_desc sq_buf_desc, rq_buf_desc;
+		struct ibv_buf sq_buf, rq_buf;
+
+		if (qp->has_sq)
+			ionic_fill_ring_buf_umem(driver_attrs,
+						 UVERBS_ATTR_CREATE_QP_SQ_BUF_UMEM,
+						 &sq_buf_desc, &sq_buf, pd,
+						 &qp->sq.queue);
+		if (qp->has_rq)
+			ionic_fill_ring_buf_umem(driver_attrs,
+						 UVERBS_ATTR_CREATE_QP_RQ_BUF_UMEM,
+						 &rq_buf_desc, &rq_buf, pd,
+						 &qp->rq.queue);
+
+		rc = ibv_cmd_create_qp_ex2(ibctx, &qp->vqp, ex,
+					   &req.ibv_cmd, sizeof(req),
+					   &resp.ibv_resp, sizeof(resp),
+					   driver_attrs);
+	} else {
+		rc = ibv_cmd_create_qp_ex2(ibctx, &qp->vqp, ex,
+					   &req.ibv_cmd,
+					   sizeof(req),
+					   &resp.ibv_resp,
+					   sizeof(resp), NULL);
+	}
 	if (rc)
 		goto err_cmd;
 
