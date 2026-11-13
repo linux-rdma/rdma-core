@@ -188,6 +188,12 @@ static const struct verbs_context_ops mlx5_ctx_cqev1_ops = {
 	.poll_cq = mlx5_poll_cq_v1,
 };
 
+static const struct verbs_context_ops mlx5_ctx_adversarial_ops = {
+	.poll_cq = mlx5_adversarial_poll_cq,
+	.post_recv = mlx5_adversarial_post_recv,
+	.post_send = mlx5_adversarial_post_send,
+};
+
 static int read_number_from_line(const char *line, int *value)
 {
 	const char *ptr;
@@ -756,8 +762,8 @@ static int mlx5_cmd_get_context(struct mlx5_context *context,
 	struct verbs_context *verbs_ctx = &context->ibv_ctx;
 
 	if (!ibv_cmd_get_context(verbs_ctx, &req->ibv_cmd,
-				 req_len, fds, &resp->ibv_resp,
-				 resp_len))
+				 req_len, fds, &resp->ibv_resp, resp_len,
+				 UVERBS_ATTR_GET_CONTEXT_FLAG_ADVERSARIAL_SUPPORTED))
 		return 0;
 
 	/* The ibv_cmd_get_context fails in older kernels when passing
@@ -778,16 +784,20 @@ static int mlx5_cmd_get_context(struct mlx5_context *context,
 	 * kernel, either because it is unaware or because it decided
 	 * to do so. If zero is a valid response, we will add a new
 	 * field that indicates whether the request was handled.
+	 * Such older kernels predate adversarial mode, so the fallbacks
+	 * do not pass its flag.
 	 */
 	if (!ibv_cmd_get_context(verbs_ctx, &req->ibv_cmd,
 				 offsetof(struct mlx5_alloc_ucontext, lib_caps),
-				 fds, &resp->ibv_resp, resp_len))
+				 fds, &resp->ibv_resp, resp_len,
+				 0))
 		return 0;
 
 	return ibv_cmd_get_context(verbs_ctx, &req->ibv_cmd,
 				   offsetof(struct mlx5_alloc_ucontext,
 					    max_cqe_version),
-				   fds, &resp->ibv_resp, resp_len);
+				   fds, &resp->ibv_resp, resp_len,
+				   0);
 }
 
 static int mlx5_map_internal_clock(struct mlx5_device *mdev,
@@ -2324,19 +2334,34 @@ static struct mlx5_dv_context_ops mlx5_dv_ctx_ops = {
 	.init_obj = _mlx5dv_init_obj,
 };
 
-static void adjust_uar_info(struct mlx5_device *mdev,
-			    struct mlx5_context *context,
-			    struct mlx5_ib_alloc_ucontext_resp *resp)
+static int adjust_uar_info(struct mlx5_device *mdev,
+			   struct mlx5_context *context,
+			   struct mlx5_ib_alloc_ucontext_resp *resp)
 {
+	unsigned int max_uars = mdev->page_size / MLX5_ADAPTER_PAGE_SIZE;
+
 	if (!resp->log_uar_size && !resp->num_uars_per_page) {
 		/* old kernel */
-		context->uar_size = mdev->page_size;
 		context->num_uars_per_page = 1;
-		return;
+		return 0;
 	}
 
-	context->uar_size = 1 << resp->log_uar_size;
 	context->num_uars_per_page = resp->num_uars_per_page;
+
+	/* Used as a divisor and as a UAR count; 0 means 1 */
+	if (!context->num_uars_per_page)
+		context->num_uars_per_page = 1;
+
+	/* At most page_size / MLX5_ADAPTER_PAGE_SIZE UARs fit a system page */
+	if (context->num_uars_per_page > max_uars) {
+		mlx5_err(context->dbg_fp, PFX
+			 "device-reported num_uars_per_page %u exceeds the per-page maximum %u; refusing context\n",
+			 context->num_uars_per_page, max_uars);
+		errno = EINVAL;
+		return -1;
+	}
+
+	return 0;
 }
 
 bool mlx5dv_is_supported(struct ibv_device *device)
@@ -2436,6 +2461,15 @@ static int mlx5_set_context(struct mlx5_context *context,
 
 	context->max_num_qps = resp->qp_tab_size;
 	context->bf_reg_size = resp->bf_reg_size;
+	/* All BF registers of a UAR must fit after MLX5_BF_OFFSET */
+	if (context->bf_reg_size >
+	    (MLX5_ADAPTER_PAGE_SIZE - MLX5_BF_OFFSET) / NUM_BFREGS_PER_UAR) {
+		mlx5_err(context->dbg_fp, PFX
+			 "device-reported bf_reg_size %u exceeds the maximum; refusing context\n",
+			 context->bf_reg_size);
+		errno = EINVAL;
+		return -1;
+	}
 	context->cache_line_size = resp->cache_line_size;
 	context->max_sq_desc_sz = resp->max_sq_desc_sz;
 	context->max_rq_desc_sz = resp->max_rq_desc_sz;
@@ -2471,7 +2505,8 @@ static int mlx5_set_context(struct mlx5_context *context,
 	}
 
 	context->cqe_version = resp->cqe_version;
-	adjust_uar_info(mdev, context, resp);
+	if (adjust_uar_info(mdev, context, resp))
+		return -1;
 
 	context->cmds_supp_uhw = resp->cmds_supp_uhw;
 	context->vendor_cap_flags = 0;
@@ -2495,7 +2530,7 @@ static int mlx5_set_context(struct mlx5_context *context,
 	for (i = 0; i < MLX5_QP_TABLE_SIZE; ++i)
 		context->qp_table[i].refcnt = 0;
 
-	for (i = 0; i < MLX5_QP_TABLE_SIZE; ++i)
+	for (i = 0; i < MLX5_UIDX_TABLE_SIZE; ++i)
 		context->uidx_table[i].refcnt = 0;
 
 	for (i = 0; i < MLX5_MKEY_TABLE_SIZE; ++i)
@@ -2515,6 +2550,20 @@ static int mlx5_set_context(struct mlx5_context *context,
 			return EINVAL;
 		}
 		context->tot_uuars = resp->tot_bfregs;
+
+		/* tot_bfregs comes from the device; num_sys_page_map indexes
+		 * uar[] and gross_uuars sizes bfs[].
+		 */
+		num_sys_page_map = context->tot_uuars /
+			(context->num_uars_per_page * MLX5_NUM_NON_FP_BFREGS_PER_UAR);
+		if (num_sys_page_map < 1 || num_sys_page_map > MLX5_MAX_UARS) {
+			mlx5_err(context->dbg_fp, PFX
+				 "device-relayed tot_bfregs %u yields num_sys_page_map %d out of range [1, %d]; refusing context\n",
+				 resp->tot_bfregs, num_sys_page_map, MLX5_MAX_UARS);
+			errno = EINVAL;
+			goto err_free;
+		}
+
 		gross_uuars = context->tot_uuars / MLX5_NUM_NON_FP_BFREGS_PER_UAR * NUM_BFREGS_PER_UAR;
 		context->bfs = calloc(gross_uuars, sizeof(*context->bfs));
 		if (!context->bfs) {
@@ -2530,7 +2579,6 @@ static int mlx5_set_context(struct mlx5_context *context,
 
 	context->max_num_legacy_dyn_uar_sys_page = context->num_dyn_bfregs /
 			(context->num_uars_per_page * MLX5_NUM_NON_FP_BFREGS_PER_UAR);
-	num_sys_page_map = context->tot_uuars / (context->num_uars_per_page * MLX5_NUM_NON_FP_BFREGS_PER_UAR);
 	for (i = 0; i < num_sys_page_map; ++i) {
 		if (mlx5_mmap(&context->uar[i], i, cmd_fd, page_size,
 			      context->shut_up_bf ? MLX5_UAR_TYPE_NC :
@@ -2559,6 +2607,20 @@ static int mlx5_set_context(struct mlx5_context *context,
 		}
 	}
 
+	/* Entries initialized above; a truncated num_sys_page_map leaves
+	 * the rest of bfs[] with a NULL reg.
+	 */
+	{
+		uint64_t n = (uint64_t)num_sys_page_map *
+			     context->num_uars_per_page * NUM_BFREGS_PER_UAR;
+
+		if (n > UINT32_MAX) {
+			errno = EINVAL;
+			goto err_free_bf;
+		}
+		context->num_bfs = n;
+	}
+
 bf_done:
 
 	context->hca_core_clock = NULL;
@@ -2575,6 +2637,10 @@ bf_done:
 
 	mlx5_read_env(ibdev, context);
 
+	if (verbs_get_device(ibdev)->core_support &
+	    IB_UVERBS_CORE_SUPPORT_ADVERSARIAL)
+		context->flags |= MLX5_CTX_FLAGS_ADVERSARIAL_DP;
+
 	mlx5_spinlock_init(&context->hugetlb_lock, !mlx5_single_threaded);
 	list_head_init(&context->hugetlb_list);
 
@@ -2585,6 +2651,10 @@ bf_done:
 		else
 			goto err_free;
 	}
+	/* Must come last to override the default poll_cq */
+	if (context->flags & MLX5_CTX_FLAGS_ADVERSARIAL_DP)
+		verbs_set_ops(v_ctx, &mlx5_ctx_adversarial_ops);
+
 	context->dv_ctx_ops = &mlx5_dv_ctx_ops;
 
 	mlx5_query_device_ctx(context);

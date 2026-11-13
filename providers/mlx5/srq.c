@@ -407,7 +407,7 @@ int mlx5_alloc_srq_buf(struct ibv_context *context, struct mlx5_srq *srq,
 		return -1;
 
 	if (srq->buf.type != MLX5_ALLOC_TYPE_CUSTOM)
-		memset(srq->buf.ibv_buf.addr, 0, buf_size);
+		memset(srq->buf.ibv_buf.addr, 0, srq->buf.ibv_buf.size);
 
 	srq->head = 0;
 	srq->tail = align_queue_size(orig_max_wr + 1) - 1;
@@ -461,11 +461,19 @@ int mlx5_store_srq(struct mlx5_context *ctx, uint32_t srqn,
 {
 	int tind = srqn >> MLX5_SRQ_TABLE_SHIFT;
 
+	/* The srqn comes from the device; the table covers only 24 bits */
+	if (tind >= MLX5_SRQ_TABLE_SIZE) {
+		errno = EINVAL;
+		return -1;
+	}
+
 	if (!ctx->srq_table[tind].refcnt) {
 		ctx->srq_table[tind].table = calloc(MLX5_SRQ_TABLE_MASK + 1,
 						   sizeof(struct mlx5_srq *));
-		if (!ctx->srq_table[tind].table)
+		if (!ctx->srq_table[tind].table) {
+			errno = ENOMEM;
 			return -1;
+		}
 	}
 
 	++ctx->srq_table[tind].refcnt;

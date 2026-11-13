@@ -503,6 +503,12 @@ mlx5dv_dr_domain_create(struct ibv_context *ctx,
 	struct mlx5dv_dr_domain *dmn;
 	int ret;
 
+	/* DR polls its own internal QP, bypassing the adversarial checks */
+	if (to_mctx(ctx)->flags & MLX5_CTX_FLAGS_ADVERSARIAL_DP) {
+		errno = EOPNOTSUPP;
+		return NULL;
+	}
+
 	if (type > MLX5DV_DR_DOMAIN_TYPE_FDB) {
 		errno = EINVAL;
 		return NULL;

@@ -76,6 +76,8 @@ static struct mlx5_db_page *__add_page(struct mlx5_context *context,
 		return NULL;
 	}
 
+	memset(page->buf.ibv_buf.addr, 0, page->buf.ibv_buf.size);
+
 	page->num_db  = pp;
 	page->use_cnt = 0;
 	for (i = 0; i < nlong; ++i)
