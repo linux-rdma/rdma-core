@@ -24,6 +24,9 @@
 
 enum ionic_ctx_resp_comp_mask {
 	IONIC_CTX_CMASK_IONIC_FLAGS = 1 << 0,
+	IONIC_CTX_CMASK_UDP_SPORT = 1 << 1,
+	IONIC_CTX_CMASK_CQ_NOTIFY_IOCTL = 1 << 2,
+	IONIC_CTX_CMASK_CQ_QP_BUF_UMEM = 1 << 3,
 };
 
 struct ionic_ctx_req {
