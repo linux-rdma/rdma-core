@@ -666,7 +666,7 @@ def _poll_cq(cq, count=1, data=None):
     :param cq: CQ to poll from
     :param count: How many completions to poll
     :param data: In case of a work request with immediate, the immediate data
-                 to be compared after poll
+                 to be compared after poll. None skips this validation.
     :return: An array of work completions of length <count>, None
              when events are used
     """
@@ -682,7 +682,7 @@ def _poll_cq(cq, count=1, data=None):
             if wc.status != ibv_wc_status.IBV_WC_SUCCESS:
                 wcs.append(wc)
                 return wcs
-            if data:
+            if data is not None:
                 if wc.wc_flags & ibv_wc_flags.IBV_WC_WITH_IMM == 0:
                     raise PyverbsRDMAError('Completion without immediate')
                 assert socket.ntohl(wc.imm_data) == data
@@ -704,7 +704,7 @@ def poll_cq(cq, count=1, data=None):
     :param cq: CQ to poll from
     :param count: How many completions to poll
     :param data: In case of a work request with immediate, the immediate data
-                 to be compared after poll
+                 to be compared after poll. None skips this validation.
     :return: An array of work completions of length <count>, None
              when events are used
     """
@@ -722,7 +722,7 @@ def poll_cq_ex(cqex, count=1, data=None, sgid=None):
     :param count: How many completions to poll
     :param data: In case of a work request with immediate, the immediate data
                  to be compared after poll, either a list of immediate data or
-                 one value
+                 one value. None skips this validation.
     :param sgid: In case of EFA receive completion, the sgid to be compared
                  after poll
     :return: WR id order received
@@ -742,7 +742,7 @@ def poll_cq_ex(cqex, count=1, data=None, sgid=None):
         if cqex.status != ibv_wc_status.IBV_WC_SUCCESS:
             raise PyverbsRDMAErrno('Completion status is {s}'.
                                    format(s=cqex.status))
-        if data:
+        if data is not None:
             imm_data = data if not isinstance(data, list) else data[iters - count - 1]
             assert imm_data == socket.ntohl(cqex.read_imm_data())
 
@@ -761,7 +761,7 @@ def poll_cq_ex(cqex, count=1, data=None, sgid=None):
                                        format(s=cqex.status))
             count -= 1
             wr_id_order.append(cqex.wr_id)
-            if data:
+            if data is not None:
                 imm_data = data if not isinstance(data, list) else data[iters - count - 1]
                 assert imm_data == socket.ntohl(cqex.read_imm_data())
 

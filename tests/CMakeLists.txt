@@ -17,6 +17,7 @@ rdma_python_test(tests
   test_buf.py
   test_cq.py
   test_cq_events.py
+  test_cq_poll.py
   test_cqex.py
   test_cuda_dmabuf.py
   test_device.py
