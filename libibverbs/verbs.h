@@ -3378,6 +3378,33 @@ struct ibv_buf *ibv_alloc_user_buf(struct ibv_pd *pd, void *addr, size_t size,
 				   int dmabuf_fd);
 
 /**
+ * ibv_alloc_user_buf_ex - Associate an ibv_buf with application-owned memory
+ * @pd: Protection domain the buffer is associated with
+ * @addr: Application-owned virtual address of the buffer
+ * @size: Buffer size in bytes
+ * @dmabuf_fd: DMA-buf file descriptor, or -1 for plain virtual memory
+ * @dmabuf_offset: Byte offset of @addr within the dma-buf, or 0
+ * @context: Opaque application pointer, returned by ibv_buf_get_context()
+ *
+ * Same as ibv_alloc_user_buf(), and also stores @context and, when
+ * @dmabuf_fd is not -1, @dmabuf_offset on the handle. The provider does
+ * not interpret @context. ibv_free_user_buf() does not free it.
+ *
+ * Returns a buffer handle on success, or NULL on failure with errno set.
+ */
+struct ibv_buf *ibv_alloc_user_buf_ex(struct ibv_pd *pd, void *addr,
+				      size_t size, int dmabuf_fd,
+				      uint64_t dmabuf_offset, void *context);
+
+/**
+ * ibv_buf_get_context - Return the context stored by ibv_alloc_user_buf_ex
+ * @buf: Handle from ibv_alloc_user_buf() or ibv_alloc_user_buf_ex()
+ *
+ * Returns the pointer passed as context, or NULL if none was stored.
+ */
+void *ibv_buf_get_context(struct ibv_buf *buf);
+
+/**
  * ibv_free_user_buf - Release a handle created by ibv_alloc_user_buf
  * @buf: Handle from ibv_alloc_user_buf()
  *

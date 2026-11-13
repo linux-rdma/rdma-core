@@ -205,6 +205,12 @@ IBVERBS_1.19 {
 		ibv_free_user_buf;
 } IBVERBS_1.18;
 
+IBVERBS_1.20 {
+	global:
+		ibv_alloc_user_buf_ex;
+		ibv_buf_get_context;
+} IBVERBS_1.19;
+
 /* If any symbols in this stanza change ABI then the entire staza gets a new symbol
    version. See the top level CMakeLists.txt for this setting. */
 

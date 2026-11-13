@@ -10,7 +10,7 @@ title: ibv_alloc_user_buf
 
 # NAME
 
-ibv_alloc_user_buf, ibv_free_user_buf - associate an ibv_buf with
+ibv_alloc_user_buf, ibv_alloc_user_buf_ex, ibv_buf_get_context, ibv_free_user_buf - associate an ibv_buf with
 application-owned memory
 
 # SYNOPSIS
@@ -20,6 +20,12 @@ application-owned memory
 
 struct ibv_buf *ibv_alloc_user_buf(struct ibv_pd *pd, void *addr, size_t size,
                                    int dmabuf_fd);
+
+struct ibv_buf *ibv_alloc_user_buf_ex(struct ibv_pd *pd, void *addr,
+                                      size_t size, int dmabuf_fd,
+                                      uint64_t dmabuf_offset, void *context);
+
+void *ibv_buf_get_context(struct ibv_buf *buf);
 
 void ibv_free_user_buf(struct ibv_buf *buf);
 ```
@@ -32,10 +38,21 @@ already owns, either a plain virtual address range or a DMA-buf. Unlike
 virtual address for that memory, and must remain valid for as long as the
 returned handle is in use.
 
+**ibv_alloc_user_buf_ex()** is the same as **ibv_alloc_user_buf()** and also
+stores *context* and *dmabuf_offset* on the handle. *context* is an opaque
+application pointer. The provider does not interpret it.
+**ibv_buf_get_context()** returns the pointer stored by
+**ibv_alloc_user_buf_ex()**, or NULL if the handle was created by
+**ibv_alloc_user_buf()** or by the provider. *dmabuf_offset* is the byte
+offset of *addr* within the DMA-buf. It is meaningful only when *dmabuf_fd*
+is not -1. Several rings may share one DMA-buf, each with its own handle
+and offset.
+
 **ibv_free_user_buf()** releases a handle returned by
-**ibv_alloc_user_buf()**. It does not free or otherwise affect the
-underlying memory; only the handle itself and any bookkeeping
-**ibv_alloc_user_buf()** performed (such as fork protection) are released.
+**ibv_alloc_user_buf()** or **ibv_alloc_user_buf_ex()**. It does not free or
+otherwise affect the underlying memory or *context*; only the handle itself
+and any bookkeeping **ibv_alloc_user_buf()** performed (such as fork
+protection) are released.
 
 The returned handle is meant for providers that accept an **ibv_buf**
 directly without registering an MR, such as driver-specific control-buffer
@@ -59,9 +76,19 @@ descriptors.
 :	A DMA-buf file descriptor backing the buffer, or -1 if the buffer is
 	plain virtual memory at *addr*.
 
+*dmabuf_offset*
+:	Byte offset of *addr* within the DMA-buf. Meaningful only when
+	*dmabuf_fd* is not -1. **ibv_alloc_user_buf()** stores 0.
+
+*context*
+:	Opaque application pointer stored on the handle by
+	**ibv_alloc_user_buf_ex()** and returned by **ibv_buf_get_context()**.
+	May be NULL.
+
 *buf*
-:	Handle returned by **ibv_alloc_user_buf()**, to be released with
-	**ibv_free_user_buf()**.
+:	Handle returned by **ibv_alloc_user_buf()** or
+	**ibv_alloc_user_buf_ex()**, to be released with **ibv_free_user_buf()**
+	or queried with **ibv_buf_get_context()**.
 
 # NOTES
 
@@ -87,8 +114,11 @@ the application. Otherwise, use **ibv_alloc_buf()**.
 
 # RETURN VALUE
 
-**ibv_alloc_user_buf()** returns a buffer handle on success, or NULL if the
-request fails.
+**ibv_alloc_user_buf()** and **ibv_alloc_user_buf_ex()** return a buffer handle
+on success, or NULL if the request fails.
+
+**ibv_buf_get_context()** returns the stored application pointer, or NULL if
+none was stored.
 
 **ibv_free_user_buf()** does not return a value.
 

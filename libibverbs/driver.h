@@ -56,6 +56,8 @@ struct ibv_buf {
 	size_t size;
 	struct ibv_pd *pd;
 	int dmabuf_fd;
+	uint64_t dmabuf_offset;
+	void *context;
 };
 
 static inline void ibv_buf_init(struct ibv_buf *buf, struct ibv_pd *pd,
@@ -65,6 +67,8 @@ static inline void ibv_buf_init(struct ibv_buf *buf, struct ibv_pd *pd,
 	buf->addr = addr;
 	buf->size = size;
 	buf->dmabuf_fd = -1;
+	buf->dmabuf_offset = 0;
+	buf->context = NULL;
 }
 
 static inline void ibv_buf_init_dmabuf(struct ibv_buf *buf, struct ibv_pd *pd,
@@ -886,7 +890,8 @@ fill_attr_in_buf_umem(struct ibv_command_buffer *cmdb, uint16_t attr_id,
 	*storage = (struct ib_uverbs_buffer_desc){
 		.type	= IB_UVERBS_BUFFER_TYPE_DMABUF,
 		.fd	= buf->dmabuf_fd,
-		.addr	= addr ? (uintptr_t)addr - (uintptr_t)buf->addr : 0,
+		.addr	= buf->dmabuf_offset +
+			  (addr ? (uintptr_t)addr - (uintptr_t)buf->addr : 0),
 		.length	= length ? length : buf->size,
 	};
 	fill_attr_in_ptr(cmdb, attr_id, storage);
