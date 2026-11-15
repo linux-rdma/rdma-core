@@ -236,11 +236,12 @@ cdef class Mlx5FlowActionAttr(PyverbsObject):
 
     @type.setter
     def type(self, action_type):
-        if not (self.attr.type in [dv.MLX5DV_FLOW_ACTION_DEST_IBV_QP,
-                                   dv.MLX5DV_FLOW_ACTION_DEST_DEVX,
-                                   dv.MLX5DV_FLOW_ACTION_COUNTERS_DEVX,
-                                   dv.MLX5DV_FLOW_ACTION_COUNTERS_DEVX_WITH_OFFSET,
-                                   dv.MLX5DV_FLOW_ACTION_ALLOW]):
+        if action_type not in [dv.MLX5DV_FLOW_ACTION_DEST_IBV_QP,
+                               dv.MLX5DV_FLOW_ACTION_IBV_FLOW_ACTION,
+                               dv.MLX5DV_FLOW_ACTION_DEST_DEVX,
+                               dv.MLX5DV_FLOW_ACTION_COUNTERS_DEVX,
+                               dv.MLX5DV_FLOW_ACTION_COUNTERS_DEVX_WITH_OFFSET,
+                               dv.MLX5DV_FLOW_ACTION_ALLOW]:
             raise PyverbsUserError(f'Unsupported action type: {action_type}.')
         self.attr.type = action_type
 
