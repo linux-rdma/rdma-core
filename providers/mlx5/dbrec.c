@@ -178,6 +178,10 @@ void mlx5_free_db(struct mlx5_context *context, __be32 *db, struct ibv_pd *pd,
 		return;
 	}
 
+	/* Opened XRC target QPs have no userspace doorbell record. */
+	if (!db)
+		return;
+
 	pthread_mutex_lock(&context->dbr_map_mutex);
 
 	item = cl_qmap_get(&context->dbr_map, (uintptr_t) db & ~(ps - 1));
