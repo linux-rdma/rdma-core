@@ -462,6 +462,7 @@ struct ibv_srq *irdma_ucreate_srq(struct ibv_pd *pd,
 	info.srq_id = resp.srq_id;
 	info.srq_size = resp.srq_size;
 
+	iwusrq->srq.lock = &iwusrq->lock;
 	ret = irdma_uk_srq_init(&iwusrq->srq, &info);
 	if (ret)
 		goto err_srq_init;

@@ -1257,6 +1257,17 @@ void irdma_uk_cq_request_notification(struct irdma_cq_uk *cq,
 }
 
 /**
+ * irdma_srq_release_wqe - release an SRQ WQE
+ * @srq: SRQ
+ */
+static void irdma_srq_release_wqe(struct irdma_srq_uk *srq)
+{
+	pthread_spin_lock(srq->lock);
+	IRDMA_RING_MOVE_TAIL(srq->srq_ring);
+	pthread_spin_unlock(srq->lock);
+}
+
+/**
  * irdma_uk_cq_poll_cmpl - get cq completion info
  * @cq: hw cq
  * @info: cq poll information returned
@@ -1355,6 +1366,10 @@ int irdma_uk_cq_poll_cmpl(struct irdma_cq_uk *cq,
 		get_64bit_val(cqe, 40, (__u64 *)&qp);
 	else
 		qp = (struct irdma_qp_uk *)(uintptr_t)comp_ctx;
+	if (!qp || qp->destroy_pending) {
+		ret_code = EFAULT;
+		goto exit;
+	}
 	if (info->error) {
 		info->major_err = FIELD_GET(IRDMA_CQ_MAJERR, qword3);
 		info->minor_err = FIELD_GET(IRDMA_CQ_MINERR, qword3);
@@ -1401,10 +1416,6 @@ int irdma_uk_cq_poll_cmpl(struct irdma_cq_uk *cq,
 	info->ud_src_qpn = (__u32)FIELD_GET(IRDMACQ_UDSRCQPN, qword2);
 	info->solicited_event = (bool)FIELD_GET(IRDMACQ_SOEVENT, qword3);
 
-	if (!qp || qp->destroy_pending) {
-		ret_code = EFAULT;
-		goto exit;
-	}
 	wqe_idx = (__u32)FIELD_GET(IRDMA_CQ_WQEIDX, qword3);
 	info->qp_handle = (irdma_qp_handle)(uintptr_t)qp;
 	info->op_type = (__u8)FIELD_GET(IRDMACQ_OP, qword3);
@@ -1421,7 +1432,8 @@ int irdma_uk_cq_poll_cmpl(struct irdma_cq_uk *cq,
 		} else {
 			info->stag_invalid_set = false;
 		}
-		IRDMA_RING_MOVE_TAIL(srq->srq_ring);
+
+		irdma_srq_release_wqe(srq);
 		pring = &srq->srq_ring;
 	} else if (info->q_type == IRDMA_CQE_QTYPE_RQ && !is_srq) {
 		__u32 array_idx;
@@ -1873,10 +1885,10 @@ int irdma_uk_cq_init(struct irdma_cq_uk *cq, struct irdma_cq_uk_init_info *info)
 
 /**
  * irdma_uk_clean_cq - clean cq entries
- * @q: completion context
+ * @qp: QP
  * @cq: cq to clean
  */
-void irdma_uk_clean_cq(void *q, struct irdma_cq_uk *cq)
+void irdma_uk_clean_cq(struct irdma_qp_uk *qp, struct irdma_cq_uk *cq)
 {
 	__le64 *cqe;
 	__u64 qword3, comp_ctx;
@@ -1899,9 +1911,19 @@ void irdma_uk_clean_cq(void *q, struct irdma_cq_uk *cq)
 		/* Ensure CQE contents are read after valid bit is checked */
 		udma_from_device_barrier();
 
-		get_64bit_val(cqe, 8, &comp_ctx);
-		if ((void *)(uintptr_t)comp_ctx == q)
-			set_64bit_val(cqe, 8, 0);
+		if (cq->avoid_mem_cflct && FIELD_GET(IRDMA_CQ_SRQ, qword3)) {
+			get_64bit_val(cqe, 40, &comp_ctx);
+			if ((struct irdma_qp_uk *)(uintptr_t)comp_ctx == qp) {
+				if (qp->srq_uk &&
+				    FIELD_GET(IRDMA_CQ_SQ, qword3) == IRDMA_CQE_QTYPE_RQ)
+					irdma_srq_release_wqe(qp->srq_uk);
+				set_64bit_val(cqe, 40, 0);
+			}
+		} else {
+			get_64bit_val(cqe, 8, &comp_ctx);
+			if ((struct irdma_qp_uk *)(uintptr_t)comp_ctx == qp)
+				set_64bit_val(cqe, 8, 0);
+		}
 
 		cq_head = (cq_head + 1) % cq->cq_ring.size;
 		if (!cq_head)

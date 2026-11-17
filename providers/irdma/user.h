@@ -471,6 +471,7 @@ struct irdma_srq_uk {
 	__u8 wqe_size;
 	__u8 wqe_size_multiplier;
 	__u8 deferred_flag;
+	pthread_spinlock_t *lock;
 };
 
 struct irdma_srq_uk_init_info {
@@ -592,7 +593,7 @@ __le64 *irdma_qp_get_next_send_wqe(struct irdma_qp_uk *qp, __u32 *wqe_idx,
 				   struct irdma_post_sq_info *info);
 __le64 *irdma_srq_get_next_recv_wqe(struct irdma_srq_uk *srq, __u32 *wqe_idx);
 __le64 *irdma_qp_get_next_recv_wqe(struct irdma_qp_uk *qp, __u32 *wqe_idx);
-void irdma_uk_clean_cq(void *q, struct irdma_cq_uk *cq);
+void irdma_uk_clean_cq(struct irdma_qp_uk *qp, struct irdma_cq_uk *cq);
 int irdma_nop(struct irdma_qp_uk *qp, __u64 wr_id, bool signaled, bool post_sq);
 int irdma_fragcnt_to_quanta_sq(__u32 frag_cnt, __u16 *quanta);
 int irdma_fragcnt_to_wqesize_rq(__u32 frag_cnt, __u16 *wqe_size);
