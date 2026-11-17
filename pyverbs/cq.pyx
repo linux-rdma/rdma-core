@@ -14,6 +14,34 @@ from pyverbs.qp cimport QP
 from pyverbs.wq cimport WQ
 
 
+cdef _poll_cq(v.ibv_cq *cq, num_entries):
+    """
+    Polls the given CQ for completions.
+    :param cq: The CQ to poll
+    :param num_entries: number of completions to pull
+    :return: (npolled, wcs): The number of polled completions and an array
+             of the polled completions
+    """
+    cdef v.ibv_wc wc
+    wcs = []
+    npolled = 0
+
+    while npolled < num_entries:
+        rc = v.ibv_poll_cq(cq, 1, &wc)
+        if rc < 0:
+            raise PyverbsRDMAError('Failed to poll CQ', -rc)
+        if rc == 0:
+            break
+        npolled += 1
+        wcs.append(WC(wr_id=wc.wr_id, status=wc.status, opcode=wc.opcode,
+                      vendor_err=wc.vendor_err, byte_len=wc.byte_len,
+                      qp_num=wc.qp_num, src_qp=wc.src_qp,
+                      imm_data=wc.imm_data, wc_flags=wc.wc_flags,
+                      pkey_index=wc.pkey_index, slid=wc.slid, sl=wc.sl,
+                      dlid_path_bits=wc.dlid_path_bits))
+    return npolled, wcs
+
+
 cdef class CompChannel(PyverbsCM):
     """
     A completion channel is a file descriptor used to deliver completion
@@ -157,24 +185,7 @@ cdef class CQ(PyverbsCM):
         :return: (npolled, wcs): The number of polled completions and an array
                  of the polled completions
         """
-        cdef v.ibv_wc wc
-        wcs = []
-        npolled = 0
-
-        while npolled < num_entries:
-            rc = v.ibv_poll_cq(self.cq, 1, &wc)
-            if rc < 0:
-                raise PyverbsRDMAError('Failed to poll CQ', -rc)
-            if rc == 0:
-                break;
-            npolled += 1
-            wcs.append(WC(wr_id=wc.wr_id, status=wc.status, opcode=wc.opcode,
-                          vendor_err=wc.vendor_err, byte_len=wc.byte_len,
-                          qp_num=wc.qp_num, src_qp=wc.src_qp,
-                          imm_data=wc.imm_data, wc_flags=wc.wc_flags,
-                          pkey_index=wc.pkey_index, slid=wc.slid, sl=wc.sl,
-                          dlid_path_bits=wc.dlid_path_bits))
-        return npolled, wcs
+        return _poll_cq(self.cq, num_entries)
 
     def req_notify(self, solicited_only = False):
         """
@@ -363,6 +374,7 @@ cdef class CQEX(PyverbsCM):
             if rc != 0:
                 raise PyverbsRDMAError('Failed to destroy CQEX', rc)
             self.cq = NULL
+            self.ibv_cq = NULL
             self.context = None
 
     def start_poll(self, PollCqAttr attr):
@@ -388,6 +400,19 @@ cdef class CQEX(PyverbsCM):
         :return: None
         """
         return v.ibv_end_poll(self.cq)
+
+    def poll(self, num_entries=1):
+        """
+        Polls the extended CQ for completions through the legacy path,
+        returning regular WC objects. Useful when the provider supports an
+        extended CQ but not the extended polling API.
+        Must not be called between start_poll() and end_poll(), since the
+        provider may keep the CQ locked for the whole batch.
+        :param num_entries: number of completions to pull
+        :return: (npolled, wcs): The number of polled completions and an array
+                 of the polled completions
+        """
+        return _poll_cq(self.ibv_cq, num_entries)
 
     def read_opcode(self):
         return v.ibv_wc_read_opcode(self.cq)
