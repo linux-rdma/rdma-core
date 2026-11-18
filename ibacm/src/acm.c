@@ -1044,6 +1044,8 @@ static uint8_t acm_svr_verify_resolve(struct acm_msg *msg)
 	}
 
 	if (msg->hdr.src_out) {
+		if (i >= ACM_MSG_DATA_LENGTH / ACM_MSG_EP_LENGTH)
+			return ACM_STATUS_ESRCADDR;
 		msg->hdr.src_index = i;
 		memset(&msg->resolve_data[i], 0, sizeof(struct acm_ep_addr_data));
 	}
