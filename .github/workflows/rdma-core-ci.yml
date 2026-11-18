@@ -1,0 +1,379 @@
+# =============================================================================
+# rdma-core CI workflow
+# Location: repository root .github/workflows/rdma-core-ci.yml
+# Repository: https://github.com/yunbaozhineng/rdma-core  (public fork, default branch master)
+# Runner: self-hosted, labels self-ubuntu24.04 (Ubuntu 24.04, dependencies preinstalled)
+# =============================================================================
+name: rdma-core CI
+
+on:
+  push:
+    branches: [ master ]
+  pull_request:
+    branches: [ master ]
+  workflow_dispatch:
+    inputs:
+      build_deb:
+        description: 'Also build deb packages (dpkg-buildpackage)'
+        required: false
+        default: 'false'
+
+permissions:
+  contents: read
+
+concurrency:
+  group: rdma-ci-${{ github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+defaults:
+  run:
+    shell: bash
+
+jobs:
+  ci:
+    name: "rdma-core CI @ self-hosted"
+    if: >-
+      github.event_name != 'pull_request' ||
+      github.event.pull_request.head.repo.full_name == github.repository
+    runs-on: [ self-hosted, self-ubuntu24.04 ]   # registered labels of grace34-65
+    timeout-minutes: 90
+    env:
+      GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      CHECKPATCH_SH: checkpatch.sh
+      MIRROR_REPO: ${{ vars.RDMA_MIRROR || '/home/grace/mirrors/rdma-core.git' }}
+      BUILD_DEB: ${{ (github.event_name == 'workflow_dispatch' && github.event.inputs.build_deb == 'true') || (github.event_name == 'push' && github.ref == 'refs/heads/master') }}
+      TARGET_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
+
+    steps:
+      # -----------------------------------------------------------------------
+      # 1) Checkout (local mirror preferred)
+      #    mirror       : mirror hit, clone --local (hardlinks), seconds, full history
+      #    mirror-fetch : mirror is stale, fetch only this commit from GitHub (depth 200)
+      #    fallback     : mirror unavailable, fall back to actions/checkout + unshallow
+      # -----------------------------------------------------------------------
+      - name: Prepare source (local mirror first)
+        id: prep
+        run: |
+          set -euo pipefail
+          TARGET="${TARGET_SHA}"
+          AUTH="$(printf 'x-access-token:%s' "${GITHUB_TOKEN}" | base64 | tr -d '\n')"
+          echo "target commit: ${TARGET}"
+          add_safe_dir() {
+            local p="$1"
+            [ -n "${p}" ] || return 0
+            if ! git config --global --get-all safe.directory 2>/dev/null | grep -qxF -- "${p}"; then
+              git config --global --add safe.directory "${p}" 2>/dev/null || true
+            fi
+          }
+          add_safe_dir "${MIRROR_REPO}"
+          add_safe_dir "${GITHUB_WORKSPACE}"
+
+          if [ ! -d "${MIRROR_REPO}" ] || ! git -C "${MIRROR_REPO}" rev-parse --git-dir >/dev/null 2>&1; then
+            echo "::warning::Local mirror missing or not a git repo: ${MIRROR_REPO}, falling back to GitHub shallow clone"
+            echo "mode=fallback" >> "${GITHUB_OUTPUT}"
+            exit 0
+          fi
+
+          echo "mirror: ${MIRROR_REPO}"
+          echo "mirror last synced commit: $(git -C "${MIRROR_REPO}" log -1 --format='%h %ci' 2>/dev/null || echo unknown)"
+
+          # Keep the workspace parent dir, wipe the old workspace
+          # (equivalent to checkout's clean, avoids leftovers from the previous build)
+          cd "$(dirname "${GITHUB_WORKSPACE}")"
+          rm -rf "${GITHUB_WORKSPACE}"
+
+          # --local uses hardlinks, almost no data copied; full history comes along
+          if ! git clone --no-checkout --local "${MIRROR_REPO}" "${GITHUB_WORKSPACE}"; then
+            echo "::warning::mirror clone failed (owner/permissions/filesystem), falling back to GitHub shallow clone"
+            rm -rf "${GITHUB_WORKSPACE}"
+            echo "mode=fallback" >> "${GITHUB_OUTPUT}"
+            exit 0
+          fi
+          cd "${GITHUB_WORKSPACE}"
+          add_safe_dir "${GITHUB_WORKSPACE}"
+
+          # Keep origin pointing at GitHub so a stale mirror can fetch a single commit
+          git remote set-url origin "https://github.com/${GITHUB_REPOSITORY}.git"
+
+          # A --local source has no remote-tracking refs; create refs/remotes/origin/* locally
+          git for-each-ref --format='%(refname) %(objectname)' refs/heads/ \
+            | while read -r ref sha; do
+                git update-ref "refs/remotes/origin/${ref#refs/heads/}" "${sha}"
+              done
+
+          if git rev-parse --verify --quiet "${TARGET}^{commit}" >/dev/null; then
+            git checkout -q --detach "${TARGET}"
+            echo "mode=mirror" >> "${GITHUB_OUTPUT}"
+            echo "checked out ${TARGET} from mirror"
+          else
+            echo "::warning::${TARGET} not in mirror (stale), fetching it from GitHub"
+            # Fetch with depth 200 (covers most PRs); fall back to depth 1 with a warning
+            if git -c http.extraheader="AUTHORIZATION: basic ${AUTH}" \
+                 fetch --no-tags --depth=200 origin "${TARGET}"; then
+              :
+            elif git -c http.extraheader="AUTHORIZATION: basic ${AUTH}" \
+                 fetch --no-tags --depth 1 origin "${TARGET}"; then
+              echo "::warning::depth=200 fetch failed, fell back to depth=1"
+            else
+              echo "::error::Cannot fetch commit ${TARGET} from GitHub, check GITHUB_TOKEN permissions and network"
+              exit 1
+            fi
+            git checkout -q --detach FETCH_HEAD
+            echo "mode=mirror-fetch" >> "${GITHUB_OUTPUT}"
+          fi
+
+          echo "local history commit count: $(git rev-list --count HEAD)"
+          echo "HEAD: $(git rev-parse HEAD)"
+
+      # -----------------------------------------------------------------------
+      # 2) Fallback A: GitHub shallow clone (runs only when prep reports fallback)
+      # -----------------------------------------------------------------------
+      - name: "Checkout (fallback: GitHub shallow clone, depth=1)"
+        if: ${{ steps.prep.outputs.mode == 'fallback' }}
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 1
+          clean: true
+          ref: ${{ env.TARGET_SHA }}
+
+      # -----------------------------------------------------------------------
+      # 3) Fallback B: complete history (equivalent to a manual git fetch --unshallow)
+      #    Mirror mode already has full history, so this step is skipped
+      # -----------------------------------------------------------------------
+      - name: "Complete history (fallback: git fetch --unshallow)"
+        if: ${{ steps.prep.outputs.mode == 'fallback' }}
+        run: |
+          set -euo pipefail
+
+          if [ ! -f .git/shallow ]; then
+            echo "full history already present, no unshallow needed"
+            exit 0
+          fi
+
+          if [ "${{ github.event_name }}" = "pull_request" ]; then
+            REFSPEC="refs/pull/${{ github.event.pull_request.number }}/head"
+          else
+            REFSPEC="refs/heads/${{ github.ref_name }}"
+          fi
+
+          ok=0
+          for i in 1 2 3; do
+            echo "---- attempt ${i}: git fetch --unshallow origin +${REFSPEC} ----"
+            if git fetch --no-tags --progress --unshallow origin \
+                 "+${REFSPEC}:refs/remotes/origin/ci-head"; then
+              ok=1
+              break
+            fi
+            echo "::warning::attempt ${i} of unshallow failed, retrying in 10s (downloaded objects are reused)"
+            sleep 10
+          done
+
+          if [ "${ok}" -ne 1 ]; then
+            echo "::warning::unshallow failed 3 times, degrading to --deepen=500 (enough for typical PRs only)"
+            git fetch --no-tags --progress --deepen=500 origin \
+              "+${REFSPEC}:refs/remotes/origin/ci-head" \
+              || echo "::error::History completion failed entirely, checkpatch may not see the full diff"
+          fi
+
+          echo "visible local commits: $(git rev-list --count HEAD)"
+          if [ -f .git/shallow ]; then
+            echo "::warning::still a shallow repo (shallow boundary entries: $(wc -l < .git/shallow))"
+          else
+            echo "history is complete (unshallow finished)"
+          fi
+
+      # -----------------------------------------------------------------------
+      # 4) Compute commit count n
+      #    PR: pull_request.commits from the payload (total PR commits, independent of local history)
+      #    push: git rev-list --count <before>..HEAD (exact when history is complete)
+      # -----------------------------------------------------------------------
+      - name: Compute commit count n
+        id: count
+        run: |
+          set -euo pipefail
+          EVENT="${{ github.event_name }}"
+          DEF="${{ github.event.repository.default_branch }}"
+          N=0
+
+          if [ "${EVENT}" = "pull_request" ]; then
+            N="$(python3 -c 'import json,os;d=json.load(open(os.environ["GITHUB_EVENT_PATH"],encoding="utf-8"));print((d.get("pull_request") or {}).get("commits") or 0)')"
+          else
+            BEFORE="${{ github.event.before }}"
+            if [ -n "${BEFORE}" ] && [ "${BEFORE}" != "0000000000000000000000000000000000000000" ] \
+               && git cat-file -e "${BEFORE}^{commit}" 2>/dev/null; then
+              N="$(git rev-list --count "${BEFORE}..HEAD")"
+            else
+              # 'before' not present locally (first push / force push / shallow):
+              # fall back to the merge-base with the default branch
+              BASE="refs/remotes/origin/${DEF}"
+              if ! git rev-parse --verify "${BASE}" >/dev/null 2>&1; then
+                # In mirror mode refs/heads/<default> exists locally; prefer it to avoid network
+                if git rev-parse --verify "refs/heads/${DEF}" >/dev/null 2>&1; then
+                  BASE="refs/heads/${DEF}"
+                else
+                  git -c http.extraheader="AUTHORIZATION: basic $(printf 'x-access-token:%s' "${GITHUB_TOKEN}" | base64 | tr -d '\n')" \
+                    fetch --no-tags origin "+refs/heads/${DEF}:${BASE}" || true
+                fi
+              fi
+              if git rev-parse --verify "${BASE}" >/dev/null 2>&1; then
+                N="$(git rev-list --count "$(git merge-base "${BASE}" HEAD)"..HEAD 2>/dev/null || echo 0)"
+              fi
+            fi
+          fi
+
+          # Fallback: treat non-numeric or 0 as 1 (checkpatch.sh -n 0 behavior is undefined)
+          if ! [[ "${N}" =~ ^[0-9]+$ ]] || [ "${N}" -lt 1 ]; then
+            N=1
+          fi
+
+          echo "n=${N}" >> "${GITHUB_OUTPUT}"
+          echo "commit count n = ${N} (source: ${EVENT} / checkout mode: ${{ steps.prep.outputs.mode }} / local history: $(git rev-list --count HEAD) commits)"
+          if [ "${N}" -gt 30 ]; then
+            echo "::warning::${N} commits in this run, checkpatch will be slow; consider splitting the PR"
+          fi
+
+      # -----------------------------------------------------------------------
+      # 5) checkpatch (run checkpatch.sh -n <n> at the repo root)
+      # -----------------------------------------------------------------------
+      - name: Run checkpatch.sh
+        working-directory: ${{ github.workspace }}
+        run: |
+          # /etc/profile may reference unset vars; disable -u while sourcing
+          set +u
+          source /etc/profile
+          set -euo pipefail
+
+          echo "runner: $(hostname) | script: ${CHECKPATCH_SH}"
+          if ! command -v "${CHECKPATCH_SH}" >/dev/null 2>&1; then
+            echo "::error::${CHECKPATCH_SH} not found in PATH (check whether /etc/profile adds its directory to PATH)"
+            exit 1
+          fi
+          echo "working directory: $(pwd)"
+
+          # History guard: with too little history, checkpatch -n N may see an empty diff
+          # (false green), so fail hard. In mirror-fetch mode local history is inherently
+          # shallow (200 or 1), so the hard check is meaningless there; warn and let
+          # checkpatch's own result be authoritative.
+          MODE="${{ steps.prep.outputs.mode }}"
+          HAVE="$(git rev-list --count HEAD)"
+          NEED=$(( ${{ steps.count.outputs.n }} + 1 ))
+          if [ "${MODE}" = "mirror-fetch" ]; then
+            if [ "${HAVE}" -lt "${NEED}" ]; then
+              echo "::warning::mirror-fetch mode has only ${HAVE} local commits (needs ${NEED}); checkpatch may only see part of the diff"
+            fi
+          elif [ "${HAVE}" -lt "${NEED}" ]; then
+            echo "::error::Local history has only ${HAVE} commits, checkpatch needs at least ${NEED} (incomplete checkout, check mirror sync or network)"
+            exit 1
+          fi
+          echo "local history: ${HAVE} commits, checkpatch needs -n ${{ steps.count.outputs.n }}"
+
+          echo "executing: ${CHECKPATCH_SH} -n ${{ steps.count.outputs.n }}"
+
+          # Non-zero exit means the check failed (pipefail keeps tee from masking it)
+          "${CHECKPATCH_SH}" -n "${{ steps.count.outputs.n }}" \
+            2>&1 | tee "${RUNNER_TEMP}/checkpatch.log"
+
+      # -----------------------------------------------------------------------
+      # 6) Dependency self-check
+      # -----------------------------------------------------------------------
+      - name: Dependency environment check
+        run: |
+          set -euo pipefail
+          head -2 /etc/os-release
+          gcc --version | head -1
+          cmake --version | head -1
+          ninja --version
+          git log -1 --format='%h %s' 2>/dev/null || true
+          missing=""
+          for p in build-essential cmake ninja-build pkg-config \
+                   libnl-3-dev libnl-route-3-dev libudev-dev libsystemd-dev \
+                   python3-dev cython3 python3-docutils valgrind pandoc \
+                   debhelper dh-python; do
+            dpkg -s "$p" >/dev/null 2>&1 || missing="$missing $p"
+          done
+          if [ -n "$missing" ]; then
+            echo "::error::Missing dependencies:${missing}"
+            echo "install with: sudo apt update && sudo apt install -y${missing}"
+            exit 1
+          fi
+
+      # -----------------------------------------------------------------------
+      # 7) Build
+      # -----------------------------------------------------------------------
+      - name: build
+        run: |
+          set -euo pipefail
+          rm -rf build
+          ./build.sh
+          echo "---- artifact stats ----"
+          echo "build/bin tools: $(ls build/bin | wc -l)"
+          echo "build/lib files: $(ls build/lib | wc -l)"
+
+      # -----------------------------------------------------------------------
+      # 8) Smoke test + artifact presence check
+      # -----------------------------------------------------------------------
+      - name: Smoke test (executable check only when no RDMA hardware is present)
+        run: |
+          build/bin/ibv_devices || true
+          build/bin/ibv_devinfo || true
+        continue-on-error: true
+
+      - name: check build target
+        run: |
+          set -euo pipefail
+          bins=$(find build/bin -maxdepth 1 -type f | wc -l)
+          libs=$(find build/lib -maxdepth 1 -type f -name '*.so*' | wc -l)
+          echo "build/bin files: ${bins} / build/lib .so files: ${libs}"
+          [ "${bins}" -gt 0 ] || { echo "::error::build/bin is empty, the build produced no executables"; exit 1; }
+          [ "${libs}" -gt 0 ] || { echo "::error::build/lib is empty, the build produced no .so files"; exit 1; }
+
+
+      # -----------------------------------------------------------------------
+      # 9) deb packaging
+      #    Built in a dedicated directory under RUNNER_TEMP so that
+      #    dpkg-buildpackage does not write into the job-level shared dir
+      #    _work/<repo>/ (concurrent runs would mix packages)
+      # -----------------------------------------------------------------------
+      - name: Build deb packages (dpkg-buildpackage -us -uc -b, build validation only)
+        if: ${{ env.BUILD_DEB == 'true' }}
+        run: |
+          set -euo pipefail
+          DEBROOT="${RUNNER_TEMP}/rdma-deb"
+          rm -rf "${DEBROOT}" && mkdir -p "${DEBROOT}/src"
+
+          tar -C "${GITHUB_WORKSPACE}" -cf - \
+              --exclude=./build --exclude=./.git . \
+            | tar -C "${DEBROOT}/src" -xpf -
+
+          cd "${DEBROOT}/src"
+          dpkg-buildpackage -us -uc -b
+
+          # nullglob: no match yields an empty array instead of the literal `*.deb`
+          shopt -s nullglob
+          debs=("${DEBROOT}"/*.deb "${DEBROOT}"/*.ddeb)
+          if [ ${#debs[@]} -eq 0 ]; then
+            echo "::error::dpkg-buildpackage ran but produced no .deb/.ddeb"
+            exit 1
+          fi
+
+          # Not uploaded, not moved: just confirm packaging succeeded and record the count
+          echo "deb packages: ${#debs[@]} (build dir: ${DEBROOT}, reclaimed by the runner after the job)"
+          ls -l "${debs[@]}" | head -20
+          echo "DEB_COUNT=${#debs[@]}" >> "${GITHUB_ENV}"
+
+      # -----------------------------------------------------------------------
+      # 10) Summary
+      # -----------------------------------------------------------------------
+      - name: CI Summary
+        if: always()
+        run: |
+          {
+            echo "## rdma-core CI Summary"
+            echo "- commit: \`${{ env.TARGET_SHA }}\`"
+            echo "- trigger: \`${{ github.event_name }}\` / branch \`${{ github.ref_name }}\`"
+            echo "- checkout mode: \`${{ steps.prep.outputs.mode }}\` (mirror / mirror-fetch / fallback)"
+            echo "- checkpatch commit count: \`${{ steps.count.outputs.n }}\`"
+            echo "- visible local history: $(git rev-list --count HEAD 2>/dev/null || echo n/a) commits"
+            echo "- bin tools: $(ls build/bin 2>/dev/null | wc -l) / lib files: $(ls build/lib 2>/dev/null | wc -l)"
+            echo "- deb packaging: ${BUILD_DEB}"
+          } >> "${GITHUB_STEP_SUMMARY}"
