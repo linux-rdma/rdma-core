@@ -226,6 +226,9 @@ static const char *parsecct(char *arg, uint32_t *shift, uint32_t *multiplier)
 	const char *errstr;
 	char *ptr;
 
+	if (strlen(arg) >= sizeof(buf))
+		return "cct value too long";
+
 	strcpy(buf, arg);
 
 	if (!(ptr = strchr(buf, ':')))
