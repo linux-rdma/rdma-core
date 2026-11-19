@@ -989,6 +989,8 @@ enum ibv_qp_create_send_ops_flags {
 	IBV_QP_EX_WITH_TSO			= 1 << 10,
 	IBV_QP_EX_WITH_FLUSH			= 1 << 11,
 	IBV_QP_EX_WITH_ATOMIC_WRITE		= 1 << 12,
+	IBV_QP_EX_WITH_COMP_ACTION		= 1 << 13,
+	IBV_QP_EX_WITH_COMP_ACTION_WITH_DATA	= 1 << 14,
 };
 
 struct ibv_rx_hash_conf {
@@ -1386,6 +1388,17 @@ struct ibv_qp_ex {
 	void (*wr_flush)(struct ibv_qp_ex *qp, uint32_t rkey,
 			 uint64_t remote_addr, size_t len, uint8_t type,
 			 uint8_t level);
+
+	void (*wr_set_local_comp_action)(struct ibv_qp_ex *qp,
+					 uint32_t action_id);
+	void (*wr_set_remote_comp_action)(struct ibv_qp_ex *qp,
+					  uint32_t action_id);
+	void (*wr_set_local_comp_action_with_data)(struct ibv_qp_ex *qp,
+						   uint32_t action_id,
+						   uint64_t data);
+	void (*wr_set_remote_comp_action_with_data)(struct ibv_qp_ex *qp,
+						    uint32_t action_id,
+						    uint64_t data);
 };
 
 struct ibv_qp_ex *ibv_qp_to_qp_ex(struct ibv_qp *qp);
@@ -1498,6 +1511,32 @@ static inline void ibv_wr_set_sge_list(struct ibv_qp_ex *qp, size_t num_sge,
 				       const struct ibv_sge *sg_list)
 {
 	qp->wr_set_sge_list(qp, num_sge, sg_list);
+}
+
+static inline void ibv_wr_set_local_comp_action(struct ibv_qp_ex *qp,
+						uint32_t action_id)
+{
+	qp->wr_set_local_comp_action(qp, action_id);
+}
+
+static inline void ibv_wr_set_remote_comp_action(struct ibv_qp_ex *qp,
+						 uint32_t action_id)
+{
+	qp->wr_set_remote_comp_action(qp, action_id);
+}
+
+static inline void ibv_wr_set_local_comp_action_with_data(struct ibv_qp_ex *qp,
+							  uint32_t action_id,
+							  uint64_t data)
+{
+	qp->wr_set_local_comp_action_with_data(qp, action_id, data);
+}
+
+static inline void ibv_wr_set_remote_comp_action_with_data(struct ibv_qp_ex *qp,
+							   uint32_t action_id,
+							   uint64_t data)
+{
+	qp->wr_set_remote_comp_action_with_data(qp, action_id, data);
 }
 
 static inline void ibv_wr_start(struct ibv_qp_ex *qp)
@@ -2151,6 +2190,46 @@ struct ibv_comp_cntr_init_attr {
 struct ibv_qp_attach_comp_cntr_attr {
 	uint32_t comp_mask; /* Compatibility mask */
 	uint32_t op_mask; /* Bitmask of ibv_qp_attach_comp_cntr_op */
+};
+
+enum ibv_comp_action_op {
+	IBV_COMP_ACTION_OP_SEND				= 1 << 0,
+	IBV_COMP_ACTION_OP_RECV				= 1 << 1,
+	IBV_COMP_ACTION_OP_RDMA_READ			= 1 << 2,
+	IBV_COMP_ACTION_OP_REMOTE_RDMA_READ		= 1 << 3,
+	IBV_COMP_ACTION_OP_RDMA_WRITE			= 1 << 4,
+	IBV_COMP_ACTION_OP_REMOTE_RDMA_WRITE		= 1 << 5,
+	IBV_COMP_ACTION_OP_REMOTE_RDMA_WRITE_IMM	= 1 << 6,
+};
+
+struct ibv_comp_action_caps {
+	uint32_t max_actions;
+	uint32_t supported_ops; /* Bitmask of ibv_comp_action_op */
+};
+
+struct ibv_comp_action {
+	struct ibv_context *context;
+	struct ibv_pd *pd;
+	uint32_t handle;
+	uint32_t action_id;
+};
+
+struct ibv_mem_comp_action {
+	struct ibv_comp_action comp_action;
+};
+
+enum ibv_mem_comp_action_modify_type {
+	IBV_MEM_COMP_ACTION_SET_INITIATOR_OFF_VAL,
+};
+
+struct ibv_mem_comp_action_init_attr {
+	uint32_t comp_mask; /* Compatibility mask */
+	uint32_t flags;
+	struct ibv_buf *buf; /* Handle from ibv_alloc_buf() or ibv_alloc_user_buf() */
+	uint64_t offset; /* Start of the target memory within buf */
+	uint64_t length;
+	uint32_t modify_size;
+	enum ibv_mem_comp_action_modify_type modify_type;
 };
 
 enum ibv_parent_domain_init_attr_mask {
@@ -3133,6 +3212,36 @@ int ibv_read_comp_cntr(struct ibv_comp_cntr *comp_cntr, uint64_t *value);
  * @value: Output pointer to store the current error count.
  */
 int ibv_read_err_comp_cntr(struct ibv_comp_cntr *comp_cntr, uint64_t *value);
+
+int _ibv_query_comp_action_caps(struct ibv_context *context,
+				struct ibv_comp_action_caps *caps,
+				size_t caps_size);
+
+/**
+ * ibv_query_comp_action_caps - Query completion action capabilities
+ * @context: Device context.
+ * @caps: Output capabilities struct.
+ */
+static inline int ibv_query_comp_action_caps(struct ibv_context *context,
+					     struct ibv_comp_action_caps *caps)
+{
+	return _ibv_query_comp_action_caps(context, caps, sizeof(*caps));
+}
+
+/**
+ * ibv_create_mem_comp_action - Create a memory completion action
+ * @pd: Protection domain to associate the action with.
+ * @attr: Attributes for the memory completion action.
+ */
+struct ibv_mem_comp_action *
+ibv_create_mem_comp_action(struct ibv_pd *pd,
+			   struct ibv_mem_comp_action_init_attr *attr);
+
+/**
+ * ibv_destroy_comp_action - Destroy a completion action
+ * @comp_action: The completion action to destroy.
+ */
+int ibv_destroy_comp_action(struct ibv_comp_action *comp_action);
 
 /**
  * ibv_create_srq - Creates a SRQ associated with the specified protection

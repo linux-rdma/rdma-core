@@ -30,6 +30,11 @@ ibv_wr_set_ud_addr - Attach UD addressing info to the last work request
 
 ibv_wr_set_xrc_srqn - Attach an XRC SRQN to the last work request
 
+ibv_wr_set_local_comp_action, ibv_wr_set_remote_comp_action,
+ibv_wr_set_local_comp_action_with_data,
+ibv_wr_set_remote_comp_action_with_data - Attach a completion action to the
+last work request
+
 # SYNOPSIS
 
 ```c
@@ -75,6 +80,15 @@ void ibv_wr_set_ud_addr(struct ibv_qp_ex *qp, struct ibv_ah *ah,
 void ibv_wr_set_xrc_srqn(struct ibv_qp_ex *qp, uint32_t remote_srqn);
 void ibv_wr_flush(struct ibv_qp_ex *qp, uint32_t rkey, uint64_t remote_addr,
                   size_t len, uint8_t type, uint8_t level);
+
+void ibv_wr_set_local_comp_action(struct ibv_qp_ex *qp, uint32_t action_id);
+void ibv_wr_set_remote_comp_action(struct ibv_qp_ex *qp, uint32_t action_id);
+void ibv_wr_set_local_comp_action_with_data(struct ibv_qp_ex *qp,
+                                            uint32_t action_id,
+                                            uint64_t data);
+void ibv_wr_set_remote_comp_action_with_data(struct ibv_qp_ex *qp,
+                                             uint32_t action_id,
+                                             uint64_t data);
 ```
 
 # DESCRIPTION
@@ -260,6 +274,40 @@ for SEND and RDMA_WRITE.
     together. Each buffer is specified by an element in an array of *struct
     ibv_data_buf*.
 
+## Completion action setters
+
+Completion action setters attach an action, created with
+*ibv_create_mem_comp_action()*, to the work request after the WR builder. The
+device performs the action when the work request completes. A work request can
+carry one local and one remote action; if a setter for the same side is called
+again, the last call wins. The QP must be created with
+**IBV_QP_EX_WITH_COMP_ACTION** in *send_ops_flags*, or with
+**IBV_QP_EX_WITH_COMP_ACTION_WITH_DATA** for the setters that take a data
+operand. The completion events that can trigger actions are reported by
+*ibv_query_comp_action_caps()*.
+
+*ibv_wr_set_local_comp_action()*
+:   Perform the action identified by *action_id* at the initiator when the
+    work request completes locally.
+
+*ibv_wr_set_remote_comp_action()*
+:   Perform the action identified by *action_id* at the target when the
+    work request completes there. The action ID is the one created on the
+    target and communicated out-of-band.
+
+*ibv_wr_set_local_comp_action_with_data()*
+:   Like *ibv_wr_set_local_comp_action()*, and pass *data* as the action
+    operand.
+
+*ibv_wr_set_remote_comp_action_with_data()*
+:   Like *ibv_wr_set_remote_comp_action()*, and pass *data* as the action
+    operand.
+
+If the action expects an operand and a setter without data is used, the
+operand is 0. The effect of an action becomes visible only after the data of
+the work request is visible. An invalid action ID completes the work request
+with an error at the initiator.
+
 ## Flags
 
 A bit mask of flags may be specified in *wr_flags* to control the behavior of
@@ -328,7 +376,8 @@ ret = ibv_wr_complete(qpx);
 
 # SEE ALSO
 
-**ibv_post_send**(3), **ibv_create_qp_ex(3)**.
+**ibv_post_send**(3), **ibv_create_qp_ex(3)**,
+**ibv_create_comp_action**(3).
 
 # AUTHOR
 
