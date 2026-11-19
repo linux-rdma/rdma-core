@@ -1564,6 +1564,11 @@ static int get_rules_file(struct config_t *conf)
 	}
 
 	conf->rules = malloc(sizeof(struct rule) * line_number);
+	if (!conf->rules) {
+		pr_err("Failed to allocate memory for rules\n");
+		ret = -ENOMEM;
+		goto out;
+	}
 
 	rule = &conf->rules[0] - 1;
 	line_number_for_output = 0;
