@@ -210,7 +210,8 @@ int ibv_cmd_create_srq(struct ibv_pd *pd, struct ibv_srq *srq,
 	struct ibv_srq_init_attr_ex attr_ex = {};
 	int ret;
 
-	memcpy(&attr_ex, attr, sizeof(*attr));
+	attr_ex.srq_context = attr->srq_context;
+	attr_ex.attr = attr->attr;
 	ret = ibv_icmd_create_srq(pd, NULL, srq, &attr_ex, cmdb);
 	if (!ret) {
 		attr->attr.max_wr = attr_ex.attr.max_wr;
