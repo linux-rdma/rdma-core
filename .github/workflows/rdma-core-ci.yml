@@ -32,9 +32,6 @@ defaults:
 jobs:
   ci:
     name: "rdma-core CI @ self-hosted"
-    if: >-
-      github.event_name != 'pull_request' ||
-      github.event.pull_request.head.repo.full_name == github.repository
     runs-on: [ self-hosted, self-ubuntu24.04 ]   # registered labels of grace34-65
     timeout-minutes: 90
     env:
