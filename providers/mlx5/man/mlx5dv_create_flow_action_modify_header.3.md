@@ -43,6 +43,8 @@ Create a modify header flow steering action, it allows mutating a packet header.
 
 	MLX5DV_FLOW_TABLE_TYPE_NIC_TX: TX FLOW TABLE
 
+	MLX5DV_FLOW_TABLE_TYPE_NIC_RX_CLASS: RDMA classification FLOW TABLE
+
 # RETURN VALUE
 
 Upon success *mlx5dv_create_flow_action_modify_header* will return a new *struct

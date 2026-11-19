@@ -305,6 +305,7 @@ enum mlx5_ib_flow_type {
 enum mlx5_ib_create_flow_flags {
 	MLX5_IB_ATTR_CREATE_FLOW_FLAGS_DEFAULT_MISS = 1 << 0,
 	MLX5_IB_ATTR_CREATE_FLOW_FLAGS_DROP = 1 << 1,
+	MLX5_IB_ATTR_CREATE_FLOW_FLAGS_ALLOW = 1 << 2,
 };
 
 enum mlx5_ib_create_flow_attrs {
