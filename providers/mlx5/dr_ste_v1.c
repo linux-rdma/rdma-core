@@ -3306,6 +3306,12 @@ static int dr_ste_v1_aso_other_domain_link(struct mlx5dv_devx_obj *devx_obj,
 	}
 
 	cross_dmn_arrays = (struct dr_aso_cross_dmn_arrays *) malloc(sizeof(struct dr_aso_cross_dmn_arrays));
+	if (!cross_dmn_arrays) {
+		dr_dbg(peer_dmn, "Failed allocating cross domain arrays\n");
+		errno = ENOMEM;
+		ret = errno;
+		goto free_till_i_with_ste_info;
+	}
 
 	cross_dmn_arrays->action_htbl = action_htbl;
 	cross_dmn_arrays->rule_htbl = rule_htbl;
