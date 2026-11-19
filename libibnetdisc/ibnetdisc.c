@@ -260,6 +260,8 @@ int mlnx_ext_port_info_err(smp_engine_t * engine, ibnd_smp_t * smp,
 
 		if (rc > 0) {
 			struct ni_cbdata * cbdata = malloc(sizeof(*cbdata));
+			if (!cbdata)
+				return -1;
 			cbdata->node = node;
 			cbdata->port_num = port_num;
 			query_node_info(engine, &path, cbdata);
@@ -309,6 +311,8 @@ static int recv_mlnx_ext_port_info(smp_engine_t * engine, ibnd_smp_t * smp,
 
 		if (rc > 0) {
 			struct ni_cbdata * cbdata = malloc(sizeof(*cbdata));
+			if (!cbdata)
+				return -1;
 			cbdata->node = node;
 			cbdata->port_num = port_num;
 			query_node_info(engine, &path, cbdata);
@@ -420,6 +424,8 @@ static int recv_port_info(smp_engine_t * engine, ibnd_smp_t * smp,
 
 		if (rc > 0) {
 			struct ni_cbdata * cbdata = malloc(sizeof(*cbdata));
+			if (!cbdata)
+				return -1;
 			cbdata->node = node;
 			cbdata->port_num = port_num;
 			query_node_info(engine, &path, cbdata);
