@@ -243,6 +243,31 @@ int ibv_cmd_create_srq_ex(struct ibv_context *context,
 	return ibv_icmd_create_srq(attr_ex->pd, srq, NULL, attr_ex, cmdb);
 }
 
+int ibv_cmd_create_srq_ex2(struct ibv_context *context,
+			   struct verbs_srq *srq,
+			   struct ibv_srq_init_attr_ex *attr_ex,
+			   struct ibv_create_xsrq *cmd, size_t cmd_size,
+			   struct ib_uverbs_create_srq_resp *resp, size_t resp_size,
+			   struct ibv_command_buffer *driver)
+{
+	DECLARE_CMD_BUFFER_LINK_COMPAT(cmdb, UVERBS_OBJECT_SRQ,
+				       UVERBS_METHOD_SRQ_CREATE, driver,
+				       cmd, cmd_size, resp, resp_size);
+
+	if (attr_ex->comp_mask >= IBV_SRQ_INIT_ATTR_RESERVED) {
+		errno = EOPNOTSUPP;
+		return errno;
+	}
+
+	if (!(attr_ex->comp_mask & IBV_SRQ_INIT_ATTR_PD)) {
+		errno = EINVAL;
+		return errno;
+	}
+
+	return ibv_icmd_create_srq(attr_ex->pd, srq, NULL, attr_ex, cmdb);
+}
+
+
 int ibv_cmd_destroy_srq(struct ibv_srq *srq)
 {
 	DECLARE_FBCMD_BUFFER(cmdb, UVERBS_OBJECT_SRQ, UVERBS_METHOD_SRQ_DESTROY, 2,

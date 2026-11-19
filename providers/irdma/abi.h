@@ -33,5 +33,9 @@ DECLARE_DRV_CMD(irdma_ucreate_ah, IB_USER_VERBS_CMD_CREATE_AH,
 		empty, irdma_create_ah_resp);
 DECLARE_DRV_CMD(irdma_ucreate_srq, IB_USER_VERBS_CMD_CREATE_SRQ,
 		irdma_create_srq_req, irdma_create_srq_resp);
+DECLARE_DRV_CMD(irdma_ucreate_qp_ex, IB_USER_VERBS_EX_CMD_CREATE_QP,
+		irdma_create_qp_req, irdma_create_qp_resp);
+DECLARE_DRV_CMD(irdma_ucreate_srq_ex, IB_USER_VERBS_CMD_CREATE_XSRQ,
+		irdma_create_srq_req, irdma_create_srq_resp);
 
 #endif /* PROVIDER_IRDMA_ABI_H */
