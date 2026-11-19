@@ -27,7 +27,7 @@ static struct verbs_context *ionic_alloc_context(struct ibv_device *ibdev,
 	}
 
 	rc = ibv_cmd_get_context(&ctx->vctx, &req.ibv_cmd, sizeof(req),
-				 NULL, &resp.ibv_resp, sizeof(resp));
+				 NULL, &resp.ibv_resp, sizeof(resp), 0);
 	if (rc)
 		goto err_cmd;
 

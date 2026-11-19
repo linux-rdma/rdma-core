@@ -131,29 +131,9 @@ static void *get_buf_cqe(struct mlx5_buf *buf, int n, int cqe_sz)
 	return buf->ibv_buf.addr + n * cqe_sz;
 }
 
-static void *get_cqe(struct mlx5_cq *cq, int n)
-{
-	return cq->active_buf->ibv_buf.addr + n * cq->cqe_sz;
-}
-
-static void *get_sw_cqe(struct mlx5_cq *cq, int n)
-{
-	void *cqe = get_cqe(cq, n & cq->verbs_cq.cq.cqe);
-	struct mlx5_cqe64 *cqe64;
-
-	cqe64 = (cq->cqe_sz == 64) ? cqe : cqe + 64;
-
-	if (likely(mlx5dv_get_cqe_opcode(cqe64) != MLX5_CQE_INVALID) &&
-	    !((cqe64->op_own & MLX5_CQE_OWNER_MASK) ^ !!(n & (cq->verbs_cq.cq.cqe + 1)))) {
-		return cqe;
-	} else {
-		return NULL;
-	}
-}
-
 static void *next_cqe_sw(struct mlx5_cq *cq)
 {
-	return get_sw_cqe(cq, cq->cons_index);
+	return mlx5_get_sw_cqe(cq, cq->cons_index);
 }
 
 static void update_cons_index(struct mlx5_cq *cq)
@@ -337,9 +317,9 @@ static void dump_cqe(struct mlx5_context *mctx, void *buf)
 			 be32toh(p[i + 2]), be32toh(p[i + 3]));
 }
 
-static enum ibv_wc_status mlx5_handle_error_cqe(struct mlx5_err_cqe *cqe)
+enum ibv_wc_status mlx5_handle_error_cqe(uint8_t syndrome)
 {
-	switch (cqe->syndrome) {
+	switch (syndrome) {
 	case MLX5_CQE_SYNDROME_LOCAL_LENGTH_ERR:
 		return IBV_WC_LOC_LEN_ERR;
 	case MLX5_CQE_SYNDROME_LOCAL_QP_OP_ERR:
@@ -879,7 +859,7 @@ again:
 		{
 			enum ibv_wc_status *pstatus = lazy ? &cq->verbs_cq.cq_ex.status : &wc->status;
 
-			*pstatus = mlx5_handle_error_cqe(ecqe);
+			*pstatus = mlx5_handle_error_cqe(ecqe->syndrome);
 		}
 
 		if (!lazy)
@@ -1668,7 +1648,17 @@ int mlx5_cq_fill_pfns(struct mlx5_cq *cq,
 		      const struct ibv_cq_init_attr_ex *cq_attr,
 		      struct mlx5_context *mctx)
 {
-	const struct op *poll_ops = &ops[((cq->stall_enable && cq->stall_adaptive_enable) ? ADAPTIVE : 0) |
+	const struct op *poll_ops;
+
+	/* The extended poll API bypasses the adversarial checks */
+	if (mctx->flags & MLX5_CTX_FLAGS_ADVERSARIAL_DP) {
+		cq->verbs_cq.cq_ex.start_poll = mlx5_adversarial_start_poll;
+		cq->verbs_cq.cq_ex.next_poll = mlx5_adversarial_next_poll;
+		cq->verbs_cq.cq_ex.end_poll = mlx5_adversarial_end_poll;
+		return 0;
+	}
+
+	poll_ops = &ops[((cq->stall_enable && cq->stall_adaptive_enable) ? ADAPTIVE : 0) |
 					 (mctx->cqe_version ? V1 : 0) |
 					 (cq->flags & MLX5_CQ_FLAGS_SINGLE_THREADED ?
 						      SINGLE_THREADED : 0) |
@@ -1833,7 +1823,7 @@ void __mlx5_cq_clean(struct mlx5_cq *cq, uint32_t rsn, struct mlx5_srq *srq)
 	 * about is already in RESET, so the new entries won't come
 	 * from our QP and therefore don't need to be checked.
 	 */
-	for (prod_index = cq->cons_index; get_sw_cqe(cq, prod_index); ++prod_index)
+	for (prod_index = cq->cons_index; mlx5_get_sw_cqe(cq, prod_index); ++prod_index)
 		if (prod_index == cq->cons_index + cq->verbs_cq.cq.cqe)
 			break;
 
@@ -1844,12 +1834,12 @@ void __mlx5_cq_clean(struct mlx5_cq *cq, uint32_t rsn, struct mlx5_srq *srq)
 	cqe_version = (to_mctx(cq->verbs_cq.cq.context))->cqe_version;
 	while (prod_index != cq->cons_index) {
 		--prod_index;
-		cqe = get_cqe(cq, prod_index & cq->verbs_cq.cq.cqe);
+		cqe = mlx5_get_cqe(cq, prod_index & cq->verbs_cq.cq.cqe);
 		cqe64 = (cq->cqe_sz == 64) ? cqe : cqe + 64;
 		if (free_res_cqe(cqe64, rsn, srq, cqe_version)) {
 			++nfreed;
 		} else if (nfreed) {
-			dest = get_cqe(cq, (prod_index + nfreed) & cq->verbs_cq.cq.cqe);
+			dest = mlx5_get_cqe(cq, (prod_index + nfreed) & cq->verbs_cq.cq.cqe);
 			dest64 = (cq->cqe_sz == 64) ? dest : dest + 64;
 			owner_bit = dest64->op_own & MLX5_CQE_OWNER_MASK;
 			memcpy(dest, cqe, cq->cqe_sz);
@@ -1965,7 +1955,7 @@ int mlx5_alloc_cq_buf(struct mlx5_context *mctx, struct mlx5_cq *cq,
 		return -1;
 
 	if (buf->type != MLX5_ALLOC_TYPE_CUSTOM)
-		memset(buf->ibv_buf.addr, 0, nent * cqe_sz);
+		memset(buf->ibv_buf.addr, 0, buf->ibv_buf.size);
 
 	for (i = 0; i < nent; ++i) {
 		cqe = buf->ibv_buf.addr + i * cqe_sz;
