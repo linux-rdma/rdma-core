@@ -19,7 +19,7 @@ rdma_library(rdmacm librdmacm.map
   rsocket.c
   )
 target_link_libraries(rdmacm LINK_PUBLIC ibverbs)
-target_link_libraries(rdmacm LINK_PRIVATE
+rdma_target_link_libraries(rdmacm LINK_PRIVATE
   ${NL_LIBRARIES}
   ${CMAKE_THREAD_LIBS_INIT}
   ${RT_LIBRARIES}
@@ -31,7 +31,7 @@ rdma_rspreload_module(rspreload librspreload.map
   preload.c
   indexer.c
   )
-target_link_libraries(rspreload LINK_PRIVATE
+rdma_target_link_libraries(rspreload LINK_PRIVATE
   rdmacm
   ${CMAKE_THREAD_LIBS_INIT}
   ${CMAKE_DL_LIBS}
@@ -49,9 +49,3 @@ if (ENABLE_STATIC)
   endif()
 endif()
 rdma_pkg_config("rdmacm" "${REQUIRES}libibverbs" "${CMAKE_THREAD_LIBS_INIT}")
-
-if (CMAKE_SYSTEM_NAME STREQUAL "FreeBSD")
-  find_package(epoll-shim REQUIRED)
-  target_link_libraries(rdmacm PRIVATE epoll-shim::epoll-shim)
-  target_link_libraries(rspreload PRIVATE epoll-shim::epoll-shim)
-endif()

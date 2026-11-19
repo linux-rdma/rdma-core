@@ -565,6 +565,8 @@ if (CMAKE_SYSTEM_NAME STREQUAL "FreeBSD")
   include_directories(BEFORE ${linuxapi_INCLUDE_DIR})
   # We need to add an additional -I flag to all generated .pc files
   set(PC_FREEBSD_CFLAGS "-I${linuxapi_INCLUDE_DIR}")
+  # Used by rdma_target_link_libraries()
+  find_package(epoll-shim REQUIRED)
 endif()
 
 # libnl

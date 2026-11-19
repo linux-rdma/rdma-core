@@ -269,6 +269,16 @@ function(rdma_test_executable EXEC)
   set_target_properties(${EXEC} PROPERTIES RUNTIME_OUTPUT_DIRECTORY "${BUILD_BIN}")
 endfunction()
 
+# Wrapper for target_link_libraries() that also links in the libraries some
+# platforms need to provide the system APIs used by rdma-core.
+function(rdma_target_link_libraries DEST)
+  target_link_libraries(${DEST} ${ARGN})
+
+  if (CMAKE_SYSTEM_NAME STREQUAL "FreeBSD")
+    target_link_libraries(${DEST} LINK_PRIVATE epoll-shim::epoll-shim)
+  endif()
+endfunction()
+
 # Finalize the setup of the static libraries by copying the meta information
 # from the shared to static and setting up the static builder
 function(rdma_finalize_libs)
