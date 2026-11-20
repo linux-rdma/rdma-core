@@ -85,6 +85,11 @@ void ucma_set_sid(enum rdma_port_space ps, struct sockaddr *addr,
 int ucma_max_qpsize(struct rdma_cm_id *id);
 int ucma_complete(struct rdma_cm_id *id);
 int ucma_shutdown(struct rdma_cm_id *id);
+int ucma_set_coco_pd(struct rdma_cm_id *id);
+struct ibv_cq *ucma_create_cq(struct rdma_cm_id *id, struct ibv_pd *pd,
+			      int cqe, void *cq_context,
+			      struct ibv_comp_channel *channel,
+			      int comp_vector);
 
 static inline int ERR(int err)
 {
