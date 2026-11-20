@@ -386,6 +386,8 @@ struct rsocket {
 	int		  opts;
 	int		  fd_flags;
 	int		  fs_flags;
+	int		  rcvtimeo_ms;
+	int		  sndtimeo_ms;
 	int		  ipv4_opts;
 	uint64_t	  so_opts;
 	uint64_t	  ipv6_opts;
@@ -683,6 +685,8 @@ static struct rsocket *rs_alloc(struct rsocket *inherited_rs, int type)
 		return NULL;
 
 	rs->type = type;
+	rs->rcvtimeo_ms = -1;
+	rs->sndtimeo_ms = -1;
 
 	rs->index = -1;
 	if (type == SOCK_DGRAM) {
@@ -2209,6 +2213,12 @@ static int rs_process_cq(struct rsocket *rs, int nonblock, int (*test)(struct rs
 	return ret;
 }
 
+static int rs_get_comp_timeout(struct rsocket *rs, int nonblock,
+				       int (*test)(struct rsocket *rs),
+				       int64_t timeout_us);
+static int rs_conn_can_send(struct rsocket *rs);
+static int ds_can_send(struct rsocket *rs);
+
 static int rs_get_comp(struct rsocket *rs, int nonblock, int (*test)(struct rsocket *rs))
 {
 	uint64_t start_time = 0;
@@ -2225,6 +2235,18 @@ static int rs_get_comp(struct rsocket *rs, int nonblock, int (*test)(struct rsoc
 
 		poll_time = (uint32_t) (rs_time_us() - start_time);
 	} while (poll_time <= polling_time);
+
+	if (rs->rcvtimeo_ms >= 0 || rs->sndtimeo_ms >= 0) {
+		int64_t timeout_us;
+
+		if (test == rs_conn_can_send)
+			timeout_us = (int64_t) rs->sndtimeo_ms * 1000;
+		else
+			timeout_us = (int64_t) rs->rcvtimeo_ms * 1000;
+		if (timeout_us < 0)
+			timeout_us = (int64_t) rs->sndtimeo_ms * 1000;
+		return rs_get_comp_timeout(rs, nonblock, test, timeout_us);
+	}
 
 	ret = rs_process_cq(rs, 0, test);
 	return ret;
@@ -2385,8 +2407,45 @@ static int ds_get_comp(struct rsocket *rs, int nonblock, int (*test)(struct rsoc
 		poll_time = (uint32_t) (rs_time_us() - start_time);
 	} while (poll_time <= polling_time);
 
+	if (rs->rcvtimeo_ms >= 0 || rs->sndtimeo_ms >= 0) {
+		int64_t timeout_us;
+
+		if (test == ds_can_send)
+			timeout_us = (int64_t) rs->sndtimeo_ms * 1000;
+		else
+			timeout_us = (int64_t) rs->rcvtimeo_ms * 1000;
+		if (timeout_us < 0)
+			timeout_us = (int64_t) rs->sndtimeo_ms * 1000;
+		return rs_get_comp_timeout(rs, nonblock, test, timeout_us);
+	}
+
 	ret = ds_process_cqs(rs, 0, test);
 	return ret;
+}
+
+/*
+ * Wait for a completion, honoring SO_RCVTIMEO/SO_SNDTIMEO if set.
+ * A timeout of -1 means block indefinitely, as with sockets.
+ */
+static int rs_get_comp_timeout(struct rsocket *rs, int nonblock,
+			       int (*test)(struct rsocket *rs),
+			       int64_t timeout_us)
+{
+	uint64_t start_time;
+	int ret;
+
+	start_time = rs_time_us();
+	while (1) {
+		ret = rs_process_cq(rs, 1, test);
+		if (!ret || nonblock || errno != EWOULDBLOCK)
+			return ret;
+
+		if ((uint64_t) (rs_time_us() - start_time) >= timeout_us)
+			return ERR(EAGAIN);
+
+		usleep(min((uint64_t) wake_up_interval * 1000,
+			   timeout_us - (rs_time_us() - start_time)));
+	}
 }
 
 static int rs_nonblocking(struct rsocket *rs, int flags)
@@ -3758,6 +3817,20 @@ int rsetsockopt(int socket, int level, int optname,
 			opt_on = *(int *) optval;
 			ret = 0;
 			break;
+		case SO_RCVTIMEO:
+		case SO_SNDTIMEO:
+			if (optlen < sizeof(struct timeval)) {
+				ret = ERR(EINVAL);
+				break;
+			}
+			if (optname == SO_RCVTIMEO)
+				rs->rcvtimeo_ms = ((struct timeval *) optval)->tv_sec * 1000 +
+					((struct timeval *) optval)->tv_usec / 1000;
+			else
+				rs->sndtimeo_ms = ((struct timeval *) optval)->tv_sec * 1000 +
+					((struct timeval *) optval)->tv_usec / 1000;
+			ret = 0;
+			break;
 		default:
 			break;
 		}
@@ -3939,6 +4012,14 @@ int rgetsockopt(int socket, int level, int optname,
 			break;
 		case SO_BROADCAST:
 			ret = 0;
+			break;
+		case SO_RCVTIMEO:
+		case SO_SNDTIMEO:
+			((struct timeval *) optval)->tv_sec =
+				(optname == SO_RCVTIMEO ? rs->rcvtimeo_ms : rs->sndtimeo_ms) / 1000;
+			((struct timeval *) optval)->tv_usec =
+				(optname == SO_RCVTIMEO ? rs->rcvtimeo_ms : rs->sndtimeo_ms) % 1000 * 1000;
+			*optlen = sizeof(struct timeval);
 			break;
 		default:
 			ret = ENOTSUP;
