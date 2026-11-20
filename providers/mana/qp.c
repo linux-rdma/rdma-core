@@ -34,6 +34,9 @@ DECLARE_DRV_CMD(mana_create_rc_qp, IB_USER_VERBS_CMD_CREATE_QP,
 DECLARE_DRV_CMD(mana_create_uc_qp, IB_USER_VERBS_CMD_CREATE_QP,
 		mana_ib_create_uc_qp, mana_ib_create_uc_qp_resp);
 
+DECLARE_DRV_CMD(mana_modify_qp_ex, IB_USER_VERBS_EX_CMD_MODIFY_QP,
+		mana_ib_modify_qp, mana_ib_modify_qp_resp);
+
 static struct ibv_qp *mana_create_qp_raw(struct ibv_pd *ibpd,
 					 struct ibv_qp_init_attr *attr)
 {
@@ -297,6 +300,9 @@ static int mana_create_cmd_qp_rc(struct mana_qp *qp, struct ibv_pd *ibpd,
 
 	qp->rnic_qp.queues[USER_RNIC_SEND_QUEUE_MM].id = qp_resp_drv->mmq_id;
 
+	qp->ece.supported = ctx->comp_mask & MANA_IB_UCNTX_ECE_SUPPORT;
+	qp->ece.current = qp_resp_drv->ece_options;
+
 	return 0;
 }
 
@@ -309,6 +315,7 @@ enum {
 static int mana_create_cmd_qp_uc(struct mana_qp *qp, struct ibv_pd *ibpd,
 				 struct ibv_qp_init_attr *attr)
 {
+	struct mana_context *ctx = to_mctx(ibpd->context);
 	struct mana_ib_create_uc_qp_resp *qp_resp_drv;
 	struct mana_create_uc_qp_resp qp_resp = {};
 	struct mana_ib_create_uc_qp *qp_cmd_drv;
@@ -347,6 +354,9 @@ static int mana_create_cmd_qp_uc(struct mana_qp *qp, struct ibv_pd *ibpd,
 		qp_resp_drv->queue_id[MANA_UC_UDATA_RQR];
 	qp->rnic_qp.queues[USER_RNIC_SEND_QUEUE_MM].id =
 		qp_resp_drv->queue_id[MANA_UC_UDATA_SMQ];
+
+	qp->ece.supported = ctx->comp_mask & MANA_IB_UCNTX_ECE_SUPPORT;
+	qp->ece.current = qp_resp_drv->ece_options;
 
 	return 0;
 }
@@ -463,6 +473,36 @@ struct ibv_qp *mana_create_qp(struct ibv_pd *ibpd,
 	return NULL;
 }
 
+int mana_query_ece(struct ibv_qp *ibqp, struct ibv_ece *ece)
+{
+	struct mana_qp *qp = container_of(ibqp, struct mana_qp, ibqp.qp);
+
+	if (!qp->ece.supported)
+		return EOPNOTSUPP;
+
+	pthread_spin_lock(&qp->sq_lock);
+	ece->vendor_id = PCI_VENDOR_ID_MICROSOFT;
+	ece->options = qp->ece.current;
+	ece->comp_mask = 0;
+	pthread_spin_unlock(&qp->sq_lock);
+	return 0;
+}
+
+int mana_set_ece(struct ibv_qp *ibqp, struct ibv_ece *ece)
+{
+	struct mana_qp *qp = container_of(ibqp, struct mana_qp, ibqp.qp);
+
+	if (!qp->ece.supported)
+		return EOPNOTSUPP;
+	if (ece->comp_mask || ece->vendor_id != PCI_VENDOR_ID_MICROSOFT)
+		return EINVAL;
+
+	pthread_spin_lock(&qp->sq_lock);
+	qp->ece.pending = ece->options;
+	pthread_spin_unlock(&qp->sq_lock);
+	return 0;
+}
+
 static void mana_ib_modify_rnic_qp(struct mana_qp *qp, struct ibv_qp_attr *attr, int attr_mask)
 {
 	int i;
@@ -511,7 +551,22 @@ int mana_modify_qp(struct ibv_qp *ibqp, struct ibv_qp_attr *attr, int attr_mask)
 	pthread_spin_lock(&qp->sq_lock);
 	pthread_spin_lock(&qp->rq_lock);
 
-	err = ibv_cmd_modify_qp(ibqp, attr, attr_mask, &cmd, sizeof(cmd));
+	/* With ECE, every modify returns the firmware's current options. */
+	if (qp->ece.supported) {
+		struct mana_modify_qp_ex_resp resp = {};
+		struct mana_modify_qp_ex cmd_ex = {};
+
+		cmd_ex.drv_payload.ece_options = qp->ece.pending;
+		err = ibv_cmd_modify_qp_ex(ibqp, attr, attr_mask,
+					   &cmd_ex.ibv_cmd, sizeof(cmd_ex),
+					   &resp.ibv_resp, sizeof(resp));
+		if (!err) {
+			qp->ece.current = resp.drv_payload.ece_options;
+			qp->ece.pending = 0;
+		}
+	} else {
+		err = ibv_cmd_modify_qp(ibqp, attr, attr_mask, &cmd, sizeof(cmd));
+	}
 	if (err) {
 		verbs_err(verbs_get_ctx(ibqp->context), "Failed to modify qp\n");
 		goto cleanup;
