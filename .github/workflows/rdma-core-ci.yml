@@ -267,7 +267,7 @@ jobs:
           echo "executing: ${CHECKPATCH_SH} -n ${{ steps.count.outputs.n }}"
 
           # Non-zero exit means the check failed (pipefail keeps tee from masking it)
-          "${CHECKPATCH_SH}" -n "${{ steps.count.outputs.n }}" \
+          "${CHECKPATCH_SH}" "${{ steps.count.outputs.n }}" \
             2>&1 | tee "${RUNNER_TEMP}/checkpatch.log"
 
       # -----------------------------------------------------------------------
