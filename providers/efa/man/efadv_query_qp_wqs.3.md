@@ -36,6 +36,8 @@ struct efadv_wq_attr {
 	uint32_t *doorbell;
 	uint32_t max_batch;
 	uint16_t caps;
+	uint16_t wqe_blocks;
+	uint16_t comp_action_with_data_block_offset;
 	uint8_t reserved[2];
 };
 ```
@@ -68,6 +70,21 @@ struct efadv_wq_attr {
 		Work queue supports posting requests with 64-bit IDs.
 		When set, the associated completion queue is guaranteed
 		to return 64-bit request IDs as well.
+
+*wqe_blocks*
+:	Feature blocks enabled in the queue's entries, a bitwise OR of:
+
+	EFADV_WQE_BLOCK_COMP_ACTION_WITH_DATA
+		Send queue entries carry the completion action block, which holds
+		the action ids and their data operands; its offset within an entry
+		is reported in comp_action_with_data_block_offset. Set for a QP
+		created with EFADV_WR_EX_WITH_COMP_ACTION or
+		EFADV_WR_EX_WITH_COMP_ACTION_WITH_DATA, see **efadv_create_qp_ex**(3).
+
+*comp_action_with_data_block_offset*
+:	Byte offset of the completion action block within a send queue entry.
+	Valid when EFADV_WQE_BLOCK_COMP_ACTION_WITH_DATA is set in wqe_blocks,
+	otherwise 0.
 
 # RETURN VALUE
 

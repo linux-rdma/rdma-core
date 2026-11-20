@@ -92,6 +92,10 @@ enum {
 	EFA_CREATE_QP_WITH_SQ_64_BIT_REQ_ID = 1 << 1,
 };
 
+enum {
+	EFA_CREATE_QP_WQE_BLOCK_ACTION_WITH_DATA = 1 << 0,
+};
+
 struct efa_ibv_create_qp {
 	__u32 comp_mask;
 	__u32 rq_ring_size; /* bytes */
@@ -99,7 +103,12 @@ struct efa_ibv_create_qp {
 	__u32 driver_qp_type;
 	__u16 flags;
 	__u8 sl;
-	__u8 reserved_98[5];
+	__u8 reserved_98[1];
+	/* enablement bitmap for WQE configurable feature blocks */
+	__u32 wqe_blocks_enablement;
+	/* offset in SQ WQE to the action with data descriptor */
+	__u16 action_with_data_wqe_offset;
+	__u8 reserved_d0[6];
 };
 
 struct efa_ibv_create_qp_resp {
@@ -137,6 +146,17 @@ enum {
 	EFA_QUERY_DEVICE_CAPS_CQ_WITH_EXT_MEM = 1 << 7,
 	EFA_QUERY_DEVICE_CAPS_COMP_CNTR = 1 << 8,
 	EFA_QUERY_DEVICE_CAPS_SQ_64_BIT_REQ_ID = 1 << 9,
+	EFA_QUERY_DEVICE_CAPS_COMP_ACTION = 1 << 10,
+};
+
+enum efa_query_device_comp_action_supp_ops {
+	EFA_QUERY_DEVICE_COMP_ACTION_SUPP_OP_SEND = 1 << 0,
+	EFA_QUERY_DEVICE_COMP_ACTION_SUPP_OP_RECV = 1 << 1,
+	EFA_QUERY_DEVICE_COMP_ACTION_SUPP_OP_RDMA_READ = 1 << 2,
+	EFA_QUERY_DEVICE_COMP_ACTION_SUPP_OP_REMOTE_RDMA_READ = 1 << 3,
+	EFA_QUERY_DEVICE_COMP_ACTION_SUPP_OP_RDMA_WRITE = 1 << 4,
+	EFA_QUERY_DEVICE_COMP_ACTION_SUPP_OP_REMOTE_RDMA_WRITE = 1 << 5,
+	EFA_QUERY_DEVICE_COMP_ACTION_SUPP_OP_REMOTE_RDMA_WRITE_IMM = 1 << 6,
 };
 
 struct efa_ibv_ex_query_device_resp {
@@ -147,6 +167,8 @@ struct efa_ibv_ex_query_device_resp {
 	__u16 max_rq_sge;
 	__u32 max_rdma_size;
 	__u32 device_caps;
+	__u32 max_comp_actions;
+	__u32 comp_action_supp_ops;
 };
 
 enum {
@@ -170,6 +192,38 @@ enum efa_mr_methods {
 enum efa_comp_cntr_create_attrs {
 	EFA_IB_ATTR_CREATE_COMP_CNTR_COMP_BUFFER = (1U << UVERBS_ID_NS_SHIFT),
 	EFA_IB_ATTR_CREATE_COMP_CNTR_ERR_BUFFER,
+};
+
+enum efa_objects {
+	EFA_IB_OBJECT_COMP_ACTION = (1U << UVERBS_ID_NS_SHIFT),
+};
+
+enum efa_comp_action_type {
+	EFA_COMP_ACTION_TYPE_MEM,
+};
+
+enum efa_mem_comp_action_modify_type {
+	EFA_MEM_COMP_ACTION_SET_INITIATOR_VAL,
+};
+
+enum efa_comp_action_methods {
+	EFA_IB_METHOD_COMP_ACTION_CREATE = (1U << UVERBS_ID_NS_SHIFT),
+	EFA_IB_METHOD_COMP_ACTION_DESTROY,
+};
+
+enum efa_comp_action_create_attrs {
+	EFA_IB_ATTR_COMP_ACTION_CREATE_HANDLE = (1U << UVERBS_ID_NS_SHIFT),
+	EFA_IB_ATTR_COMP_ACTION_CREATE_PD_HANDLE,
+	EFA_IB_ATTR_COMP_ACTION_CREATE_TYPE,
+	EFA_IB_ATTR_COMP_ACTION_CREATE_MEM_MODIFY_TYPE,
+	EFA_IB_ATTR_COMP_ACTION_CREATE_MEM_MODIFY_SIZE,
+	EFA_IB_ATTR_COMP_ACTION_CREATE_MEM_SIZE,
+	EFA_IB_ATTR_COMP_ACTION_CREATE_MEM_BUFFER,
+	EFA_IB_ATTR_COMP_ACTION_CREATE_RESP_ACTION_ID,
+};
+
+enum efa_comp_action_destroy_attrs {
+	EFA_IB_ATTR_COMP_ACTION_DESTROY_HANDLE = (1U << UVERBS_ID_NS_SHIFT),
 };
 
 #endif /* EFA_ABI_USER_H */

@@ -17,6 +17,7 @@ from pyverbs.cq import CQ
 from pyverbs.libibverbs_enums import ibv_qp_type, ibv_qp_create_send_ops_flags, ibv_qp_init_attr_mask, \
     ibv_wr_opcode, ibv_access_flags
 from pyverbs.pd import PD
+from pyverbs import mem_alloc as mem
 
 from tests.efa_base import EfaAPITestCase, EfaRDMATestCase, SRDResources
 import tests.utils as u
@@ -174,3 +175,137 @@ class EfaMRTest(EfaAPITestCase):
                 if ex.error_code in [errno.EOPNOTSUPP, errno.ENOTTY, errno.EPROTONOSUPPORT]:
                     raise unittest.SkipTest(f'Query MR not supported, errno={ex.error_code}')
                 raise ex
+
+
+# Entry sizes a memory completion action accepts
+MEM_MODIFY_SIZES = [1, 2, 4]
+
+EXHAUSTION_TEST_LIMIT = 4096
+
+
+class EfaCompActionTestCase(EfaAPITestCase):
+    """Base class for completion action tests. Skips if not supported."""
+    def setUp(self):
+        super().setUp()
+        self.efa_ctx = efa.EfaContext(name=self.ctx.name)
+        self.dev_attrs = self.efa_ctx.query_efa_device()
+        self.bufs = []
+        if not (self.dev_attrs.device_caps &
+                efa_e.EFADV_DEVICE_ATTR_CAPS_COMP_ACTION):
+            # tearDown is not called when setUp raises; close explicitly so
+            # the contexts don't linger to interpreter-exit finalization
+            self.efa_ctx.close()
+            self.ctx.close()
+            raise unittest.SkipTest('Completion actions not supported')
+        self.pd = PD(self.efa_ctx)
+
+    def tearDown(self):
+        self.pd.close()
+        self.efa_ctx.close()
+        for buf in self.bufs:
+            mem.free(buf)
+        super().tearDown()
+
+    def alloc_buf(self, size=8, alignment=8):
+        buf = mem.posix_memalign(size, alignment)
+        self.bufs.append(buf)
+        return buf
+
+    def create_action(self, pd=None, mem_modify_size=4, mem_size=None, buf=None,
+                      comp_mem_modify_type=efa_e.EFADV_MEM_COMP_ACTION_SET_INITIATOR_VAL):
+        if buf is None:
+            buf = self.alloc_buf()
+        attr = efa.EfaMemCompActionInitAttr(pd=pd or self.pd, comp_mem_modify_type=comp_mem_modify_type,
+                                            mem_modify_size=mem_modify_size,
+                                            mem_size=mem_size,
+                                            comp_mem_ptr=buf)
+        return efa.EfaCompAction(self.efa_ctx, attr)
+
+
+class EfaCompActionCapsTest(EfaCompActionTestCase):
+    def test_caps_consistency(self):
+        """COMP_ACTION implies completion action resources."""
+        self.assertGreater(self.dev_attrs.max_comp_actions, 0,
+                           'Completion actions supported but max_comp_actions is 0')
+        write_ops = (efa_e.EFADV_DEVICE_ATTR_COMP_ACTION_SUPPORTED_OP_RDMA_WRITE |
+                     efa_e.EFADV_DEVICE_ATTR_COMP_ACTION_SUPPORTED_OP_REMOTE_RDMA_WRITE)
+        self.assertEqual(self.dev_attrs.comp_action_supp_ops & write_ops, write_ops,
+                         'Completion actions supported but RDMA write is not a supported op')
+
+
+class EfaCompActionTest(EfaCompActionTestCase):
+    def test_create_destroy_mem_modify_sizes(self):
+        """Create and destroy an action of each supported memory modification size."""
+        for mem_modify_size in MEM_MODIFY_SIZES:
+            action = self.create_action(mem_modify_size=mem_modify_size)
+            action.close()
+
+    def test_distinct_ids(self):
+        """Action ids are distinct across live actions."""
+        actions = [self.create_action() for _ in range(2)]
+        self.assertNotEqual(actions[0].action_id, actions[1].action_id)
+        for action in actions:
+            action.close()
+
+    def test_bad_op_type(self):
+        """Unsupported operation types are rejected."""
+        with self.assertRaises(PyverbsRDMAError) as ex:
+            self.create_action(comp_mem_modify_type=0x7f)
+        self.assertEqual(ex.exception.error_code, errno.EOPNOTSUPP)
+
+    def test_unknown_flags_rejected(self):
+        """The flags field is reserved and must be zero."""
+        attr = efa.EfaMemCompActionInitAttr(pd=self.pd, comp_mem_ptr=self.alloc_buf())
+        attr.flags = 1
+        with self.assertRaises(PyverbsRDMAError) as ex:
+            efa.EfaCompAction(self.efa_ctx, attr)
+        self.assertEqual(ex.exception.error_code, errno.EINVAL)
+
+    def test_unknown_comp_mask_rejected(self):
+        """Unknown comp_mask bits are rejected."""
+        attr = efa.EfaMemCompActionInitAttr(pd=self.pd, comp_mem_ptr=self.alloc_buf())
+        attr.comp_mask = 1
+        with self.assertRaises(PyverbsRDMAError) as ex:
+            efa.EfaCompAction(self.efa_ctx, attr)
+        self.assertEqual(ex.exception.error_code, errno.EINVAL)
+
+    def test_missing_pd_rejected(self):
+        """An action without a protection domain is rejected."""
+        attr = efa.EfaMemCompActionInitAttr(comp_mem_ptr=self.alloc_buf())
+        with self.assertRaises(PyverbsRDMAError) as ex:
+            efa.EfaCompAction(self.efa_ctx, attr)
+        self.assertEqual(ex.exception.error_code, errno.EINVAL)
+
+    def test_zero_mem_modify_size_rejected(self):
+        """A zero memory modification size is rejected."""
+        with self.assertRaises(PyverbsRDMAError) as ex:
+            self.create_action(mem_modify_size=0)
+        self.assertEqual(ex.exception.error_code, errno.EINVAL)
+
+    def test_destroy_pd_while_referenced(self):
+        """Deallocating a PD associated with a live action fails with EBUSY."""
+        pd = PD(self.efa_ctx)
+        action = self.create_action(pd=pd)
+        with self.assertRaises(PyverbsRDMAError) as ex:
+            pd.close()
+        self.assertEqual(ex.exception.error_code, errno.EBUSY)
+        action.close()
+        pd.close()
+
+    def test_exhaustion(self):
+        """Creating actions beyond the device limit fails cleanly."""
+        max_actions = self.dev_attrs.max_comp_actions
+        if max_actions > EXHAUSTION_TEST_LIMIT:
+            raise unittest.SkipTest(
+                f'max_comp_actions ({max_actions}) too large for exhaustion test')
+        buf = self.alloc_buf()
+        actions = []
+        try:
+            with self.assertRaises(PyverbsRDMAError) as ex:
+                for _ in range(max_actions + 1):
+                    actions.append(self.create_action(buf=buf))
+            self.assertEqual(ex.exception.error_code, errno.ENOMEM)
+            self.assertEqual(len(actions), max_actions)
+        finally:
+            for action in actions:
+                action.close()

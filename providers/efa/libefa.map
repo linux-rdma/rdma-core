@@ -45,3 +45,10 @@ EFA_1.7 {
 	global:
 		efadv_create_comp_cntr;
 } EFA_1.6;
+
+EFA_1.8 {
+	global:
+		efadv_create_mem_comp_action;
+		efadv_destroy_comp_action;
+		efadv_get_max_inline_data;
+} EFA_1.7;
