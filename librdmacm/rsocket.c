@@ -339,6 +339,8 @@ struct rsocket {
 			struct rdma_cm_id *cm_id;
 			uint64_t	  tcp_opts;
 			unsigned int	  keepalive_time;
+			unsigned int	  keepalive_count;
+			unsigned int	  keepalive_intvl;
 			int		  accept_queue[2];
 
 			unsigned int	  ctrl_seqno;
@@ -3779,7 +3781,15 @@ int rsetsockopt(int socket, int level, int optname,
 		switch (optname) {
 		case TCP_KEEPCNT:
 		case TCP_KEEPINTVL:
-			ret = 0;   /* N/A - we're using a reliable connection */
+			if (*(int *) optval <= 0) {
+				ret = ERR(EINVAL);
+				break;
+			}
+			if (optname == TCP_KEEPCNT)
+				rs->keepalive_count = *(int *) optval;
+			else
+				rs->keepalive_intvl = *(int *) optval;
+			ret = 0;
 			break;
 		case TCP_KEEPIDLE:
 			if (*(int *) optval <= 0) {
@@ -3960,9 +3970,15 @@ int rgetsockopt(int socket, int level, int optname,
 	case IPPROTO_TCP:
 		switch (optname) {
 		case TCP_CONGESTION:
-		case TCP_KEEPCNT:
-		case TCP_KEEPINTVL:
 			*((int *) optval) = 1;   /* N/A */
+			break;
+		case TCP_KEEPCNT:
+			*((int *) optval) = (int) rs->keepalive_count;
+			*optlen = sizeof(int);
+			break;
+		case TCP_KEEPINTVL:
+			*((int *) optval) = (int) rs->keepalive_intvl;
+			*optlen = sizeof(int);
 			break;
 		case TCP_KEEPIDLE:
 			*((int *) optval) = (int) rs->keepalive_time;
