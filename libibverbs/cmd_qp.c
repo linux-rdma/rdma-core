@@ -75,8 +75,10 @@ static int ibv_icmd_create_qp(struct ibv_context *context,
 			      struct ibv_qp_init_attr_ex *attr_ex,
 			      struct ibv_command_buffer *link)
 {
-	DECLARE_FBCMD_BUFFER(cmdb, UVERBS_OBJECT_QP, UVERBS_METHOD_QP_CREATE, 15, link);
+	DECLARE_FBCMD_BUFFER(cmdb, UVERBS_OBJECT_QP,
+			     UVERBS_METHOD_QP_CREATE, 19, link);
 	struct verbs_ex_private *priv = get_priv(context);
+	struct ib_uverbs_ex_modify_qp uqpa = {};
 	struct ib_uverbs_attr *handle;
 	uint32_t qp_num;
 	uint32_t pd_handle;
@@ -88,6 +90,45 @@ static int ibv_icmd_create_qp(struct ibv_context *context,
 	uint32_t create_flags = 0;
 
 	qp->context = context;
+
+	if (attr_ex->comp_mask & IBV_QP_INIT_ATTR_SRC_ID) {
+		fallback_require_ioctl(cmdb);
+		fill_attr_in_uint32(cmdb, UVERBS_ATTR_CREATE_QP_SRC_ID,
+				    attr_ex->src_id);
+	}
+
+	if (attr_ex->comp_mask & IBV_QP_INIT_ATTR_JKEY) {
+		if (!attr_ex->job_key) {
+			errno = EINVAL;
+			return errno;
+		}
+
+		fallback_require_ioctl(cmdb);
+		fill_attr_in_obj(cmdb, UVERBS_ATTR_CREATE_QP_JOB_KEY,
+				 attr_ex->job_key->handle);
+	}
+
+	if (attr_ex->comp_mask & IBV_QP_INIT_ATTR_QP_SEMANTICS) {
+		const struct ibv_qp_semantics *req = attr_ex->qp_semantics;
+		struct ib_uverbs_qp_semantics sem = {};
+
+		if (!req) {
+			errno = EINVAL;
+			return errno;
+		}
+
+		fallback_require_ioctl(cmdb);
+
+		sem.comp_mask = req->comp_mask;
+		sem.msg_order = req->msg_order;
+		sem.max_rdma_raw_size = req->max_rdma_raw_size;
+		sem.max_rdma_war_size = req->max_rdma_war_size;
+		sem.max_rdma_waw_size = req->max_rdma_waw_size;
+		sem.max_pdu = req->max_pdu;
+		sem.imm_data_size = req->imm_data_size;
+		sem.usage_flags = req->usage_flags;
+		fill_attr_in_ptr(cmdb, UVERBS_ATTR_CREATE_QP_SEMANTICS, &sem);
+	}
 
 	switch (attr_ex->qp_type) {
 	case IBV_QPT_XRC_RECV:
@@ -105,7 +146,11 @@ static int ibv_icmd_create_qp(struct ibv_context *context,
 	case IBV_QPT_UC:
 	case IBV_QPT_RAW_PACKET:
 	case IBV_QPT_XRC_SEND:
+	case IBV_QPT_RU:
 	case IBV_QPT_DRIVER:
+		if (attr_ex->qp_type == IBV_QPT_RU)
+			fallback_require_ioctl(cmdb);
+
 		if (!(attr_ex->comp_mask & IBV_QP_INIT_ATTR_PD)) {
 			errno = EINVAL;
 			return errno;
@@ -196,6 +241,31 @@ static int ibv_icmd_create_qp(struct ibv_context *context,
 			 */
 			create_flags &= ~IBV_QP_CREATE_SOURCE_QPN;
 		}
+	}
+
+	/* The attributes the pair would otherwise be modified with. A
+	 * transport/device that supports RTS during QP creation requires no
+	 * modify step to carry them.
+	 */
+	if (attr_ex->comp_mask & IBV_QP_INIT_ATTR_QP_ATTR) {
+		if (!attr_ex->qp_attr) {
+			errno = EINVAL;
+			return errno;
+		}
+
+		fallback_require_ioctl(cmdb);
+
+		/* The same fields the modify command uses, filled by the
+		 * same code. There is no handle yet and the kernel refuses
+		 * a create that names one.
+		 */
+		copy_modify_qp_fields(0, attr_ex->qp_attr,
+				      attr_ex->qp_attr_mask, &uqpa.base);
+
+		if (attr_ex->qp_attr_mask & IBV_QP_RATE_LIMIT)
+			uqpa.rate_limit = attr_ex->qp_attr->rate_limit;
+
+		fill_attr_in_ptr(cmdb, UVERBS_ATTR_CREATE_QP_ATTR, &uqpa);
 	}
 
 	if (create_flags)
@@ -439,7 +509,11 @@ int ibv_cmd_create_qp_ex2(struct ibv_context *context,
 			     IBV_QP_INIT_ATTR_MAX_TSO_HEADER |
 			     IBV_QP_INIT_ATTR_IND_TABLE |
 			     IBV_QP_INIT_ATTR_RX_HASH |
-			     IBV_QP_INIT_ATTR_SEND_OPS_FLAGS)) {
+			     IBV_QP_INIT_ATTR_SEND_OPS_FLAGS |
+			     IBV_QP_INIT_ATTR_QP_ATTR |
+			     IBV_QP_INIT_ATTR_QP_SEMANTICS |
+			     IBV_QP_INIT_ATTR_SRC_ID |
+			     IBV_QP_INIT_ATTR_JKEY)) {
 		errno = EINVAL;
 		return errno;
 	}
@@ -482,6 +556,75 @@ int ibv_cmd_destroy_qp(struct ibv_qp *qp)
 	while (qp->events_completed != resp.events_reported)
 		pthread_cond_wait(&qp->cond, &qp->mutex);
 	pthread_mutex_unlock(&qp->mutex);
+
+	return 0;
+}
+
+/* bind a region to the queue pair that will use it */
+int ibv_cmd_qp_attach_mr(struct ibv_qp *qp, struct ibv_mr *mr)
+{
+	DECLARE_COMMAND_BUFFER(cmd, UVERBS_OBJECT_QP,
+			       UVERBS_METHOD_QP_ATTACH_MR, 2);
+
+	fill_attr_in_obj(cmd, UVERBS_ATTR_QP_ATTACH_MR_QP_HANDLE, qp->handle);
+	fill_attr_in_obj(cmd, UVERBS_ATTR_QP_ATTACH_MR_MR_HANDLE, mr->handle);
+
+	if (execute_ioctl(qp->context, cmd))
+		return errno;
+
+	return 0;
+}
+
+int ibv_cmd_qp_detach_mr(struct ibv_qp *qp, struct ibv_mr *mr)
+{
+	DECLARE_COMMAND_BUFFER(cmd, UVERBS_OBJECT_QP,
+			       UVERBS_METHOD_QP_DETACH_MR, 2);
+
+	fill_attr_in_obj(cmd, UVERBS_ATTR_QP_DETACH_MR_QP_HANDLE, qp->handle);
+	fill_attr_in_obj(cmd, UVERBS_ATTR_QP_DETACH_MR_MR_HANDLE, mr->handle);
+
+	if (execute_ioctl(qp->context, cmd))
+		return errno;
+
+	return 0;
+}
+
+/* what a QP of a specified type guarantees over this device */
+int ibv_cmd_query_qp_semantics(struct ibv_context *ctx,
+			       enum ibv_qp_type qp_type,
+			       struct ibv_qp_semantics *out,
+			       size_t qp_semantic_len)
+{
+	struct ib_uverbs_qp_semantics sem = {};
+	struct ibv_qp_semantics mine = {};
+
+	DECLARE_COMMAND_BUFFER(cmd, UVERBS_OBJECT_DEVICE,
+			       UVERBS_METHOD_QUERY_QP_SEMANTICS, 2);
+
+	if (!out || !qp_semantic_len)
+		return EINVAL;
+
+	if (qp_type != IBV_QPT_RU)
+		return EOPNOTSUPP;
+
+	fill_attr_const_in(cmd, UVERBS_ATTR_QUERY_QP_SEMANTICS_QP_TYPE,
+			   qp_type);
+	fill_attr_out_ptr(cmd, UVERBS_ATTR_QUERY_QP_SEMANTICS_RESP, &sem);
+
+	if (execute_ioctl(ctx, cmd))
+		return errno;
+
+	mine.comp_mask = sem.comp_mask;
+	mine.msg_order = sem.msg_order;
+	mine.max_rdma_raw_size = sem.max_rdma_raw_size;
+	mine.max_rdma_war_size = sem.max_rdma_war_size;
+	mine.max_rdma_waw_size = sem.max_rdma_waw_size;
+	mine.max_pdu = sem.max_pdu;
+	mine.imm_data_size = sem.imm_data_size;
+	mine.usage_flags = sem.usage_flags;
+
+	memcpy(out, &mine, qp_semantic_len < sizeof(mine) ? qp_semantic_len
+							  : sizeof(mine));
 
 	return 0;
 }

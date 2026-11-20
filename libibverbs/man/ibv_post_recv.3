@@ -3,13 +3,16 @@
 .\"
 .TH IBV_POST_RECV 3 2006-10-31 libibverbs "Libibverbs Programmer's Manual"
 .SH "NAME"
-ibv_post_recv \- post a list of work requests (WRs) to a receive queue
+ibv_post_recv, ibv_post_recv64 \- post a list of work requests (WRs) to a receive queue
 .SH "SYNOPSIS"
 .nf
 .B #include <infiniband/verbs.h>
 .sp
 .BI "int ibv_post_recv(struct ibv_qp " "*qp" ", struct ibv_recv_wr " "*wr" ,
 .BI "                  struct ibv_recv_wr " "**bad_wr" );
+.sp
+.BI "int ibv_post_recv64(struct ibv_qp " "*qp" ", struct ibv_recv_wr64 " "*wr" ,
+.BI "                    struct ibv_recv_wr64 " "**bad_wr" );
 .fi
 .SH "DESCRIPTION"
 .B ibv_post_recv()
@@ -45,9 +48,37 @@ uint32_t                lkey;      /* Key of the local Memory Region */
 .in -8
 };
 .fi
+.PP
+.B ibv_post_recv64()
+is the same, for devices reporting IBV_DEVICE_KEY64 whose local keys are
+64 bits wide.
+.PP
+.nf
+struct ibv_recv_wr64 {
+.in +8
+uint64_t                wr_id;     /* User defined WR ID */
+struct ibv_recv_wr64   *next;      /* Pointer to next WR in list, NULL if last WR */
+struct ibv_sge64       *sg_list;   /* Pointer to the s/g array */
+int                     num_sge;   /* Size of the s/g array */
+.in -8
+};
+.sp
+.nf
+struct ibv_sge64 {
+.in +8
+uint64_t                addr;      /* Start address of the local memory buffer */
+uint32_t                length;    /* Length of the buffer */
+uint64_t                lkey64;    /* 64 bit key of the local Memory Region */
+.in -8
+};
+.fi
 .SH "RETURN VALUE"
 .B ibv_post_recv()
-returns 0 on success, or the value of errno on failure (which indicates the failure reason).
+and
+.B ibv_post_recv64()
+return 0 on success, or the value of errno on failure (which indicates the failure reason).
+.B ibv_post_recv64()
+returns EOPNOTSUPP if the device does not support 64 bit keys.
 .SH "NOTES"
 The buffers used by a WR can only be safely reused after WR the
 request is fully executed and a work completion has been retrieved

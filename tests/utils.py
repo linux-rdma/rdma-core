@@ -26,6 +26,7 @@ from pyverbs.providers.efa.efadv import EfaCQ
 from pyverbs.wr import SGE, SendWR, RecvWR
 from pyverbs.base import PyverbsRDMAErrno
 from tests.efa_base import SRDResources
+from tests.ru_base import RuResources
 from pyverbs.cq import PollCqAttr, CQEX
 from pyverbs.mr import MW, MWBindInfo
 from pyverbs.mem_alloc import madvise
@@ -485,7 +486,11 @@ def get_send_elements(agr_obj, is_server, opcode=ibv_wr_opcode.IBV_WR_SEND):
     agr_obj.mem_write(msg, agr_obj.msg_size + offset)
     sge = SGE(agr_obj.mr.buf + offset, agr_obj.msg_size, agr_obj.mr_lkey)
     send_wr = SendWR(opcode=opcode, num_sge=1, sg=[sge])
-    if opcode in [ibv_wr_opcode.IBV_WR_RDMA_WRITE, ibv_wr_opcode.IBV_WR_RDMA_WRITE_WITH_IMM, ibv_wr_opcode.IBV_WR_RDMA_READ]:
+    if opcode in [ibv_wr_opcode.IBV_WR_RDMA_WRITE, ibv_wr_opcode.IBV_WR_RDMA_WRITE_WITH_IMM, ibv_wr_opcode.IBV_WR_RDMA_READ] \
+            and not isinstance(agr_obj, RuResources):
+        # A UET remote key is 64 bits and does not fit this work request's
+        # rkey field; those tests use the builder API, which has a wide
+        # entry point, and take only the SGE from here
         send_wr.set_wr_rdma(int(agr_obj.rkey), int(agr_obj.raddr))
     return send_wr, sge
 
@@ -567,6 +572,15 @@ def post_send_ex(agr_obj, send_object, send_op=None, qp_idx=0, ah=None, **kwargs
     qp.wr_start()
     qp.wr_id = 0x123
     qp.wr_flags = ibv_send_flags.IBV_SEND_SIGNALED
+    if isinstance(agr_obj, RuResources) and send_op in UET_RMA_OPS:
+        # A UET key does not fit in 32 bits, so the narrow RMA entry points
+        # are refused by the device and the wide ones are the only way in
+        uet_post_rma_ex(agr_obj, qp, send_op)
+        qp.wr_set_ru_addr(agr_obj.remote_addr_idx[qp_idx])
+        qp.wr_set_job_key(agr_obj.jkey.jkey)
+        qp.wr_set_sge64(send_object, agr_obj.mr.lkey64)
+        qp.wr_complete()
+        return
     if send_op == ibv_wr_opcode.IBV_WR_SEND:
         qp.wr_send()
     elif send_op == ibv_wr_opcode.IBV_WR_RDMA_WRITE:
@@ -602,6 +616,11 @@ def post_send_ex(agr_obj, send_object, send_op=None, qp_idx=0, ah=None, **kwargs
         qp.wr_set_ud_addr(ah, agr_obj.rqps_num[qp_idx], agr_obj.UD_QKEY)
     if isinstance(agr_obj, SRDResources):
         qp.wr_set_ud_addr(ah, agr_obj.rqps_num[qp_idx], agr_obj.SRD_QKEY)
+    if isinstance(agr_obj, RuResources):
+        # UET names its destination by an index into the job's address table
+        # rather than by a queue pair, and every request carries the job key
+        qp.wr_set_ru_addr(agr_obj.remote_addr_idx[qp_idx])
+        qp.wr_set_job_key(agr_obj.jkey.jkey)
     if qp_type == ibv_qp_type.IBV_QPT_XRC_SEND:
         qp.wr_set_xrc_srqn(agr_obj.remote_srqn)
     if hasattr(agr_obj, 'remote_dct_num'):
@@ -615,6 +634,25 @@ def post_send_ex(agr_obj, send_object, send_op=None, qp_idx=0, ah=None, **kwargs
             send_op != ibv_wr_opcode.IBV_WR_FLUSH:
         qp.wr_set_sge(send_object)
     qp.wr_complete()
+
+
+UET_RMA_OPS = [ibv_wr_opcode.IBV_WR_RDMA_WRITE,
+               ibv_wr_opcode.IBV_WR_RDMA_READ,
+               ibv_wr_opcode.IBV_WR_RDMA_WRITE_WITH_IMM]
+
+
+def uet_post_rma_ex(agr_obj, qp, send_op):
+    """
+    Build a UET RMA work request. The remote address is an offset into the
+    peer's region rather than its virtual address, and the key is the wide
+    one the peer reported.
+    """
+    if send_op == ibv_wr_opcode.IBV_WR_RDMA_WRITE:
+        qp.wr_rdma_write64(agr_obj.rkey, agr_obj.raddr)
+    elif send_op == ibv_wr_opcode.IBV_WR_RDMA_READ:
+        qp.wr_rdma_read64(agr_obj.rkey, agr_obj.raddr)
+    elif send_op == ibv_wr_opcode.IBV_WR_RDMA_WRITE_WITH_IMM:
+        qp.wr_rdma_write64_imm(agr_obj.rkey, agr_obj.raddr, IMM_DATA)
 
 
 def post_send(agr_obj, send_wr, qp_idx=0, ah=None, is_imm=False):

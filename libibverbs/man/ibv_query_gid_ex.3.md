@@ -62,7 +62,8 @@ struct ibv_gid_entry {
 :			The port number that this GID belongs to.
 
 	*gid_type*
-:			enum ibv_gid_type, can be one of IBV_GID_TYPE_IB, IBV_GID_TYPE_ROCE_V1 or IBV_GID_TYPE_ROCE_V2.
+:			enum ibv_gid_type, can be one of IBV_GID_TYPE_IB, IBV_GID_TYPE_ROCE_V1,
+			IBV_GID_TYPE_ROCE_V2, IBV_GID_TYPE_UET_UDP or IBV_GID_TYPE_UET_IP.
 
 	*ndev_ifindex*
 :			The interface index of the net device associated with this GID.
@@ -86,7 +87,8 @@ ENODATA
 **ibv_query_device**(3),
 **ibv_query_pkey**(3),
 **ibv_query_port**(3),
-**ibv_query_gid_table**(3)
+**ibv_query_gid_table**(3),
+**ibv_uet**(7)
 
 # AUTHOR
 

@@ -1,0 +1,124 @@
+.\" Licensed under the OpenIB.org BSD license (FreeBSD Variant) - See COPYING.md
+.TH IBV_RU_PINGPONG 1 "August 8, 2026" "libibverbs" "USER COMMANDS"
+
+.SH NAME
+ibv_ru_pingpong \- simple RU transport test
+
+.SH SYNOPSIS
+.B ibv_ru_pingpong
+[\-p port] [\-d device] [\-i ib port] [\-s size] [\-m size]
+[\-r rx depth] [\-n iters] [\-e] [\-g gid index] [\-c] [\-N] [\-Q]
+[\-I bits] [\-S sges] [\-\-pidonfep n] [\-\-ri n] \fBHOSTNAME\fR
+
+.B ibv_ru_pingpong
+[\-p port] [\-d device] [\-i ib port] [\-s size] [\-m size]
+[\-r rx depth] [\-n iters] [\-e] [\-g gid index] [\-c] [\-N] [\-Q]
+[\-I bits] [\-S sges] [\-\-pidonfep n] [\-\-ri n]
+
+.SH DESCRIPTION
+.PP
+Run a simple ping-pong test using the reliable unconnected (RU) transport.
+.PP
+Invoked without a
+.I HOSTNAME
+the program acts as the server and waits for a connection; invoked with
+one it acts as the client and connects to the server at that address.
+Both sides allocate a job and a job key, create an RU queue pair, and
+exchange messages with
+.BR ibv_post_send (3)
+or, with
+.BR \-N ,
+the work request builders described in
+.BR ibv_wr_post (3).
+.PP
+The device must report
+.I IBV_DEVICE_RU
+in
+.IR device_cap_flags_ex .
+See
+.BR ibv_uet (7)
+for the underlying model.
+
+.SH OPTIONS
+
+.PP
+.TP
+\fB\-p\fR, \fB\-\-port\fR=\fIPORT\fR
+use TCP port \fIPORT\fR for initial synchronization (default 18515)
+.TP
+\fB\-d\fR, \fB\-\-ib\-dev\fR=\fIDEVICE\fR
+use IB device \fIDEVICE\fR (default first device found)
+.TP
+\fB\-i\fR, \fB\-\-ib\-port\fR=\fIPORT\fR
+use port \fIPORT\fR of the IB device (default 1)
+.TP
+\fB\-s\fR, \fB\-\-size\fR=\fISIZE\fR
+exchange messages of size \fISIZE\fR (default 4096)
+.TP
+\fB\-m\fR, \fB\-\-mtu\fR=\fISIZE\fR
+path MTU \fISIZE\fR (default 1024)
+.TP
+\fB\-r\fR, \fB\-\-rx\-depth\fR=\fIDEPTH\fR
+post \fIDEPTH\fR receives at a time (default 500)
+.TP
+\fB\-n\fR, \fB\-\-iters\fR=\fIITERS\fR
+perform \fIITERS\fR message exchanges (default 1000)
+.TP
+\fB\-e\fR, \fB\-\-events\fR
+sleep while waiting for work completion events (default is to poll for
+completions)
+.TP
+\fB\-g\fR, \fB\-\-gid\-idx\fR=\fIGIDINDEX\fR
+use local port GID index \fIGIDINDEX\fR. The GID type selects the
+address family used on the wire; see
+.BR ibv_query_gid_ex (3)
+.TP
+\fB\-c\fR, \fB\-\-chk\fR
+validate received buffer
+.TP
+\fB\-N\fR, \fB\-\-new_send\fR
+use the work request builder API rather than
+.BR ibv_post_send (3)
+.TP
+\fB\-Q\fR, \fB\-\-auto\-qpn\fR
+let the provider assign the queue pair number rather than supplying
+one. Cannot be combined with \fB\-\-pidonfep\fR or \fB\-\-ri\fR
+.TP
+\fB\-I\fR, \fB\-\-imm\fR=\fIBITS\fR
+send with immediate data of \fIBITS\fR bits, either 32 or 64. 64-bit
+immediate data requires \fIIBV_DEVICE_IMM64\fR
+.TP
+\fB\-S\fR, \fB\-\-sge\fR=\fIN\fR
+scatter/gather the buffer across \fIN\fR entries for send, send with
+immediate and receive
+.TP
+\fB\-L\fR, \fB\-\-lkey32\fR
+post the scatter/gather list with 32-bit local keys, using
+\fIstruct ibv_sge\fR and \fBibv_post_recv\fR(3). By default the list
+carries 64-bit local keys in \fIstruct ibv_sge64\fR, flagged with
+\fIIBV_SEND_SGE64\fR on send and posted with \fBibv_post_recv64\fR(3),
+which requires \fIIBV_DEVICE_KEY64\fR
+.TP
+\fB\-\-pidonfep\fR=\fIN\fR
+use \fIN\fR as the PIDonFEP field of this side's queue pair number
+.TP
+\fB\-\-ri\fR=\fIN\fR
+use \fIN\fR as the resource index field of this side's queue pair
+number
+
+.SH SEE ALSO
+.BR ibv_ru_rma (1),
+.BR ibv_rc_pingpong (1),
+.BR ibv_wr_post (3),
+.BR ibv_post_send (3),
+.BR ibv_uet (7)
+
+.SH AUTHORS
+.TP
+Eric Davis
+.RI < eric.davis@broadcom.com >
+
+.SH BUGS
+The network synchronization between client and server instances is
+weak, and does not prevent incompatible options from being used on the
+two instances.

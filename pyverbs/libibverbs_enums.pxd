@@ -173,6 +173,7 @@ cdef extern from '<infiniband/verbs.h>':
         IBV_QPT_XRC_SEND
         IBV_QPT_XRC_RECV
         IBV_QPT_DRIVER
+        IBV_QPT_RU
 
     cpdef enum ibv_qp_state:
         IBV_QPS_RESET
@@ -287,6 +288,10 @@ cdef extern from '<infiniband/verbs.h>':
         IBV_QP_INIT_ATTR_IND_TABLE
         IBV_QP_INIT_ATTR_RX_HASH
         IBV_QP_INIT_ATTR_SEND_OPS_FLAGS
+        IBV_QP_INIT_ATTR_QP_ATTR
+        IBV_QP_INIT_ATTR_QP_SEMANTICS
+        IBV_QP_INIT_ATTR_SRC_ID
+        IBV_QP_INIT_ATTR_JKEY
 
     cpdef enum ibv_qp_create_flags:
         IBV_QP_CREATE_BLOCK_SELF_MCAST_LB
@@ -494,6 +499,8 @@ cdef extern from '<infiniband/verbs.h>':
         IBV_GID_TYPE_IB
         IBV_GID_TYPE_ROCE_V1
         IBV_GID_TYPE_ROCE_V2
+        IBV_GID_TYPE_UET_UDP
+        IBV_GID_TYPE_UET_IP
 
     cpdef enum ibv_fork_status:
         IBV_FORK_DISABLED
@@ -543,6 +550,8 @@ cdef extern from '<infiniband/driver.h>':
     cpdef enum ibv_gid_type_sysfs:
         IBV_GID_TYPE_SYSFS_IB_ROCE_V1
         IBV_GID_TYPE_SYSFS_ROCE_V2
+        IBV_GID_TYPE_SYSFS_UET_UDP
+        IBV_GID_TYPE_SYSFS_UET_IP
 
 cdef extern from "<infiniband/tm_types.h>":
     cpdef enum ibv_tmh_op:
@@ -550,3 +559,24 @@ cdef extern from "<infiniband/tm_types.h>":
         IBV_TMH_RNDV
         IBV_TMH_FIN
         IBV_TMH_EAGER
+
+cdef extern from '<infiniband/verbs.h>':
+
+    cpdef enum ibv_job_attr_mask:
+        IBV_JOB_ATTR_ID
+        IBV_JOB_ATTR_MAX_ADDR_ENTRIES
+        IBV_JOB_ATTR_PORT_NUM
+        IBV_JOB_ATTR_SGID_INDEX
+
+    cpdef enum ibv_qp_semantics_mask:
+        IBV_QP_SEMANTICS_MASK_MSG_ORDER
+        IBV_QP_SEMANTICS_MASK_RAW
+        IBV_QP_SEMANTICS_MASK_WAR
+        IBV_QP_SEMANTICS_MASK_WAW
+        IBV_QP_SEMANTICS_MASK_PDU
+        IBV_QP_SEMANTICS_MASK_IMM
+        IBV_QP_SEMANTICS_MASK_USAGE
+
+    cpdef enum ibv_imm_data_size:
+        IBV_IMM_DATA_SIZE_32
+        IBV_IMM_DATA_SIZE_64

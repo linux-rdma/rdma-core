@@ -23,6 +23,9 @@ cdef class QPInitAttrEx(PyverbsObject):
     cdef object xrcd
     cdef object srq
     cdef object ind_table
+    cdef object _jkey
+    cdef object _qp_attr
+    cdef object _qp_semantics
 
 cdef class QPAttr(PyverbsObject):
     cdef v.ibv_qp_attr attr

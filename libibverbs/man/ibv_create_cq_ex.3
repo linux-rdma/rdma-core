@@ -45,6 +45,9 @@ enum ibv_wc_flags_ex {
         IBV_WC_EX_WITH_CVLAN                 = 1 << 8,  /* Require VLAN info in WC */
         IBV_WC_EX_WITH_FLOW_TAG		     = 1 << 9,  /* Require flow tag in WC */
         IBV_WC_EX_WITH_COMPLETION_TIMESTAMP_WALLCLOCK  = 1 << 11, /* Require completion wallclock timestamp in WC */
+        IBV_WC_EX_WITH_IMM64                 = 1 << 12, /* Require 64 bit immediate in WC */
+        IBV_WC_EX_WITH_SRC_ID                = 1 << 13, /* Require source ID in WC */
+        IBV_WC_EX_WITH_JOB_ID                = 1 << 14, /* Require job ID in WC */
 };
 
 enum ibv_cq_init_attr_mask {
@@ -163,6 +166,18 @@ uint32_t priv; /* opaque user data from TMH */
 .in -8
 };
 
+.BI "__be64 ibv_wc_read_imm64_data(struct ibv_cq_ex " "*cq"); \c
+ Get the 64 bit immediate data field from the current completion. Requires a
+ device reporting IBV_DEVICE_IMM64.
+
+.BI "uint32_t ibv_wc_read_job_id(struct ibv_cq_ex " "*cq"); \c
+ Get the job ID of the sender from the current completion. An Ultra Ethernet
+ RU QP is unconnected, so a completion identifies its sender by job and
+ source rather than by a connected peer.
+
+.BI "uint32_t ibv_wc_read_src_id(struct ibv_cq_ex " "*cq"); \c
+ Get the source ID of the sender from the current completion.
+
 .SH "RETURN VALUE"
 .B ibv_create_cq_ex()
 returns a pointer to the CQ, or NULL if the request fails, and errno is set to indicate the reason.
@@ -180,7 +195,8 @@ CQ should be destroyed with ibv_destroy_cq.
 .BR ibv_req_notify_cq (3),
 .BR ibv_ack_cq_events (3),
 .BR ibv_create_qp (3),
-.BR ibv_alloc_parent_domain (3)
+.BR ibv_alloc_parent_domain (3),
+.BR ibv_uet (7)
 .SH "AUTHORS"
 .TP
 Matan Barak <matanb@mellanox.com>

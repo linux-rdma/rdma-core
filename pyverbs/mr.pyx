@@ -251,6 +251,14 @@ cdef class MR(PyverbsCM):
         return self.mr.rkey
 
     @property
+    def lkey64(self):
+        return self.mr.lkey64
+
+    @property
+    def rkey64(self):
+        return self.mr.rkey64
+
+    @property
     def length(self):
         return self.mr.length
 

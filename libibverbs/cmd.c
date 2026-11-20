@@ -479,11 +479,10 @@ int ibv_cmd_query_qp(struct ibv_qp *qp, struct ibv_qp_attr *attr,
 	return 0;
 }
 
-static void copy_modify_qp_fields(struct ibv_qp *qp, struct ibv_qp_attr *attr,
-				  int attr_mask,
-				  struct ib_uverbs_modify_qp *cmd)
+void copy_modify_qp_fields(uint32_t qp_handle, struct ibv_qp_attr *attr,
+			   int attr_mask, struct ib_uverbs_modify_qp *cmd)
 {
-	cmd->qp_handle = qp->handle;
+	cmd->qp_handle = qp_handle;
 	cmd->attr_mask = attr_mask;
 
 	if (attr_mask & IBV_QP_STATE)
@@ -574,7 +573,7 @@ int ibv_cmd_modify_qp(struct ibv_qp *qp, struct ibv_qp_attr *attr,
 	if (attr_mask & ~(IBV_QP_RATE_LIMIT - 1))
 		return EOPNOTSUPP;
 
-	copy_modify_qp_fields(qp, attr, attr_mask, &cmd->core_payload);
+	copy_modify_qp_fields(qp->handle, attr, attr_mask, &cmd->core_payload);
 
 	return execute_cmd_write_req(qp->context, IB_USER_VERBS_CMD_MODIFY_QP,
 				     cmd, cmd_size);
@@ -586,7 +585,7 @@ int ibv_cmd_modify_qp_ex(struct ibv_qp *qp, struct ibv_qp_attr *attr,
 			 struct ib_uverbs_ex_modify_qp_resp *resp,
 			 size_t resp_size)
 {
-	copy_modify_qp_fields(qp, attr, attr_mask, &cmd->base);
+	copy_modify_qp_fields(qp->handle, attr, attr_mask, &cmd->base);
 
 	if (attr_mask & IBV_QP_RATE_LIMIT) {
 		if (cmd_size >= offsetof(struct ibv_modify_qp_ex, rate_limit) +

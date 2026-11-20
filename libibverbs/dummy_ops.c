@@ -59,6 +59,14 @@ static struct ibv_dmah *alloc_dmah(struct ibv_context *context,
 	return NULL;
 }
 
+static struct ibv_job *alloc_job(struct ibv_context *context,
+				 struct ibv_job_attr *attr,
+				 void *user_context)
+{
+	errno = EOPNOTSUPP;
+	return NULL;
+}
+
 static struct ibv_mw *alloc_mw(struct ibv_pd *pd, enum ibv_mw_type type)
 {
 	errno = EOPNOTSUPP;
@@ -140,6 +148,11 @@ static int attach_mcast(struct ibv_qp *qp, const union ibv_gid *gid,
 	return EOPNOTSUPP;
 }
 
+static int attach_mr(struct ibv_qp *qp, struct ibv_mr *mr)
+{
+	return EOPNOTSUPP;
+}
+
 static int bind_mw(struct ibv_qp *qp, struct ibv_mw *mw,
 		   struct ibv_mw_bind *mw_bind)
 {
@@ -156,6 +169,13 @@ static void cq_event(struct ibv_cq *cq)
 }
 
 static struct ibv_ah *create_ah(struct ibv_pd *pd, struct ibv_ah_attr *attr)
+{
+	errno = EOPNOTSUPP;
+	return NULL;
+}
+
+static struct ibv_ah *create_ah_ex(struct ibv_pd *pd,
+				   struct ibv_ah_attr_ex *attr)
 {
 	errno = EOPNOTSUPP;
 	return NULL;
@@ -199,6 +219,13 @@ static struct ibv_flow *create_flow(struct ibv_qp *qp,
 
 static struct ibv_flow_action *create_flow_action_esp(struct ibv_context *context,
 						      struct ibv_flow_action_esp_attr *attr)
+{
+	errno = EOPNOTSUPP;
+	return NULL;
+}
+
+static struct ibv_job_key *create_jkey(struct ibv_pd *pd,
+				       struct ibv_job *job)
 {
 	errno = EOPNOTSUPP;
 	return NULL;
@@ -253,6 +280,11 @@ static int dealloc_dmah(struct ibv_dmah *st)
 	return EOPNOTSUPP;
 }
 
+static int dealloc_job(struct ibv_job *job)
+{
+	return EOPNOTSUPP;
+}
+
 static int dealloc_mw(struct ibv_mw *mw)
 {
 	return EOPNOTSUPP;
@@ -303,6 +335,11 @@ static int destroy_flow_action(struct ibv_flow_action *action)
 	return EOPNOTSUPP;
 }
 
+static int destroy_jkey(struct ibv_job_key *job_key)
+{
+	return EOPNOTSUPP;
+}
+
 static int destroy_qp(struct ibv_qp *qp)
 {
 	return EOPNOTSUPP;
@@ -329,10 +366,20 @@ static int detach_mcast(struct ibv_qp *qp, const union ibv_gid *gid,
 	return EOPNOTSUPP;
 }
 
+static int detach_mr(struct ibv_qp *qp, struct ibv_mr *mr)
+{
+	return EOPNOTSUPP;
+}
+
 static int dm_export_dmabuf_fd(struct ibv_dm *dm)
 {
 	errno = EOPNOTSUPP;
 	return -1;
+}
+
+static int export_job(struct ibv_job *job, int *fd)
+{
+	return EOPNOTSUPP;
 }
 
 static void free_context(struct ibv_context *ctx)
@@ -357,6 +404,12 @@ static struct ibv_dm *import_dm(struct ibv_context *context,
 	return NULL;
 }
 
+static int import_job(struct ibv_context *context, int fd,
+		      struct ibv_job **job)
+{
+	return EOPNOTSUPP;
+}
+
 static struct ibv_mr *import_mr(struct ibv_pd *pd,
 				uint32_t mr_handle)
 {
@@ -377,6 +430,12 @@ static int inc_comp_cntr(struct ibv_comp_cntr *comp_cntr, uint64_t amount)
 }
 
 static int inc_err_comp_cntr(struct ibv_comp_cntr *comp_cntr, uint64_t amount)
+{
+	return EOPNOTSUPP;
+}
+
+static int insert_addr(struct ibv_job *job, struct ibv_ah_attr_ex *ah_attr,
+		       unsigned int addr_idx)
 {
 	return EOPNOTSUPP;
 }
@@ -439,6 +498,12 @@ static int post_recv(struct ibv_qp *qp, struct ibv_recv_wr *wr,
 	return EOPNOTSUPP;
 }
 
+static int post_recv64(struct ibv_qp *qp, struct ibv_recv_wr64 *wr,
+		       struct ibv_recv_wr64 **bad_wr)
+{
+	return EOPNOTSUPP;
+}
+
 static int post_send(struct ibv_qp *qp, struct ibv_send_wr *wr,
 		     struct ibv_send_wr **bad_wr)
 {
@@ -464,6 +529,12 @@ static int qp_attach_comp_cntr(struct ibv_qp *qp,
 	return EOPNOTSUPP;
 }
 
+static int query_addr(struct ibv_job *job, unsigned int addr_idx,
+		      struct ibv_ah_attr_ex *ah_attr)
+{
+	return EOPNOTSUPP;
+}
+
 static int query_comp_cntr_caps(struct ibv_context *context,
 				struct ibv_comp_cntr_caps *caps,
 				size_t caps_size)
@@ -483,10 +554,24 @@ static int query_ece(struct ibv_qp *qp, struct ibv_ece *ece)
 	return EOPNOTSUPP;
 }
 
+static int query_job(struct ibv_job *job, struct ibv_job_attr *attr)
+{
+	return EOPNOTSUPP;
+}
+
 static int query_qp_data_in_order(struct ibv_qp *qp, enum ibv_wr_opcode op,
 				  uint32_t flags)
 {
 	return 0;
+}
+
+static int query_qp_semantics(struct ibv_context *context,
+			      enum ibv_qp_type qp_type,
+			      uint32_t port_num, uint8_t sgid_index,
+			      struct ibv_qp_semantics *qp_semantics,
+			      size_t qp_semantic_len)
+{
+	return EOPNOTSUPP;
 }
 
 static int query_port(struct ibv_context *context, uint8_t port_num,
@@ -607,6 +692,11 @@ static struct ibv_mr *reg_dmabuf_mr(struct ibv_pd *pd, uint64_t offset,
 	return NULL;
 }
 
+static int remove_addr(struct ibv_job *job, unsigned int addr_idx)
+{
+	return EOPNOTSUPP;
+}
+
 static int req_notify_cq(struct ibv_cq *cq, int solicited_only)
 {
 	return EOPNOTSUPP;
@@ -667,6 +757,7 @@ const struct verbs_context_ops verbs_dummy_ops = {
 	alloc_buf,
 	alloc_dm,
 	alloc_dmah,
+	alloc_job,
 	alloc_mw,
 	alloc_null_mr,
 	alloc_parent_domain,
@@ -675,16 +766,19 @@ const struct verbs_context_ops verbs_dummy_ops = {
 	async_event,
 	attach_counters_point_flow,
 	attach_mcast,
+	attach_mr,
 	bind_mw,
 	close_xrcd,
 	cq_event,
 	create_ah,
+	create_ah_ex,
 	create_comp_cntr,
 	create_counters,
 	create_cq,
 	create_cq_ex,
 	create_flow,
 	create_flow_action_esp,
+	create_jkey,
 	create_qp,
 	create_qp_ex,
 	create_rwq_ind_table,
@@ -692,6 +786,7 @@ const struct verbs_context_ops verbs_dummy_ops = {
 	create_srq_ex,
 	create_wq,
 	dealloc_dmah,
+	dealloc_job,
 	dealloc_mw,
 	dealloc_pd,
 	dealloc_td,
@@ -702,21 +797,26 @@ const struct verbs_context_ops verbs_dummy_ops = {
 	destroy_cq,
 	destroy_flow,
 	destroy_flow_action,
+	destroy_jkey,
 	destroy_qp,
 	destroy_rwq_ind_table,
 	destroy_srq,
 	destroy_wq,
 	detach_mcast,
+	detach_mr,
 	dm_export_dmabuf_fd,
+	export_job,
 	free_buf,
 	free_context,
 	free_dm,
 	get_srq_num,
 	import_dm,
+	import_job,
 	import_mr,
 	import_pd,
 	inc_comp_cntr,
 	inc_err_comp_cntr,
+	insert_addr,
 	modify_cq,
 	modify_flow_action_esp,
 	modify_qp,
@@ -727,17 +827,21 @@ const struct verbs_context_ops verbs_dummy_ops = {
 	open_xrcd,
 	poll_cq,
 	post_recv,
+	post_recv64,
 	post_send,
 	post_srq_ops,
 	post_srq_recv,
 	qp_attach_comp_cntr,
+	query_addr,
 	query_comp_cntr_caps,
 	query_device_ex,
 	query_ece,
+	query_job,
 	query_port,
 	query_port_speed,
 	query_qp,
 	query_qp_data_in_order,
+	query_qp_semantics,
 	query_rt_values,
 	query_srq,
 	read_comp_cntr,
@@ -747,6 +851,7 @@ const struct verbs_context_ops verbs_dummy_ops = {
 	reg_dmabuf_mr,
 	reg_mr,
 	reg_mr_ex,
+	remove_addr,
 	req_notify_cq,
 	rereg_mr,
 	resize_cq,
@@ -809,6 +914,7 @@ void verbs_set_ops(struct verbs_context *vctx,
 	SET_OP(vctx, alloc_buf);
 	SET_OP(vctx, alloc_dm);
 	SET_OP(vctx, alloc_dmah);
+	SET_OP(vctx, alloc_job);
 	SET_OP(ctx, alloc_mw);
 	SET_OP(vctx, alloc_null_mr);
 	SET_PRIV_OP(ctx, alloc_pd);
@@ -818,15 +924,18 @@ void verbs_set_ops(struct verbs_context *vctx,
 	SET_OP(vctx, create_counters);
 	SET_PRIV_OP(ctx, async_event);
 	SET_PRIV_OP(ctx, attach_mcast);
+	SET_OP(vctx, attach_mr);
 	SET_OP(ctx, bind_mw);
 	SET_OP(vctx, close_xrcd);
 	SET_PRIV_OP(ctx, cq_event);
 	SET_PRIV_OP(ctx, create_ah);
+	SET_OP(vctx, create_ah_ex);
 	SET_PRIV_OP(ctx, create_cq);
 	SET_PRIV_OP_IC(vctx, create_cq_ex);
 	SET_PRIV_OP_IC(vctx, create_comp_cntr);
 	SET_OP2(vctx, ibv_create_flow, create_flow);
 	SET_OP(vctx, create_flow_action_esp);
+	SET_OP(vctx, create_jkey);
 	SET_PRIV_OP(ctx, create_qp);
 	SET_OP(vctx, create_qp_ex);
 	SET_OP(vctx, create_rwq_ind_table);
@@ -834,6 +943,7 @@ void verbs_set_ops(struct verbs_context *vctx,
 	SET_OP(vctx, create_srq_ex);
 	SET_OP(vctx, create_wq);
 	SET_OP(vctx, dealloc_dmah);
+	SET_OP(vctx, dealloc_job);
 	SET_OP(ctx, dealloc_mw);
 	SET_PRIV_OP(ctx, dealloc_pd);
 	SET_OP(vctx, dealloc_td);
@@ -844,21 +954,26 @@ void verbs_set_ops(struct verbs_context *vctx,
 	SET_PRIV_OP(ctx, destroy_cq);
 	SET_OP2(vctx, ibv_destroy_flow, destroy_flow);
 	SET_OP(vctx, destroy_flow_action);
+	SET_OP(vctx, destroy_jkey);
 	SET_PRIV_OP(ctx, destroy_qp);
 	SET_OP(vctx, destroy_rwq_ind_table);
 	SET_PRIV_OP(ctx, destroy_srq);
 	SET_OP(vctx, destroy_wq);
 	SET_PRIV_OP(ctx, detach_mcast);
+	SET_OP(vctx, detach_mr);
 	SET_OP(vctx, dm_export_dmabuf_fd);
+	SET_OP(vctx, export_job);
 	SET_OP(vctx, free_buf);
 	SET_PRIV_OP_IC(ctx, free_context);
 	SET_OP(vctx, free_dm);
 	SET_OP(vctx, get_srq_num);
 	SET_PRIV_OP_IC(vctx, import_dm);
+	SET_OP(vctx, import_job);
 	SET_PRIV_OP_IC(vctx, import_mr);
 	SET_PRIV_OP_IC(vctx, import_pd);
 	SET_PRIV_OP_IC(vctx, inc_comp_cntr);
 	SET_PRIV_OP_IC(vctx, inc_err_comp_cntr);
+	SET_OP(vctx, insert_addr);
 	SET_OP(vctx, modify_cq);
 	SET_OP(vctx, modify_flow_action_esp);
 	SET_PRIV_OP(ctx, modify_qp);
@@ -869,17 +984,21 @@ void verbs_set_ops(struct verbs_context *vctx,
 	SET_OP(vctx, open_xrcd);
 	SET_OP(ctx, poll_cq);
 	SET_OP(ctx, post_recv);
+	SET_OP(vctx, post_recv64);
 	SET_OP(ctx, post_send);
 	SET_OP(vctx, post_srq_ops);
 	SET_OP(ctx, post_srq_recv);
 	SET_PRIV_OP_IC(vctx, qp_attach_comp_cntr);
+	SET_OP(vctx, query_addr);
 	SET_PRIV_OP_IC(ctx, query_comp_cntr_caps);
 	SET_OP(vctx, query_device_ex);
 	SET_PRIV_OP_IC(vctx, query_ece);
+	SET_OP(vctx, query_job);
 	SET_PRIV_OP_IC(ctx, query_port);
 	SET_PRIV_OP_IC(ctx, query_port_speed);
 	SET_PRIV_OP(ctx, query_qp);
 	SET_PRIV_OP_IC(ctx, query_qp_data_in_order);
+	SET_OP(vctx, query_qp_semantics);
 	SET_OP(vctx, query_rt_values);
 	SET_PRIV_OP_IC(vctx, read_comp_cntr);
 	SET_OP(vctx, read_counters);
@@ -889,6 +1008,7 @@ void verbs_set_ops(struct verbs_context *vctx,
 	SET_PRIV_OP_IC(vctx, reg_dmabuf_mr);
 	SET_PRIV_OP(ctx, reg_mr);
 	SET_OP(vctx, reg_mr_ex);
+	SET_OP(vctx, remove_addr);
 	SET_OP(ctx, req_notify_cq);
 	SET_PRIV_OP(ctx, rereg_mr);
 	SET_PRIV_OP(ctx, resize_cq);

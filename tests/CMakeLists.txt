@@ -12,6 +12,7 @@ rdma_python_test(tests
   mlx5_base.py
   mlx5_prm_structs.py
   rdmacm_utils.py
+  ru_base.py
   test_addr.py
   test_atomic.py
   test_buf.py
@@ -64,6 +65,7 @@ rdma_python_test(tests
   test_shared_pd.py
   test_srq.py
   test_tag_matching.py
+  test_ru.py
   utils.py
   )
 
