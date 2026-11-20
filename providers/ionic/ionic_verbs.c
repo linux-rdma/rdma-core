@@ -16,6 +16,7 @@
 #include <fcntl.h>
 #include <infiniband/verbs.h>
 #include <linux/types.h>
+#include <rdma/ionic_user_ioctl_cmds.h>
 #include <util/util.h>
 
 #include "ionic_fw.h"
@@ -297,7 +298,8 @@ static struct ibv_pd *ionic_alloc_parent_domain(struct ibv_context *context,
 
 	if (!check_comp_mask(attr->comp_mask,
 			     IBV_PARENT_DOMAIN_INIT_ATTR_ALLOCATORS |
-			     IBV_PARENT_DOMAIN_INIT_ATTR_PD_CONTEXT)) {
+			     IBV_PARENT_DOMAIN_INIT_ATTR_PD_CONTEXT |
+			     IBV_PARENT_DOMAIN_INIT_ATTR_BUF_ALLOCATORS)) {
 		rc = EINVAL;
 		goto err_pd;
 	}
@@ -326,6 +328,11 @@ static struct ibv_pd *ionic_alloc_parent_domain(struct ibv_context *context,
 	if (attr->comp_mask & IBV_PARENT_DOMAIN_INIT_ATTR_ALLOCATORS) {
 		pd->alloc = attr->alloc;
 		pd->free = attr->free;
+	}
+
+	if (attr->comp_mask & IBV_PARENT_DOMAIN_INIT_ATTR_BUF_ALLOCATORS) {
+		pd->alloc_buf = attr->alloc_buf;
+		pd->free_buf = attr->free_buf;
 	}
 
 	if (attr->comp_mask & IBV_PARENT_DOMAIN_INIT_ATTR_PD_CONTEXT)
@@ -482,6 +489,11 @@ static void ionic_vcq_cq_deinit(struct ionic_cq *cq)
 	pthread_spin_destroy(&cq->lock);
 }
 
+static bool ionic_queue_is_dmabuf(struct ionic_queue *q)
+{
+	return q->user_buf && q->user_buf->dmabuf_fd != -1;
+}
+
 static int ionic_vcq_cq_init1(struct ionic_ctx *ctx,
 			      struct ionic_vcq *vcq,
 			      struct ionic_cq *cq,
@@ -510,7 +522,7 @@ static int ionic_vcq_cq_init1(struct ionic_ctx *ctx,
 	cq->reserve = cq->q.mask;
 	cq->reserve_pending = 0;
 
-	req_cq->addr = (uintptr_t)cq->q.ptr;
+	req_cq->addr = ionic_queue_is_dmabuf(&cq->q) ? 0 : (uintptr_t)cq->q.ptr;
 	req_cq->size = cq->q.size;
 	req_cq->mask = cq->q.mask;
 	req_cq->depth_log2 = cq->q.depth_log2;
@@ -698,6 +710,22 @@ static uint64_t ionic_wc_read_completion_wallclock_ns(struct ibv_cq_ex *ibcq_ex)
 	return ionic_phc_ts_to_ns(&vcq->phc, vcq->cur_wc_timestamp);
 }
 
+static void ionic_fill_ring_buf_umem(struct ibv_command_buffer *cmdb,
+				     uint16_t attr_id,
+				     struct ib_uverbs_buffer_desc *storage,
+				     struct ibv_buf *ring_buf,
+				     struct ionic_pd *pd,
+				     struct ionic_queue *q)
+{
+	struct ibv_buf *buf = q->user_buf;
+
+	if (!buf) {
+		ibv_buf_init(ring_buf, pd ? &pd->ibpd : NULL, q->ptr, q->size);
+		buf = ring_buf;
+	}
+	fill_attr_in_buf_umem_va(cmdb, attr_id, storage, buf, q->ptr, q->size);
+}
+
 static struct ibv_cq_ex *ionic_create_cq_ex(struct ibv_context *ibctx,
 					    struct ibv_cq_init_attr_ex *ex)
 {
@@ -706,6 +734,10 @@ static struct ibv_cq_ex *ionic_create_cq_ex(struct ibv_context *ibctx,
 	struct ionic_vcq *vcq;
 	struct uionic_cq req = {};
 	struct uionic_cq_resp resp = {};
+	struct uionic_cq_ex req_ex = {};
+	struct uionic_cq_ex_resp resp_ex = {};
+	struct ionic_cq_req *drv_req;
+	struct ionic_cq_resp *drv_resp;
 	int cq_i, rc;
 
 	if (ex->wc_flags & ~IONIC_CQ_SUPPORTED_WC_FLAGS) {
@@ -731,25 +763,70 @@ static struct ibv_cq_ex *ionic_create_cq_ex(struct ibv_context *ibctx,
 		vcq->udma_mask = ionic_ctx_udma_mask(ctx);
 	}
 
+	if (ctx->cq_qp_buf_umem) {
+		drv_req = &req_ex.drv_payload;
+		drv_resp = &resp_ex.drv_payload;
+	} else {
+		drv_req = &req.drv_payload;
+		drv_resp = &resp.drv_payload;
+	}
+
 	for (cq_i = 0; cq_i < ctx->udma_count; ++cq_i) {
 		if (!(vcq->udma_mask & BIT(cq_i)))
 			continue;
 
-		rc = ionic_vcq_cq_init1(ctx, vcq, &vcq->cq[cq_i], ex, pd, &req.cq[cq_i]);
+		rc = ionic_vcq_cq_init1(ctx, vcq, &vcq->cq[cq_i], ex, pd,
+					&drv_req->cq[cq_i]);
 		if (rc)
 			goto err_cq;
 	}
 
-	req.udma_mask = vcq->udma_mask;
+	drv_req->udma_mask = vcq->udma_mask;
 
-	rc = ibv_cmd_create_cq(ibctx, ex->cqe, ex->channel,
-			       ex->comp_vector, &vcq->vcq.cq,
-			       &req.ibv_cmd, sizeof(req),
-			       &resp.ibv_resp, sizeof(resp));
+	if (ctx->cq_qp_buf_umem) {
+		DECLARE_COMMAND_BUFFER(driver_attrs, UVERBS_OBJECT_CQ,
+				       UVERBS_METHOD_CQ_CREATE, 2);
+		struct ib_uverbs_buffer_desc cq_buf_desc[2];
+		struct ibv_buf ring_buf[2];
+		struct ibv_cq_init_attr_ex cq_attr_ex = {
+			.cqe = ex->cqe,
+			.channel = ex->channel,
+			.comp_vector = ex->comp_vector,
+		};
+		const uint16_t cq_buf_attr[2] = {
+			IONIC_IB_ATTR_CREATE_CQ_BUF_UMEM_0,
+			IONIC_IB_ATTR_CREATE_CQ_BUF_UMEM_1,
+		};
+
+		if (ex->comp_mask & IBV_CQ_INIT_ATTR_MASK_PD) {
+			cq_attr_ex.comp_mask = IBV_CQ_INIT_ATTR_MASK_PD;
+			cq_attr_ex.parent_domain = ex->parent_domain;
+		}
+
+		for (cq_i = 0; cq_i < ctx->udma_count; ++cq_i) {
+			if (!(vcq->udma_mask & BIT(cq_i)))
+				continue;
+
+			ionic_fill_ring_buf_umem(driver_attrs, cq_buf_attr[cq_i],
+						 &cq_buf_desc[cq_i],
+						 &ring_buf[cq_i], pd,
+						 &vcq->cq[cq_i].q);
+		}
+
+		rc = ibv_cmd_create_cq_ex2(ibctx, &cq_attr_ex, NULL, &vcq->vcq,
+					   &req_ex.ibv_cmd, sizeof(req_ex),
+					   &resp_ex.ibv_resp, sizeof(resp_ex),
+					   0, driver_attrs);
+	} else {
+		rc = ibv_cmd_create_cq(ibctx, ex->cqe, ex->channel,
+				       ex->comp_vector, &vcq->vcq.cq,
+				       &req.ibv_cmd, sizeof(req),
+				       &resp.ibv_resp, sizeof(resp));
+	}
 	if (rc)
 		goto err_cmd;
 
-	if (resp.udma_mask != vcq->udma_mask) {
+	if (drv_resp->udma_mask != vcq->udma_mask) {
 		rc = EINVAL;
 		goto err_udma;
 	}
@@ -758,7 +835,7 @@ static struct ibv_cq_ex *ionic_create_cq_ex(struct ibv_context *ibctx,
 		if (!(vcq->udma_mask & BIT(cq_i)))
 			continue;
 
-		ionic_vcq_cq_init2(&vcq->cq[cq_i], resp.cqid[cq_i]);
+		ionic_vcq_cq_init2(&vcq->cq[cq_i], drv_resp->cqid[cq_i]);
 	}
 
 	vcq->vcq.cq_ex.start_poll = ionic_start_poll;
@@ -2384,14 +2461,16 @@ struct ibv_qp *ionic_create_qp_ex_common(struct ibv_context *ibctx,
 	if (rc)
 		goto err_rq;
 
-	req.sq.addr = (uintptr_t)qp->sq.queue.ptr;
+	req.sq.addr = ionic_queue_is_dmabuf(&qp->sq.queue) ?
+		      0 : (uintptr_t)qp->sq.queue.ptr;
 	req.sq.size = qp->sq.queue.size;
 	req.sq.mask = qp->sq.queue.mask;
 	req.sq.depth_log2 = qp->sq.queue.depth_log2;
 	req.sq.stride_log2 = qp->sq.queue.stride_log2;
 	req.sq_cmb = qp->sq.cmb;
 
-	req.rq.addr = (uintptr_t)qp->rq.queue.ptr;
+	req.rq.addr = ionic_queue_is_dmabuf(&qp->rq.queue) ?
+		      0 : (uintptr_t)qp->rq.queue.ptr;
 	req.rq.size = qp->rq.queue.size;
 	req.rq.mask = qp->rq.queue.mask;
 	req.rq.depth_log2 = qp->rq.queue.depth_log2;
@@ -2403,11 +2482,34 @@ struct ibv_qp *ionic_create_qp_ex_common(struct ibv_context *ibctx,
 
 	req.udma_mask = pd->udma_mask;
 
-	rc = ibv_cmd_create_qp_ex2(ibctx, &qp->vqp, ex,
-				   &req.ibv_cmd,
-				   sizeof(req),
-				   &resp.ibv_resp,
-				   sizeof(resp), NULL);
+	if (ctx->cq_qp_buf_umem) {
+		DECLARE_COMMAND_BUFFER(driver_attrs, UVERBS_OBJECT_QP,
+				       UVERBS_METHOD_QP_CREATE, 2);
+		struct ib_uverbs_buffer_desc sq_buf_desc, rq_buf_desc;
+		struct ibv_buf sq_buf, rq_buf;
+
+		if (qp->has_sq)
+			ionic_fill_ring_buf_umem(driver_attrs,
+						 UVERBS_ATTR_CREATE_QP_SQ_BUF_UMEM,
+						 &sq_buf_desc, &sq_buf, pd,
+						 &qp->sq.queue);
+		if (qp->has_rq)
+			ionic_fill_ring_buf_umem(driver_attrs,
+						 UVERBS_ATTR_CREATE_QP_RQ_BUF_UMEM,
+						 &rq_buf_desc, &rq_buf, pd,
+						 &qp->rq.queue);
+
+		rc = ibv_cmd_create_qp_ex2(ibctx, &qp->vqp, ex,
+					   &req.ibv_cmd, sizeof(req),
+					   &resp.ibv_resp, sizeof(resp),
+					   driver_attrs);
+	} else {
+		rc = ibv_cmd_create_qp_ex2(ibctx, &qp->vqp, ex,
+					   &req.ibv_cmd,
+					   sizeof(req),
+					   &resp.ibv_resp,
+					   sizeof(resp), NULL);
+	}
 	if (rc)
 		goto err_cmd;
 

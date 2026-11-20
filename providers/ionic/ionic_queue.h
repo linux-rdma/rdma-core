@@ -18,6 +18,7 @@
 #define IONIC_DBELL_RING_ARM	BIT_ULL(16)
 #define IONIC_DBELL_RING_SONLY	BIT_ULL(17)
 
+struct ibv_buf;
 struct ionic_pd;
 
 /**
@@ -42,6 +43,7 @@ struct ionic_queue {
 	uint64_t dbell;
 
 	struct ionic_pd *pd;
+	struct ibv_buf *user_buf;
 	uint64_t pd_tag;
 };
 
