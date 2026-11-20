@@ -714,7 +714,7 @@ static void dump_ports_report(ibnd_node_t *node, void *user_data)
 		nodename = remap_node_name(node_name_map,
 					   port->node->guid,
 					   port->node->nodedesc);
-		fprintf(stdout, "%2s %5d %2d 0x%016" PRIx64 " %s %s",
+		fprintf(f, "%2s %5d %2d 0x%016" PRIx64 " %s %s",
 			ports_nt_str_compat(node),
 			node->type ==
 			IB_NODE_SWITCH ? node->smalid : port->base_lid,
@@ -727,7 +727,7 @@ static void dump_ports_report(ibnd_node_t *node, void *user_data)
 			rem_nodename = remap_node_name(node_name_map,
 					      port->remoteport->node->guid,
 					      port->remoteport->node->nodedesc);
-			fprintf(stdout,
+			fprintf(f,
 				" - %2s %5d %2d 0x%016" PRIx64
 				" ( '%s' - '%s' )\n",
 				ports_nt_str_compat(port->remoteport->node),
@@ -738,7 +738,7 @@ static void dump_ports_report(ibnd_node_t *node, void *user_data)
 				port->remoteport->guid, nodename, rem_nodename);
 			free(rem_nodename);
 		} else
-			fprintf(stdout, "%36s'%s'\n", "", nodename);
+			fprintf(f, "%36s'%s'\n", "", nodename);
 
 		free(nodename);
 	}
