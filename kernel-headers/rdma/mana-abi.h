@@ -64,7 +64,17 @@ struct mana_ib_create_rc_qp {
 struct mana_ib_create_rc_qp_resp {
 	__u32 queue_id[4];
 	__u32 mmq_id;
-	__u32 reserved;
+	__u32 ece_options;
+};
+
+struct mana_ib_modify_qp {
+	__u32 comp_mask;
+	__u32 ece_options;
+};
+
+struct mana_ib_modify_qp_resp {
+	__u32 comp_mask;
+	__u32 ece_options;
 };
 
 struct mana_ib_create_uc_qp {
@@ -75,7 +85,7 @@ struct mana_ib_create_uc_qp {
 
 struct mana_ib_create_uc_qp_resp {
 	__u32 queue_id[3];
-	__u32 reserved;
+	__u32 ece_options;
 };
 
 struct mana_ib_create_wq {
@@ -112,6 +122,7 @@ enum mana_ib_ucontext_support {
 	MANA_IB_UCNTX_ALLOC_PDN_SUPPORT = 1 << 0,
 	MANA_IB_UCNTX_RC_EXT_SUPPORT = 1 << 1,
 	MANA_IB_UCNTX_RC_SQ_POW2_SUPPORT = 1 << 2,
+	MANA_IB_UCNTX_ECE_SUPPORT = 1 << 3,
 };
 
 struct mana_ib_alloc_ucontext_resp {
