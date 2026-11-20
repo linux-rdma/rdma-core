@@ -48,6 +48,7 @@
 #include <sched.h>
 #include <stdatomic.h>
 #include <sys/epoll.h>
+#include <poll.h>
 #include <sys/eventfd.h>
 #include <search.h>
 #include <time.h>
@@ -386,6 +387,8 @@ struct rsocket {
 	int		  opts;
 	int		  fd_flags;
 	int		  fs_flags;
+	int		  rcvtimeo_ms;
+	int		  sndtimeo_ms;
 	int		  ipv4_opts;
 	uint64_t	  so_opts;
 	uint64_t	  ipv6_opts;
@@ -683,6 +686,8 @@ static struct rsocket *rs_alloc(struct rsocket *inherited_rs, int type)
 		return NULL;
 
 	rs->type = type;
+	rs->rcvtimeo_ms = -1;
+	rs->sndtimeo_ms = -1;
 
 	rs->index = -1;
 	if (type == SOCK_DGRAM) {
@@ -2138,14 +2143,24 @@ static int rs_poll_cq(struct rsocket *rs)
 	return ret;
 }
 
-static int rs_get_cq_event(struct rsocket *rs)
+static int rs_get_cq_event(struct rsocket *rs, int timeout_ms)
 {
 	struct ibv_cq *cq;
 	void *context;
+	struct pollfd fds;
 	int ret;
 
 	if (!rs->cq_armed)
 		return 0;
+
+	if (timeout_ms) {
+		fds.fd = rs->cm_id->recv_cq_channel->fd;
+		fds.events = POLLIN;
+		fds.revents = 0;
+		ret = poll(&fds, 1, timeout_ms);
+		if (ret <= 0)
+			return ret < 0 ? ret : ERR(EAGAIN);
+	}
 
 	ret = ibv_get_cq_event(rs->cm_id->recv_cq_channel, &cq, &context);
 	if (!ret) {
@@ -2175,7 +2190,8 @@ static int rs_get_cq_event(struct rsocket *rs)
  * the CQ and processing completions.  The cq_wait_lock serializes access to
  * waiting on the CQ.
  */
-static int rs_process_cq(struct rsocket *rs, int nonblock, int (*test)(struct rsocket *rs))
+static int rs_process_cq(struct rsocket *rs, int nonblock,
+			 int (*test)(struct rsocket *rs), int timeout_ms)
 {
 	int ret;
 
@@ -2198,7 +2214,7 @@ static int rs_process_cq(struct rsocket *rs, int nonblock, int (*test)(struct rs
 			fastlock_acquire(&rs->cq_wait_lock);
 			fastlock_release(&rs->cq_lock);
 
-			ret = rs_get_cq_event(rs);
+			ret = rs_get_cq_event(rs, timeout_ms);
 			fastlock_release(&rs->cq_wait_lock);
 			fastlock_acquire(&rs->cq_lock);
 		}
@@ -2209,6 +2225,12 @@ static int rs_process_cq(struct rsocket *rs, int nonblock, int (*test)(struct rs
 	return ret;
 }
 
+static int rs_get_comp_timeout(struct rsocket *rs, int nonblock,
+				       int (*test)(struct rsocket *rs),
+				       int64_t timeout_us);
+static int rs_conn_can_send(struct rsocket *rs);
+static int ds_can_send(struct rsocket *rs);
+
 static int rs_get_comp(struct rsocket *rs, int nonblock, int (*test)(struct rsocket *rs))
 {
 	uint64_t start_time = 0;
@@ -2216,7 +2238,7 @@ static int rs_get_comp(struct rsocket *rs, int nonblock, int (*test)(struct rsoc
 	int ret;
 
 	do {
-		ret = rs_process_cq(rs, 1, test);
+		ret = rs_process_cq(rs, 1, test, 0);
 		if (!ret || nonblock || errno != EWOULDBLOCK)
 			return ret;
 
@@ -2226,8 +2248,7 @@ static int rs_get_comp(struct rsocket *rs, int nonblock, int (*test)(struct rsoc
 		poll_time = (uint32_t) (rs_time_us() - start_time);
 	} while (poll_time <= polling_time);
 
-	ret = rs_process_cq(rs, 0, test);
-	return ret;
+	return rs_get_comp_timeout(rs, nonblock, test, -1);
 }
 
 static int ds_valid_recv(struct ds_qp *qp, struct ibv_wc *wc)
@@ -2313,7 +2334,7 @@ static void ds_req_notify_cqs(struct rsocket *rs)
 	} while (qp != rs->qp_list);
 }
 
-static int ds_get_cq_event(struct rsocket *rs)
+static int ds_get_cq_event(struct rsocket *rs, int timeout_ms)
 {
 	struct epoll_event event;
 	struct ds_qp *qp;
@@ -2324,9 +2345,9 @@ static int ds_get_cq_event(struct rsocket *rs)
 	if (!rs->cq_armed)
 		return 0;
 
-	ret = epoll_wait(rs->epfd, &event, 1, -1);
+	ret = epoll_wait(rs->epfd, &event, 1, timeout_ms);
 	if (ret <= 0)
-		return ret;
+		return ret < 0 ? ret : ERR(EAGAIN);
 
 	qp = event.data.ptr;
 	ret = ibv_get_cq_event(qp->cm_id->recv_cq_channel, &cq, &context);
@@ -2339,7 +2360,8 @@ static int ds_get_cq_event(struct rsocket *rs)
 	return ret;
 }
 
-static int ds_process_cqs(struct rsocket *rs, int nonblock, int (*test)(struct rsocket *rs))
+static int ds_process_cqs(struct rsocket *rs, int nonblock,
+			  int (*test)(struct rsocket *rs), int timeout_ms)
 {
 	int ret = 0;
 
@@ -2358,7 +2380,7 @@ static int ds_process_cqs(struct rsocket *rs, int nonblock, int (*test)(struct r
 			fastlock_acquire(&rs->cq_wait_lock);
 			fastlock_release(&rs->cq_lock);
 
-			ret = ds_get_cq_event(rs);
+			ret = ds_get_cq_event(rs, timeout_ms);
 			fastlock_release(&rs->cq_wait_lock);
 			fastlock_acquire(&rs->cq_lock);
 		}
@@ -2375,7 +2397,7 @@ static int ds_get_comp(struct rsocket *rs, int nonblock, int (*test)(struct rsoc
 	int ret;
 
 	do {
-		ret = ds_process_cqs(rs, 1, test);
+		ret = ds_process_cqs(rs, 1, test, 0);
 		if (!ret || nonblock || errno != EWOULDBLOCK)
 			return ret;
 
@@ -2385,13 +2407,53 @@ static int ds_get_comp(struct rsocket *rs, int nonblock, int (*test)(struct rsoc
 		poll_time = (uint32_t) (rs_time_us() - start_time);
 	} while (poll_time <= polling_time);
 
-	ret = ds_process_cqs(rs, 0, test);
-	return ret;
+	return rs_get_comp_timeout(rs, nonblock, test, -1);
+}
+
+/*
+ * Wait for a completion, honoring any SO_RCVTIMEO/SO_SNDTIMEO timeout.
+ * A timeout_us of -1 blocks indefinitely, as with sockets.
+ */
+static int rs_get_comp_timeout(struct rsocket *rs, int nonblock,
+			       int (*test)(struct rsocket *rs),
+			       int64_t timeout_us)
+{
+	uint64_t start_time = rs_time_us();
+	int64_t remaining_us = timeout_us;
+	int ret;
+
+	while (1) {
+		ret = rs_process_cq(rs, nonblock, test,
+				    remaining_us < 0 ? -1 :
+				    (int) (remaining_us / 1000));
+		if (!ret || nonblock || errno != EWOULDBLOCK)
+			return ret;
+
+		if (remaining_us >= 0) {
+			remaining_us = timeout_us -
+				       (int64_t) (rs_time_us() - start_time);
+			if (remaining_us <= 0)
+				return ERR(EAGAIN);
+		}
+	}
 }
 
 static int rs_nonblocking(struct rsocket *rs, int flags)
 {
 	return (rs->fs_flags & O_NONBLOCK) || (flags & MSG_DONTWAIT);
+}
+
+/*
+ * Convert a struct timeval timeout to milliseconds.  As with sockets,
+ * a zero timeval means block indefinitely.
+ */
+static int rs_timeval_to_ms(const struct timeval *tv)
+{
+	if (tv->tv_sec < 0 || tv->tv_usec < 0)
+		return ERR(EINVAL);
+	if (!tv->tv_sec && !tv->tv_usec)
+		return -1;
+	return (int) (tv->tv_sec * 1000 + tv->tv_usec / 1000);
 }
 
 static int rs_is_cq_armed(struct rsocket *rs)
@@ -3244,7 +3306,7 @@ static int rs_poll_rs(struct rsocket *rs, int events,
 check_cq:
 	if ((rs->type == SOCK_STREAM) && ((rs->state & rs_connected) ||
 	     (rs->state == rs_disconnected) || (rs->state & rs_error))) {
-		rs_process_cq(rs, nonblock, test);
+		rs_process_cq(rs, nonblock, test, 0);
 
 		revents = 0;
 		if ((events & POLLIN) && rs_conn_have_rdata(rs))
@@ -3260,7 +3322,7 @@ check_cq:
 
 		return revents;
 	} else if (rs->type == SOCK_DGRAM) {
-		ds_process_cqs(rs, nonblock, test);
+		ds_process_cqs(rs, nonblock, test, 0);
 
 		revents = 0;
 		if ((events & POLLIN) && rs_have_rdata(rs))
@@ -3360,9 +3422,9 @@ static int rs_poll_events(struct pollfd *rfds, struct pollfd *fds, nfds_t nfds)
 			if (rfds[i].revents) {
 				fastlock_acquire(&rs->cq_wait_lock);
 				if (rs->type == SOCK_STREAM)
-					rs_get_cq_event(rs);
+					rs_get_cq_event(rs, 0);
 				else
-					ds_get_cq_event(rs);
+					ds_get_cq_event(rs, 0);
 				fastlock_release(&rs->cq_wait_lock);
 			}
 			fds[i].revents = rs_poll_rs(rs, fds[i].events, 1, rs_poll_all);
@@ -3558,7 +3620,7 @@ int rshutdown(int socket, int how)
 			ctrl = RS_CTRL_DISCONNECT;
 		}
 		if (!rs_ctrl_avail(rs)) {
-			ret = rs_process_cq(rs, 0, rs_conn_can_send_ctrl);
+			ret = rs_process_cq(rs, 0, rs_conn_can_send_ctrl, -1);
 			if (ret)
 				goto out;
 		}
@@ -3570,7 +3632,7 @@ int rshutdown(int socket, int how)
 	}
 
 	if (rs->state & rs_connected)
-		rs_process_cq(rs, 0, rs_conn_all_sends_done);
+		rs_process_cq(rs, 0, rs_conn_all_sends_done, -1);
 
 out:
 	if ((rs->fs_flags & O_NONBLOCK) && (rs->state & rs_connected))
@@ -3594,7 +3656,7 @@ static void ds_shutdown(struct rsocket *rs)
 		rs_set_nonblocking(rs, 0);
 
 	rs->state &= ~(rs_readable | rs_writable);
-	ds_process_cqs(rs, 0, ds_all_sends_done);
+	ds_process_cqs(rs, 0, ds_all_sends_done, -1);
 
 	if (rs->fs_flags & O_NONBLOCK)
 		rs_set_nonblocking(rs, rs->fs_flags);
@@ -3757,6 +3819,28 @@ int rsetsockopt(int socket, int level, int optname,
 		case SO_OOBINLINE:
 			opt_on = *(int *) optval;
 			ret = 0;
+			break;
+		case SO_RCVTIMEO:
+			if (optlen < sizeof(struct timeval)) {
+				ret = ERR(EINVAL);
+				break;
+			}
+			ret = rs_timeval_to_ms((struct timeval *) optval);
+			if (ret >= 0) {
+				rs->rcvtimeo_ms = ret;
+				ret = 0;
+			}
+			break;
+		case SO_SNDTIMEO:
+			if (optlen < sizeof(struct timeval)) {
+				ret = ERR(EINVAL);
+				break;
+			}
+			ret = rs_timeval_to_ms((struct timeval *) optval);
+			if (ret >= 0) {
+				rs->sndtimeo_ms = ret;
+				ret = 0;
+			}
 			break;
 		default:
 			break;
@@ -3939,6 +4023,20 @@ int rgetsockopt(int socket, int level, int optname,
 			break;
 		case SO_BROADCAST:
 			ret = 0;
+			break;
+		case SO_RCVTIMEO:
+			((struct timeval *) optval)->tv_sec =
+					rs->rcvtimeo_ms < 0 ? 0 : rs->rcvtimeo_ms / 1000;
+			((struct timeval *) optval)->tv_usec =
+					rs->rcvtimeo_ms < 0 ? 0 : (rs->rcvtimeo_ms % 1000) * 1000;
+			*optlen = sizeof(struct timeval);
+			break;
+		case SO_SNDTIMEO:
+			((struct timeval *) optval)->tv_sec =
+					rs->sndtimeo_ms < 0 ? 0 : rs->sndtimeo_ms / 1000;
+			((struct timeval *) optval)->tv_usec =
+					rs->sndtimeo_ms < 0 ? 0 : (rs->sndtimeo_ms % 1000) * 1000;
+			*optlen = sizeof(struct timeval);
 			break;
 		default:
 			ret = ENOTSUP;
