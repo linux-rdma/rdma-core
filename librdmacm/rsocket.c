@@ -920,8 +920,9 @@ static int rs_create_cq(struct rsocket *rs, struct rdma_cm_id *cm_id)
 	if (!cm_id->recv_cq_channel)
 		return -1;
 
-	cm_id->recv_cq = ibv_create_cq(cm_id->verbs, rs->sq_size + rs->rq_size,
-				       cm_id, cm_id->recv_cq_channel, 0);
+	cm_id->recv_cq = ucma_create_cq(cm_id, cm_id->pd,
+					rs->sq_size + rs->rq_size,
+					cm_id, cm_id->recv_cq_channel, 0);
 	if (!cm_id->recv_cq)
 		goto err1;
 
@@ -1304,6 +1305,10 @@ int rsocket(int domain, int type, int protocol)
 
 	if (socket_type == SOCK_STREAM) {
 		ret = rdma_create_id(NULL, &rs->cm_id, rs, RDMA_PS_TCP);
+		if (ret)
+			goto err;
+
+		ret = ucma_set_coco_pd(rs->cm_id);
 		if (ret)
 			goto err;
 
@@ -1699,6 +1704,10 @@ static int ds_create_qp(struct rsocket *rs, union socket_addr *src_addr,
 
 	qp->rs = rs;
 	ret = rdma_create_id(NULL, &qp->cm_id, qp, RDMA_PS_UDP);
+	if (ret)
+		goto err;
+
+	ret = ucma_set_coco_pd(qp->cm_id);
 	if (ret)
 		goto err;
 
