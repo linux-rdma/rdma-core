@@ -16,6 +16,7 @@ import contextlib
 import textwrap
 import email.utils
 import collections
+import fnmatch
 
 def git_call(args):
     """Run git and display the output to the terminal"""
@@ -71,6 +72,14 @@ def copy_objects(args):
                           input=ntree);
     git_output(["unpack-objects","-q"],input=pack);
     return (ntree,kernel_desc);
+
+def apply_patches():
+    patches = list(filter(lambda x: fnmatch.fnmatch(x, '*.patch'), os.listdir(path='kernel-headers/patches')))
+    patches.sort()
+    for file in patches:
+        git_call(["apply","kernel-headers/patches/" + file])
+    git_call(["add","kernel-headers/rdma","kernel-headers/linux"])
+    git_call(["commit","--am","--no-edit"])
 
 def update_cmake(args,ntree):
     """Create a new CMakeLists.txt that lists all of the kernel headers
@@ -195,3 +204,5 @@ if args.amend:
     git_call(["reset","--merge",commit]);
 else:
     git_call(["merge","--ff","--ff-only",commit]);
+
+apply_patches();

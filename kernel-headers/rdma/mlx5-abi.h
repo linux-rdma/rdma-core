@@ -287,6 +287,7 @@ enum mlx5_ib_create_cq_flags {
 };
 
 struct mlx5_ib_create_cq {
+#ifdef __linux__
 	__aligned_u64 buf_addr;
 	__aligned_u64 db_addr;
 	__u32	cqe_size;
@@ -296,6 +297,18 @@ struct mlx5_ib_create_cq {
 	__u16	uar_page_index;
 	__u16	reserved0;
 	__u32	reserved1;
+#endif
+#ifdef __FreeBSD__
+	__u64	buf_addr;
+	__u64	db_addr;
+	__u32	cqe_size;
+	__u16	flags;
+	__u16	uar_page_index;
+	__u8    cqe_comp_en;
+	__u8    cqe_comp_res_format;
+	__u16	reserved0;
+	__u32	reserved1;
+#endif
 };
 
 struct mlx5_ib_create_cq_resp {

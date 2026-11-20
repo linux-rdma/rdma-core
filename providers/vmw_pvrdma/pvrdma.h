@@ -54,6 +54,8 @@
 #include <pthread.h>
 #include <unistd.h>
 #include <sys/mman.h>
+#include <linux/in6.h>
+#include <netinet/in.h>
 #include <infiniband/driver.h>
 #include <ccan/minmax.h>
 #include <util/compiler.h>

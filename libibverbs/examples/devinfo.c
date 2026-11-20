@@ -41,6 +41,7 @@
 #include <endian.h>
 #include <inttypes.h>
 #include <arpa/inet.h>
+#include <sys/socket.h>
 
 #include <infiniband/verbs.h>
 #include <infiniband/driver.h>

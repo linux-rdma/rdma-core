@@ -91,7 +91,15 @@ bool aarch64_has_ls64;
 
 static __attribute__((constructor)) void init_aarch64_caps(void)
 {
+#ifndef __FreeBSD__
 	aarch64_has_ls64 = getauxval(AT_HWCAP3) & HWCAP3_LS64;
+#else
+	unsigned long buf;
+	if (elf_aux_info(AT_HWCAP3, &buf, sizeof(buf)) != 0)
+		aarch64_has_ls64 = 0;
+	else
+		aarch64_has_ls64 = buf & HWCAP3_LS64;
+#endif
 }
 
 #endif /* __aarch64__ && HAVE_LS64 */
