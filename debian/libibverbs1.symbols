@@ -17,7 +17,7 @@ libibverbs.so.1 libibverbs1 #MINVER#
  IBVERBS_1.17@IBVERBS_1.17 64
  IBVERBS_1.18@IBVERBS_1.18 65
  IBVERBS_1.19@IBVERBS_1.19 66
- (symver)IBVERBS_PRIVATE_65 65
+ (symver)IBVERBS_PRIVATE_66 66
  _ibv_query_comp_cntr_caps@IBVERBS_1.18 65
  _ibv_query_gid_ex@IBVERBS_1.11 32
  _ibv_query_gid_table@IBVERBS_1.11 32

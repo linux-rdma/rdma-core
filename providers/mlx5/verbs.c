@@ -707,6 +707,13 @@ int mlx5_free_pd(struct ibv_pd *pd)
 	return _mlx5_free_pd(pd, false);
 }
 
+/* ODP lets the device drive page faults; refuse it in adversarial mode */
+static bool mlx5_adversarial_refuses_odp(struct ibv_context *context, int access)
+{
+	return (to_mctx(context)->flags & MLX5_CTX_FLAGS_ADVERSARIAL_DP) &&
+	       (access & IBV_ACCESS_ON_DEMAND);
+}
+
 struct ibv_mr *mlx5_reg_mr(struct ibv_pd *pd, void *addr, size_t length,
 			   uint64_t hca_va, int acc)
 {
@@ -715,6 +722,11 @@ struct ibv_mr *mlx5_reg_mr(struct ibv_pd *pd, void *addr, size_t length,
 	int ret;
 	enum ibv_access_flags access = (enum ibv_access_flags)acc;
 	struct ib_uverbs_reg_mr_resp resp;
+
+	if (mlx5_adversarial_refuses_odp(pd->context, acc)) {
+		errno = EOPNOTSUPP;
+		return NULL;
+	}
 
 	mr = calloc(1, sizeof(*mr));
 	if (!mr)
@@ -736,6 +748,11 @@ struct ibv_mr *mlx5_reg_mr_ex(struct ibv_pd *pd, struct ibv_mr_init_attr *mr_ini
 	struct mlx5_mr *mr;
 	int ret;
 
+	if (mlx5_adversarial_refuses_odp(pd->context, mr_init_attr->access)) {
+		errno = EOPNOTSUPP;
+		return NULL;
+	}
+
 	mr = calloc(1, sizeof(*mr));
 	if (!mr)
 		return NULL;
@@ -755,6 +772,11 @@ struct ibv_mr *mlx5_reg_dmabuf_mr(struct ibv_pd *pd, uint64_t offset, size_t len
 {
 	struct mlx5_mr *mr;
 	int ret;
+
+	if (mlx5_adversarial_refuses_odp(pd->context, acc)) {
+		errno = EOPNOTSUPP;
+		return NULL;
+	}
 
 	mr = calloc(1, sizeof(*mr));
 	if (!mr)
@@ -844,6 +866,13 @@ int mlx5_rereg_mr(struct verbs_mr *vmr, int flags, struct ibv_pd *pd,
 	struct ibv_rereg_mr cmd;
 	struct ib_uverbs_rereg_mr_resp resp;
 
+	/* pd is set only when changing the PD, so use the MR's context */
+	if ((flags & IBV_REREG_MR_CHANGE_ACCESS) &&
+	    mlx5_adversarial_refuses_odp(vmr->ibv_mr.context, access)) {
+		errno = EOPNOTSUPP;
+		return errno;
+	}
+
 	return ibv_cmd_rereg_mr(vmr, flags, addr, length, (uintptr_t)addr,
 				access, pd, &cmd, sizeof(cmd), &resp,
 				sizeof(resp));
@@ -871,6 +900,10 @@ int mlx5_advise_mr(struct ibv_pd *pd,
 		   struct ibv_sge *sg_list,
 		   uint32_t num_sge)
 {
+	/* advise_mr applies only to ODP MRs, which are refused */
+	if (to_mctx(pd->context)->flags & MLX5_CTX_FLAGS_ADVERSARIAL_DP)
+		return EOPNOTSUPP;
+
 	return ibv_cmd_advise_mr(pd, advice, flags, sg_list, num_sge);
 }
 
@@ -1147,6 +1180,10 @@ static struct ibv_cq_ex *create_cq(struct ibv_context *context,
 	if (mlx5_spinlock_init(&cq->lock, !mlx5_single_threaded))
 		goto err;
 
+	if ((to_mctx(context)->flags & MLX5_CTX_FLAGS_ADVERSARIAL_DP) &&
+	    mlx5_adv_cq_reg_init(cq))
+		goto err_spl;
+
 	ncqe = align_queue_size(cq_attr->cqe + 1);
 	if ((ncqe > (1 << 24)) || (ncqe < (cq_attr->cqe + 1))) {
 		mlx5_dbg(fp, MLX5_DBG_CQ, "ncqe %d\n", ncqe);
@@ -1185,6 +1222,13 @@ static struct ibv_cq_ex *create_cq(struct ibv_context *context,
 
 	if (mlx5cq_attr) {
 		if (mlx5cq_attr->comp_mask & MLX5DV_CQ_INIT_ATTR_MASK_COMPRESSED_CQE) {
+			/* The adversarial poll_cq does not expand mini CQEs */
+			if (mctx->flags & MLX5_CTX_FLAGS_ADVERSARIAL_DP) {
+				mlx5_dbg(fp, MLX5_DBG_CQ,
+					 "CQE compression is not supported in adversarial mode\n");
+				errno = EOPNOTSUPP;
+				goto err_db;
+			}
 			if (mctx->cqe_comp_caps.max_num &&
 			    (mlx5cq_attr->cqe_comp_res_format &
 			     mctx->cqe_comp_caps.supported_format)) {
@@ -1276,6 +1320,7 @@ err_buf:
 	mlx5_free_cq_buf(to_mctx(context), &cq->buf_a);
 
 err_spl:
+	mlx5_adv_cq_reg_cleanup(cq);
 	mlx5_spinlock_destroy(&cq->lock);
 
 err:
@@ -1344,6 +1389,12 @@ int mlx5_resize_cq(struct ibv_cq *ibcq, int cqe)
 	struct mlx5_resize_cq cmd;
 	struct mlx5_context *mctx = to_mctx(ibcq->context);
 	int err;
+
+	/* The adversarial poll_cq does not handle the RESIZE_CQ CQE */
+	if (mctx->flags & MLX5_CTX_FLAGS_ADVERSARIAL_DP) {
+		errno = EOPNOTSUPP;
+		return errno;
+	}
 
 	if (cqe < 0) {
 		errno = EINVAL;
@@ -1426,6 +1477,7 @@ int mlx5_destroy_cq(struct ibv_cq *cq)
 	mlx5_free_cq_buf(to_mctx(cq->context), mcq->active_buf);
 	if (mcq->parent_domain)
 		atomic_fetch_sub(&to_mparent_domain(mcq->parent_domain)->mpd.refcount, 1);
+	mlx5_adv_cq_reg_cleanup(mcq);
 	free(mcq);
 
 	return 0;
@@ -1443,6 +1495,11 @@ struct ibv_srq *mlx5_create_srq(struct ibv_pd *pd,
 	struct ibv_srq		   *ibsrq;
 
 	ctx = to_mctx(pd->context);
+	if (ctx->flags & MLX5_CTX_FLAGS_ADVERSARIAL_DP) {
+		errno = EOPNOTSUPP;
+		return NULL;
+	}
+
 	srq = calloc(1, sizeof *srq);
 	if (!srq) {
 		mlx5_err(ctx->dbg_fp, "%s-%d:\n", __func__, __LINE__);
@@ -1864,7 +1921,7 @@ static int mlx5_calc_rwq_size(struct mlx5_context *ctx,
 	if (rwq->wq_sig)
 		wqe_size += sizeof(struct mlx5_rwqe_sig);
 
-	if (wqe_size <= 0 || wqe_size > ctx->max_rq_desc_sz)
+	if (wqe_size > ctx->max_rq_desc_sz)
 		return -EINVAL;
 
 	wqe_size = roundup_pow_of_two(wqe_size);
@@ -2076,6 +2133,42 @@ static int mlx5_alloc_qp_buf(struct ibv_context *context,
 			err = -1;
 			goto ex_wrid;
 		}
+
+		/* Adversarial post_send and poll_cq state, see struct mlx5_wq */
+		if (to_mctx(context)->flags & MLX5_CTX_FLAGS_ADVERSARIAL_DP) {
+			qp->sq.shadow_queue =
+				calloc(qp->sq.wqe_cnt,
+				       sizeof(*qp->sq.shadow_queue));
+			if (!qp->sq.shadow_queue) {
+				errno = ENOMEM;
+				err = -1;
+				goto ex_wrid;
+			}
+			qp->sq.signaled_ring =
+				calloc(qp->sq.wqe_cnt,
+				       sizeof(*qp->sq.signaled_ring));
+			if (!qp->sq.signaled_ring) {
+				errno = ENOMEM;
+				err = -1;
+				goto ex_wrid;
+			}
+			qp->sq.adv_mlx5_opcodes =
+				calloc(qp->sq.wqe_cnt,
+				       sizeof(*qp->sq.adv_mlx5_opcodes));
+			if (!qp->sq.adv_mlx5_opcodes) {
+				errno = ENOMEM;
+				err = -1;
+				goto ex_wrid;
+			}
+			qp->sq.adv_read_len =
+				calloc(qp->sq.wqe_cnt,
+				       sizeof(*qp->sq.adv_read_len));
+			if (!qp->sq.adv_read_len) {
+				errno = ENOMEM;
+				err = -1;
+				goto ex_wrid;
+			}
+		}
 	}
 
 	if (qp->rq.wqe_cnt) {
@@ -2084,6 +2177,18 @@ static int mlx5_alloc_qp_buf(struct ibv_context *context,
 			errno = ENOMEM;
 			err = -1;
 			goto ex_wrid;
+		}
+
+		/* OOO_DP receives complete out of order, so track each slot */
+		if ((to_mctx(context)->flags & MLX5_CTX_FLAGS_ADVERSARIAL_DP) &&
+		    (qp->flags & MLX5_QP_FLAGS_OOO_DP)) {
+			qp->rq.in_flight = calloc(qp->rq.wqe_cnt,
+						  sizeof(*qp->rq.in_flight));
+			if (!qp->rq.in_flight) {
+				errno = ENOMEM;
+				err = -1;
+				goto ex_wrid;
+			}
 		}
 	}
 
@@ -2116,7 +2221,7 @@ static int mlx5_alloc_qp_buf(struct ibv_context *context,
 	}
 
 	if (qp->buf.type != MLX5_ALLOC_TYPE_CUSTOM)
-		memset(qp->buf.ibv_buf.addr, 0, qp->buf_size);
+		memset(qp->buf.ibv_buf.addr, 0, qp->buf.ibv_buf.size);
 
 	if (attr->qp_type == IBV_QPT_RAW_PACKET ||
 	    qp->flags & MLX5_QP_FLAGS_USE_UNDERLAY) {
@@ -2148,8 +2253,23 @@ static int mlx5_alloc_qp_buf(struct ibv_context *context,
 rq_buf:
 	mlx5_free_actual_buf(to_mctx(context), &qp->buf);
 ex_wrid:
+	if (qp->rq.in_flight)
+		free(qp->rq.in_flight);
+
 	if (qp->rq.wrid)
 		free(qp->rq.wrid);
+
+	if (qp->sq.adv_read_len)
+		free(qp->sq.adv_read_len);
+
+	if (qp->sq.adv_mlx5_opcodes)
+		free(qp->sq.adv_mlx5_opcodes);
+
+	if (qp->sq.signaled_ring)
+		free(qp->sq.signaled_ring);
+
+	if (qp->sq.shadow_queue)
+		free(qp->sq.shadow_queue);
 
 	if (qp->sq.wqe_head)
 		free(qp->sq.wqe_head);
@@ -2169,8 +2289,23 @@ static void mlx5_free_qp_buf(struct mlx5_context *ctx, struct mlx5_qp *qp)
 	if (qp->sq_buf.ibv_buf.addr)
 		mlx5_free_actual_buf(ctx, &qp->sq_buf);
 
+	if (qp->rq.in_flight)
+		free(qp->rq.in_flight);
+
 	if (qp->rq.wrid)
 		free(qp->rq.wrid);
+
+	if (qp->sq.adv_read_len)
+		free(qp->sq.adv_read_len);
+
+	if (qp->sq.adv_mlx5_opcodes)
+		free(qp->sq.adv_mlx5_opcodes);
+
+	if (qp->sq.signaled_ring)
+		free(qp->sq.signaled_ring);
+
+	if (qp->sq.shadow_queue)
+		free(qp->sq.shadow_queue);
 
 	if (qp->sq.wqe_head)
 		free(qp->sq.wqe_head);
@@ -2488,6 +2623,9 @@ static int is_qpt_ooo_sup(struct mlx5_context *ctx,
 	}
 }
 
+static void mlx5_lock_cqs(struct ibv_qp *qp);
+static void mlx5_unlock_cqs(struct ibv_qp *qp);
+
 static struct ibv_qp *create_qp(struct ibv_context *context,
 				struct ibv_qp_init_attr_ex *attr,
 				struct mlx5dv_qp_init_attr *mlx5_qp_attr)
@@ -2527,6 +2665,15 @@ static struct ibv_qp *create_qp(struct ibv_context *context,
 	      mlx5_qp_attr->comp_mask & MLX5DV_QP_INIT_ATTR_MASK_DC &&
 	      mlx5_qp_attr->dc_init_attr.dc_type == MLX5DV_DCTYPE_DCT))) {
 		errno = EINVAL;
+		return NULL;
+	}
+
+	/* Adversarial mode supports only RC QPs with their own RQ */
+	if (ctx->flags & MLX5_CTX_FLAGS_ADVERSARIAL_DP &&
+	    (attr->qp_type != IBV_QPT_RC || attr->srq)) {
+		mlx5_dbg(fp, MLX5_DBG_QP,
+			 "Only RC QPs without SRQ are supported in adversarial mode\n");
+		errno = EOPNOTSUPP;
 		return NULL;
 	}
 
@@ -2703,6 +2850,13 @@ static struct ibv_qp *create_qp(struct ibv_context *context,
 			mlx5_create_flags &= ~MLX5_QP_FLAG_SCATTER_CQE;
 		}
 
+		if (ctx->flags & MLX5_CTX_FLAGS_ADVERSARIAL_DP) {
+			errno = EOPNOTSUPP;
+			mlx5_dbg(fp, MLX5_DBG_QP,
+				 "Extended WR API is not supported in adversarial mode\n");
+			goto err;
+		}
+
 		ret = mlx5_qp_fill_wr_pfns(qp, attr, mlx5_qp_attr);
 		if (ret) {
 			errno = ret;
@@ -2720,8 +2874,25 @@ static struct ibv_qp *create_qp(struct ibv_context *context,
 		}
 	}
 
+	/* The adversarial poll_cq does not read inline CQE data */
+	if (ctx->flags & MLX5_CTX_FLAGS_ADVERSARIAL_DP) {
+		if (mlx5_create_flags & MLX5_QP_FLAG_ALLOW_SCATTER_CQE) {
+			mlx5_dbg(fp, MLX5_DBG_QP,
+				 "Scatter to CQE is not supported in adversarial mode\n");
+			errno = EOPNOTSUPP;
+			goto err;
+		}
+		mlx5_create_flags &= ~MLX5_QP_FLAG_SCATTER_CQE;
+	}
+
 	cmd.flags = mlx5_create_flags;
 	qp->wq_sig = qp_sig_enabled();
+	if (qp->wq_sig && (ctx->flags & MLX5_CTX_FLAGS_ADVERSARIAL_DP)) {
+		mlx5_dbg(fp, MLX5_DBG_QP,
+			 "WQE signature is not supported in adversarial mode\n");
+		errno = EOPNOTSUPP;
+		goto err;
+	}
 	if (qp->wq_sig)
 		cmd.flags |= MLX5_QP_FLAG_SIGNATURE;
 
@@ -2858,6 +3029,26 @@ static struct ibv_qp *create_qp(struct ibv_context *context,
 	resp_drv = ((attr->comp_mask & MLX5_CREATE_QP_EX2_COMP_MASK) ||
 		    need_buf_umem) ?
 			&resp_ex.drv_payload : &resp.drv_payload;
+
+	/* Without dynamic UAR, map_uuar() indexes bfs[] by bfreg_index */
+	if (!bf && resp_drv->bfreg_index >= ctx->num_bfs) {
+		mlx5_dbg(fp, MLX5_DBG_QP,
+			 "device-returned bfreg_index %u out of range (num_bfs %u)\n",
+			 resp_drv->bfreg_index, ctx->num_bfs);
+		errno = EINVAL;
+		goto err_destroy;
+	}
+
+	/* The registry key must fit the 24-bit qpn reported in CQEs */
+	if ((ctx->flags & MLX5_CTX_FLAGS_ADVERSARIAL_DP) &&
+	    ibqp->qp_num > 0xffffff) {
+		mlx5_dbg(fp, MLX5_DBG_QP,
+			 "device-returned qp_num %u exceeds the 24-bit QPN space\n",
+			 ibqp->qp_num);
+		errno = EINVAL;
+		goto err_destroy;
+	}
+
 	if (!ctx->cqe_version) {
 		if (qp->sq.wqe_cnt || qp->rq.wqe_cnt) {
 			ret = mlx5_store_qp(ctx, ibqp->qp_num, qp);
@@ -2908,6 +3099,23 @@ static struct ibv_qp *create_qp(struct ibv_context *context,
 		qp->verbs_qp.comp_mask |= VERBS_QP_EX;
 
 	set_qp_operational_state(qp, IBV_QPS_RESET);
+
+	/* Register the QP in its CQs under their locks, once if both are
+	 * the same CQ, so the adversarial poll_cq can resolve its CQEs.
+	 */
+	if (ctx->flags & MLX5_CTX_FLAGS_ADVERSARIAL_DP) {
+		struct mlx5_cq *scq = to_mcq(ibqp->send_cq);
+		struct mlx5_cq *rcq = to_mcq(ibqp->recv_cq);
+
+		mlx5_lock_cqs(ibqp);
+		if (scq)
+			mlx5_adv_cq_reg_add(scq, &qp->adv_scq_ent,
+					    ibqp->qp_num, qp);
+		if (rcq && rcq != scq)
+			mlx5_adv_cq_reg_add(rcq, &qp->adv_rcq_ent,
+					    ibqp->qp_num, qp);
+		mlx5_unlock_cqs(ibqp);
+	}
 
 	return ibqp;
 
@@ -3025,6 +3233,12 @@ int mlx5_destroy_qp(struct ibv_qp *ibqp)
 			ibqp->srq ? to_msrq(ibqp->srq) : NULL);
 	if (ibqp->send_cq != ibqp->recv_cq)
 		__mlx5_cq_clean(to_mcq(ibqp->send_cq), qp->rsc.rsn, NULL);
+
+	/* Unregister under the CQ locks, before the QP is freed */
+	if (ctx->flags & MLX5_CTX_FLAGS_ADVERSARIAL_DP) {
+		mlx5_adv_cq_reg_del(&qp->adv_scq_ent);
+		mlx5_adv_cq_reg_del(&qp->adv_rcq_ent);
+	}
 
 	if (!ctx->cqe_version) {
 		if (qp->dc_type == MLX5DV_DCTYPE_DCT) {
@@ -3255,8 +3469,6 @@ static int modify_dct(struct ibv_qp *qp, struct ibv_qp_attr *attr,
 		ret = mlx5_store_qp(context, qp->qp_num, mqp);
 		if (!ret)
 			mqp->rsc.rsn = qp->qp_num;
-		else
-			errno = ENOMEM;
 		pthread_mutex_unlock(&context->qp_table_mutex);
 		return ret ? errno : 0;
 	}
@@ -3499,6 +3711,12 @@ struct ibv_ah *mlx5_create_ah(struct ibv_pd *pd, struct ibv_ah_attr *attr)
 	bool is_eth;
 	bool grh_req;
 
+	/* AHs are used only by UD and DC QPs, which are refused */
+	if (ctx->flags & MLX5_CTX_FLAGS_ADVERSARIAL_DP) {
+		errno = EOPNOTSUPP;
+		return NULL;
+	}
+
 	if (attr->port_num < 1 || attr->port_num > ctx->num_ports)
 		return NULL;
 
@@ -3709,10 +3927,19 @@ int mlx5_get_srq_num(struct ibv_srq *srq, uint32_t *srq_num)
 struct ibv_qp *mlx5_open_qp(struct ibv_context *context,
 			    struct ibv_qp_open_attr *attr)
 {
+	struct mlx5_context *ctx = to_mctx(context);
 	struct ibv_open_qp cmd;
 	struct ib_uverbs_create_qp_resp resp;
 	struct mlx5_qp *qp;
 	int ret;
+
+	/* Opens an XRC target QP, bypassing the RC-only check in create_qp() */
+	if (ctx->flags & MLX5_CTX_FLAGS_ADVERSARIAL_DP) {
+		mlx5_dbg(ctx->dbg_fp, MLX5_DBG_QP,
+			 "ibv_open_qp is not supported in adversarial mode\n");
+		errno = EOPNOTSUPP;
+		return NULL;
+	}
 
 	qp = calloc(1, sizeof(*qp));
 	if (!qp)
@@ -3862,6 +4089,11 @@ struct ibv_srq *mlx5_create_srq_ex(struct ibv_context *context,
 	int max_sge;
 	struct ibv_srq *ibsrq;
 	int uidx;
+
+	if (ctx->flags & MLX5_CTX_FLAGS_ADVERSARIAL_DP) {
+		errno = EOPNOTSUPP;
+		return NULL;
+	}
 
 	if (!(attr->comp_mask & IBV_SRQ_INIT_ATTR_TYPE) ||
 	    (attr->srq_type == IBV_SRQT_BASIC))
@@ -4514,6 +4746,9 @@ static int mlx5_alloc_rwq_buf(struct ibv_context *context,
 		return -1;
 	}
 
+	if (rwq->buf.type != MLX5_ALLOC_TYPE_CUSTOM)
+		memset(rwq->buf.ibv_buf.addr, 0, rwq->buf.ibv_buf.size);
+
 	return 0;
 }
 
@@ -4532,6 +4767,14 @@ static struct ibv_wq *create_wq(struct ibv_context *context,
 
 	if (attr->wq_type != IBV_WQT_RQ)
 		return NULL;
+
+	/* The adversarial poll_cq resolves only QP completions */
+	if (ctx->flags & MLX5_CTX_FLAGS_ADVERSARIAL_DP) {
+		mlx5_dbg(fp, MLX5_DBG_QP,
+			 "WQ is not supported in adversarial mode\n");
+		errno = EOPNOTSUPP;
+		return NULL;
+	}
 
 	memset(&cmd, 0, sizeof(cmd));
 	memset(&resp, 0, sizeof(resp));
@@ -5247,6 +5490,11 @@ _mlx5dv_reg_dmabuf_mr(struct ibv_pd *pd, uint64_t offset,
 				    NULL);
 	struct mlx5_mr *mr;
 	int ret;
+
+	if (mlx5_adversarial_refuses_odp(pd->context, access)) {
+		errno = EOPNOTSUPP;
+		return NULL;
+	}
 
 	mr = calloc(1, sizeof(*mr));
 	if (!mr)
