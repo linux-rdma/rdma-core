@@ -10,6 +10,7 @@
 #define IRDMA_ABI_H
 
 #include <linux/types.h>
+#include <rdma/ib_user_ioctl_cmds.h>
 
 /* irdma must support legacy GEN_1 i40iw kernel
  * and user-space whose last ABI ver is 5
@@ -21,6 +22,10 @@ enum irdma_memreg_type {
 	IRDMA_MEMREG_TYPE_QP   = 1,
 	IRDMA_MEMREG_TYPE_CQ   = 2,
 	IRDMA_MEMREG_TYPE_SRQ  = 3,
+};
+
+enum irdma_ib_create_cq_attrs {
+	IRDMA_IB_ATTR_CREATE_CQ_SHADOW_BUF_UMEM = UVERBS_ID_DRIVER_NS_WITH_UHW,
 };
 
 enum {
