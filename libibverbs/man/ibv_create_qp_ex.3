@@ -107,10 +107,18 @@ IBV_QP_EX_WITH_LOCAL_INV		= 1 << 7,
 IBV_QP_EX_WITH_BIND_MW			= 1 << 8,
 IBV_QP_EX_WITH_SEND_WITH_INV		= 1 << 9,
 IBV_QP_EX_WITH_TSO			= 1 << 10,
+IBV_QP_EX_WITH_COMP_ACTION		= 1 << 13,
+IBV_QP_EX_WITH_COMP_ACTION_WITH_DATA	= 1 << 14,
 .in -8
 };
 .fi
 
+.PP
+.B IBV_QP_EX_WITH_COMP_ACTION
+and
+.B IBV_QP_EX_WITH_COMP_ACTION_WITH_DATA
+enable the completion action work request setters, see
+.BR ibv_wr_post (3).
 .PP
 The function
 .B ibv_create_qp_ex()
