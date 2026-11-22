@@ -202,10 +202,6 @@ struct ds_rmsg {
 	uint32_t	length;
 };
 
-struct ds_smsg {
-	struct ds_smsg	*next;
-};
-
 struct rs_sge {
 	uint64_t addr;
 	uint32_t key;
@@ -317,11 +313,15 @@ struct ds_qp {
 	struct ds_header  hdr;
 	struct ds_dest	  dest;
 
+	uint16_t	  *smsg_free;
+	uint8_t		  *smsg_in_use;
 	struct ibv_mr	  *smr;
 	struct ibv_mr	  *rmr;
+	uint8_t		  *sbuf;
 	uint8_t		  *rbuf;
 
 	int		  cq_armed;
+	uint16_t	  smsg_free_cnt;
 };
 
 struct rsocket {
@@ -369,6 +369,7 @@ struct rsocket {
 			int		  sbuf_bytes_avail;
 			struct ibv_mr	  *smr;
 			struct ibv_sge	  ssgl[2];
+			uint8_t		  *sbuf;
 		};
 		/* datagram */
 		struct {
@@ -379,7 +380,6 @@ struct rsocket {
 			int		  udp_sock;
 			int		  epfd;
 			int		  rqe_avail;
-			struct ds_smsg	  *smsg_free;
 		};
 	};
 
@@ -410,7 +410,6 @@ struct rsocket {
 		struct ds_rmsg	  *dmsg;
 	};
 
-	uint8_t		  *sbuf;
 	struct rs_iomap_mr *remote_iomappings;
 	dlist_entry	  iomap_list;
 	dlist_entry	  iomap_queue;
@@ -846,11 +845,30 @@ static int rs_init_bufs(struct rsocket *rs)
 
 static int ds_init_bufs(struct ds_qp *qp)
 {
+	int i;
+
+	if (!qp->rs->sq_size)
+		return ERR(EINVAL);
+
+	qp->sbuf = forksafe_alloc(qp->rs->sbuf_size);
+	if (!qp->sbuf)
+		return ERR(ENOMEM);
+
+	qp->smsg_free = calloc(qp->rs->sq_size, sizeof(*qp->smsg_free));
+	if (!qp->smsg_free)
+		return ERR(ENOMEM);
+	qp->smsg_in_use = calloc(qp->rs->sq_size, sizeof(*qp->smsg_in_use));
+	if (!qp->smsg_in_use)
+		return ERR(ENOMEM);
+	for (i = 0; i < qp->rs->sq_size; i++)
+		qp->smsg_free[i] = i;
+	qp->smsg_free_cnt = qp->rs->sq_size;
+
 	qp->rbuf = forksafe_alloc(qp->rs->rbuf_size + sizeof(struct ibv_grh));
 	if (!qp->rbuf)
 		return ERR(ENOMEM);
 
-	qp->smr = rdma_reg_msgs(qp->cm_id, qp->rs->sbuf, qp->rs->sbuf_size);
+	qp->smr = rdma_reg_msgs(qp->cm_id, qp->sbuf, qp->rs->sbuf_size);
 	if (!qp->smr)
 		return -1;
 
@@ -1044,8 +1062,13 @@ static void ds_free_qp(struct ds_qp *qp)
 			ibv_destroy_ah(qp->dest.ah);
 	}
 
-	if (qp->smr)
-		rdma_dereg_mr(qp->smr);
+	free(qp->smsg_in_use);
+	free(qp->smsg_free);
+	if (qp->sbuf) {
+		if (qp->smr)
+			rdma_dereg_mr(qp->smr);
+		free(qp->sbuf);
+	}
 
 	if (qp->rbuf) {
 		if (qp->rmr)
@@ -1079,9 +1102,6 @@ static void ds_free(struct rsocket *rs)
 
 	if (rs->epfd >= 0)
 		close(rs->epfd);
-
-	if (rs->sbuf)
-		free(rs->sbuf);
 
 	tdestroy(rs->dest_map, free);
 	fastlock_destroy(&rs->map_lock);
@@ -1217,14 +1237,9 @@ static int ds_init(struct rsocket *rs, int domain)
 
 static int ds_init_ep(struct rsocket *rs)
 {
-	struct ds_smsg *msg;
-	int i, ret;
+	int ret;
 
 	ds_set_qp_size(rs);
-
-	rs->sbuf = calloc(rs->sq_size, RS_SNDLOWAT);
-	if (!rs->sbuf)
-		return ERR(ENOMEM);
 
 	rs->dmsg = calloc(rs->rq_size + 1, sizeof(*rs->dmsg));
 	if (!rs->dmsg)
@@ -1232,14 +1247,6 @@ static int ds_init_ep(struct rsocket *rs)
 
 	rs->sqe_avail = rs->sq_size;
 	rs->rqe_avail = rs->rq_size;
-
-	rs->smsg_free = (struct ds_smsg *) rs->sbuf;
-	msg = rs->smsg_free;
-	for (i = 0; i < rs->sq_size - 1; i++) {
-		msg->next = (void *) msg + RS_SNDLOWAT;
-		msg = msg->next;
-	}
-	msg->next = NULL;
 
 	ret = rs_notify_svc(&udp_svc, rs, RS_SVC_ADD_DGRAM);
 	if (ret)
@@ -2266,6 +2273,18 @@ static int ds_valid_recv(struct ds_qp *qp, struct ibv_wc *wc)
 		 (hdr->version == 6 && hdr->length == DS_IPV6_HDR_LEN)));
 }
 
+static void ds_put_smsg_locked(struct rsocket *rs, struct ds_qp *qp,
+			       uint64_t wr_id)
+{
+	if (wr_id < rs->sq_size && qp->smsg_in_use[wr_id] &&
+	    qp->smsg_free_cnt < rs->sq_size) {
+		qp->smsg_in_use[wr_id] = 0;
+		qp->smsg_free[qp->smsg_free_cnt++] = wr_id;
+		if (rs->sqe_avail < rs->sq_size)
+			rs->sqe_avail++;
+	}
+}
+
 /*
  * Poll all CQs associated with a datagram rsocket.  We need to drop any
  * received messages that we do not have room to store.  To limit drops,
@@ -2276,7 +2295,6 @@ static int ds_valid_recv(struct ds_qp *qp, struct ibv_wc *wc)
 static void ds_poll_cqs(struct rsocket *rs)
 {
 	struct ds_qp *qp;
-	struct ds_smsg *smsg;
 	struct ds_rmsg *rmsg;
 	struct ibv_wc wc;
 	int ret, cnt;
@@ -2307,10 +2325,7 @@ static void ds_poll_cqs(struct rsocket *rs)
 					ds_post_recv(rs, qp, rs_wr_data(wc.wr_id));
 				}
 			} else {
-				smsg = (struct ds_smsg *) (rs->sbuf + rs_wr_data(wc.wr_id));
-				smsg->next = rs->smsg_free;
-				rs->smsg_free = smsg;
-				rs->sqe_avail++;
+				ds_put_smsg_locked(rs, qp, wc.wr_id);
 			}
 
 			qp = ds_next_qp(qp);
@@ -2826,35 +2841,69 @@ static ssize_t ds_send_udp(struct rsocket *rs, const void *buf, size_t len,
 	}
 }
 
+static int ds_get_smsg(struct rsocket *rs, struct ds_qp *qp, int nonblock,
+		       uint16_t *slot)
+{
+	int ret;
+
+	fastlock_acquire(&rs->cq_lock);
+	if (!rs->sqe_avail || !qp->smsg_free_cnt) {
+		fastlock_release(&rs->cq_lock);
+		ret = ds_get_comp(rs, nonblock, ds_can_send);
+		if (ret)
+			return ret;
+		fastlock_acquire(&rs->cq_lock);
+		if (!rs->sqe_avail || !qp->smsg_free_cnt) {
+			fastlock_release(&rs->cq_lock);
+			return ERR(EAGAIN);
+		}
+	}
+	*slot = qp->smsg_free[--qp->smsg_free_cnt];
+	qp->smsg_in_use[*slot] = 1;
+	rs->sqe_avail--;
+	fastlock_release(&rs->cq_lock);
+	return 0;
+}
+
+static void ds_put_smsg(struct rsocket *rs, struct ds_qp *qp, uint16_t slot)
+{
+	fastlock_acquire(&rs->cq_lock);
+	ds_put_smsg_locked(rs, qp, slot);
+	fastlock_release(&rs->cq_lock);
+}
+
 static ssize_t dsend(struct rsocket *rs, const void *buf, size_t len, int flags)
 {
-	struct ds_smsg *msg;
+	struct ds_qp *qp;
+	uint8_t *msg;
 	struct ibv_sge sge;
-	uint64_t offset;
+	uint16_t slot;
 	int ret = 0;
 
 	if (!rs->conn_dest->ah)
 		return ds_send_udp(rs, buf, len, flags, RS_OP_DATA);
 
-	if (!ds_can_send(rs)) {
-		ret = ds_get_comp(rs, rs_nonblocking(rs, flags), ds_can_send);
-		if (ret)
-			return ret;
-	}
+	qp = rs->conn_dest->qp;
+	ret = ds_get_smsg(rs, qp, rs_nonblocking(rs, flags), &slot);
+	if (ret)
+		return ret;
 
-	msg = rs->smsg_free;
-	rs->smsg_free = msg->next;
-	rs->sqe_avail--;
-
+	msg = qp->sbuf + (size_t)slot * RS_SNDLOWAT;
 	memcpy((void *) msg, &rs->conn_dest->qp->hdr, rs->conn_dest->qp->hdr.length);
 	memcpy((void *) msg + rs->conn_dest->qp->hdr.length, buf, len);
 	sge.addr = (uintptr_t) msg;
 	sge.length = rs->conn_dest->qp->hdr.length + len;
 	sge.lkey = rs->conn_dest->qp->smr->lkey;
-	offset = (uint8_t *) msg - rs->sbuf;
 
-	ret = ds_post_send(rs, &sge, offset);
-	return ret ? ret : len;
+	ret = ds_post_send(rs, &sge, slot);
+	if (ret) {
+		int saved_errno = errno;
+
+		ds_put_smsg(rs, qp, slot);
+		errno = saved_errno;
+		return ret;
+	}
+	return len;
 }
 
 /*
@@ -3765,7 +3814,8 @@ int rsetsockopt(int socket, int level, int optname,
 			ret = 0;
 			break;
 		case SO_SNDBUF:
-			if (!rs->sbuf)
+			if ((rs->type == SOCK_STREAM && !rs->sbuf) ||
+			    (rs->type == SOCK_DGRAM && !rs->dmsg))
 				rs->sbuf_size = (*(uint32_t *) optval) << 1;
 			if (rs->sbuf_size < RS_SNDLOWAT)
 				rs->sbuf_size = RS_SNDLOWAT << 1;
@@ -4526,28 +4576,24 @@ static void udp_svc_forward(struct rsocket *rs, void *buf, size_t len,
 			    union socket_addr *src)
 {
 	struct ds_header hdr;
-	struct ds_smsg *msg;
+	struct ds_qp *qp = rs->conn_dest->qp;
+	uint8_t *msg;
 	struct ibv_sge sge;
-	uint64_t offset;
+	uint16_t slot;
 
-	if (!ds_can_send(rs)) {
-		if (ds_get_comp(rs, 0, ds_can_send))
-			return;
-	}
+	if (ds_get_smsg(rs, qp, 0, &slot))
+		return;
 
-	msg = rs->smsg_free;
-	rs->smsg_free = msg->next;
-	rs->sqe_avail--;
-
+	msg = qp->sbuf + (size_t)slot * RS_SNDLOWAT;
 	ds_format_hdr(&hdr, src);
 	memcpy((void *) msg, &hdr, hdr.length);
 	memcpy((void *) msg + hdr.length, buf, len);
 	sge.addr = (uintptr_t) msg;
 	sge.length = hdr.length + len;
 	sge.lkey = rs->conn_dest->qp->smr->lkey;
-	offset = (uint8_t *) msg - rs->sbuf;
 
-	ds_post_send(rs, &sge, offset);
+	if (ds_post_send(rs, &sge, slot))
+		ds_put_smsg(rs, qp, slot);
 }
 
 static void udp_svc_process_rs(struct rsocket *rs)
