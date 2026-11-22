@@ -86,6 +86,7 @@ struct cma_device {
 	struct list_node    entry;
 	struct ibv_context *verbs;
 	struct ibv_pd	   *pd;
+	struct ibv_pd	   *coco_pd;
 	struct ibv_xrcd    *xrcd;
 	struct cma_port    *port;
 	__be64		    guid;
@@ -96,6 +97,7 @@ struct cma_device {
 	uint8_t		    max_responder_resources;
 	int		    ibv_idx;
 	uint8_t		    is_device_dead : 1;
+	bool		    cc_dma_bounce;
 };
 
 struct cma_id_private {
@@ -117,7 +119,7 @@ struct cma_id_private {
 	struct ibv_ece		remote_ece;
 	bool			resolving_ai;
 	struct rdma_addrinfo	*resolved_ai;
-
+	bool			allow_cc_unprotected;
 };
 
 struct cma_multicast {
@@ -303,6 +305,8 @@ static void remove_cma_dev(struct cma_device *cma_dev)
 
 	if (cma_dev->xrcd)
 		ibv_close_xrcd(cma_dev->xrcd);
+	if (cma_dev->coco_pd)
+		ibv_dealloc_pd(cma_dev->coco_pd);
 	if (cma_dev->pd)
 		ibv_dealloc_pd(cma_dev->pd);
 	if (cma_dev->verbs)
@@ -433,7 +437,7 @@ static bool match(struct cma_device *cma_dev, __be64 guid, uint32_t idx)
 static int ucma_init_device(struct cma_device *cma_dev)
 {
 	struct ibv_port_attr port_attr;
-	struct ibv_device_attr attr;
+	struct ibv_device_attr_ex attr = {};
 	int i, ret;
 
 	if (cma_dev->verbs)
@@ -443,29 +447,34 @@ static int ucma_init_device(struct cma_device *cma_dev)
 	if (!cma_dev->verbs)
 		return ERR(ENODEV);
 
-	ret = ibv_query_device(cma_dev->verbs, &attr);
+	ret = ibv_query_device_ex(cma_dev->verbs, NULL, &attr);
 	if (ret) {
 		ret = ERR(ret);
 		goto err;
 	}
 
-	cma_dev->port = malloc(sizeof(*cma_dev->port) * attr.phys_port_cnt);
+	cma_dev->port = malloc(sizeof(*cma_dev->port) *
+			       attr.orig_attr.phys_port_cnt);
 	if (!cma_dev->port) {
 		ret = ERR(ENOMEM);
 		goto err;
 	}
 
-	for (i = 1; i <= attr.phys_port_cnt; i++) {
+	for (i = 1; i <= attr.orig_attr.phys_port_cnt; i++) {
 		if (ibv_query_port(cma_dev->verbs, i, &port_attr))
 			cma_dev->port[i - 1].link_layer = IBV_LINK_LAYER_UNSPECIFIED;
 		else
 			cma_dev->port[i - 1].link_layer = port_attr.link_layer;
 	}
 
-	cma_dev->port_cnt = attr.phys_port_cnt;
-	cma_dev->max_qpsize = attr.max_qp_wr;
-	cma_dev->max_initiator_depth = (uint8_t) attr.max_qp_init_rd_atom;
-	cma_dev->max_responder_resources = (uint8_t) attr.max_qp_rd_atom;
+	cma_dev->port_cnt = attr.orig_attr.phys_port_cnt;
+	cma_dev->max_qpsize = attr.orig_attr.max_qp_wr;
+	cma_dev->max_initiator_depth =
+		(uint8_t)attr.orig_attr.max_qp_init_rd_atom;
+	cma_dev->max_responder_resources =
+		(uint8_t)attr.orig_attr.max_qp_rd_atom;
+	cma_dev->cc_dma_bounce = !!(attr.device_cap_flags_ex &
+				    IBV_DEVICE_CC_DMA_BOUNCE);
 	return 0;
 
 err:
@@ -618,10 +627,56 @@ match:
 	return cma_dev;
 }
 
+static struct ibv_pd *ucma_get_coco_pd_locked(struct cma_device *cma_dev)
+{
+	struct ibv_parent_domain_init_attr attr = {};
+	int saved_errno;
+
+	if (!cma_dev->coco_pd) {
+		attr.pd = cma_dev->pd;
+		attr.comp_mask =
+			IBV_PARENT_DOMAIN_INIT_ATTR_ALLOW_CC_UNPROTECTED_ALLOC;
+		saved_errno = errno;
+		errno = 0;
+		cma_dev->coco_pd =
+			ibv_alloc_parent_domain(cma_dev->verbs, &attr);
+		if (!cma_dev->coco_pd) {
+			if (errno == EOPNOTSUPP || errno == EINVAL) {
+				cma_dev->cc_dma_bounce = false;
+				errno = saved_errno;
+				return cma_dev->pd;
+			}
+			if (!errno)
+				errno = EIO;
+			return NULL;
+		}
+		errno = saved_errno;
+	}
+	return cma_dev->coco_pd;
+}
+
+static void ucma_put_device_locked(struct cma_device *cma_dev)
+{
+	if (!--cma_dev->refcnt) {
+		if (cma_dev->coco_pd)
+			ibv_dealloc_pd(cma_dev->coco_pd);
+		if (cma_dev->pd)
+			ibv_dealloc_pd(cma_dev->pd);
+		if (cma_dev->xrcd)
+			ibv_close_xrcd(cma_dev->xrcd);
+		cma_dev->coco_pd = NULL;
+		cma_dev->pd = NULL;
+		cma_dev->xrcd = NULL;
+		if (cma_dev->is_device_dead)
+			remove_cma_dev(cma_dev);
+	}
+}
+
 static int ucma_get_device(struct cma_id_private *id_priv, __be64 guid,
 			   uint32_t idx)
 {
 	struct cma_device *cma_dev;
+	struct ibv_pd *pd;
 	int ret;
 
 	pthread_mutex_lock(&mut);
@@ -642,12 +697,26 @@ static int ucma_get_device(struct cma_id_private *id_priv, __be64 guid,
 		goto out;
 	}
 
+	if (id_priv->allow_cc_unprotected && cma_dev->cc_dma_bounce) {
+		pd = ucma_get_coco_pd_locked(cma_dev);
+		if (!pd) {
+			ret = -1;
+			goto out;
+		}
+	} else {
+		pd = cma_dev->pd;
+	}
+
 	id_priv->cma_dev = cma_dev;
 	id_priv->id.verbs = cma_dev->verbs;
-	id_priv->id.pd = cma_dev->pd;
+	id_priv->id.pd = pd;
 out:
-	if (ret)
-		cma_dev->refcnt--;
+	if (ret) {
+		int saved_errno = errno;
+
+		ucma_put_device_locked(cma_dev);
+		errno = saved_errno;
+	}
 	pthread_mutex_unlock(&mut);
 	return ret;
 }
@@ -655,16 +724,40 @@ out:
 static void ucma_put_device(struct cma_device *cma_dev)
 {
 	pthread_mutex_lock(&mut);
-	if (!--cma_dev->refcnt) {
-		ibv_dealloc_pd(cma_dev->pd);
-		if (cma_dev->xrcd)
-			ibv_close_xrcd(cma_dev->xrcd);
-		cma_dev->pd = NULL;
-		cma_dev->xrcd = NULL;
-		if (cma_dev->is_device_dead)
-			remove_cma_dev(cma_dev);
-	}
+	ucma_put_device_locked(cma_dev);
 	pthread_mutex_unlock(&mut);
+}
+
+int ucma_set_coco_pd(struct rdma_cm_id *id)
+{
+	struct cma_id_private *id_priv;
+	struct ibv_pd *pd;
+	int ret = 0;
+
+	id_priv = container_of(id, struct cma_id_private, id);
+	if (id->qp || id->srq || id->send_cq || id->recv_cq)
+		return ERR(EINVAL);
+
+	pthread_mutex_lock(&mut);
+	if (id_priv->cma_dev) {
+		if (id->pd && id->pd != id_priv->cma_dev->pd &&
+		    id->pd != id_priv->cma_dev->coco_pd) {
+			ret = ERR(EINVAL);
+			goto out;
+		}
+		if (id_priv->cma_dev->cc_dma_bounce) {
+			pd = ucma_get_coco_pd_locked(id_priv->cma_dev);
+			if (!pd) {
+				ret = -1;
+				goto out;
+			}
+			id->pd = pd;
+		}
+	}
+	id_priv->allow_cc_unprotected = true;
+out:
+	pthread_mutex_unlock(&mut);
+	return ret;
 }
 
 static struct ibv_xrcd *ucma_get_xrcd(struct cma_device *cma_dev)
@@ -1468,15 +1561,49 @@ static void ucma_destroy_cqs(struct rdma_cm_id *id)
 	}
 }
 
-static int ucma_create_cqs(struct rdma_cm_id *id, uint32_t send_size, uint32_t recv_size)
+struct ibv_cq *ucma_create_cq(struct rdma_cm_id *id, struct ibv_pd *pd,
+			      int cqe, void *cq_context,
+			      struct ibv_comp_channel *channel,
+			      int comp_vector)
+{
+	struct cma_id_private *id_priv;
+	bool use_coco_pd = false;
+
+	id_priv = container_of(id, struct cma_id_private, id);
+	if (pd) {
+		pthread_mutex_lock(&mut);
+		if (id_priv->cma_dev)
+			use_coco_pd = (id_priv->cma_dev->coco_pd &&
+				       pd == id_priv->cma_dev->coco_pd);
+		pthread_mutex_unlock(&mut);
+	}
+
+	if (use_coco_pd) {
+		struct ibv_cq_init_attr_ex attr = {
+			.cqe = cqe,
+			.cq_context = cq_context,
+			.channel = channel,
+			.comp_vector = comp_vector,
+			.parent_domain = pd,
+			.comp_mask = IBV_CQ_INIT_ATTR_MASK_PD,
+		};
+
+		return ibv_cq_ex_to_cq(ibv_create_cq_ex(id->verbs, &attr));
+	}
+
+	return ibv_create_cq(id->verbs, cqe, cq_context, channel, comp_vector);
+}
+
+static int ucma_create_cqs(struct rdma_cm_id *id, struct ibv_pd *pd,
+			   uint32_t send_size, uint32_t recv_size)
 {
 	if (recv_size) {
 		id->recv_cq_channel = ibv_create_comp_channel(id->verbs);
 		if (!id->recv_cq_channel)
 			goto err;
 
-		id->recv_cq = ibv_create_cq(id->verbs, recv_size,
-					    id, id->recv_cq_channel, 0);
+		id->recv_cq = ucma_create_cq(id, pd, recv_size,
+					     id, id->recv_cq_channel, 0);
 		if (!id->recv_cq)
 			goto err;
 	}
@@ -1486,8 +1613,8 @@ static int ucma_create_cqs(struct rdma_cm_id *id, uint32_t send_size, uint32_t r
 		if (!id->send_cq_channel)
 			goto err;
 
-		id->send_cq = ibv_create_cq(id->verbs, send_size,
-					    id, id->send_cq_channel, 0);
+		id->send_cq = ucma_create_cq(id, pd, send_size,
+					     id, id->send_cq_channel, 0);
 		if (!id->send_cq)
 			goto err;
 	}
@@ -1520,7 +1647,8 @@ int rdma_create_srq_ex(struct rdma_cm_id *id, struct ibv_srq_init_attr_ex *attr)
 				return -1;
 		}
 		if (!(attr->comp_mask & IBV_SRQ_INIT_ATTR_CQ) || !attr->cq) {
-			ret = ucma_create_cqs(id, 0, attr->attr.max_wr);
+			ret = ucma_create_cqs(id, attr->pd, 0,
+					      attr->attr.max_wr);
 			if (ret)
 				return ret;
 			attr->cq = id->recv_cq;
@@ -1654,8 +1782,11 @@ int rdma_create_qp_ex(struct rdma_cm_id *id,
 		}
 	}
 
-	ret = ucma_create_cqs(id, attr->send_cq || id->send_cq ? 0 : attr->cap.max_send_wr,
-				  attr->recv_cq || id->recv_cq ? 0 : attr->cap.max_recv_wr);
+	ret = ucma_create_cqs(id, attr->pd,
+			      attr->send_cq || id->send_cq ?
+			      0 : attr->cap.max_send_wr,
+			      attr->recv_cq || id->recv_cq ?
+			      0 : attr->cap.max_recv_wr);
 	if (ret)
 		return ret;
 
@@ -2342,6 +2473,10 @@ static int ucma_process_conn_req(struct cma_event *evt, uint32_t handle,
 	id_priv->responder_resources = evt->event.param.conn.responder_resources;
 	id_priv->remote_ece.vendor_id = ece->vendor_id;
 	id_priv->remote_ece.options = ece->attr_mod;
+
+	pthread_mutex_lock(&mut);
+	id_priv->allow_cc_unprotected = evt->id_priv->allow_cc_unprotected;
+	pthread_mutex_unlock(&mut);
 
 	if (evt->id_priv->sync) {
 		ret = rdma_migrate_id(&id_priv->id, NULL);
