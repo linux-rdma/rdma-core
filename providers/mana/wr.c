@@ -170,9 +170,8 @@ static int mana_ib_post_recv(struct ibv_qp *ibqp, struct ibv_recv_wr *wr,
 
 		shadow_wqe = shadow_queue_producer_entry(&qp->shadow_rq);
 		memset(shadow_wqe, 0, sizeof(*shadow_wqe));
-		shadow_wqe->opcode = IBV_WC_RECV;
 		shadow_wqe->wr_id = wr->wr_id;
-		shadow_wqe->unmasked_queue_offset = wqe_info.unmasked_wqe_index;
+		shadow_wqe->wqe_offset_or_psn = wqe_info.unmasked_wqe_index;
 		shadow_wqe->posted_wqe_size_in_bu = wqe_info.size_in_bu;
 		shadow_queue_advance_producer(&qp->shadow_rq);
 	}
@@ -279,7 +278,7 @@ gdma_post_sq_wqe(struct mana_gdma_queue *wq, struct ibv_sge *sgl, struct rdma_se
 
 static inline int
 mana_ib_post_send_request(struct mana_qp *qp, struct ibv_send_wr *wr,
-			  struct rnic_sq_shadow_wqe *shadow_wqe)
+			  struct shadow_wqe_header *shadow_wqe)
 {
 	bool signaled = ((wr->send_flags & IBV_SEND_SIGNALED) != 0) || qp->sq_sig_all;
 	enum  gdma_work_req_flags flags = GDMA_WORK_REQ_NONE;
@@ -359,12 +358,11 @@ mana_ib_post_send_request(struct mana_qp *qp, struct ibv_send_wr *wr,
 	qp->sq_psn = PSN_ADD(qp->sq_psn, PSN_DELTA(msg_sz, qp->mtu));
 	qp->sq_ssn = PSN_INC(qp->sq_ssn);
 
-	shadow_wqe->header.wr_id = wr->wr_id;
-	shadow_wqe->header.opcode = convert_wr_to_wc(wr->opcode);
-	shadow_wqe->header.flags = signaled ? 0 : MANA_NO_SIGNAL_WC;
-	shadow_wqe->header.posted_wqe_size_in_bu = gdma_wqe.size_in_bu;
-	shadow_wqe->header.unmasked_queue_offset = gdma_wqe.unmasked_wqe_index;
-	shadow_wqe->end_psn = PSN_DEC(qp->sq_psn);
+	shadow_wqe->wr_id = wr->wr_id;
+	shadow_wqe->send_opcode = convert_wr_to_wc(wr->opcode);
+	shadow_wqe->flags = signaled ? 0 : MANA_SHADOW_WQE_NO_SIGNAL;
+	shadow_wqe->posted_wqe_size_in_bu = gdma_wqe.size_in_bu;
+	shadow_wqe->wqe_offset_or_psn = PSN_DEC(qp->sq_psn);
 
 	return 0;
 
@@ -376,6 +374,8 @@ static int mana_ib_post_send(struct ibv_qp *ibqp, struct ibv_send_wr *wr,
 			     struct ibv_send_wr **bad_wr)
 {
 	struct mana_qp *qp = container_of(ibqp, struct mana_qp, ibqp.qp);
+	struct shadow_wqe_header *shadow_wqe;
+	uint32_t offset;
 	int ret = 0;
 	bool ring = false;
 
@@ -400,10 +400,10 @@ static int mana_ib_post_send(struct ibv_qp *ibqp, struct ibv_send_wr *wr,
 		}
 
 		/* Fill shadow queue data */
-		struct rnic_sq_shadow_wqe *shadow_wqe = (struct rnic_sq_shadow_wqe *)
-			shadow_queue_producer_entry(&qp->shadow_sq);
-		memset(shadow_wqe, 0, sizeof(struct rnic_sq_shadow_wqe));
+		shadow_wqe = shadow_queue_producer_entry(&qp->shadow_sq);
+		memset(shadow_wqe, 0, sizeof(*shadow_wqe));
 
+		offset = mana_ib_get_sreq(qp)->prod_idx;
 		ret = mana_ib_post_send_request(qp, wr, shadow_wqe);
 		if (ret) {
 			verbs_err(verbs_get_ctx(qp->ibqp.qp.context),
@@ -413,8 +413,7 @@ static int mana_ib_post_send(struct ibv_qp *ibqp, struct ibv_send_wr *wr,
 		ring = true;
 
 		shadow_queue_advance_producer(&qp->shadow_sq);
-		mana_ib_update_shared_mem_right_offset(qp,
-						       shadow_wqe->header.unmasked_queue_offset);
+		mana_ib_update_shared_mem_right_offset(qp, offset);
 	}
 
 cleanup:

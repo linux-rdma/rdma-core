@@ -384,14 +384,14 @@ static struct ibv_qp *mana_create_qp_rnic(struct ibv_pd *ibpd,
 			    (ctx->comp_mask & MANA_IB_UCNTX_RC_EXT_SUPPORT));
 
 	if (create_shadow_queue(&qp->shadow_sq, attr->cap.max_send_wr,
-				sizeof(struct rnic_sq_shadow_wqe))) {
+				sizeof(struct shadow_wqe_header))) {
 		verbs_err(verbs_get_ctx(ibpd->context), "Failed to alloc sq shadow queue\n");
 		errno = ENOMEM;
 		goto free_qp;
 	}
 
 	if (create_shadow_queue(&qp->shadow_rq, attr->cap.max_recv_wr,
-				sizeof(struct rnic_rq_shadow_wqe))) {
+				sizeof(struct shadow_wqe_header))) {
 		verbs_err(verbs_get_ctx(ibpd->context), "Failed to alloc rq shadow queue\n");
 		errno = ENOMEM;
 		goto destroy_shadow_sq;
