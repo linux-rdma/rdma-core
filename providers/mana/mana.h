@@ -11,6 +11,8 @@
 #include "shadow_queue.h"
 #include "gdma.h"
 
+#define PCI_VENDOR_ID_MICROSOFT 0x1414
+
 #define COMP_ENTRY_SIZE 64
 #define MANA_IB_TOEPLITZ_HASH_KEY_SIZE_IN_BYTES 40
 
@@ -139,6 +141,14 @@ struct mana_ib_rnic_qp {
 	struct mana_gdma_queue queues[USER_RNIC_QUEUE_TYPE_MAX];
 };
 
+struct mana_ece {
+	/* From ibv_set_ece(), sent with the next modify; 0 means none */
+	uint32_t pending;
+	/* Create-time offer, then the firmware's reply to each modify */
+	uint32_t current;
+	bool supported;
+};
+
 struct mana_qp {
 	struct verbs_qp ibqp;
 	pthread_spinlock_t sq_lock;
@@ -154,6 +164,8 @@ struct mana_qp {
 	int sq_sig_all;
 	/* Requester SQ carries a software rollback region */
 	bool rollback_sq;
+
+	struct mana_ece ece;
 
 	struct shadow_queue shadow_rq;
 	struct shadow_queue shadow_sq;
@@ -284,6 +296,8 @@ struct ibv_qp *mana_create_qp_ex(struct ibv_context *context,
 				 struct ibv_qp_init_attr_ex *attr);
 
 int mana_modify_qp(struct ibv_qp *qp, struct ibv_qp_attr *attr, int attr_mask);
+int mana_query_ece(struct ibv_qp *qp, struct ibv_ece *ece);
+int mana_set_ece(struct ibv_qp *qp, struct ibv_ece *ece);
 
 int mana_destroy_qp(struct ibv_qp *ibqp);
 
