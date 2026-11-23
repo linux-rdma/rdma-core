@@ -41,32 +41,36 @@ struct ibv_wq *mana_create_wq(struct ibv_context *context,
 	struct mana_create_wq_resp wq_resp = {};
 	struct mana_ib_create_wq *wq_cmd_drv;
 
-	if (!ctx->extern_alloc.alloc || !ctx->extern_alloc.free) {
-		verbs_err(verbs_get_ctx(context),
-			  "WQ buffer needs to be externally allocated\n");
-		errno = EINVAL;
-		return NULL;
-	}
-
 	wq = calloc(1, sizeof(*wq));
 	if (!wq)
 		return NULL;
 
 	wq->sge = attr->max_sge;
-	wq->buf_size = attr->max_wr * get_wqe_size(attr->max_sge);
-	wq->buf_size = align_hw_size(wq->buf_size);
-	wq->buf = ctx->extern_alloc.alloc(wq->buf_size, ctx->extern_alloc.data);
-
-	if (!wq->buf) {
+	wq->rq.size = attr->max_wr * get_wqe_size(attr->max_sge);
+	wq->rq.size = align_hw_size(wq->rq.size);
+	wq->rq.buffer = mana_alloc_buf(ctx, wq->rq.size, &wq->buf_external);
+	if (!wq->rq.buffer) {
 		errno = ENOMEM;
 		goto free_wq;
 	}
 
+	wq->rq.db_page = ctx->db_page;
+	/* The kernel creates the receive queue with the RSS QP. */
+	wq->rq.id = MANA_INVALID_QUEUE_ID;
+
 	wq->wqe = attr->max_wr;
 
+	if (create_shadow_queue(&wq->shadow, attr->max_wr,
+				sizeof(struct shadow_wqe_header))) {
+		errno = ENOMEM;
+		goto free_buf;
+	}
+
+	pthread_spin_init(&wq->lock, PTHREAD_PROCESS_PRIVATE);
+
 	wq_cmd_drv = &wq_cmd.drv_payload;
-	wq_cmd_drv->wq_buf_addr = (uintptr_t)wq->buf;
-	wq_cmd_drv->wq_buf_size = wq->buf_size;
+	wq_cmd_drv->wq_buf_addr = (uintptr_t)wq->rq.buffer;
+	wq_cmd_drv->wq_buf_size = wq->rq.size;
 
 	ret = ibv_cmd_create_wq(context, attr, &wq->ibwq, &wq_cmd.ibv_cmd,
 				sizeof(wq_cmd), &wq_resp.ibv_resp,
@@ -74,13 +78,19 @@ struct ibv_wq *mana_create_wq(struct ibv_context *context,
 
 	if (ret) {
 		verbs_err(verbs_get_ctx(context), "Failed to Create WQ\n");
-		ctx->extern_alloc.free(wq->buf, ctx->extern_alloc.data);
 		errno = ret;
-		goto free_wq;
+		goto destroy_shadow;
 	}
+
+	wq->ibwq.post_recv = mana_post_wq_recv;
 
 	return &wq->ibwq;
 
+destroy_shadow:
+	pthread_spin_destroy(&wq->lock);
+	destroy_shadow_queue(&wq->shadow);
+free_buf:
+	mana_free_buf(ctx, wq->rq.buffer, wq->rq.size, wq->buf_external);
 free_wq:
 	free(wq);
 	return NULL;
@@ -92,12 +102,6 @@ int mana_destroy_wq(struct ibv_wq *ibwq)
 	struct mana_context *ctx = to_mctx(ibwq->context);
 	int ret;
 
-	if (!ctx->extern_alloc.free) {
-		verbs_err(verbs_get_ctx(ibwq->context),
-			  "WQ needs external alloc context\n");
-		return EINVAL;
-	}
-
 	ret = ibv_cmd_destroy_wq(ibwq);
 	if (ret) {
 		verbs_err(verbs_get_ctx(ibwq->context),
@@ -105,7 +109,9 @@ int mana_destroy_wq(struct ibv_wq *ibwq)
 		return ret;
 	}
 
-	ctx->extern_alloc.free(wq->buf, ctx->extern_alloc.data);
+	pthread_spin_destroy(&wq->lock);
+	destroy_shadow_queue(&wq->shadow);
+	mana_free_buf(ctx, wq->rq.buffer, wq->rq.size, wq->buf_external);
 	free(wq);
 
 	return 0;
