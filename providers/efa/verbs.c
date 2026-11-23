@@ -30,6 +30,13 @@
 #define EFA_IO_TX_DESC_SIZE_64	(sizeof(struct efa_io_tx_wqe))
 #define EFA_IO_TX_DESC_SIZE_128 (sizeof(struct efa_io_tx_wqe_128))
 
+/* The completion action block occupies the tail of the wide WQE */
+#define EFA_SQ_ACTION_BLOCK_OFFSET \
+	(EFA_IO_TX_DESC_SIZE_128 - sizeof(struct efa_io_action_with_data_block))
+/* The action block takes the tail of the inline area of the wide WQE */
+#define EFA_SQ_ACTION_MAX_INLINE_DATA \
+	(EFA_IO_TX_DESC_INLINE_MAX_SIZE_128 - sizeof(struct efa_io_action_with_data_block))
+
 static bool is_buf_cleared(void *buf, size_t len)
 {
 	int i;
@@ -133,6 +140,8 @@ int efa_query_device_ctx(struct efa_context *ctx)
 		ctx->max_sq_sge = resp.max_sq_sge;
 		ctx->max_rq_sge = resp.max_rq_sge;
 		ctx->max_rdma_size = resp.max_rdma_size;
+		ctx->max_comp_actions = resp.max_comp_actions;
+		ctx->comp_action_supp_ops = resp.comp_action_supp_ops;
 	} else {
 		err = ibv_cmd_query_device_any(&ctx->ibvctx.context, NULL,
 					       &attr, sizeof(attr.orig_attr),
@@ -159,6 +168,40 @@ int efa_query_device_ctx(struct efa_context *ctx)
 	}
 
 	return 0;
+}
+
+static uint32_t efa_comp_action_supp_op_to_efadv(uint32_t op)
+{
+	switch (op) {
+	case EFA_QUERY_DEVICE_COMP_ACTION_SUPP_OP_SEND:
+		return EFADV_DEVICE_ATTR_COMP_ACTION_SUPPORTED_OP_SEND;
+	case EFA_QUERY_DEVICE_COMP_ACTION_SUPP_OP_RECV:
+		return EFADV_DEVICE_ATTR_COMP_ACTION_SUPPORTED_OP_RECV;
+	case EFA_QUERY_DEVICE_COMP_ACTION_SUPP_OP_RDMA_READ:
+		return EFADV_DEVICE_ATTR_COMP_ACTION_SUPPORTED_OP_RDMA_READ;
+	case EFA_QUERY_DEVICE_COMP_ACTION_SUPP_OP_REMOTE_RDMA_READ:
+		return EFADV_DEVICE_ATTR_COMP_ACTION_SUPPORTED_OP_REMOTE_RDMA_READ;
+	case EFA_QUERY_DEVICE_COMP_ACTION_SUPP_OP_RDMA_WRITE:
+		return EFADV_DEVICE_ATTR_COMP_ACTION_SUPPORTED_OP_RDMA_WRITE;
+	case EFA_QUERY_DEVICE_COMP_ACTION_SUPP_OP_REMOTE_RDMA_WRITE:
+		return EFADV_DEVICE_ATTR_COMP_ACTION_SUPPORTED_OP_REMOTE_RDMA_WRITE;
+	case EFA_QUERY_DEVICE_COMP_ACTION_SUPP_OP_REMOTE_RDMA_WRITE_IMM:
+		return EFADV_DEVICE_ATTR_COMP_ACTION_SUPPORTED_OP_REMOTE_RDMA_WRITE_IMM;
+	default:
+		return 0;
+	}
+}
+
+static uint32_t efa_comp_action_supp_ops_to_efadv(uint32_t supp_ops)
+{
+	uint32_t efadv_ops = 0;
+	int bit;
+
+	for (bit = 0; bit < 32; bit++)
+		if (supp_ops & BIT(bit))
+			efadv_ops |= efa_comp_action_supp_op_to_efadv(BIT(bit));
+
+	return efadv_ops;
 }
 
 int efadv_query_device(struct ibv_context *ibvctx,
@@ -201,6 +244,9 @@ int efadv_query_device(struct ibv_context *ibvctx,
 
 		if (EFA_DEV_CAP(ctx, COMP_CNTR))
 			attr->device_caps |= EFADV_DEVICE_ATTR_CAPS_COMP_CNTR;
+
+		if (EFA_DEV_CAP(ctx, COMP_ACTION))
+			attr->device_caps |= EFADV_DEVICE_ATTR_CAPS_COMP_ACTION;
 	}
 
 	if (vext_field_avail(typeof(*attr), max_rdma_size, inlen)) {
@@ -212,6 +258,12 @@ int efadv_query_device(struct ibv_context *ibvctx,
 		if (EFA_DEV_CAP(ctx, RDMA_WRITE))
 			attr->device_caps |= EFADV_DEVICE_ATTR_CAPS_RDMA_WRITE;
 	}
+
+	if (vext_field_avail(typeof(*attr), max_comp_actions, inlen))
+		attr->max_comp_actions = ctx->max_comp_actions;
+
+	if (vext_field_avail(typeof(*attr), comp_action_supp_ops, inlen))
+		attr->comp_action_supp_ops = efa_comp_action_supp_ops_to_efadv(ctx->comp_action_supp_ops);
 
 	attr->comp_mask = comp_mask_out;
 
@@ -622,6 +674,7 @@ static enum ibv_wc_status to_ibv_status(enum efa_io_comp_status status)
 	case EFA_IO_COMP_STATUS_LOCAL_ERROR_QP_INTERNAL_ERROR:
 	case EFA_IO_COMP_STATUS_LOCAL_ERROR_UNSUPPORTED_OP:
 	case EFA_IO_COMP_STATUS_LOCAL_ERROR_INVALID_AH:
+	case EFA_IO_COMP_STATUS_LOCAL_ERROR_INVALID_ACTION:
 		return IBV_WC_LOC_QP_OP_ERR;
 	case EFA_IO_COMP_STATUS_LOCAL_ERROR_INVALID_LKEY:
 		return IBV_WC_LOC_PROT_ERR;
@@ -637,6 +690,7 @@ static enum ibv_wc_status to_ibv_status(enum efa_io_comp_status status)
 		return IBV_WC_BAD_RESP_ERR;
 	case EFA_IO_COMP_STATUS_REMOTE_ERROR_FEATURE_MISMATCH:
 	case EFA_IO_COMP_STATUS_REMOTE_ERROR_BAD_LENGTH:
+	case EFA_IO_COMP_STATUS_REMOTE_ERROR_INVALID_ACTION:
 		return IBV_WC_REM_INV_REQ_ERR;
 	case EFA_IO_COMP_STATUS_LOCAL_ERROR_UNRESP_REMOTE:
 	case EFA_IO_COMP_STATUS_LOCAL_ERROR_UNREACH_REMOTE:
@@ -1489,7 +1543,7 @@ static void efa_fill_buffer_desc_from_mem_loc(struct ib_uverbs_buffer_desc *desc
 		efa_fill_buffer_desc_va(desc, (uintptr_t)mem->ptr, length);
 }
 
-static inline bool efa_comp_cntr_mem_type_supported(uint32_t mem_type)
+static inline bool efa_ext_mem_type_supported(uint32_t mem_type)
 {
 	return mem_type == EFADV_MEMORY_LOCATION_VA || mem_type == EFADV_MEMORY_LOCATION_DMABUF;
 }
@@ -1511,8 +1565,8 @@ static struct ibv_comp_cntr *efa_create_comp_cntr_impl(struct ibv_context *ibvct
 	    attr->type != IBV_COMP_CNTR_TYPE_WRS ||
 	    efa_attr->comp_mask ||
 	    !check_comp_mask(efa_attr->flags, supported_efa_flags) ||
-	    !efa_comp_cntr_mem_type_supported(efa_attr->comp_cntr_ext_mem.type) ||
-	    !efa_comp_cntr_mem_type_supported(efa_attr->err_cntr_ext_mem.type)) {
+	    !efa_ext_mem_type_supported(efa_attr->comp_cntr_ext_mem.type) ||
+	    !efa_ext_mem_type_supported(efa_attr->err_cntr_ext_mem.type)) {
 		verbs_err(verbs_get_ctx(ibvctx), "Unsupported type or flag\n");
 		errno = EOPNOTSUPP;
 		return NULL;
@@ -1637,6 +1691,97 @@ int efa_read_err_comp_cntr(struct ibv_comp_cntr *ibvcc, uint64_t *value)
 		return EOPNOTSUPP;
 
 	*value = *cc->err_ptr;
+	return 0;
+}
+
+struct efadv_mem_comp_action *efadv_create_mem_comp_action(struct ibv_context *ibvctx,
+							   struct efadv_mem_comp_action_init_attr *attr,
+							   uint32_t inlen)
+{
+	DECLARE_COMMAND_BUFFER(cmdb, EFA_IB_OBJECT_COMP_ACTION,
+			       EFA_IB_METHOD_COMP_ACTION_CREATE, 8);
+	struct ib_uverbs_buffer_desc mem_desc = {};
+	struct efadv_mem_comp_action *mem_action;
+	struct ib_uverbs_attr *handle_attr;
+	struct efadv_comp_action *action;
+	uint32_t action_id = 0;
+	int err;
+
+	if (!is_efa_dev(ibvctx->device)) {
+		verbs_err(verbs_get_ctx(ibvctx), "Not an EFA device\n");
+		errno = EOPNOTSUPP;
+		return NULL;
+	}
+
+	if (!vext_field_avail(struct efadv_mem_comp_action_init_attr, reserved, inlen) ||
+	    (inlen > sizeof(*attr) && !is_ext_cleared(attr, inlen)) ||
+	    attr->comp_mask || attr->flags || !is_reserved_cleared(attr->reserved)) {
+		verbs_err(verbs_get_ctx(ibvctx), "Compatibility issues\n");
+		errno = EINVAL;
+		return NULL;
+	}
+
+	if (!attr->pd || !attr->mem_size || !attr->mem_modify_size) {
+		verbs_err(verbs_get_ctx(ibvctx), "Invalid mem comp action attributes\n");
+		errno = EINVAL;
+		return NULL;
+	}
+
+	if (attr->comp_mem_modify_type != EFADV_MEM_COMP_ACTION_SET_INITIATOR_VAL ||
+	    !efa_ext_mem_type_supported(attr->comp_mem.type)) {
+		verbs_err(verbs_get_ctx(ibvctx), "Unsupported mem comp action attributes\n");
+		errno = EOPNOTSUPP;
+		return NULL;
+	}
+
+	mem_action = calloc(1, sizeof(*mem_action));
+	if (!mem_action) {
+		errno = ENOMEM;
+		return NULL;
+	}
+	action = &mem_action->comp_action;
+
+	handle_attr = fill_attr_out_obj(cmdb, EFA_IB_ATTR_COMP_ACTION_CREATE_HANDLE);
+	fill_attr_in_obj(cmdb, EFA_IB_ATTR_COMP_ACTION_CREATE_PD_HANDLE, attr->pd->handle);
+	fill_attr_const_in(cmdb, EFA_IB_ATTR_COMP_ACTION_CREATE_TYPE, EFA_COMP_ACTION_TYPE_MEM);
+	fill_attr_const_in(cmdb, EFA_IB_ATTR_COMP_ACTION_CREATE_MEM_MODIFY_TYPE,
+			   EFA_MEM_COMP_ACTION_SET_INITIATOR_VAL);
+	fill_attr_in_uint64(cmdb, EFA_IB_ATTR_COMP_ACTION_CREATE_MEM_SIZE, attr->mem_size);
+	fill_attr_in_uint32(cmdb, EFA_IB_ATTR_COMP_ACTION_CREATE_MEM_MODIFY_SIZE, attr->mem_modify_size);
+	efa_fill_buffer_desc_from_mem_loc(&mem_desc, &attr->comp_mem, attr->mem_size);
+	fill_attr_in_ptr(cmdb, EFA_IB_ATTR_COMP_ACTION_CREATE_MEM_BUFFER, &mem_desc);
+	fill_attr_out_ptr(cmdb, EFA_IB_ATTR_COMP_ACTION_CREATE_RESP_ACTION_ID, &action_id);
+
+	err = execute_ioctl(ibvctx, cmdb);
+	if (err) {
+		free(mem_action);
+		errno = err;
+		return NULL;
+	}
+
+	action->context = ibvctx;
+	action->pd = attr->pd;
+	action->handle = read_attr_obj(EFA_IB_ATTR_COMP_ACTION_CREATE_HANDLE, handle_attr);
+	action->action_id = action_id;
+
+	return mem_action;
+}
+
+int efadv_destroy_comp_action(struct efadv_comp_action *comp_action)
+{
+	DECLARE_COMMAND_BUFFER(cmdb, EFA_IB_OBJECT_COMP_ACTION,
+			       EFA_IB_METHOD_COMP_ACTION_DESTROY, 1);
+	struct efadv_mem_comp_action *mem_action;
+	int err;
+
+	fill_attr_in_obj(cmdb, EFA_IB_ATTR_COMP_ACTION_DESTROY_HANDLE, comp_action->handle);
+
+	err = execute_ioctl(comp_action->context, cmdb);
+	if (err)
+		return err;
+
+	mem_action = container_of(comp_action, struct efadv_mem_comp_action, comp_action);
+	free(mem_action);
 	return 0;
 }
 
@@ -1891,18 +2036,30 @@ static void efa_qp_init_indices(struct efa_qp *qp)
 	qp->rq.wq.wrid_idx_pool_next = 0;
 }
 
-static int efa_calc_sq_wqe_size(uint32_t max_inline_data, bool inline_write_enabled)
+/* Inline data a send queue accepts: the action block takes the tail of the wide WQE's inline area */
+static uint32_t efa_sq_max_inline_data(struct efa_context *ctx, bool actions_enabled)
 {
-	if (max_inline_data > EFA_IO_TX_DESC_INLINE_MAX_SIZE || inline_write_enabled)
+	if (actions_enabled)
+		return min_t(uint32_t, ctx->inline_buf_size_ex, EFA_SQ_ACTION_MAX_INLINE_DATA);
+
+	return ctx->inline_buf_size_ex;
+}
+
+static int efa_calc_sq_wqe_size(uint32_t max_inline_data, bool inline_write_enabled,
+				bool actions_enabled)
+{
+	if (max_inline_data > EFA_IO_TX_DESC_INLINE_MAX_SIZE ||
+	    inline_write_enabled || actions_enabled)
 		return EFA_IO_TX_DESC_SIZE_128;
 
 	return EFA_IO_TX_DESC_SIZE_64;
 }
 
 static int efa_calc_sq_max_depth(struct efa_context *ctx, uint32_t max_inline_data,
-				 bool write_with_inline)
+				 bool write_with_inline, bool actions_enabled)
 {
-	int sq_wqe_size = efa_calc_sq_wqe_size(max_inline_data, write_with_inline);
+	int sq_wqe_size = efa_calc_sq_wqe_size(max_inline_data, write_with_inline,
+					       actions_enabled);
 
 	return rounddown_pow_of_two(ctx->max_llq_size / sq_wqe_size);
 }
@@ -1910,8 +2067,10 @@ static int efa_calc_sq_max_depth(struct efa_context *ctx, uint32_t max_inline_da
 int efadv_get_max_sq_depth(struct ibv_context *ibvctx, struct efadv_sq_depth_attr *attr,
 			   uint32_t inlen)
 {
+	bool actions_enabled = !!(attr->flags & EFADV_SQ_DEPTH_ATTR_COMP_ACTION_WITH_DATA);
 	bool write_with_inline = !!(attr->flags & EFADV_SQ_DEPTH_ATTR_INLINE_WRITE);
 	struct efa_context *ctx = to_efa_context(ibvctx);
+	uint32_t max_inline_data;
 
 	if (!is_efa_dev(ibvctx->device)) {
 		verbs_err(verbs_get_ctx(ibvctx), "Not an EFA device\n");
@@ -1920,6 +2079,12 @@ int efadv_get_max_sq_depth(struct ibv_context *ibvctx, struct efadv_sq_depth_att
 
 	if (!vext_field_avail(typeof(*attr), max_inline_data, inlen) || attr->comp_mask) {
 		verbs_err(verbs_get_ctx(ibvctx), "Compatibility issues\n");
+		return -EINVAL;
+	}
+
+	if (!check_comp_mask(attr->flags, EFADV_SQ_DEPTH_ATTR_INLINE_WRITE |
+					  EFADV_SQ_DEPTH_ATTR_COMP_ACTION_WITH_DATA)) {
+		verbs_err(verbs_get_ctx(ibvctx), "Unsupported flags %#x\n", attr->flags);
 		return -EINVAL;
 	}
 
@@ -1935,13 +2100,40 @@ int efadv_get_max_sq_depth(struct ibv_context *ibvctx, struct efadv_sq_depth_att
 		return -EINVAL;
 	}
 
-	if (attr->max_inline_data > ctx->inline_buf_size_ex) {
+	max_inline_data = efa_sq_max_inline_data(ctx, actions_enabled);
+	if (attr->max_inline_data > max_inline_data) {
 		verbs_err(verbs_get_ctx(ibvctx), "Max inline data %u > %u\n", attr->max_inline_data,
-			  ctx->inline_buf_size_ex);
+			  max_inline_data);
 		return -EINVAL;
 	}
 
-	return efa_calc_sq_max_depth(ctx, attr->max_inline_data, write_with_inline);
+	return efa_calc_sq_max_depth(ctx, attr->max_inline_data, write_with_inline,
+				     actions_enabled);
+}
+
+int efadv_get_max_inline_data(struct ibv_context *ibvctx,
+			      struct efadv_inline_data_attr *attr, uint32_t inlen)
+{
+	struct efa_context *ctx = to_efa_context(ibvctx);
+
+	if (!is_efa_dev(ibvctx->device)) {
+		verbs_err(verbs_get_ctx(ibvctx), "Not an EFA device\n");
+		return -EOPNOTSUPP;
+	}
+
+	if (!vext_field_avail(typeof(*attr), reserved, inlen) || attr->comp_mask ||
+	    !is_reserved_cleared(attr->reserved)) {
+		verbs_err(verbs_get_ctx(ibvctx), "Compatibility issues\n");
+		return -EINVAL;
+	}
+
+	if (!check_comp_mask(attr->flags, EFADV_INLINE_DATA_ATTR_COMP_ACTION_WITH_DATA)) {
+		verbs_err(verbs_get_ctx(ibvctx), "Unsupported flags %#x\n", attr->flags);
+		return -EINVAL;
+	}
+
+	return (int)efa_sq_max_inline_data(ctx,
+					   !!(attr->flags & EFADV_INLINE_DATA_ATTR_COMP_ACTION_WITH_DATA));
 }
 
 static int efa_calc_rq_max_depth(struct efa_context *ctx, uint32_t max_recv_sge)
@@ -1980,12 +2172,16 @@ static void efa_setup_qp(struct efa_context *ctx,
 			 size_t page_size)
 {
 	bool inline_write_enabled = !!(efa_attr->flags & EFADV_QP_FLAGS_INLINE_WRITE);
+	bool actions_enabled = !!(efa_attr->wr_flags & (EFADV_WR_EX_WITH_COMP_ACTION |
+							EFADV_WR_EX_WITH_COMP_ACTION_WITH_DATA));
 	struct ibv_qp_cap *cap = &attr->cap;
 	uint16_t rq_desc_cnt;
 
 	efa_qp_init_indices(qp);
 
-	qp->sq.wqe_size = efa_calc_sq_wqe_size(cap->max_inline_data, inline_write_enabled);
+	qp->sq.wqe_size = efa_calc_sq_wqe_size(cap->max_inline_data, inline_write_enabled,
+					       actions_enabled);
+	qp->sq.action_block_enabled = actions_enabled;
 	qp->sq.wq.wqe_cnt = roundup_pow_of_two(max_t(uint32_t, cap->max_send_wr,
 						     ctx->min_sq_wr));
 	qp->sq.wq.max_sge = cap->max_send_sge;
@@ -2041,6 +2237,7 @@ static int efa_check_qp_attr(struct efa_context *ctx,
 					 IBV_QP_EX_WITH_SEND_WITH_IMM;
 	uint64_t supp_srd_send_ops_mask = IBV_QP_EX_WITH_SEND |
 					  IBV_QP_EX_WITH_SEND_WITH_IMM;
+	uint64_t supp_wr_flags = EFADV_WR_EX_WITH_PROCESSING_HINTS;
 	uint64_t supp_send_ops_mask;
 	uint16_t supp_efa_flags = 0;
 
@@ -2053,6 +2250,9 @@ static int efa_check_qp_attr(struct efa_context *ctx,
 	}
 	if (EFA_DEV_CAP(ctx, UNSOLICITED_WRITE_RECV))
 		supp_efa_flags |= EFADV_QP_FLAGS_UNSOLICITED_WRITE_RECV;
+	if (EFA_DEV_CAP(ctx, COMP_ACTION))
+		supp_wr_flags |= EFADV_WR_EX_WITH_COMP_ACTION |
+				 EFADV_WR_EX_WITH_COMP_ACTION_WITH_DATA;
 
 #define EFA_CREATE_QP_SUPP_ATTR_MASK \
 	(IBV_QP_INIT_ATTR_PD | IBV_QP_INIT_ATTR_SEND_OPS_FLAGS)
@@ -2105,9 +2305,10 @@ static int efa_check_qp_attr(struct efa_context *ctx,
 		}
 	}
 
-	if (!check_comp_mask(efa_attr->wr_flags, EFADV_WR_EX_WITH_PROCESSING_HINTS)) {
-		verbs_err(&ctx->ibvctx, "Unsupported wr_flags[%" PRIx64 "]\n",
-			  efa_attr->wr_flags);
+	if (!check_comp_mask(efa_attr->wr_flags, supp_wr_flags)) {
+		verbs_err(&ctx->ibvctx,
+			  "Unsupported wr_flags[%" PRIx64 "] supported[%" PRIx64 "]\n",
+			  efa_attr->wr_flags, supp_wr_flags);
 		return EOPNOTSUPP;
 	}
 
@@ -2129,7 +2330,10 @@ static int efa_check_qp_limits(struct efa_context *ctx,
 			       struct efadv_qp_init_attr *efa_attr)
 {
 	bool inline_write_enabled = !!(efa_attr->flags & EFADV_QP_FLAGS_INLINE_WRITE);
+	bool actions_enabled = !!(efa_attr->wr_flags & (EFADV_WR_EX_WITH_COMP_ACTION |
+							EFADV_WR_EX_WITH_COMP_ACTION_WITH_DATA));
 	int sq_max_depth, rq_max_depth;
+	uint32_t max_inline_data;
 
 	if (attr->cap.max_send_sge > ctx->max_sq_sge) {
 		verbs_err(&ctx->ibvctx,
@@ -2145,7 +2349,8 @@ static int efa_check_qp_limits(struct efa_context *ctx,
 		return EINVAL;
 	}
 
-	sq_max_depth = efa_calc_sq_max_depth(ctx, attr->cap.max_inline_data, inline_write_enabled);
+	sq_max_depth = efa_calc_sq_max_depth(ctx, attr->cap.max_inline_data,
+					     inline_write_enabled, actions_enabled);
 	if (attr->cap.max_send_wr > sq_max_depth) {
 		verbs_err(&ctx->ibvctx,
 			  "Max Send WR %u > %u\n", attr->cap.max_send_wr, sq_max_depth);
@@ -2160,10 +2365,11 @@ static int efa_check_qp_limits(struct efa_context *ctx,
 		return EINVAL;
 	}
 
-	if (attr->cap.max_inline_data > ctx->inline_buf_size_ex) {
+	max_inline_data = efa_sq_max_inline_data(ctx, actions_enabled);
+	if (attr->cap.max_inline_data > max_inline_data) {
 		verbs_err(&ctx->ibvctx,
 			  "Max inline data %u > %u\n", attr->cap.max_inline_data,
-			  ctx->inline_buf_size_ex);
+			  max_inline_data);
 		return EINVAL;
 	}
 
@@ -2215,6 +2421,11 @@ static struct ibv_qp *create_qp(struct ibv_context *ibvctx,
 
 	if (qp->sq.wq.req_id_64_bit)
 		req.flags |= EFA_CREATE_QP_WITH_SQ_64_BIT_REQ_ID;
+
+	if (qp->sq.action_block_enabled) {
+		req.wqe_blocks_enablement |= EFA_CREATE_QP_WQE_BLOCK_ACTION_WITH_DATA;
+		req.action_with_data_wqe_offset = EFA_SQ_ACTION_BLOCK_OFFSET;
+	}
 
 	err = ibv_cmd_create_qp_ex(ibvctx, &qp->verbs_qp,
 				   attr, &req.ibv_cmd, sizeof(req),
@@ -2429,11 +2640,19 @@ int efadv_query_qp_wqs(struct ibv_qp *ibvqp, struct efadv_wq_attr *sq_attr,
 	sq_attr->num_entries = qp->sq.wq.wqe_cnt;
 	sq_attr->doorbell = qp->sq.wq.db;
 	sq_attr->max_batch = qp->sq.max_batch_wr;
-	if (vext_field_avail(typeof(*sq_attr), reserved, inlen)) {
+	if (vext_field_avail(typeof(*sq_attr), caps, inlen)) {
 		sq_attr->caps = 0;
-		memset(sq_attr->reserved, 0, sizeof(sq_attr->reserved));
 		if (qp->sq.wq.req_id_64_bit)
 			sq_attr->caps |= EFADV_WQ_CAPS_64_BIT_REQ_ID;
+	}
+
+	if (vext_field_avail(typeof(*sq_attr), comp_action_with_data_block_offset, inlen)) {
+		sq_attr->wqe_blocks = 0;
+		sq_attr->comp_action_with_data_block_offset = 0;
+		if (qp->sq.action_block_enabled) {
+			sq_attr->wqe_blocks |= EFADV_WQE_BLOCK_COMP_ACTION_WITH_DATA;
+			sq_attr->comp_action_with_data_block_offset = EFA_SQ_ACTION_BLOCK_OFFSET;
+		}
 	}
 
 	rq_attr->comp_mask = 0;
@@ -2442,9 +2661,12 @@ int efadv_query_qp_wqs(struct ibv_qp *ibvqp, struct efadv_wq_attr *sq_attr,
 	rq_attr->num_entries = qp->rq.wq.desc_mask + 1;
 	rq_attr->doorbell = qp->rq.wq.db;
 	rq_attr->max_batch = rq_attr->num_entries;
-	if (vext_field_avail(typeof(*rq_attr), reserved, inlen)) {
-		memset(rq_attr->reserved, 0, sizeof(rq_attr->reserved));
+	if (vext_field_avail(typeof(*rq_attr), caps, inlen))
 		rq_attr->caps = 0;
+
+	if (vext_field_avail(typeof(*rq_attr), comp_action_with_data_block_offset, inlen)) {
+		rq_attr->wqe_blocks = 0;
+		rq_attr->comp_action_with_data_block_offset = 0;
 	}
 
 	return 0;
@@ -2858,6 +3080,9 @@ static void efa_send_wr_init(struct efa_qp *qp, struct ibv_qp_ex *ibvqpx,
 	sq->curr_tx_wqe.remote_mem = remote_mem;
 	sq->curr_tx_wqe.inline_data = inline_data;
 	sq->curr_tx_wqe.max_sge = max_sge;
+	sq->curr_tx_wqe.action_block = sq->action_block_enabled ?
+		(struct efa_io_action_with_data_block *)((uint8_t *)sq->curr_tx_wqe.buff + EFA_SQ_ACTION_BLOCK_OFFSET) :
+		NULL;
 }
 
 static void efa_send_wr_set_imm_data(struct efa_io_tx_meta_desc *meta_desc, __be32 imm_data)
@@ -3214,6 +3439,48 @@ static void efa_send_wr_set_processing_hints(struct efadv_qp *efadv_qp, uint32_t
 	EFA_SET(&qp->sq.curr_tx_wqe.md->ctrl3, EFA_IO_TX_META_DESC_PROCESSING_HINTS, wqe_hints);
 }
 
+static void efa_send_wr_set_local_comp_action_with_data(struct efadv_qp *efadv_qp,
+							uint32_t action_id,
+							uint64_t data)
+{
+	struct efa_qp *qp = efadv_qp_to_efa_qp(efadv_qp);
+	struct efa_tx_wqe_ctx *wqe = &qp->sq.curr_tx_wqe;
+
+	if (unlikely(qp->wr_session_err))
+		return;
+
+	wqe->action_block->local_action_handle = action_id;
+	wqe->action_block->local_action_data = data;
+	EFA_SET(&wqe->md->ctrl2, EFA_IO_TX_META_DESC_LOCAL_ACTION_REQ, 1);
+}
+
+static void efa_send_wr_set_remote_comp_action_with_data(struct efadv_qp *efadv_qp,
+							 uint32_t action_id,
+							 uint64_t data)
+{
+	struct efa_qp *qp = efadv_qp_to_efa_qp(efadv_qp);
+	struct efa_tx_wqe_ctx *wqe = &qp->sq.curr_tx_wqe;
+
+	if (unlikely(qp->wr_session_err))
+		return;
+
+	wqe->action_block->remote_action_handle = action_id;
+	wqe->action_block->remote_action_data = data;
+	EFA_SET(&wqe->md->ctrl2, EFA_IO_TX_META_DESC_REMOTE_ACTION_REQ, 1);
+}
+
+static void efa_send_wr_set_local_comp_action(struct efadv_qp *efadv_qp,
+					      uint32_t action_id)
+{
+	efa_send_wr_set_local_comp_action_with_data(efadv_qp, action_id, 0);
+}
+
+static void efa_send_wr_set_remote_comp_action(struct efadv_qp *efadv_qp,
+					       uint32_t action_id)
+{
+	efa_send_wr_set_remote_comp_action_with_data(efadv_qp, action_id, 0);
+}
+
 static void efa_send_wr_start(struct ibv_qp_ex *ibvqpx)
 {
 	struct efa_qp *qp = to_efa_qp_ex(ibvqpx);
@@ -3352,6 +3619,18 @@ static void efa_qp_fill_wr_pfns(struct efa_qp *qp,
 
 	if (efa_attr->wr_flags & EFADV_WR_EX_WITH_PROCESSING_HINTS)
 		qp->dv_qp.wr_set_processing_hints = efa_send_wr_set_processing_hints;
+
+	if (efa_attr->wr_flags & EFADV_WR_EX_WITH_COMP_ACTION) {
+		qp->dv_qp.wr_set_local_comp_action = efa_send_wr_set_local_comp_action;
+		qp->dv_qp.wr_set_remote_comp_action = efa_send_wr_set_remote_comp_action;
+	}
+
+	if (efa_attr->wr_flags & EFADV_WR_EX_WITH_COMP_ACTION_WITH_DATA) {
+		qp->dv_qp.wr_set_local_comp_action_with_data =
+			efa_send_wr_set_local_comp_action_with_data;
+		qp->dv_qp.wr_set_remote_comp_action_with_data =
+			efa_send_wr_set_remote_comp_action_with_data;
+	}
 }
 
 static int efa_post_recv_validate(struct efa_qp *qp, struct ibv_recv_wr *wr)

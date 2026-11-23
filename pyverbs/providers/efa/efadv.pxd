@@ -6,14 +6,14 @@
 cimport pyverbs.providers.efa.libefa as dv
 
 from pyverbs.addr cimport AH
-from pyverbs.base cimport PyverbsObject
+from pyverbs.base cimport PyverbsCM, PyverbsObject
 from pyverbs.cq cimport CQEX
 from pyverbs.device cimport Context
 from pyverbs.qp cimport QP, QPEx
 
 
 cdef class EfaContext(Context):
-    pass
+    cdef object comp_actions
 
 
 cdef class EfaDVDeviceAttr(PyverbsObject):
@@ -58,3 +58,15 @@ cdef class EfaDVSQDepthAttr(PyverbsObject):
 
 cdef class EfaDVRQDepthAttr(PyverbsObject):
     cdef dv.efadv_rq_depth_attr rq_depth_attr
+
+
+cdef class EfaMemCompActionInitAttr(PyverbsObject):
+    cdef dv.efadv_mem_comp_action_init_attr attr
+    cdef object pd
+
+
+cdef class EfaCompAction(PyverbsCM):
+    cdef dv.efadv_mem_comp_action *mem_action
+    cdef dv.efadv_comp_action *action
+    cdef object ctx
+    cdef object pd

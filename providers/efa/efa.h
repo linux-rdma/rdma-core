@@ -39,6 +39,8 @@ struct efa_context {
 	uint16_t max_sq_sge;
 	uint16_t max_rq_sge;
 	uint32_t max_rdma_size;
+	uint32_t max_comp_actions;
+	uint32_t comp_action_supp_ops;
 	uint16_t max_wr_rdma_sge;
 	uint16_t max_tx_batch;
 	uint16_t min_sq_wr;
@@ -157,6 +159,8 @@ struct efa_tx_wqe_ctx {
 	struct efa_io_remote_mem_addr *remote_mem;
 	/* wqe inline data buffer */
 	uint8_t *inline_data;
+	/* wqe completion action block, NULL unless the QP carries actions */
+	struct efa_io_action_with_data_block *action_block;
 	/* max sge allowed for this wqe */
 	uint8_t max_sge;
 };
@@ -170,6 +174,8 @@ struct efa_sq {
 	size_t max_wr_rdma_sge;
 	uint16_t max_batch_wr;
 	uint16_t wqe_size;
+	/* WQEs carry the action block at EFA_SQ_ACTION_BLOCK_OFFSET */
+	bool action_block_enabled;
 	bool inline_write_enabled;
 
 	/* Buffer for pending WR entries in the current session */

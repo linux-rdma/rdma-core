@@ -49,6 +49,9 @@ struct efadv_sq_depth_attr {
 	EFADV_SQ_DEPTH_ATTR_INLINE_WRITE:
 		Inline RDMA write operation support is required.
 
+	EFADV_SQ_DEPTH_ATTR_COMP_ACTION_WITH_DATA:
+		Completion actions with data support is required.
+
 *max_send_sge*
 :	Requested max number of scatter/gather (s/g) elements in a send WR in the send queue.
 
