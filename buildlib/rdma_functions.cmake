@@ -131,6 +131,15 @@ function(rdma_rspreload_module DEST VERSION_SCRIPT)
   set_target_properties(${DEST} PROPERTIES LINK_FLAGS ${CMAKE_SHARED_LINKER_FLAGS})
   set_target_properties(${DEST} PROPERTIES LIBRARY_OUTPUT_DIRECTORY "${BUILD_LIB}")
   rdma_set_library_map(${DEST} ${VERSION_SCRIPT})
+  # Which of fcntl/fcntl64 and sendfile/sendfile64 get defined depends on the
+  # libc: musl has no LFS64 symbols, while glibc with _FILE_OFFSET_BITS=64
+  # emits the plain wrappers under the 64 names. Let linkers that check the
+  # version script (lld) skip the names that do not exist.
+  RDMA_CHECK_C_LINKER_FLAG("-Wl,--undefined-version" SUPPORTS_UNDEFINED_VERSION)
+  if (SUPPORTS_UNDEFINED_VERSION)
+    set_property(TARGET ${DEST} APPEND_STRING PROPERTY
+      LINK_FLAGS " -Wl,--undefined-version")
+  endif()
 endfunction()
 
 # Create a special provider with exported symbols in it The shared provider
