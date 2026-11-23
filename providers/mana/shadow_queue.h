@@ -16,31 +16,22 @@
 
 typedef _Atomic(uint64_t) _atomic_t;
 
-#define MANA_NO_SIGNAL_WC (0xff)
+/* Posting state, separate from ibv_wc_flags. */
+enum mana_shadow_wqe_flags {
+	MANA_SHADOW_WQE_NO_SIGNAL = 1 << 0,
+};
 
 struct shadow_wqe_header {
-	/* ibv_wc_opcode */
-	uint64_t opcode : 8;
-	/* ibv_wc_flags or MANA_NO_SIGNAL_WC */
-	uint64_t flags : 8;
-	uint64_t posted_wqe_size_in_bu : 8;
-	/* ibv_wc_status */
-	uint64_t vendor_error : 12;
-	uint64_t unmasked_queue_offset : 28;
 	uint64_t wr_id;
+	/* End PSN for SQs, WQE offset in BUs for RQs. */
+	uint64_t wqe_offset_or_psn : 27;
+	uint64_t posted_wqe_size_in_bu : 8;
+	uint64_t read_posted_wqe_size_in_bu : 8;
+	uint64_t send_opcode : 4;
+	uint64_t flags : 8;
 };
 
-struct rnic_sq_shadow_wqe {
-	struct  shadow_wqe_header header;
-	uint32_t end_psn;
-	uint32_t read_posted_wqe_size_in_bu;
-};
-
-struct rnic_rq_shadow_wqe {
-	struct shadow_wqe_header header;
-	uint32_t byte_len;
-	uint32_t imm_or_rkey;
-};
+static_assert(sizeof(struct shadow_wqe_header) == 16, "bad shadow WQE size");
 
 struct shadow_queue {
 	uint64_t prod_idx;
@@ -141,7 +132,7 @@ shadow_queue_get_next_to_signal(struct shadow_queue *queue)
 	while (queue->next_to_signal_idx < prod_idx) {
 		wqe = shadow_queue_get_element(queue, queue->next_to_signal_idx);
 		queue->next_to_signal_idx++;
-		if (wqe->flags != MANA_NO_SIGNAL_WC)
+		if (!(wqe->flags & MANA_SHADOW_WQE_NO_SIGNAL))
 			return wqe;
 	}
 
