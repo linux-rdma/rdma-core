@@ -51,7 +51,7 @@ function(rdma_kernel_provider_abi)
     set(HDRS ${HDRS} ${OHDR})
     add_custom_command(
       OUTPUT "${OHDR}"
-      COMMAND "${PYTHON_EXECUTABLE}" "${PROJECT_SOURCE_DIR}/buildlib/make_abi_structs.py" "${IHDR}" "${OHDR}"
+      COMMAND "${PYTHON_EXECUTABLE}" "${PROJECT_SOURCE_DIR}/buildlib/make_abi_structs.py" "${IHDR}" "${OHDR}" "${CMAKE_SYSTEM_NAME}"
       MAIN_DEPENDENCY "${IHDR}"
       DEPENDS "${PROJECT_SOURCE_DIR}/buildlib/make_abi_structs.py"
       WORKING_DIRECTORY "${CMAKE_CURRENT_SOURCE_DIR}"
