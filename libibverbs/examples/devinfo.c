@@ -35,6 +35,7 @@
 
 #include <stdio.h>
 #include <stdlib.h>
+#include <errno.h>
 #include <unistd.h>
 #include <string.h>
 #include <getopt.h>
@@ -731,7 +732,7 @@ int main(int argc, char *argv[])
 	int ret = 0;
 	struct ibv_device **dev_list, **orig_dev_list;
 	int num_of_hcas;
-	int ib_port = 0;
+	uint8_t ib_port = 0;
 
 	/* parse command line options */
 	while (1) {
@@ -753,13 +754,22 @@ int main(int argc, char *argv[])
 			ib_devname = strdup(optarg);
 			break;
 
-		case 'i':
-			ib_port = strtol(optarg, NULL, 0);
-			if (ib_port <= 0) {
+		case 'i': {
+			char *end;
+			long port;
+
+			errno = 0;
+			port = strtol(optarg, &end, 0);
+			if (errno || *end || port < 1 || port > UINT8_MAX) {
+				fprintf(stderr,
+					"Invalid IB port '%s' (expected 1-%d)\n",
+					optarg, UINT8_MAX);
 				usage(argv[0]);
 				return 1;
 			}
+			ib_port = port;
 			break;
+		}
 
 		case 'v':
 			verbose = 1;
