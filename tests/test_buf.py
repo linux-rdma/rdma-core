@@ -24,7 +24,8 @@ import tests.utils as u
 
 # errnos that mean the environment cannot provide CC shared buffers / parent
 # domains; the affected test is skipped rather than failed.
-SKIP_ERRNOS = (errno.EOPNOTSUPP, errno.ENOENT, errno.ENODEV)
+SKIP_ERRNOS = (errno.EOPNOTSUPP, errno.EPROTONOSUPPORT, errno.ENOENT,
+               errno.ENODEV)
 
 PAGE_SIZE = resource.getpagesize()
 

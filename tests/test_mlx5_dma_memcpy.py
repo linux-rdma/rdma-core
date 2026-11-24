@@ -3,6 +3,7 @@
 
 from enum import Enum
 import unittest
+import errno
 
 from pyverbs.providers.mlx5.mlx5dv import Mlx5Context, Mlx5DVContextAttr
 from pyverbs.pyverbs_error import PyverbsRDMAError, PyverbsUserError
@@ -47,7 +48,12 @@ class DmaGgaMemcpy(Mlx5RDMATestCase):
             self.dest_pd = PD(self.server.ctx)
         elif bad_flow_type == BadFlowType.MR_ILLEGAL_ACCESS:
             dest_mr_access = ibv_access_flags.IBV_ACCESS_REMOTE_READ
-        self.dest_mr = MR(self.dest_pd, self.server.msg_size, dest_mr_access)
+        try:
+            self.dest_mr = MR(self.dest_pd, self.server.msg_size, dest_mr_access)
+        except PyverbsRDMAError as ex:
+            if ex.error_code in [errno.EOPNOTSUPP, errno.EPROTONOSUPPORT]:
+                raise unittest.SkipTest(f'MR registration not supported ({str(ex)})')
+            raise
         # No need to connect the QPs
         self.server.pre_run([0], [0])
 

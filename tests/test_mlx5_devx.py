@@ -90,6 +90,7 @@ class BufDevxRcResources(Mlx5DevxRcResources):
 
 
 class Mlx5DevxRcOdpRes(Mlx5DevxRcResources):
+    @u.skip_unsupported
     @u.requires_odpv2
     def create_mr(self):
         self.with_odp = True

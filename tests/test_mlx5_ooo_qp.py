@@ -74,6 +74,7 @@ class Mlx5OOORcRes(Mlx5RcResources):
         for _ in range(self.qp_count):
             create_ooo_dv_qp(self)
 
+    @u.skip_unsupported
     def create_mr(self):
         self.mr = MR(self.pd, self.msg_size, self.qp_access_flags)
 

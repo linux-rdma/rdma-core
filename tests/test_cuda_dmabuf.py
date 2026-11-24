@@ -52,14 +52,11 @@ class DmabufCudaRes(RCResources):
                 cuda.CUmemRangeHandleType.CU_MEM_RANGE_HANDLE_TYPE_DMA_BUF_FD, 0))
         return dmabuf_fd
 
+    @u.skip_unsupported
     def create_mr(self):
         dmabuf_fd = self.dmabuf_cuda_init()
         try:
             self.mr = DmaBufMR(self.pd, self.msg_size, self.mr_access, dmabuf_fd)
-        except PyverbsRDMAError as ex:
-            if ex.error_code == errno.EOPNOTSUPP:
-                raise unittest.SkipTest('Registering DMABUF with DmaBufMR is not supported')
-            raise ex
         finally:
             os.close(dmabuf_fd)
 

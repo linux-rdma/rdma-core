@@ -96,6 +96,7 @@ class TMResources(RCResources):
                                   ibv_access_flags.IBV_ACCESS_REMOTE_WRITE
         return qp_attr
 
+    @u.skip_unsupported
     def create_mr(self):
         access = ibv_access_flags.IBV_ACCESS_LOCAL_WRITE | ibv_access_flags.IBV_ACCESS_REMOTE_READ | ibv_access_flags.IBV_ACCESS_REMOTE_WRITE
         self.mr = MR(self.pd, self.msg_size, access=access)

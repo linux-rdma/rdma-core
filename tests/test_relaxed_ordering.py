@@ -4,20 +4,25 @@ from tests.utils import traffic, xrc_traffic, rdma_traffic
 from tests.base import RDMATestCase
 from pyverbs.mr import MR
 from pyverbs.libibverbs_enums import ibv_access_flags, ibv_wr_opcode
+import tests.utils as u
+
 
 class RoUD(UDResources):
+    @u.skip_unsupported
     def create_mr(self):
         self.mr = MR(self.pd, self.msg_size + self.GRH_SIZE,
                      ibv_access_flags.IBV_ACCESS_LOCAL_WRITE | ibv_access_flags.IBV_ACCESS_RELAXED_ORDERING)
 
 
 class RoRC(RCResources):
+    @u.skip_unsupported
     def create_mr(self):
         self.mr = MR(self.pd, self.msg_size,
                      ibv_access_flags.IBV_ACCESS_LOCAL_WRITE | ibv_access_flags.IBV_ACCESS_RELAXED_ORDERING)
 
 
 class RoXRC(XRCResources):
+    @u.skip_unsupported
     def create_mr(self):
         self.mr = MR(self.pd, self.msg_size,
                      ibv_access_flags.IBV_ACCESS_LOCAL_WRITE | ibv_access_flags.IBV_ACCESS_RELAXED_ORDERING)

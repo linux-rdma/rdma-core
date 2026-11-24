@@ -37,6 +37,11 @@ class ArgsParser(object):
                             help='Print a list of the full test names that are '
                                  'loaded by default and exit without running '
                                  'them.')
+        parser.add_argument('--relaxed_ordering', action='store_true',
+                            default=False,
+                            help='Force relaxed-ordering on every test-'
+                                 'created MR/MKEY. Use on NVLink-C2C devices '
+                                 'to avoid ibv_reg_mr -EOPNOTSUPP failures.')
         ns, args = parser.parse_known_args()
         self.args = vars(ns)
         if self.args['verbosity']:

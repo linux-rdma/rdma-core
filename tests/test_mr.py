@@ -38,13 +38,9 @@ class MRRes(RCResources):
         self.mr_access = mr_access
         super().__init__(dev_name=dev_name, ib_port=ib_port, gid_index=gid_index)
 
+    @u.skip_unsupported
     def create_mr(self):
-        try:
-            self.mr = MR(self.pd, self.msg_size, self.mr_access)
-        except PyverbsRDMAError as ex:
-            if ex.error_code == errno.EOPNOTSUPP:
-                raise unittest.SkipTest(f'Reg MR with access ({self.mr_access}) is not supported')
-            raise ex
+        self.mr = MR(self.pd, self.msg_size, self.mr_access)
 
     def create_qp_attr(self):
         qp_attr = QPAttr(port_num=self.ib_port)
@@ -53,13 +49,9 @@ class MRRes(RCResources):
         qp_attr.qp_access_flags = qp_access
         return qp_attr
 
+    @u.skip_unsupported
     def rereg_mr(self, flags, pd=None, addr=0, length=0, access=0):
-        try:
-            self.mr.rereg(flags, pd, addr, length, access)
-        except PyverbsRDMAError as ex:
-            if ex.error_code == errno.EOPNOTSUPP:
-                raise unittest.SkipTest(f'Rereg MR is not supported ({str(ex)})')
-            raise ex
+        self.mr.rereg(flags, pd, addr, length, access)
 
 
 class MRExRes(MRRes):
@@ -253,14 +245,10 @@ class MWRC(RCResources):
                 raise unittest.SkipTest('Create MW is not supported')
             raise ex
 
+    @u.skip_unsupported
     def create_mr(self):
         access = ibv_access_flags.IBV_ACCESS_LOCAL_WRITE | ibv_access_flags.IBV_ACCESS_MW_BIND
-        try:
-            self.mr = MR(self.pd, self.msg_size, access)
-        except PyverbsRDMAError as ex:
-            if ex.error_code == errno.EOPNOTSUPP:
-                raise unittest.SkipTest('Reg MR with MW access is not supported')
-            raise ex
+        self.mr = MR(self.pd, self.msg_size, access)
 
     def create_qp_attr(self):
         qp_attr = QPAttr(port_num=self.ib_port)
@@ -443,6 +431,10 @@ class DeviceMemoryAPITest(PyverbsAPITestCase):
         if self.attr_ex.max_dm_size == 0:
             raise unittest.SkipTest('Device memory is not supported')
 
+    @u.skip_unsupported
+    def create_dm_mr(self, pd, length, access, dm, offset=0):
+        return DMMR(pd, length, access, dm, offset)
+
     def test_create_dm_mr(self):
         max_dm_size = self.attr_ex.max_dm_size
         dm_access = ibv_access_flags.IBV_ACCESS_ZERO_BASED | ibv_access_flags.IBV_ACCESS_LOCAL_WRITE
@@ -452,7 +444,7 @@ class DeviceMemoryAPITest(PyverbsAPITestCase):
                 dmmr_size = dm_size * dmmr_factor_size
                 dmmr_size = dmmr_size - (dmmr_size % u.DM_ALIGNMENT)
                 with d.DM(self.ctx, d.AllocDmAttr(length=dm_size)) as dm:
-                    DMMR(PD(self.ctx), dmmr_size, dm_access, dm, 0)
+                    self.create_dm_mr(PD(self.ctx), dmmr_size, dm_access, dm)
 
     def test_dm_bad_access(self):
         """
@@ -463,7 +455,7 @@ class DeviceMemoryAPITest(PyverbsAPITestCase):
         dm_size = 100
         with d.DM(self.ctx, d.AllocDmAttr(length=dm_size)) as dm:
             dm_access = ibv_access_flags.IBV_ACCESS_ZERO_BASED | ibv_access_flags.IBV_ACCESS_LOCAL_WRITE
-            dmmr = DMMR(PD(self.ctx), dm_size, dm_access, dm, 0)
+            dmmr = self.create_dm_mr(PD(self.ctx), dm_size, dm_access, dm)
             access_cases = [(DM_INVALID_ALIGNMENT, 4), # Valid length with unaligned offset
                             (4, DM_INVALID_ALIGNMENT), # Valid offset with unaligned length
                             (dm_size + 4, 4), # Offset out of allocated memory
@@ -483,8 +475,14 @@ class DeviceMemoryAPITest(PyverbsAPITestCase):
         dm_size = 100
         with d.DM(self.ctx, d.AllocDmAttr(length=dm_size)) as dm:
             dm_access = ibv_access_flags.IBV_ACCESS_ZERO_BASED | ibv_access_flags.IBV_ACCESS_LOCAL_WRITE
-            with self.assertRaisesRegex(PyverbsRDMAError, 'Failed to register a device MR'):
+            try:
                 DMMR(PD(self.ctx), dm_size + 4, dm_access, dm, 0)
+            except PyverbsRDMAError as ex:
+                if ex.error_code in (errno.EOPNOTSUPP, errno.EPROTONOSUPPORT):
+                    raise unittest.SkipTest('Device MR registration is not supported')
+                self.assertIn('Failed to register a device MR', str(ex))
+            else:
+                raise PyverbsError('Registering a DMMR larger than the DM must fail')
 
     def test_dm_export_dmabuf_fd(self):
         """Test exporting a DM as a dmabuf FD"""
@@ -692,6 +690,7 @@ class DmaBufRC(RCResources):
         super(DmaBufRC, self).__init__(dev_name=dev_name, ib_port=ib_port,
                                        gid_index=gid_index)
 
+    @u.skip_unsupported
     def create_mr(self):
         check_dmabuf_support(self.gpu)
         check_dmabuf_mr_support(self.pd, self.gpu)
@@ -744,18 +743,15 @@ class DeviceMemoryRes(RCResources):
         super().__init__(dev_name=dev_name, ib_port=ib_port,
                          gid_index=gid_index, msg_size=msg_size)
 
+    @u.skip_unsupported
     def create_mr(self):
-        try:
-            self.dm = d.DM(self.ctx, d.AllocDmAttr(length=self.msg_size))
-            access = ibv_access_flags.IBV_ACCESS_ZERO_BASED | ibv_access_flags.IBV_ACCESS_LOCAL_WRITE
-            if self.remote_access:
-                access |= ibv_access_flags.IBV_ACCESS_REMOTE_WRITE | ibv_access_flags.IBV_ACCESS_REMOTE_READ | \
-                          ibv_access_flags.IBV_ACCESS_REMOTE_ATOMIC
-            self.mr = DMMR(self.pd, self.msg_size, access, self.dm, 0)
-        except PyverbsRDMAError as ex:
-            if ex.error_code == errno.EOPNOTSUPP:
-                raise unittest.SkipTest(f'Reg DMMR with access={access} is not supported')
-            raise ex
+        self.dm = d.DM(self.ctx, d.AllocDmAttr(length=self.msg_size))
+        access = ibv_access_flags.IBV_ACCESS_ZERO_BASED | ibv_access_flags.IBV_ACCESS_LOCAL_WRITE
+        if self.remote_access:
+            access |= ibv_access_flags.IBV_ACCESS_REMOTE_WRITE | \
+                      ibv_access_flags.IBV_ACCESS_REMOTE_READ | \
+                      ibv_access_flags.IBV_ACCESS_REMOTE_ATOMIC
+        self.mr = DMMR(self.pd, self.msg_size, access, self.dm, 0)
 
     def create_qp_attr(self):
         qp_attr = QPAttr(port_num=self.ib_port)

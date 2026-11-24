@@ -24,6 +24,7 @@ class OdpUD(UDResources):
         self.user_addr = None
         super(OdpUD, self).__init__(**kwargs)
 
+    @u.skip_unsupported
     @u.requires_odp('ud', ibv_odp_transport_cap_bits.IBV_ODP_SUPPORT_SEND)
     def create_mr(self):
         if self.request_user_addr:
@@ -75,6 +76,7 @@ class OdpRC(RCResources):
         self.prefetch_advice = prefetch_advice
         self.msg_size = msg_size
 
+    @u.skip_unsupported
     @u.requires_odp('rc', ibv_odp_transport_cap_bits.IBV_ODP_SUPPORT_SEND | ibv_odp_transport_cap_bits.IBV_ODP_SUPPORT_RECV)
     def create_mr(self):
         u.odp_supported(self.ctx, 'rc', self.odp_caps)
@@ -114,6 +116,7 @@ class OdpXRC(XRCResources):
         self.user_addr = None
         super(OdpXRC, self).__init__(**kwargs)
 
+    @u.skip_unsupported
     @u.requires_odp('xrc',  ibv_odp_transport_cap_bits.IBV_ODP_SUPPORT_SEND | ibv_odp_transport_cap_bits.IBV_ODP_SUPPORT_SRQ_RECV)
     def create_mr(self):
         if self.request_user_addr:
@@ -155,6 +158,7 @@ class OdpQpExRC(RCResources):
         else:
             raise unittest.SkipTest('There is no qpex test for the specified ODP caps.')
 
+    @u.skip_unsupported
     def create_mr(self):
         u.odp_supported(self.ctx, 'rc', self.odp_caps)
         if self.odp_caps & ibv_odp_transport_cap_bits.IBV_ODP_SUPPORT_ATOMIC_WRITE:
@@ -182,6 +186,7 @@ class OdpQpExMRExRC(OdpQpExRC):
     """
     MREx version of OdpQpExRC that uses MREx instead of MR for memory registration.
     """
+    @u.skip_unsupported
     def create_mr(self):
         u.odp_supported(self.ctx, 'rc', self.odp_caps)
         if self.odp_caps & ibv_odp_transport_cap_bits.IBV_ODP_SUPPORT_FLUSH:
@@ -203,9 +208,9 @@ class MRExOdpRC(OdpRC):
     """
     MREx version of OdpRC that uses MREx instead of MR for memory registration.
     """
+    @u.skip_unsupported
     @u.requires_odp('rc', ibv_odp_transport_cap_bits.IBV_ODP_SUPPORT_SEND |
                     ibv_odp_transport_cap_bits.IBV_ODP_SUPPORT_RECV)
-    @u.skip_unsupported
     def create_mr(self):
         u.odp_supported(self.ctx, 'rc', self.odp_caps)
         if self.request_user_addr:

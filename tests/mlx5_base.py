@@ -64,6 +64,7 @@ MLX5_DEVS = {
     0x1023,  # ConnectX-8
     0x1025,  # ConnectX-9
     0x1027,  # ConnectX-10
+    0x2101,  # ConnectX-10 NVLink-C2C
     0xa2d2,  # BlueField integrated ConnectX-5 network controller
     0xa2d3,  # BlueField integrated ConnectX-5 network controller VF
     0xa2d6,  # BlueField-2 integrated ConnectX-6 Dx network controller
@@ -150,7 +151,13 @@ class Mlx5DcResources(RoCETrafficResources):
             raise unittest.SkipTest('Opening mlx5 context is not supported')
 
     def create_mr(self):
-        self.mr = MR(self.pd, self.msg_size, self.mr_access)
+        try:
+            self.mr = MR(self.pd, self.msg_size, self.mr_access)
+        except PyverbsRDMAError as ex:
+            if ex.error_code in [errno.EOPNOTSUPP, errno.EPROTONOSUPPORT]:
+                raise unittest.SkipTest(
+                    f'MR registration not supported ({str(ex)})')
+            raise
 
     def create_qp_cap(self):
         return QPCap(100, 0, 1, 0)
@@ -563,7 +570,13 @@ class Mlx5DevxRcResources(BaseResources):
     def create_mr(self):
         access = ibv_access_flags.IBV_ACCESS_REMOTE_WRITE | ibv_access_flags.IBV_ACCESS_LOCAL_WRITE | \
                  ibv_access_flags.IBV_ACCESS_REMOTE_READ
-        self.mr = MR(self.pd, self.msg_size, access)
+        try:
+            self.mr = MR(self.pd, self.msg_size, access)
+        except PyverbsRDMAError as ex:
+            if ex.error_code in [errno.EOPNOTSUPP, errno.EPROTONOSUPPORT]:
+                raise unittest.SkipTest(
+                    f'MR registration not supported ({str(ex)})')
+            raise
 
     def create_umem(self, size,
                     access=ibv_access_flags.IBV_ACCESS_LOCAL_WRITE,

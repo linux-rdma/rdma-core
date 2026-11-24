@@ -64,6 +64,7 @@ rdma_python_test(tests
   test_shared_pd.py
   test_srq.py
   test_tag_matching.py
+  test_unordered_access.py
   utils.py
   )
 

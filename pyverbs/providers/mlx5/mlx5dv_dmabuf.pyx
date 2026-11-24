@@ -4,6 +4,7 @@
 cimport pyverbs.providers.mlx5.libmlx5 as dv
 from pyverbs.base import PyverbsRDMAErrno
 from pyverbs.mr cimport DmaBufMR
+from pyverbs.mr import add_ro_access_flag
 from pyverbs.pd cimport PD
 
 
@@ -22,6 +23,7 @@ cdef class Mlx5DmaBufMR(DmaBufMR):
         :param mlx5_access: A specific device access flags.
         :return: The newly created DMABUFMR
         """
+        access = add_ro_access_flag(access)
         self.mr = dv.mlx5dv_reg_dmabuf_mr(pd.pd, offset, length, iova, fd, access, mlx5_access)
         if self.mr == NULL:
             raise PyverbsRDMAErrno(

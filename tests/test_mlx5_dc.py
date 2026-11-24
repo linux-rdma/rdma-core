@@ -14,13 +14,9 @@ import tests.utils as u
 
 
 class OdpDc(Mlx5DcResources):
+    @u.skip_unsupported
     def create_mr(self):
-        try:
-            self.mr = u.create_custom_mr(self, ibv_access_flags.IBV_ACCESS_ON_DEMAND)
-        except PyverbsRDMAError as ex:
-            if ex.error_code == errno.EOPNOTSUPP:
-                raise unittest.SkipTest('Reg ODP MR is not supported')
-            raise ex
+        self.mr = u.create_custom_mr(self, ibv_access_flags.IBV_ACCESS_ON_DEMAND)
 
 
 class DCTest(Mlx5RDMATestCase):

@@ -9,6 +9,7 @@ from pyverbs.pyverbs_error import PyverbsUserError
 from pyverbs.librdmacm_enums import rdma_port_space, RAI_PASSIVE
 from pyverbs.libibverbs_enums import ibv_qp_type, ibv_qp_state
 from pyverbs.cq import CQ
+import tests.utils as u
 
 
 GRH_SIZE = 40
@@ -73,6 +74,7 @@ class CMResources(abc.ABC):
         if self.qps:
             return self.qps[0]
 
+    @u.skip_unsupported
     def create_mr(self):
         cmid = self.child_id if self.passive else self.cmid
         mr_remote_function = {None: cmid.reg_msgs, 'read': cmid.reg_read,
