@@ -54,6 +54,8 @@
 #include <net/if.h>
 #include <net/if_arp.h>
 #include "neigh.h"
+#include <dlfcn.h>
+#include <pthread.h>
 
 #undef ibv_query_port
 
@@ -916,12 +918,65 @@ LATEST_SYMVER_FUNC(ibv_destroy_srq, 1_1, "IBVERBS_1.1",
 	return get_ops(srq->context)->destroy_srq(srq);
 }
 
+/*
+ * Optional authorization plugin for QP creation.
+ *
+ * When IBV_AUTH_PLUGIN names a shared library, it is dlopen'd once and
+ * its ibv_auth_check_qp_create() symbol is called before every
+ * ibv_create_qp().  Returns 0 to allow, negative errno to deny.
+ *
+ * When the variable is unset, the overhead is a pthread_once and a
+ * NULL check per ibv_create_qp call.
+ */
+typedef int (*ibv_auth_check_fn)(struct ibv_pd *pd,
+				 struct ibv_qp_init_attr *attr);
+
+static ibv_auth_check_fn auth_check;
+static pthread_once_t auth_once = PTHREAD_ONCE_INIT;
+
+static void auth_init(void)
+{
+	const char *plugin_path;
+	void *handle;
+
+	plugin_path = getenv("IBV_AUTH_PLUGIN");
+	if (!plugin_path || !*plugin_path)
+		return;
+
+	handle = dlopen(plugin_path, RTLD_NOW | RTLD_LOCAL);
+	if (!handle) {
+		fprintf(stderr, "IBV_AUTH_PLUGIN: cannot load %s: %s\n",
+			plugin_path, dlerror());
+		return;
+	}
+
+	auth_check = (ibv_auth_check_fn)dlsym(handle,
+					       "ibv_auth_check_qp_create");
+	if (!auth_check)
+		fprintf(stderr, "IBV_AUTH_PLUGIN: %s missing "
+			"ibv_auth_check_qp_create symbol\n",
+			plugin_path);
+}
+
 LATEST_SYMVER_FUNC(ibv_create_qp, 1_1, "IBVERBS_1.1",
 		   struct ibv_qp *,
 		   struct ibv_pd *pd,
 		   struct ibv_qp_init_attr *qp_init_attr)
 {
-	struct ibv_qp *qp = get_ops(pd->context)->create_qp(pd, qp_init_attr);
+	struct ibv_qp *qp;
+
+	pthread_once(&auth_once, auth_init);
+
+	if (auth_check) {
+		int rc = auth_check(pd, qp_init_attr);
+
+		if (rc) {
+			errno = EPERM;
+			return NULL;
+		}
+	}
+
+	qp = get_ops(pd->context)->create_qp(pd, qp_init_attr);
 
 	return qp;
 }
