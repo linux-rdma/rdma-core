@@ -500,7 +500,8 @@ int bnxt_re_resize_cq(struct ibv_cq *ibvcq, int ncqe)
 	rc = ibv_cmd_resize_cq(ibvcq, ncqe, &cmd.ibv_cmd,
 			       sizeof(cmd), &resp, sizeof(resp));
 	if (rc) {
-		bnxt_re_free_mem(cq->mem);
+		bnxt_re_free_mem(cq->resize_mem);
+		cq->resize_mem = NULL;
 		goto done;
 	}
 
@@ -687,14 +688,19 @@ static int bnxt_re_poll_err_rcqe(struct bnxt_re_qp *qp, struct ibv_wc *ibvwc,
 		cnt = swque->slots;
 	} else {
 		struct bnxt_re_srq *srq;
-		int tag;
+		uint32_t tag;
 
 		srq = qp->srq;
 		rq = srq->srqq;
 		cnt = 1;
 		tag = le32toh(hdr->qphi_rwrid) & BNXT_RE_BCQE_RWRID_MASK;
-		ibvwc->wr_id = srq->srwrid[tag].wrid;
-		bnxt_re_release_srqe(srq, tag);
+		/* tag is written by the device, do not trust it as an index */
+		if (likely(tag < rq->depth)) {
+			ibvwc->wr_id = srq->srwrid[tag].wrid;
+			bnxt_re_release_srqe(srq, tag);
+		} else {
+			ibvwc->wr_id = 0;
+		}
 	}
 
 	status = (le32toh(hdr->flg_st_typ_ph) >> BNXT_RE_BCQE_STATUS_SHIFT) &
@@ -751,6 +757,7 @@ static void bnxt_re_poll_success_rcqe(struct bnxt_re_qp *qp,
 	uint32_t rcqe_len;
 	uint32_t head = 0;
 	uint8_t cnt = 0;
+	bool bad_tag = false;
 
 	rcqe = cqe;
 	if (!qp->srq) {
@@ -761,17 +768,23 @@ static void bnxt_re_poll_success_rcqe(struct bnxt_re_qp *qp,
 		cnt = swque->slots;
 	} else {
 		struct bnxt_re_srq *srq;
-		int tag;
+		uint32_t tag;
 
 		srq = qp->srq;
 		rq = srq->srqq;
 		tag = le32toh(hdr->qphi_rwrid) & BNXT_RE_BCQE_RWRID_MASK;
-		ibvwc->wr_id = srq->srwrid[tag].wrid;
 		cnt = 1;
-		bnxt_re_release_srqe(srq, tag);
+		/* tag is written by the device, do not trust it as an index */
+		if (likely(tag < rq->depth)) {
+			ibvwc->wr_id = srq->srwrid[tag].wrid;
+			bnxt_re_release_srqe(srq, tag);
+		} else {
+			ibvwc->wr_id = 0;
+			bad_tag = true;
+		}
 	}
 
-	ibvwc->status = IBV_WC_SUCCESS;
+	ibvwc->status = bad_tag ? IBV_WC_GENERAL_ERR : IBV_WC_SUCCESS;
 	ibvwc->qp_num = qp->qpid;
 	rcqe_len = le32toh(rcqe->length);
 	ibvwc->byte_len = (qp_type == IBV_QPT_UD ||
@@ -2310,11 +2323,11 @@ static int bnxt_re_put_tx_sge(struct bnxt_re_queue *que, uint32_t *idx,
 	return len;
 }
 
-static inline int bnxt_re_calc_inline_len(struct ibv_send_wr *swr)
+static inline uint64_t bnxt_re_calc_inline_len(struct ibv_send_wr *swr)
 {
-	int illen, indx;
+	uint64_t illen = 0;
+	int indx;
 
-	illen = 0;
 	for (indx = 0; indx < swr->num_sge; indx++)
 		illen += swr->sg_list[indx].length;
 	return illen;
@@ -2329,8 +2342,8 @@ static int bnxt_re_put_inline(struct bnxt_re_queue *que, uint32_t *idx,
 	uint32_t n_slots, start_phys, slots_nowrap;
 	uint32_t sge_idx, sge_off;
 	int copied, cplen, len;
+	uint64_t t_len = 0;
 	int nowrap_bytes;
-	int t_len = 0;
 	void *il_dst;
 	int indx;
 
@@ -2401,7 +2414,7 @@ static int bnxt_re_required_slots(struct bnxt_re_qp *qp, struct ibv_send_wr *wr,
 				  uint32_t *wqe_sz, void **pbuf)
 {
 	uint32_t wqe_byte;
-	int ilsize;
+	uint64_t ilsize;
 
 	if (wr->send_flags & IBV_SEND_INLINE) {
 		ilsize = bnxt_re_calc_inline_len(wr);
@@ -2569,12 +2582,19 @@ int bnxt_re_post_send(struct ibv_qp *ibvqp, struct ibv_send_wr *wr,
 	bool ring_db = false;
 	uint8_t sig = 0;
 	uint32_t idx;
+	int nslots;
 
 	pthread_spin_lock(&sq->qlock);
 	while (wr) {
 
 		pbuf = NULL;
-		slots = bnxt_re_required_slots(qp, wr, &wqe_size, (void **)&pbuf);
+		nslots = bnxt_re_required_slots(qp, wr, &wqe_size, (void **)&pbuf);
+		if (unlikely(nslots < 0)) {
+			*bad = wr;
+			ret = -nslots;
+			goto bad_wr;
+		}
+		slots = nslots;
 		if (bnxt_re_is_que_full(sq, slots) ||
 		    wr->num_sge > qp->cap.max_ssge) {
 			*bad = wr;
@@ -2748,12 +2768,14 @@ int bnxt_re_post_recv(struct ibv_qp *ibvqp, struct ibv_recv_wr *wr,
 	return rc;
 }
 
-static size_t bnxt_re_get_srqmem_size(struct bnxt_re_context *cntx,
-				      struct ibv_srq_init_attr *attr,
-				      struct bnxt_re_qattr *qattr)
+static ssize_t bnxt_re_get_srqmem_size(struct bnxt_re_context *cntx,
+				       struct ibv_srq_init_attr *attr,
+				       struct bnxt_re_qattr *qattr)
 {
-	uint32_t stride, nswr;
-	size_t size = 0;
+	uint64_t stride, nswr, sz_ring, sz_shad, size;
+
+	if (attr->attr.max_wr > cntx->rdev->devattr.max_srq_wr)
+		return -EINVAL;
 
 	size = sizeof(struct bnxt_re_srq);
 	size += sizeof(struct bnxt_re_queue);
@@ -2763,15 +2785,17 @@ static size_t bnxt_re_get_srqmem_size(struct bnxt_re_context *cntx,
 
 	stride = bnxt_re_get_srqe_sz();
 
+	sz_ring = align(nswr * stride, cntx->rdev->pg_size);
+	sz_shad = nswr * sizeof(struct bnxt_re_wrid); /* shadow */
+	size += sz_ring + sz_shad;
+	if (nswr > INT32_MAX || size > INT32_MAX)
+		return -EINVAL;
+
 	qattr->nwr = nswr;
 	qattr->slots = nswr;
 	qattr->esize = stride;
-
-	qattr->sz_ring = align((nswr * stride), cntx->rdev->pg_size);
-	qattr->sz_shad = nswr * sizeof(struct bnxt_re_wrid); /* shadow */
-
-	size += qattr->sz_ring;
-	size += qattr->sz_shad;
+	qattr->sz_ring = sz_ring;
+	qattr->sz_shad = sz_shad;
 	return size;
 }
 
@@ -2779,9 +2803,13 @@ static void *bnxt_re_alloc_srqslab(struct bnxt_re_context *cntx,
 				   struct ibv_srq_init_attr *attr,
 				   struct bnxt_re_qattr *qattr)
 {
-	size_t bytes;
+	ssize_t bytes;
 
 	bytes = bnxt_re_get_srqmem_size(cntx, attr, qattr);
+	if (bytes < 0) {
+		errno = -bytes;
+		return NULL;
+	}
 	return bnxt_re_alloc_mem(bytes, cntx->rdev->pg_size);
 }
 
