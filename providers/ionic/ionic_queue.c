@@ -13,12 +13,40 @@
 
 static void ionic_queue_map(struct ionic_queue *q, struct ionic_pd *pd, uint64_t pd_tag, int stride)
 {
+	size_t align = IONIC_PAGE_SIZE;
+
+	if (align < stride)
+		align = stride;
+
+	q->user_buf = NULL;
+
+	if (pd && pd->alloc_buf) {
+		struct ibv_buf *got;
+
+		got = pd->alloc_buf(&pd->ibpd, pd->pd_context, q->size, align,
+				    pd_tag);
+		if (got != IBV_BUF_ALLOCATOR_USE_DEFAULT) {
+			if (!got) {
+				q->ptr = NULL;
+				return;
+			}
+			if (got->dmabuf_fd != -1 &&
+			    !to_ionic_ctx(pd->ibpd.context)->cq_qp_buf_umem) {
+				pd->free_buf(&pd->ibpd, pd->pd_context, got,
+					     pd_tag);
+				errno = EOPNOTSUPP;
+				q->ptr = NULL;
+				return;
+			}
+			q->ptr = got->addr;
+			q->user_buf = got;
+			q->pd = pd;
+			q->pd_tag = pd_tag;
+			return;
+		}
+	}
+
 	if (pd && pd->alloc) {
-		size_t align = IONIC_PAGE_SIZE;
-
-		if (align < stride)
-			align = stride;
-
 		q->ptr = pd->alloc(&pd->ibpd, pd->pd_context, q->size, align, pd_tag);
 		if (q->ptr != IBV_ALLOCATOR_USE_DEFAULT) {
 			q->pd = pd;
@@ -33,6 +61,15 @@ static void ionic_queue_map(struct ionic_queue *q, struct ionic_pd *pd, uint64_t
 static void ionic_queue_unmap(struct ionic_queue *q)
 {
 	struct ionic_pd *pd = q->pd;
+
+	if (pd && q->user_buf) {
+		pd->free_buf(&pd->ibpd, pd->pd_context, q->user_buf, q->pd_tag);
+		q->ptr = NULL;
+		q->user_buf = NULL;
+		q->pd = NULL;
+		q->pd_tag = 0;
+		return;
+	}
 
 	if (pd) {
 		pd->free(&pd->ibpd, pd->pd_context, q->ptr, q->pd_tag);

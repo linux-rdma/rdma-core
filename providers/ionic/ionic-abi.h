@@ -19,6 +19,8 @@ DECLARE_DRV_CMD(uionic_ah, IB_USER_VERBS_CMD_CREATE_AH,
 		empty, ionic_ah_resp);
 DECLARE_DRV_CMD(uionic_cq, IB_USER_VERBS_CMD_CREATE_CQ,
 		ionic_cq_req, ionic_cq_resp);
+DECLARE_DRV_CMD(uionic_cq_ex, IB_USER_VERBS_EX_CMD_CREATE_CQ,
+		ionic_cq_req, ionic_cq_resp);
 DECLARE_DRV_CMD(uionic_qp, IB_USER_VERBS_EX_CMD_CREATE_QP,
 		ionic_qp_req, ionic_qp_resp);
 

@@ -470,8 +470,9 @@ void ibv_free_buf(struct ibv_buf *buf)
 	get_ops(buf->pd->context)->free_buf(buf);
 }
 
-struct ibv_buf *ibv_alloc_user_buf(struct ibv_pd *pd, void *addr, size_t size,
-				   int dmabuf_fd)
+struct ibv_buf *ibv_alloc_user_buf_ex(struct ibv_pd *pd, void *addr,
+				      size_t size, int dmabuf_fd,
+				      uint64_t dmabuf_offset, void *context)
 {
 	struct ibv_buf *buf;
 	int ret;
@@ -493,7 +494,20 @@ struct ibv_buf *ibv_alloc_user_buf(struct ibv_pd *pd, void *addr, size_t size,
 		ibv_buf_init_dmabuf(buf, pd, addr, size, dmabuf_fd);
 	else
 		ibv_buf_init(buf, pd, addr, size);
+	buf->dmabuf_offset = dmabuf_offset;
+	buf->context = context;
 	return buf;
+}
+
+struct ibv_buf *ibv_alloc_user_buf(struct ibv_pd *pd, void *addr, size_t size,
+				   int dmabuf_fd)
+{
+	return ibv_alloc_user_buf_ex(pd, addr, size, dmabuf_fd, 0, NULL);
+}
+
+void *ibv_buf_get_context(struct ibv_buf *buf)
+{
+	return buf->context;
 }
 
 void ibv_free_user_buf(struct ibv_buf *buf)

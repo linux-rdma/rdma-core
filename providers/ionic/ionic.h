@@ -128,6 +128,7 @@ struct ionic_ctx {
 	bool			rq_expdb;
 	bool			robust_udata;
 	bool			ionic_flags_supported;
+	bool			cq_qp_buf_umem;
 	uint8_t			rcq_sign_bit;
 
 	void			*dbpage_page;
@@ -158,6 +159,11 @@ struct ionic_pd {
 		       size_t alignment, uint64_t resource_type);
 	void (*free)(struct ibv_pd *pd, void *pd_context, void *ptr,
 		     uint64_t resource_type);
+	struct ibv_buf *(*alloc_buf)(struct ibv_pd *pd, void *pd_context,
+				     size_t size, size_t alignment,
+				     uint64_t resource_type);
+	void (*free_buf)(struct ibv_pd *pd, void *pd_context,
+			 struct ibv_buf *buf, uint64_t resource_type);
 	void *pd_context;
 };
 

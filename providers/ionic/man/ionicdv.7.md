@@ -55,8 +55,25 @@ they are delivered to the application in order. Use
 **ionic_dv_create_qp_ex**(3) to create a QP with these ionic-specific
 attributes.
 
+## dma-buf rings
+
+CQ, SQ and RQ rings can be placed in dma-buf memory through a parent domain
+created with **IBV_PARENT_DOMAIN_INIT_ATTR_BUF_ALLOCATORS** (see
+**ibv_alloc_parent_domain**(3)). The alloc_buf callback returns a handle
+from **ibv_alloc_user_buf_ex**() (see **ibv_alloc_user_buf**(3)) that carries the dma-buf fd and the
+offset of the ring within the dma-buf, so several rings can share one
+dma-buf. The handle must also carry a CPU mapping of the ring, because the
+provider reads and writes ring entries directly.
+
+dma-buf rings require kernel support for CQ and QP ring buffer descriptors.
+On older kernels, queue creation fails with **EOPNOTSUPP** when the
+alloc_buf callback returns a dma-buf handle. Handles without a dma-buf fd
+are passed as virtual address buffers.
+
 # SEE ALSO
 
+**ibv_alloc_parent_domain**(3),
+**ibv_alloc_user_buf**(3),
 **ionic_dv_create_qp_ex**(3),
 **ionic_dv_ctx_get_udma_count**(3),
 **ionic_dv_ctx_get_udma_mask**(3),
